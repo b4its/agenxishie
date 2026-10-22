@@ -20,7 +20,7 @@ make check-env
 
 ```sh
 make setup     # salin .env, install dependency, generate key, migrate + seed, build aset
-make up        # nyalakan Nginx + PHP-FPM + MySQL  →  http://localhost:8094
+make up        # nyalakan Nginx + PHP-FPM + MySQL  →  http://localhost:8208
 ```
 
 Saat stack Docker berjalan, semua target bisa dieksekusi **di dalam container**
@@ -30,6 +30,13 @@ dengan menambahkan `IN_DOCKER=1`:
 make test IN_DOCKER=1
 make routes IN_DOCKER=1
 make fresh IN_DOCKER=1
+make db-table TABLE="users" IN_DOCKER=1
+```
+
+Bila host tidak punya PHP dan stack Docker belum menyala, gunakan gerbang CI:
+
+```sh
+make ci        # composer install + pint --test + test di image terisolasi
 ```
 
 ## Daftar Perintah
@@ -38,46 +45,66 @@ Jalankan `make` (atau `make help`) untuk melihat seluruh perintah beserta deskri
 
 | Kategori | Perintah |
 | --- | --- |
-| Setup | `setup`, `env`, `install`, `key`, `build`, `storage-link` |
-| Pengembangan | `serve`/`dev`, `tinker`, `routes`, `logs`, `queue`, `vite` |
-| Database | `db`, `migrate`, `migrate-fresh`, `seed`, `fresh`, `db-status`, `db-rollback` |
+| Setup | `setup`, `env`, `install`, `key`, `build`, `storage-link`, `storage-unlink` |
+| Pengembangan | `serve`/`dev`, `dev-list`, `serve-http`, `tinker`, `routes`, `logs`, `queue`, `queue-work`, `queue-restart`, `schedule`, `schedule-run`, `about`, `vite` |
+| Database | `db`, `migrate`, `migrate-fresh`, `seed`, `fresh`, `db-status`, `db-rollback`, `db-refresh`, `db-wipe`, `db-show`, `db-table` |
 | Testing | `test`, `test-unit`, `test-feature`, `test-coverage`, `test-parallel` |
-| Kualitas | `lint` (pint --test), `fix` (pint), `quality` (lint + test) |
+| Kualitas | `lint` (pint --test), `fix` (pint), `format`, `quality` (lint + test) |
 | Cache | `optimize`, `optimize-clear`, `cache-clear`, `config-clear` |
-| Docker | `up`, `up-apache`, `down`, `ps`, `restart`, `docker-logs`, `shell`, `db-shell` |
+| Docker | `up`, `up-apache`, `down`, `down-hard`, `ps`, `docker-health`, `restart`, `rebuild`, `docker-logs`, `shell`, `db-shell` |
 | Docker helper | `docker-artisan`, `docker-composer`, `docker-npm`, `docker-test`, `docker-fresh` |
-| CI tanpa PHP | `ci-image`, `ci-bootstrap`, `ci` |
-| Utilitas | `clean`, `fresh-install`, `check-env` |
+| Passthrough | `artisan CMD="..."`, `composer CMD="..."`, `npm CMD="..."` |
+| CI tanpa PHP | `ci-image`, `ci-image-rebuild`, `ci-bootstrap`, `ci`, `ci-coverage`, `ci-lint`, `ci-build` |
+| Utilitas | `clean`, `fresh-install`, `check-env`, `help` |
+
+Contoh passthrough:
+
+```sh
+make artisan CMD="make:model Post -m"
+make composer CMD="require laravel/sanctum"
+make npm CMD="run build"
+```
 
 ## Alur Kerja Umum
 
 Gerbang kualitas sebelum commit:
 
 ```sh
-make quality            # host (butuh PHP)
-make ci                 # tanpa PHP di host, memakai container
+make quality              # host (butuh PHP)
 make quality IN_DOCKER=1  # bila stack Docker sedang berjalan
+make ci                   # tanpa PHP di host, memakai container
 ```
 
 Reset database:
 
 - Non-destruktif (aman, data dipertahankan): `make db`
+- Rollback lalu migrasi ulang + seed: `make db-refresh`
 - Destruktif (hapus semua tabel lalu seed ulang): `make fresh`
+- Hapus semua tabel tanpa migrasi ulang: `make db-wipe`
 
 ## Docker
 
-`docker-compose.yml` menyediakan dua profil:
+`docker-compose.yml` menyediakan dua profil yang dapat berjalan bersamaan:
 
-- **nginx** (default): Nginx + PHP-FPM + MySQL → `make up`
-- **apache**: Apache + PHP-FPM + MySQL → `make up-apache`
+- **nginx**: Nginx + PHP-FPM → `make up`
+- **apache**: Apache (PHP modul) → `make up-apache`
 
-Port yang dipakai:
+Port host (semua nilai = port lama + 114):
 
-| Service | Host |
-| --- | --- |
-| Web (nginx/apache) | `8094` |
-| MySQL | `3400` |
-| Vite (HMR) | `5267` |
+| Service | Port host | Variabel |
+| --- | --- | --- |
+| Nginx | `8208` | `NGINX_HOST_PORT` |
+| Apache | `8316` | `APACHE_HOST_PORT` |
+| MySQL | `3514` | `DB_HOST_PORT` |
+| PHP-FPM | `9208` | `PHPFPM_HOST_PORT` |
+| Vite (HMR) | `5381` | `VITE_HOST_PORT` |
+
+Port dapat diubah tanpa menyunting file:
+
+```sh
+make up HOST_PORT=8208 DB_HOST_PORT=3514
+# atau langsung: NGINX_HOST_PORT=9000 docker compose --profile nginx up -d
+```
 
 Penyiapan database saat container start dikendalikan oleh `DB_SETUP`:
 
@@ -90,7 +117,7 @@ DB_SETUP=fresh make up
 ```
 
 > Catatan: `.env.example` menggunakan `DB_HOST=db` (nama service compose). Bila ingin
-> menjalankan artisan di host, ubah menjadi `DB_HOST=127.0.0.1` dan `DB_PORT=3400`.
+> menjalankan artisan di host, ubah menjadi `DB_HOST=127.0.0.1` dan `DB_PORT=3514`.
 
 ## Berkas Penting
 
