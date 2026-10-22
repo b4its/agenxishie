@@ -2,23 +2,42 @@
 # Xishie — Laravel Application Makefile
 # ==============================================================================
 # Semua perintah harian ada di sini. Secara default perintah dijalankan di HOST.
-# Gunakan `make <target> ARTISAN=docker` (atau `make docker-*`) untuk menjalankan
-# perintah di dalam container PHP (php-fpm), sehingga tidak perlu PHP di host.
+# Jalankan perintah di dalam container PHP (php-fpm) dengan menambahkan
+# IN_DOCKER=1, sehingga tidak perlu PHP di host.
 #
-#   make            # tampilkan daftar perintah (sama dengan: make help)
+#   make              # tampilkan daftar perintah (sama dengan: make help)
 #   make help
-#   make setup      # instalasi lengkap dari nol (dependencies, env, key, db)
-#   make dev        # jalankan server + queue + vite sekaligus
-#   make test       # jalankan seluruh test
-#   make quality    # pint + test (gerbang kualitas sebelum commit)
+#   make setup        # instalasi lengkap dari nol (dependencies, env, key, db)
+#   make dev          # jalankan server + queue + vite sekaligus
+#   make test         # jalankan seluruh test
+#   make quality      # pint + test (gerbang kualitas sebelum commit)
+#   make ci           # gerbang CI tanpa PHP di host (Docker + SQLite)
+#
+# Port host (nilai = port lama + 114):
+#   nginx 8208 · apache 8316 · mysql 3514 · php-fpm 9208 · vite 5381
 # ==============================================================================
 
 # --- Konfigurasi dasar ---------------------------------------------------------
 APP_NAME        ?= xishie
 COMPOSE         ?= docker compose
 DOCKER_EXEC     ?= $(COMPOSE) exec -T php-fpm
-HOST_PORT       ?= 8094
+
+# Port host (semua nilai = port lama + 114):
+# nginx 8208 · apache 8316 · mysql 3514 · php-fpm 9208 · vite 5381
+HOST_PORT        ?= 8208
+APACHE_HOST_PORT ?= 8316
+DB_HOST_PORT     ?= 3514
+PHPFPM_HOST_PORT ?= 9208
+VITE_HOST_PORT   ?= 5381
+
 APP_URL         ?= http://localhost:$(HOST_PORT)
+
+# Teruskan port ke docker compose (dipakai interpolasi ${...} di compose).
+export NGINX_HOST_PORT = $(HOST_PORT)
+export APACHE_HOST_PORT
+export DB_HOST_PORT
+export PHPFPM_HOST_PORT
+export VITE_HOST_PORT
 
 # Binari default (host). Jalankan di container dengan: `make <target> IN_DOCKER=1`.
 IN_DOCKER       ?= 0
@@ -40,6 +59,7 @@ endif
 PHP_SERVICE     ?= php-fpm
 DB_SERVICE      ?= db
 NGINX_SERVICE   ?= nginx
+DB_NAME         ?= xishie
 
 # Flags
 PHPUNIT_FLAGS   ?=
@@ -117,18 +137,35 @@ key: require-php ## Generate APP_KEY
 	fi
 
 .PHONY: storage-link
-storage-link: require-php ## Buat symlink public/storage
-	$(ARTISAN) storage:link
+storage-link: require-php ## Buat symlink public/storage (idempoten)
+	@if [ -L public/storage ] || [ -e public/storage ]; then \
+		echo "✓ public/storage sudah ada, dilewati."; \
+	else \
+		$(ARTISAN) storage:link; \
+	fi
+
+.PHONY: storage-unlink
+storage-unlink: ## Hapus symlink public/storage
+	rm -f public/storage
+	@echo "✓ public/storage dihapus."
 
 # ------------------------------------------------------------------------------
 # Development
 # ------------------------------------------------------------------------------
 .PHONY: serve
-serve: ## Jalankan dev server beserta queue + vite (concurrently)
-	$(COMPOSER) dev
+serve: require-php ## Jalankan server + queue + vite sekaligus (artisan dev)
+	$(ARTISAN) dev
 
 .PHONY: dev
 dev: serve ## Alias untuk `serve`
+
+.PHONY: dev-list
+dev-list: require-php ## Tampilkan proses yang dijalankan `artisan dev`
+	$(ARTISAN) dev:list
+
+.PHONY: serve-http
+serve-http: require-php ## Jalankan PHP dev server saja di port HOST_PORT
+	$(ARTISAN) serve --host=127.0.0.1 --port=$(HOST_PORT)
 
 .PHONY: tinker
 tinker: require-php ## Masuk ke REPL Tinker
@@ -139,12 +176,52 @@ routes: require-php ## Daftar route terdaftar
 	$(ARTISAN) route:list
 
 .PHONY: logs
-logs: require-php ## Tail aplikasi log
-	$(ARTISAN) pail
+logs: require-php ## Tail aplikasi log (pail, fallback ke tail)
+	@if $(ARTISAN) list 2>/dev/null | grep -qE '^\s+pail\s'; then \
+		$(ARTISAN) pail; \
+	else \
+		echo "ℹ 'pail' tidak tersedia (butuh APP_ENV=local), memakai tail -f."; \
+		tail -f storage/logs/laravel.log; \
+	fi
 
 .PHONY: queue
-queue: require-php ## Jalankan queue worker (dev)
+queue: require-php ## Jalankan queue worker (dev, listen)
 	$(ARTISAN) queue:listen --tries=1
+
+.PHONY: queue-work
+queue-work: require-php ## Jalankan queue worker (daemon, produksi)
+	$(ARTISAN) queue:work --tries=3 --timeout=90
+
+.PHONY: queue-restart
+queue-restart: require-php ## Restart semua queue worker yang berjalan
+	$(ARTISAN) queue:restart
+
+.PHONY: schedule
+schedule: require-php ## Jalankan scheduler (dev)
+	$(ARTISAN) schedule:work
+
+.PHONY: schedule-run
+schedule-run: require-php ## Jalankan scheduled tasks sekali (untuk cron)
+	$(ARTISAN) schedule:run
+
+.PHONY: about
+about: require-php ## Informasi lingkungan aplikasi
+	$(ARTISAN) about
+
+.PHONY: artisan
+artisan: require-php ## Jalankan perintah artisan bebas (CMD="...")
+	@if [ -z "$(CMD)" ]; then echo 'Gunakan: make artisan CMD="route:list"'; exit 1; fi
+	$(ARTISAN) $(CMD)
+
+.PHONY: composer
+composer: ## Jalankan composer bebas (CMD="require ...")
+	@if [ -z "$(CMD)" ]; then echo 'Gunakan: make composer CMD="require vendor/pkg"'; exit 1; fi
+	$(COMPOSER) $(CMD)
+
+.PHONY: npm
+npm: ## Jalankan npm bebas (CMD="run build")
+	@if [ -z "$(CMD)" ]; then echo 'Gunakan: make npm CMD="run build"'; exit 1; fi
+	$(NPM) $(CMD)
 
 .PHONY: vite
 vite: ## Jalankan vite dev server
@@ -182,6 +259,23 @@ db-status: require-php ## Status migrasi
 db-rollback: require-php ## Rollback migrasi terakhir
 	$(ARTISAN) migrate:rollback --ansi
 
+.PHONY: db-refresh
+db-refresh: require-php ## Rollback semua migrasi lalu migrasi ulang + seed
+	$(ARTISAN) migrate:refresh --seed --ansi
+
+.PHONY: db-wipe
+db-wipe: require-php ## Hapus semua tabel (DESTRUKTIF, tanpa migrasi ulang)
+	$(ARTISAN) db:wipe --ansi
+
+.PHONY: db-show
+db-show: require-php ## Tampilkan informasi database (opsi: COUNT=1)
+	$(ARTISAN) db:show $(if $(COUNT),--counts,)
+
+.PHONY: db-table
+db-table: require-php ## Tampilkan detail tabel (TABLE="users")
+	@if [ -z "$(TABLE)" ]; then echo 'Gunakan: make db-table TABLE="users"'; exit 1; fi
+	$(ARTISAN) db:table $(TABLE)
+
 # ------------------------------------------------------------------------------
 # Testing
 # ------------------------------------------------------------------------------
@@ -199,8 +293,13 @@ test-feature: require-php ## Test hanya suite Feature
 	$(ARTISAN) test --testsuite=Feature $(PHPUNIT_FLAGS)
 
 .PHONY: test-coverage
-test-coverage: require-php ## Test dengan laporan coverage
-	$(ARTISAN) test --coverage $(PHPUNIT_FLAGS)
+test-coverage: ## Test dengan laporan coverage (fallback ke image CI bila tak ada driver)
+	@if $(ARTISAN) test --coverage $(PHPUNIT_FLAGS); then \
+		exit 0; \
+	else \
+		echo "ℹ Coverage gagal (driver tidak ada?), mencoba image CI dengan pcov..."; \
+		$(MAKE) --no-print-directory ci-coverage; \
+	fi
 
 .PHONY: test-parallel
 test-parallel: require-php ## Test secara paralel
@@ -209,12 +308,26 @@ test-parallel: require-php ## Test secara paralel
 # ------------------------------------------------------------------------------
 # Kualitas Kode
 # ------------------------------------------------------------------------------
+.PHONY: require-pint
+require-pint:
+ifeq ($(IN_DOCKER),0)
+	@command -v php >/dev/null 2>&1 || { \
+		echo "✗ PHP tidak ditemukan di host, Pint tidak bisa dijalankan."; \
+		echo "  Coba: make $(MAKECMDGOALS) IN_DOCKER=1   atau   make ci-lint"; \
+		exit 1; \
+	}
+	@test -x ./vendor/bin/pint || { \
+		echo "✗ ./vendor/bin/pint tidak ditemukan, jalankan: make install"; \
+		exit 1; \
+	}
+endif
+
 .PHONY: lint
-lint: ## Periksa gaya kode dengan Pint (tanpa mengubah file)
+lint: require-pint ## Periksa gaya kode dengan Pint (tanpa mengubah file)
 	$(PINT) --test $(PINT_FLAGS)
 
 .PHONY: fix
-fix: ## Format kode dengan Pint (mengubah file)
+fix: require-pint ## Format kode dengan Pint (mengubah file)
 	$(PINT) $(PINT_FLAGS)
 
 .PHONY: format
@@ -259,8 +372,12 @@ up-apache: ## Nyalakan stack Apache + MySQL (background)
 	DB_SETUP=$(DB_SETUP) $(COMPOSE) --profile apache up -d --build
 
 .PHONY: down
-down: ## Matikan seluruh container
+down: ## Matikan seluruh container (data volume dipertahankan)
 	$(COMPOSE) --profile nginx --profile apache down
+
+.PHONY: down-hard
+down-hard: ## Matikan container + hapus volume (DESTRUKTIF: data DB hilang)
+	$(COMPOSE) --profile nginx --profile apache down -v --remove-orphans
 
 .PHONY: ps
 ps: ## Status container
@@ -269,6 +386,12 @@ ps: ## Status container
 .PHONY: restart
 restart: ## Restart seluruh container
 	$(COMPOSE) restart
+
+.PHONY: rebuild
+rebuild: ## Bangun ulang image lalu nyalakan ulang stack
+	$(COMPOSE) --profile nginx build --no-cache php-fpm
+	DB_SETUP=$(DB_SETUP) $(COMPOSE) --profile nginx up -d
+	@echo "✓ Stack dibangun ulang: $(APP_URL)"
 
 .PHONY: docker-logs
 docker-logs: ## Tail log seluruh container
@@ -280,7 +403,11 @@ shell: ## Masuk ke shell container PHP (php-fpm)
 
 .PHONY: db-shell
 db-shell: ## Masuk ke konsol MySQL
-	$(COMPOSE) exec $(DB_SERVICE) mysql -uroot
+	$(COMPOSE) exec $(DB_SERVICE) mysql -uroot $(DB_NAME)
+
+.PHONY: docker-health
+docker-health: ## Ringkasan status semua container
+	@$(COMPOSE) ps --format 'table {{.Name}}\t{{.Service}}\t{{.Status}}\t{{.Ports}}'
 
 # Target Docker meng-override binari host agar dijalankan di dalam container.
 .PHONY: docker-artisan docker-composer docker-npm docker-test
@@ -305,9 +432,18 @@ docker-fresh: ## migrate:fresh --seed di container (DESTRUKTIF)
 # Git & Utilitas
 # ------------------------------------------------------------------------------
 .PHONY: clean
-clean: require-php ## Bersihkan cache framework & file sementara
-	$(ARTISAN) optimize:clear --ansi || true
-	rm -rf public/build public/hot
+clean: ## Bersihkan cache framework & file sementara (aman tanpa PHP)
+	@if [ "$(IN_DOCKER)" = "1" ]; then \
+		$(ARTISAN) optimize:clear --ansi || true; \
+	elif command -v $(firstword $(ARTISAN)) >/dev/null 2>&1; then \
+		$(ARTISAN) optimize:clear --ansi || true; \
+	else \
+		echo "ℹ PHP tidak tersedia; membersihkan file cache secara manual."; \
+		rm -rf bootstrap/cache/*.php storage/framework/cache/data/* \
+			storage/framework/sessions/* storage/framework/views/*.php 2>/dev/null || true; \
+	fi
+	rm -rf public/build public/hot 2>/dev/null || \
+		echo "⚠ Sebagian file tidak dapat dihapus (dibuat container). Jalankan: make clean IN_DOCKER=1"
 	@echo "✓ Bersih."
 
 .PHONY: fresh-install
@@ -340,7 +476,7 @@ CI_RUN_FLAGS    ?= --rm -v "$(CURDIR)":/app -w /app \
 CI_RUN          ?= docker run $(CI_RUN_FLAGS) $(CI_IMAGE)
 
 .PHONY: ci-image
-ci-image: ## Bangun image CI (php:8.4-cli + pdo_sqlite, unzip, git, composer)
+ci-image: ## Bangun image CI (php:8.4-cli + pdo_sqlite, pcov, unzip, git, composer)
 	@if docker image inspect $(CI_IMAGE) >/dev/null 2>&1; then \
 		echo "✓ Image $(CI_IMAGE) sudah ada, dilewati."; \
 	else \
@@ -350,10 +486,17 @@ ci-image: ## Bangun image CI (php:8.4-cli + pdo_sqlite, unzip, git, composer)
 			'RUN apt-get update && apt-get install -y --no-install-recommends \' \
 			'        git unzip libsqlite3-dev \' \
 			'    && docker-php-ext-install pdo_sqlite \' \
+			'    && pecl install pcov \' \
+			'    && docker-php-ext-enable pcov \' \
 			'    && apt-get clean && rm -rf /var/lib/apt/lists/*' \
 			'COPY --from=composer:2 /usr/bin/composer /usr/bin/composer' \
-			| docker build -t $(CI_IMAGE) - ; \
+			| docker build -t $(CI_IMAGE) --build-arg PCOV=1 - ; \
 	fi
+
+.PHONY: ci-image-rebuild
+ci-image-rebuild: ## Paksa bangun ulang image CI
+	@docker image rm -f $(CI_IMAGE) >/dev/null 2>&1 || true
+	@$(MAKE) ci-image
 
 .PHONY: ci-bootstrap
 ci-bootstrap: ci-image ## Install dependency Composer di image CI
@@ -370,6 +513,14 @@ ci: ci-bootstrap ## Gerbang CI di container: install + pint + test (tanpa PHP di
 	$(CI_RUN) php artisan test $(PHPUNIT_FLAGS)
 	@echo "✓ CI lulus."
 
+.PHONY: ci-coverage
+ci-coverage: ci-bootstrap ## Test dengan laporan coverage di image CI (pcov)
+	@[ -f .env ] || cp .env.example .env
+	$(CI_RUN) php artisan test --coverage $(PHPUNIT_FLAGS)
+
+.PHONY: ci-lint
+ci-lint: ci-image ## Pint --test di image CI
+	$(CI_RUN) ./vendor/bin/pint --test
+
 .PHONY: ci-build
-ci-build: ## Build aset frontend di host (butuh Node)
-	$(NPM) run build
+ci-build: build ## Bangun aset frontend (butuh Node) — alias `build`
