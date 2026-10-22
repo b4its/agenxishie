@@ -172,6 +172,39 @@ build: ## Build aset frontend (vite production)
 	$(MAKE) --no-print-directory ensure-node-modules
 	$(NPM) run build
 
+.PHONY: fix-assets
+fix-assets: ## Perbaiki CSS/aset yang hilang (Filament + Tailwind) lalu build ulang
+	@# Dipakai ketika panel admin tampil tanpa gaya (mis. /admin/login polos).
+	@# Akar masalah umum: tema Filament tidak ter-bundle di viteTheme atau aset
+	@# Filament belum dipublikasikan sehingga kelas .fi-* tidak ada di CSS.
+	@echo "→ 1/5 Publikasikan aset Filament (public/css & public/js)"
+	@$(MAKE) --no-print-directory require-php >/dev/null 2>&1 || true
+	@$(ARTISAN) filament:assets --ansi || { \
+		echo "✗ 'artisan filament:assets' gagal. Pastikan container berjalan: make up"; exit 1; }
+	@echo "→ 2/5 Pastikan dependency frontend terpasang"
+	@$(MAKE) --no-print-directory ensure-node-modules
+	@echo "→ 3/5 Bangun ulang aset Vite (termasuk tema Filament)"
+	@$(NPM) run build
+	@echo "→ 4/5 Bersihkan & bangun ulang cache agar manifest baru dipakai"
+	@$(ARTISAN) optimize:clear --ansi >/dev/null 2>&1 || true
+	@$(ARTISAN) view:clear --ansi >/dev/null 2>&1 || true
+	@$(ARTISAN) filament:optimize-clear --ansi >/dev/null 2>&1 || true
+	@$(ARTISAN) optimize --ansi >/dev/null 2>&1 || true
+	@echo "→ 5/5 Verifikasi kelas .fi-* ada di CSS hasil build"
+	@css=$$(ls -1t public/build/assets/app-*.css 2>/dev/null | head -1); \
+	if [ -z "$$css" ]; then \
+		echo "✗ Tidak menemukan public/build/assets/app-*.css. Jalankan: make build"; exit 1; \
+	fi; \
+	if grep -q '\.fi-' "$$css"; then \
+		echo "✓ Tema Filament ter-bundle di $$(basename "$$css") ($$(grep -o '\.fi-' "$$css" | wc -l | tr -d ' ') kelas .fi-*)"; \
+	else \
+		echo "✗ CSS $$(basename "$$css") TIDAK memuat gaya Filament (.fi-*)."; \
+		echo "  Pastikan resources/css/app.css mengimpor:"; \
+		echo "    @import '../../vendor/filament/filament/resources/css/theme.css';"; \
+		exit 1; \
+	fi
+	@echo "✓ Aset diperbaiki. Muat ulang /admin/login (Ctrl+Shift+R)."
+
 .PHONY: ensure-node-modules
 ensure-node-modules: ## Pastikan dependency frontend terpasang (npm install bila perlu)
 	@if [ -d node_modules ]; then \
