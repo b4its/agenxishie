@@ -12,6 +12,22 @@ services:
     networks:
       - xishie-network
 
+  # GUI database: phpMyAdmin (akses di http://localhost:${PHPMYADMIN_HOST_PORT})
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: xishie-phpmyadmin
+    environment:
+      # Terhubung ke service "db" di jaringan compose (bukan localhost).
+      PMA_HOST: ${DB_SERVICE:-db}
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 256M
+    ports:
+      - "${PHPMYADMIN_HOST_PORT:-8422}:80"
+    depends_on:
+      - db
+    networks:
+      - xishie-network
+
   # GRUP APACHE
   apache:
     build:
