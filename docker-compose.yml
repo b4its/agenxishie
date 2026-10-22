@@ -38,8 +38,14 @@ services:
     build:
       context: .
       dockerfile: ./docker-nginx/Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
     container_name: xishie-php-fpm
     profiles: ["nginx"] # <--- Ikut grup nginx
+    # Jalankan sebagai UID/GID host (www-data dipetakan ke 1000 di Dockerfile)
+    # agar berkas yang dibuat artisan/npm di bind mount tidak dimiliki root.
+    user: "${UID:-1000}:${GID:-1000}"
     entrypoint: ["/bin/sh", "/var/www/html/docker-nginx/entrypoint.sh"]
     command: php-fpm
     environment:
