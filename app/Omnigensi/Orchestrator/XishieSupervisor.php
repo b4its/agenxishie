@@ -14,6 +14,8 @@ use App\Omnigensi\Agents\RuleKeeperAgent;
 use App\Omnigensi\Agents\ScholarScoutAgent;
 use App\Omnigensi\Agents\VenueMatcherAgent;
 use App\Omnigensi\Data\AgentExecutionResultData;
+use App\Omnigensi\Graph\DefaultGraphSchema;
+use App\Omnigensi\Graph\GraphRunner;
 
 /**
  * XishieSupervisor: koordinator tingkat atas yang menggerakkan seluruh agen
@@ -186,6 +188,35 @@ final class XishieSupervisor
             'compliance_score' => $audit->complianceScore,
             'violations' => $audit->outputPayload['violations'] ?? [],
         ];
+    }
+
+    /**
+     * Titik masuk eksekusi graf multi-agen dinamis (port omnigensi).
+     *
+     * Berbeda dari `run()` yang menjalankan pipeline tetap per control_mode,
+     * method ini menelusuri graf workflow (`GraphRunner`) sehingga urutan agen,
+     * siklus reviewer, dan conditional edges ditentukan oleh skema graf.
+     *
+     * @param  array<string, mixed>|null  $schema
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    public function runGraph(
+        XishieProject $project,
+        ?ProjectStage $stage = null,
+        ?array $schema = null,
+        array $context = [],
+        int $maxRevisions = 3,
+    ): array {
+        $stage ??= $project->current_stage;
+
+        return app(GraphRunner::class)->run(
+            $project,
+            $stage,
+            $schema ?? DefaultGraphSchema::definition(),
+            $context,
+            $maxRevisions,
+        );
     }
 
     /**
