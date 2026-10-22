@@ -1,0 +1,75 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: xishie-db
+    environment:
+      MYSQL_DATABASE: xishie
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "3400:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - xishie-network
+
+  # GRUP APACHE
+  apache:
+    build:
+      context: .
+      dockerfile: ./docker-apache/Dockerfile
+    container_name: xishie-apache
+    profiles: ["apache"] # <--- Hanya jalan jika dipanggil
+    entrypoint: ["/bin/sh", "/var/www/html/docker-nginx/entrypoint.sh"]
+    command: apache2-foreground
+    environment:
+      DB_SETUP: ${DB_SETUP:-migrate}
+    ports:
+      - "8094:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - db
+    networks:
+      - xishie-network
+
+  # GRUP NGINX (Terdiri dari Nginx + PHP-FPM)
+  php-fpm:
+    build:
+      context: .
+      dockerfile: ./docker-nginx/Dockerfile
+    container_name: xishie-php-fpm
+    profiles: ["nginx"] # <--- Ikut grup nginx
+    entrypoint: ["/bin/sh", "/var/www/html/docker-nginx/entrypoint.sh"]
+    command: php-fpm
+    environment:
+      DB_SETUP: ${DB_SETUP:-migrate}
+    ports:
+      - "9094:9000"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - db
+    networks:
+      - xishie-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: xishie-nginx
+    profiles: ["nginx"] # <--- Ikut grup nginx
+    ports:
+      - "8094:80"
+      - "5267:5173" # misal pakai vite
+    volumes:
+      - .:/var/www/html
+      - ./docker-nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php-fpm
+    networks:
+      - xishie-network
+
+networks:
+  xishie-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
