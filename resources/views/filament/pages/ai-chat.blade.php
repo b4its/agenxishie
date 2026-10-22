@@ -21,12 +21,39 @@
                 {{-- Kontrol model & parameter --}}
                 <div style="display:flex; flex-wrap:wrap; gap:.6rem; align-items:flex-end; margin-bottom:1rem;">
                     <div style="flex:1 1 22rem; min-width:16rem;">
-                        <div class="rb-kpi-card__label" style="margin-bottom:.3rem;">MODEL</div>
+                        <div class="rb-kpi-card__label" style="margin-bottom:.3rem;">
+                            MODEL
+                            @if ($backendOnline)
+                                <span class="rb-muted" style="font-weight:400; text-transform:none;">({{ $modelCounts['shown'] }}/{{ $modelCounts['total'] }} tampil)</span>
+                            @endif
+                        </div>
+
+                        {{-- Search input untuk menyaring model --}}
+                        <div style="position:relative; margin-bottom:.35rem;">
+                            <input
+                                type="text"
+                                class="rb-input"
+                                placeholder="&#128269; Cari model… (mis. claude, deepseek, 128k)"
+                                wire:model.live.debounce.300ms="modelSearch"
+                                style="padding-right:2rem;"
+                            />
+                            @if ($modelSearch !== '')
+                                <button
+                                    type="button"
+                                    wire:click="clearModelSearch"
+                                    title="Hapus pencarian"
+                                    style="position:absolute; right:.4rem; top:50%; transform:translateY(-50%); border:0; background:transparent; cursor:pointer; color:var(--rb-ink-muted); font-size:1rem; line-height:1;"
+                                >&#215;</button>
+                            @endif
+                        </div>
+
                         <select class="rb-select" wire:model="selectedModel" style="width:100%;">
                             @forelse ($models as $key => $label)
                                 <option value="{{ $key }}">{{ $label }}</option>
                             @empty
-                                <option value="">— tidak ada model —</option>
+                                <option value="">
+                                    {{ $modelSearch !== '' ? '— tidak ada model cocok —' : '— tidak ada model —' }}
+                                </option>
                             @endforelse
                         </select>
                     </div>
@@ -68,7 +95,9 @@
                                         <span class="rb-terminal__time">({{ $msg['latency_ms'] }}ms)</span>
                                     @endif
                                 </div>
-                                <div style="white-space:pre-wrap; {{ str_starts_with($msg['content'], '[Gagal]') ? 'color:var(--rb-status-alert);' : '' }}">{{ $msg['content'] }}</div>
+                                <div class="rb-chat-md {{ str_starts_with($msg['content'], '[Gagal]') ? 'rb-chat-md--error' : '' }}">
+                                    {!! $this->markdownToHtml($msg['content']) !!}
+                                </div>
                             </div>
                         @endif
                     @empty
