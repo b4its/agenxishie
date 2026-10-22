@@ -89,7 +89,7 @@ class SmartRevisionCenterPage extends Page implements HasForms
         $state = $this->form->getState();
         $stage = app(XishieSupervisor::class)->ensureStage($project, $project->current_stage);
 
-        app(PeerCriticAgent::class)->execute($project, $stage, [
+        app(PeerCriticAgent::class)->run($project, $stage, [
             'raw_feedback' => (string) $state['raw_feedback'],
             'reviewer_role' => (string) $state['reviewer_role'],
         ]);

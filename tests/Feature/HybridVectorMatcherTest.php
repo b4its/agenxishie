@@ -107,7 +107,7 @@ it('generates recommendations ordered by match score', function (): void {
 
     $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::FINAL);
 
-    $result = app(VenueMatcherAgent::class)->execute($project, $stage);
+    $result = app(VenueMatcherAgent::class)->run($project, $stage);
 
     $recommendations = $project->recommendations()->get();
 
@@ -129,10 +129,10 @@ it('is idempotent when recommendations are regenerated', function (): void {
     $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::FINAL);
 
     $agent = app(VenueMatcherAgent::class);
-    $agent->execute($project, $stage);
+    $agent->run($project, $stage);
     $firstCount = $project->recommendations()->count();
 
-    $agent->execute($project, $stage);
+    $agent->run($project, $stage);
     $secondCount = $project->recommendations()->count();
 
     expect($firstCount)->toBe($secondCount);

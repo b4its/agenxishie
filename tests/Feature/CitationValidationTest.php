@@ -50,7 +50,7 @@ it('only writes citations bound to real references', function (): void {
     seedReferences($project);
 
     $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
-    $result = app(AcademicScribeAgent::class)->execute($project, $stage);
+    $result = app(AcademicScribeAgent::class)->run($project, $stage);
 
     $allowed = $project->references()->pluck('citation_key')->all();
 

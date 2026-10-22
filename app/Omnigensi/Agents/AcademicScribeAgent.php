@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Omnigensi\Agents;
 
 use App\Domain\GuidelineEngine\Data\GuidelineDefinition;
+use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\ProjectStageRecord;
 use App\Models\XishieProject;
+use App\Omnigensi\Agents\Concerns\ResolvesStageRecord;
 use App\Omnigensi\Contracts\XishieAgentContract;
 use App\Omnigensi\Data\AgentExecutionResultData;
 use App\Omnigensi\Data\SharedContextData;
@@ -25,6 +27,8 @@ use Illuminate\Support\Str;
  */
 final class AcademicScribeAgent implements XishieAgentContract
 {
+    use ResolvesStageRecord;
+
     public function __construct(
         private readonly SharedProjectMemory $memory,
         private readonly ScholarScoutAgent $scholarScout,
@@ -35,7 +39,15 @@ final class AcademicScribeAgent implements XishieAgentContract
         return 'Academic-Scribe';
     }
 
-    public function execute(XishieProject $project, ProjectStageRecord $stage, array $context = []): AgentExecutionResultData
+    public function execute(XishieProject $project, ProjectStage $stage, array $context = []): AgentExecutionResultData
+    {
+        return $this->run($project, $this->stageRecord($project, $stage), $context);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public function run(XishieProject $project, ProjectStageRecord $stage, array $context = []): AgentExecutionResultData
     {
         $startedAt = microtime(true);
         $startedAtNs = hrtime(true);

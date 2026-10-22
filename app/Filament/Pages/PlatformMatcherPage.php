@@ -51,7 +51,7 @@ class PlatformMatcherPage extends Page
         }
 
         $stage = app(XishieSupervisor::class)->ensureStage($project, $project->current_stage);
-        $result = app(VenueMatcherAgent::class)->execute($project, $stage);
+        $result = app(VenueMatcherAgent::class)->run($project, $stage);
 
         Notification::make()
             ->title('Pencocokan venue selesai')

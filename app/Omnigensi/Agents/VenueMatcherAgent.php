@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Omnigensi\Agents;
 
+use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\AcademicVenue;
 use App\Models\ProjectStageRecord;
 use App\Models\XishieProject;
+use App\Omnigensi\Agents\Concerns\ResolvesStageRecord;
 use App\Omnigensi\Contracts\XishieAgentContract;
 use App\Omnigensi\Data\AgentExecutionResultData;
 use App\Omnigensi\Memory\HybridVectorMatcherService;
@@ -18,6 +20,8 @@ use App\Omnigensi\Memory\HybridVectorMatcherService;
  */
 final class VenueMatcherAgent implements XishieAgentContract
 {
+    use ResolvesStageRecord;
+
     public function __construct(
         private readonly HybridVectorMatcherService $matcher,
     ) {}
@@ -27,7 +31,15 @@ final class VenueMatcherAgent implements XishieAgentContract
         return 'Venue-Matcher';
     }
 
-    public function execute(XishieProject $project, ProjectStageRecord $stage, array $context = []): AgentExecutionResultData
+    public function execute(XishieProject $project, ProjectStage $stage, array $context = []): AgentExecutionResultData
+    {
+        return $this->run($project, $this->stageRecord($project, $stage), $context);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public function run(XishieProject $project, ProjectStageRecord $stage, array $context = []): AgentExecutionResultData
     {
         $startedAt = microtime(true);
 

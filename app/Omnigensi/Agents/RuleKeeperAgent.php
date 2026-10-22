@@ -7,8 +7,10 @@ namespace App\Omnigensi\Agents;
 use App\Domain\GuidelineEngine\Data\GuidelineDefinition;
 use App\Domain\GuidelineEngine\Enums\CitationStyle;
 use App\Domain\GuidelineEngine\GuidelineResolverService;
+use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\ProjectStageRecord;
 use App\Models\XishieProject;
+use App\Omnigensi\Agents\Concerns\ResolvesStageRecord;
 use App\Omnigensi\Contracts\XishieAgentContract;
 use App\Omnigensi\Data\AgentExecutionResultData;
 use App\Omnigensi\Memory\SharedProjectMemory;
@@ -19,6 +21,8 @@ use App\Omnigensi\Memory\SharedProjectMemory;
  */
 final class RuleKeeperAgent implements XishieAgentContract
 {
+    use ResolvesStageRecord;
+
     public function __construct(
         private readonly GuidelineResolverService $resolver,
         private readonly SharedProjectMemory $memory,
@@ -29,7 +33,15 @@ final class RuleKeeperAgent implements XishieAgentContract
         return 'Rule-Keeper';
     }
 
-    public function execute(XishieProject $project, ProjectStageRecord $stage, array $context = []): AgentExecutionResultData
+    public function execute(XishieProject $project, ProjectStage $stage, array $context = []): AgentExecutionResultData
+    {
+        return $this->run($project, $this->stageRecord($project, $stage), $context);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public function run(XishieProject $project, ProjectStageRecord $stage, array $context = []): AgentExecutionResultData
     {
         $startedAt = microtime(true);
 

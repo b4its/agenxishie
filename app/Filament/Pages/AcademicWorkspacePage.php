@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Domain\Assistant\XishieAssistantService;
 use App\Domain\Workspace\Enums\ControlMode;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Domain\Workspace\Enums\StageStatus;
@@ -179,7 +180,7 @@ class AcademicWorkspacePage extends Page
         }
 
         $stage = app(XishieSupervisor::class)->ensureStage($project, $project->current_stage);
-        $result = app(VenueMatcherAgent::class)->execute($project, $stage);
+        $result = app(VenueMatcherAgent::class)->run($project, $stage);
 
         Notification::make()
             ->title('Rekomendasi venue diperbarui')
@@ -203,17 +204,13 @@ class AcademicWorkspacePage extends Page
             'content' => $message,
         ];
 
-        $metrics = app(UxKpiTelemetryService::class)->computeProjectMetrics($project);
-        $compliance = $metrics['guideline_compliance_score']['value'] ?? 0;
+        // Slash command kontekstual: /sitasi, /parafrase, /cek-gap, /cek-pedoman,
+        // /matriks-literatur, /cari-referensi — atau jawaban kontekstual bebas.
+        $result = app(XishieAssistantService::class)->handle($project, $message);
 
         $this->assistantLog[] = [
             'role' => 'assistant',
-            'content' => sprintf(
-                'Berdasarkan SharedProjectMemory: %d referensi (%d terverifikasi), compliance %.1f%%. Saran: perkuat bagian yang masih melanggar pedoman dan tambahkan sitasi valid.',
-                $project->references()->count(),
-                $project->references()->where('is_verified', true)->count(),
-                $compliance,
-            ),
+            'content' => $result['reply'],
         ];
 
         $this->assistantMessage = '';

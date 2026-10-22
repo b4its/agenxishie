@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Omnigensi\Agents;
 
 use App\Domain\Revision\Enums\RevisionStatus;
+use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\ProjectRevision;
 use App\Models\ProjectStageRecord;
 use App\Models\XishieProject;
+use App\Omnigensi\Agents\Concerns\ResolvesStageRecord;
 use App\Omnigensi\Contracts\XishieAgentContract;
 use App\Omnigensi\Data\AgentExecutionResultData;
 use Illuminate\Support\Str;
@@ -19,12 +21,22 @@ use Illuminate\Support\Str;
  */
 final class PeerCriticAgent implements XishieAgentContract
 {
+    use ResolvesStageRecord;
+
     public function name(): string
     {
         return 'Peer-Critic';
     }
 
-    public function execute(XishieProject $project, ProjectStageRecord $stage, array $context = []): AgentExecutionResultData
+    public function execute(XishieProject $project, ProjectStage $stage, array $context = []): AgentExecutionResultData
+    {
+        return $this->run($project, $this->stageRecord($project, $stage), $context);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public function run(XishieProject $project, ProjectStageRecord $stage, array $context = []): AgentExecutionResultData
     {
         $startedAt = microtime(true);
 

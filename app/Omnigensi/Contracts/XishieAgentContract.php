@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Omnigensi\Contracts;
 
-use App\Models\ProjectStageRecord;
+use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\XishieProject;
 use App\Omnigensi\Data\AgentExecutionResultData;
 
 /**
  * Kontrak standar seluruh agen spesialis Omnigensi.
+ *
+ * Signature mengikuti PRD FASE 3:
+ * execute(XishieProject $project, ProjectStage $stage, array $context): AgentExecutionResultData
  */
 interface XishieAgentContract
 {
@@ -25,7 +28,7 @@ interface XishieAgentContract
      */
     public function execute(
         XishieProject $project,
-        ProjectStageRecord $stage,
+        ProjectStage $stage,
         array $context = [],
     ): AgentExecutionResultData;
 }

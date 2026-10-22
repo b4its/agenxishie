@@ -61,7 +61,7 @@ final class XishieSupervisor
         $record = $this->ensureStage($project, $stage);
 
         // Resolve pedoman lebih dulu agar seluruh mode punya aturan yang sama.
-        $this->ruleKeeper->execute($project, $record, $context);
+        $this->ruleKeeper->run($project, $record, $context);
 
         $route = $this->router->route($project);
 
@@ -83,7 +83,7 @@ final class XishieSupervisor
         $stage->forceFill(['status' => StageStatus::IN_PROGRESS])->save();
 
         // Langkah 1: riset & pemetaan literatur.
-        $scholar = $this->scholarScout->execute($project, $stage, $context);
+        $scholar = $this->scholarScout->run($project, $stage, $context);
         $this->telemetry->record($project, $stage, $scholar, 'Mencari & mengekstrak literatur');
 
         // Hot-swap check: bila mode berubah di tengah jalan, hentikan rantai.
@@ -97,11 +97,11 @@ final class XishieSupervisor
         }
 
         // Langkah 2: penulisan naskah.
-        $scribe = $this->academicScribe->execute($project, $stage, $context);
+        $scribe = $this->academicScribe->run($project, $stage, $context);
         $this->telemetry->record($project, $stage, $scribe, 'Menyusun naskah tahap '.$stage->stage_name->label());
 
         // Langkah 3: audit kepatuhan.
-        $audit = $this->ruleKeeper->execute($project, $stage, $context);
+        $audit = $this->ruleKeeper->run($project, $stage, $context);
         $this->telemetry->record($project, $stage, $audit, 'Audit kepatuhan pedoman');
 
         $stage->forceFill([
@@ -115,7 +115,7 @@ final class XishieSupervisor
         $venueResult = null;
 
         if ($stage->stage_name === ProjectStage::FINAL) {
-            $venueResult = $this->venueMatcher->execute($project, $stage, $context);
+            $venueResult = $this->venueMatcher->run($project, $stage, $context);
             $this->telemetry->record($project, $stage, $venueResult, 'Mencocokkan venue publikasi');
         }
 
@@ -141,13 +141,13 @@ final class XishieSupervisor
     {
         $stage->forceFill(['status' => StageStatus::IN_PROGRESS])->save();
 
-        $scholar = $this->scholarScout->execute($project, $stage, $context);
+        $scholar = $this->scholarScout->run($project, $stage, $context);
         $this->telemetry->record($project, $stage, $scholar, 'Menyiapkan referensi untuk sub-bab');
 
         $context['single_section'] = true;
         $context['preserve_existing'] = true;
 
-        $scribe = $this->academicScribe->execute($project, $stage, $context);
+        $scribe = $this->academicScribe->run($project, $stage, $context);
         $this->telemetry->record($project, $stage, $scribe, 'Draf sub-bab menunggu persetujuan');
 
         $this->approvalGate->lock($project, $stage, $scribe, $scribe->agentName);
@@ -170,7 +170,7 @@ final class XishieSupervisor
      */
     private function runManualTelemetry(XishieProject $project, ProjectStageRecord $stage, array $context): array
     {
-        $audit = $this->ruleKeeper->execute($project, $stage, $context);
+        $audit = $this->ruleKeeper->run($project, $stage, $context);
         $this->telemetry->record($project, $stage, $audit, 'Audit pasif mode manual');
 
         $stage->forceFill([
