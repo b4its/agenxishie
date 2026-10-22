@@ -1,5 +1,13 @@
 <?php
 
+use App\Domain\Personalization\Enums\DocumentType;
+use App\Domain\Personalization\Enums\FieldOfStudy;
+use App\Domain\Personalization\Enums\PublicationTarget;
+use App\Domain\Personalization\ProjectOnboardingService;
+use App\Domain\Workspace\Enums\ControlMode;
+use App\Models\User;
+use App\Models\XishieProject;
+use App\Omnigensi\Agents\ScholarScoutAgent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -8,25 +16,19 @@ use Tests\TestCase;
 | Test Case
 |--------------------------------------------------------------------------
 |
-| The closure you provide to your test functions is always bound to a specific PHPUnit test
-| case class. By default, that class is "PHPUnit\Framework\TestCase". Of course, you may
-| need to change it using the "pest()" function to bind different classes or traits.
+| Pengujian dijalankan di atas MySQL testing (InnoDB + JSON + FULLTEXT).
+| RefreshDatabase memastikan setiap test mendapat skema yang bersih.
 |
 */
 
 pest()->extend(TestCase::class)
- // ->use(RefreshDatabase::class)
+    ->use(RefreshDatabase::class)
     ->in('Feature');
 
 /*
 |--------------------------------------------------------------------------
 | Expectations
 |--------------------------------------------------------------------------
-|
-| When you're writing tests, you often need to check that values meet certain conditions. The
-| "expect()" function gives you access to a set of "expectations" methods that you can use
-| to assert different things. Of course, you may extend the Expectation API at any time.
-|
 */
 
 expect()->extend('toBeOne', function () {
@@ -35,16 +37,56 @@ expect()->extend('toBeOne', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Functions
+| Helpers
 |--------------------------------------------------------------------------
-|
-| While Pest is very powerful out-of-the-box, you may have some testing code specific to your
-| project that you don't want to repeat in every file. Here you can also expose helpers as
-| global functions to help you to reduce the number of lines of code in your test files.
-|
 */
 
-function something()
+/**
+ * Buat proyek via ProjectOnboardingService (jalur yang sama dengan UI).
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function makeProject(array $overrides = []): XishieProject
 {
-    // ..
+    $user = User::factory()->create();
+
+    return app(ProjectOnboardingService::class)->create($user->id, array_merge([
+        'title' => 'Sistem Deteksi Anomali Jaringan',
+        'field_of_study' => FieldOfStudy::STEM,
+        'document_type' => DocumentType::JOURNAL,
+        'target_scope' => PublicationTarget::INTERNATIONAL_SCOPUS,
+        'target_tier' => 'Q2',
+        'control_mode' => ControlMode::AUTOMATION,
+    ], $overrides));
+}
+
+/**
+ * Seed beberapa referensi terverifikasi untuk proyek.
+ *
+ * @param  array<int, array<string, mixed>>  $candidates
+ */
+function seedReferences(XishieProject $project, array $candidates = []): void
+{
+    $candidates = $candidates !== [] ? $candidates : [
+        [
+            'title' => 'Anomaly Detection in Network Traffic Using Deep Autoencoders',
+            'abstract' => 'Deep autoencoder for network anomaly detection with high precision.',
+            'authors' => ['Prasetyo', 'Hidayat'],
+            'year' => 2023,
+            'method' => 'autoencoder',
+            'result' => 'F1 0.94',
+            'gap' => 'limited realtime',
+        ],
+        [
+            'title' => 'Machine Learning for Intrusion Detection Systems',
+            'abstract' => 'Survey of machine learning intrusion detection datasets.',
+            'authors' => ['Kumar', 'Singh'],
+            'year' => 2022,
+            'method' => 'survey',
+            'result' => 'taxonomy',
+            'gap' => 'no deployment',
+        ],
+    ];
+
+    app(ScholarScoutAgent::class)->ingestCandidates($project, $candidates);
 }
