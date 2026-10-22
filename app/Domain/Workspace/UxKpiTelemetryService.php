@@ -288,6 +288,16 @@ final class UxKpiTelemetryService
 
     private function manuscriptExportConversion(XishieProject $project): float
     {
+        // Ekspor nyata (ada log Xishie-Exporter) => konversi tercapai penuh.
+        $hasExported = $project->agentLogs()
+            ->where('agent_name', 'Xishie-Exporter')
+            ->where('action', 'like', 'export:%')
+            ->exists();
+
+        if ($hasExported) {
+            return 100.0;
+        }
+
         $final = $project->stages()->where('stage_name', ProjectStage::FINAL->value)->first();
 
         if ($final === null || $final->status->value !== 'completed') {
