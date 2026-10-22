@@ -62,6 +62,12 @@ services:
     # Jalankan sebagai UID/GID host (www-data dipetakan ke 1000 di Dockerfile)
     # agar berkas yang dibuat artisan/npm di bind mount tidak dimiliki root.
     user: "${UID:-1000}:${GID:-1000}"
+    # Akses ke backend Omnigensi yang berjalan di host (network_mode: host di
+    # stack omnigensi). Pada Docker standar host.docker.internal memetakan ke
+    # gateway host sehingga OMNIGENSI_BASE_URL=http://host.docker.internal:8123
+    # dapat dijangkau dari container.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     entrypoint: ["/bin/sh", "/var/www/html/docker-nginx/entrypoint.sh"]
     command: php-fpm
     environment:
