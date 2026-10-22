@@ -23,6 +23,26 @@
                 </div>
             </div>
 
+            {{-- Export naskah siap kirim (KPI #15 Manuscript Export Conversion) --}}
+            <div class="rb-window" style="margin-bottom:1rem;">
+                <div class="rb-window__titlebar">
+                    <span>&#11015; EXPORT NASKAH SIAP KIRIM</span>
+                    <span class="rb-window__controls"><span class="rb-window__control">-</span><span class="rb-window__control">&#9633;</span><span class="rb-window__control">&#215;</span></span>
+                </div>
+                <div class="rb-window__body" style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+                    <span class="rb-mono rb-muted" style="font-size:.7rem;">Unduh:</span>
+                    @foreach ($exportFormats as $key => $meta)
+                        <button
+                            type="button"
+                            class="rb-button {{ $key === 'docx' ? 'rb-button--primary' : '' }}"
+                            wire:click="exportManuscript('{{ $key }}')"
+                            wire:loading.attr="disabled"
+                            wire:target="exportManuscript('{{ $key }}')"
+                        >{{ $meta['label'] }}</button>
+                    @endforeach
+                </div>
+            </div>
+
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1rem;">
                 @forelse ($recommendations as $rec)
                     <div class="rb-window">

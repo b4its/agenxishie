@@ -91,7 +91,16 @@
                             </div>
                         @endforeach
 
-                        <div class="rb-kpi-card__label" style="margin-top:1rem;">MATRIKS RESPONSE TO REVIEWERS</div>
+                        <div class="rb-kpi-card__label" style="margin-top:1rem; display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+                            <span>MATRIKS RESPONSE TO REVIEWERS</span>
+                            <button
+                                type="button"
+                                class="rb-button"
+                                style="padding:.15rem .5rem; font-size:.6rem;"
+                                wire:click="downloadResponseMatrix({{ $revision->id }})"
+                                wire:loading.attr="disabled"
+                            >&#11015; Unduh</button>
+                        </div>
                         <pre class="rb-terminal" style="max-height:none; margin-top:.5rem;">{{ $revision->response_matrix_doc }}</pre>
                     </div>
                 </div>

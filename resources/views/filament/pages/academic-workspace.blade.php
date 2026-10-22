@@ -153,7 +153,23 @@
                         <div class="rb-kpi-card__label" style="margin-top:1rem;">STATUS PIPA</div>
                         <div style="display:flex; flex-direction:column; gap:.4rem; margin-top:.4rem;">
                             <button type="button" class="rb-button rb-button--primary" wire:click="runPipeline">&#9889; Jalankan Pipeline</button>
+                            <button type="button" class="rb-button" wire:click="runMultiAgentGraph">&#129513; Jalankan Multi-Agent Graph</button>
                             <button type="button" class="rb-button" wire:click="advanceStage">Tahap Berikutnya &#8594;</button>
+                        </div>
+
+                        {{-- Export naskah siap kirim (KPI #15) --}}
+                        <div class="rb-kpi-card__label" style="margin-top:1rem;">EXPORT NASKAH</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.4rem;">
+                            @foreach ($exportFormats as $key => $meta)
+                                <button
+                                    type="button"
+                                    class="rb-button {{ $key === 'docx' ? 'rb-button--primary' : '' }}"
+                                    style="padding:.25rem .5rem; font-size:.62rem;"
+                                    wire:click="exportManuscript('{{ $key }}')"
+                                    wire:loading.attr="disabled"
+                                    wire:target="exportManuscript('{{ $key }}')"
+                                >{{ $meta['label'] }}</button>
+                            @endforeach
                         </div>
                     </div>
                 </div>

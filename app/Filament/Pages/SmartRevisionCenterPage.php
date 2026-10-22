@@ -16,6 +16,8 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * SmartRevisionCenterPage: pusat revisi dosen/reviewer dengan checklist,
@@ -217,6 +219,36 @@ class SmartRevisionCenterPage extends Page implements HasForms
     public function getProject(): ?XishieProject
     {
         return $this->projectId !== null ? XishieProject::find($this->projectId) : null;
+    }
+
+    /**
+     * Unduh "Response to Reviewers" (matriks perbaikan revisi) sebagai Markdown.
+     */
+    public function downloadResponseMatrix(int $revisionId): ?StreamedResponse
+    {
+        $revision = $this->getProject()?->revisions()->find($revisionId);
+
+        if ($revision === null) {
+            Notification::make()->title('Revisi tidak ditemukan')->warning()->send();
+
+            return null;
+        }
+
+        $project = $this->getProject();
+        $base = Str::slug((string) ($project?->title ?? 'naskah')) ?: 'naskah';
+        $filename = $base.'-response-to-reviewers-'.$revision->id.'.md';
+
+        $body = '# Response to Reviewers'."\n\n";
+        $body .= 'Proyek: '.($project?->title ?? '-')."\n";
+        $body .= 'Reviewer: '.$revision->reviewer_role."\n";
+        $body .= 'Status: '.$revision->status->label().' ('.$revision->resolutionPercentage()."% selesai)\n\n";
+        $body .= (string) ($revision->response_matrix_doc ?? '')."\n";
+
+        return response()->streamDownload(
+            static fn () => print $body,
+            $filename,
+            ['Content-Type' => 'text/markdown'],
+        );
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Filament\Pages;
 use App\Domain\Assistant\XishieAssistantService;
 use App\Domain\GuidelineEngine\Enums\CitationStyle;
 use App\Domain\GuidelineEngine\GuidelineResolverService;
+use App\Domain\Publication\ManuscriptExporter;
 use App\Domain\Research\LiteratureMatrixBuilder;
 use App\Domain\Research\ReferenceImportService;
 use App\Domain\Workspace\Enums\ControlMode;
@@ -28,6 +29,7 @@ use App\Omnigensi\Orchestrator\XishieSupervisor;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * AcademicWorkspacePage: layar kerja utama 3 panel (navigator & riset,
@@ -114,6 +116,55 @@ class AcademicWorkspacePage extends Page
             ->body('Mode: '.$result['mode'].'. '.(isset($result['compliance_score']) ? 'Compliance: '.$result['compliance_score'].'%.' : ''))
             ->success()
             ->send();
+    }
+
+    /**
+     * Jalankan graf multi-agen dinamis (GraphRunner) untuk tahap aktif.
+     *
+     * Berbeda dari `runPipeline` (pipeline tetap per control_mode), aksi ini
+     * menelusuri skema graf: urutan agen, siklus reviewer, dan conditional
+     * edge ditentukan oleh graf. Cocok untuk eksperimen alur kolaborasi agen.
+     */
+    public function runMultiAgentGraph(): void
+    {
+        $project = $this->getProject();
+
+        if ($project === null) {
+            return;
+        }
+
+        try {
+            $outcome = app(XishieSupervisor::class)->runGraph(
+                $project,
+                $project->current_stage,
+                null,
+                [],
+                2,
+            );
+        } catch (\Throwable $exception) {
+            Notification::make()
+                ->title('Gagal menjalankan graf multi-agen')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $executed = implode(' -> ', $outcome['graph']['nodes_executed'] ?? []);
+
+        Notification::make()
+            ->title('Graf multi-agen selesai')
+            ->body(sprintf(
+                'Node: %s | Revisi: %d | Disetujui: %s',
+                $executed,
+                (int) ($outcome['graph']['revision_count'] ?? 0),
+                ($outcome['graph']['is_approved'] ?? false) ? 'ya' : 'belum',
+            ))
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
     }
 
     public function advanceStage(): void
@@ -436,6 +487,7 @@ class AcademicWorkspacePage extends Page
                 'references' => [],
                 'pendingGate' => null,
                 'agentLogs' => [],
+                'exportFormats' => app(ManuscriptExporter::class)->formats(),
             ];
         }
 
@@ -464,6 +516,7 @@ class AcademicWorkspacePage extends Page
             'violationSections' => $stage !== null ? $this->detectViolatingSections($project, $stage) : [],
             'pendingGate' => $pending,
             'agentLogs' => $project->agentLogs()->latest('id')->limit(15)->get(),
+            'exportFormats' => app(ManuscriptExporter::class)->formats(),
         ];
     }
 
@@ -549,6 +602,57 @@ class AcademicWorkspacePage extends Page
             ->send();
 
         $this->dispatch('$refresh');
+    }
+
+    /**
+     * Export naskah tahap aktif ke format unduhan (KPI #15).
+     */
+    public function exportManuscript(string $format): ?StreamedResponse
+    {
+        $project = $this->getProject();
+
+        if ($project === null) {
+            Notification::make()->title('Tidak ada proyek aktif')->warning()->send();
+
+            return null;
+        }
+
+        $exporter = app(ManuscriptExporter::class);
+
+        if (! $exporter->isSupported($format)) {
+            Notification::make()->title('Format tidak didukung')->danger()->send();
+
+            return null;
+        }
+
+        $content = $exporter->render($project, $format, $project->current_stage);
+        $meta = $exporter->formats()[$format];
+        $filename = $exporter->filename($project, $format);
+
+        // Catat peristiwa ekspor sebagai jejak agen (audit + umpan KPI #15).
+        OmnigensiAgentLog::create([
+            'project_id' => $project->id,
+            'stage_id' => $this->stage()?->id,
+            'agent_name' => 'Xishie-Exporter',
+            'action' => 'export:'.$format,
+            'control_mode' => $project->control_mode->value,
+            'ttft_ms' => 0,
+            'execution_time_ms' => 0,
+            'token_usage' => 0,
+            'hallucination_rejected_count' => 0,
+            'status' => 'success',
+            'payload' => [
+                'format' => $format,
+                'stage' => $project->current_stage->value,
+                'filename' => $filename,
+            ],
+        ]);
+
+        return response()->streamDownload(
+            static fn () => print $content,
+            $filename,
+            ['Content-Type' => $meta['mime']],
+        );
     }
 
     /**
