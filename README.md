@@ -46,6 +46,10 @@ mode kendali: `AUTOMATION`, `HITL` (approval gate), `MANUAL`.
 - **Adaptive formatting**: `ManuscriptAdapter` memformat naskah ke template venue
   (gaya sitasi, batas kata, daftar pustaka) dari tombol "Adapt Formatting".
 - **Telemetri CSAT**: rating 1-5 di panel assistant tercatat ke `ux_kpi_telemetries`.
+- **Live Guideline Auditor**: workspace menandai sub-bab yang melanggar batas kata
+  atau tanpa sitasi, plus tombol "Audit Pedoman" instan (`RuleKeeperAgent`).
+- **UX Analytics Dashboard**: halaman utama `/admin` menampilkan 4 widget
+  (KPI bar, HEART, AARRR, terminal agen) dari 18 metrik telemetri.
 - **Real-time**: Laravel Reverb menyiarkan telemetri agen (`AgentTelemetryUpdated`)
   ke `xishie.project.{id}` untuk terminal aktivitas live.
 
