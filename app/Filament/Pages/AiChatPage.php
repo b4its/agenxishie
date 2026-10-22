@@ -111,9 +111,13 @@ class AiChatPage extends Page
      */
     public function modelOptions(): array
     {
+        $client = app(OmnigensiChatClient::class);
         $options = [];
 
-        foreach (app(OmnigensiChatClient::class)->models() as $model) {
+        // Bila API Key integrasi tersedia, pakai jalur resmi /integrations/v1.
+        $models = $client->hasIntegrationKey() ? $client->integrationModels() : $client->models();
+
+        foreach ($models as $model) {
             $key = $model['provider_id'].'|'.$model['model_id'];
             $label = $model['display_name'].' · '.$model['provider_name'];
 
@@ -155,13 +159,24 @@ class AiChatPage extends Page
                 $this->messages,
             );
 
-            $result = app(OmnigensiChatClient::class)->complete(
-                providerId: $providerId,
-                modelId: $modelId,
-                messages: $history,
-                temperature: $this->temperature,
-                maxTokens: $this->maxTokens,
-            );
+            $client = app(OmnigensiChatClient::class);
+
+            // Jalur resmi integrasi (X-API-Key) bila tersedia; jika tidak,
+            // fallback ke endpoint chat operator.
+            $result = $client->hasIntegrationKey()
+                ? $client->integrationComplete(
+                    modelId: $modelId,
+                    messages: $history,
+                    temperature: $this->temperature,
+                    maxTokens: $this->maxTokens,
+                )
+                : $client->complete(
+                    providerId: $providerId,
+                    modelId: $modelId,
+                    messages: $history,
+                    temperature: $this->temperature,
+                    maxTokens: $this->maxTokens,
+                );
 
             $this->messages[] = [
                 'role' => 'assistant',
