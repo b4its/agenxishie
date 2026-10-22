@@ -75,9 +75,9 @@ Halaman tersedia: **Onboarding Wizard**, **Academic Workspace** (3 panel),
 Test berjalan di atas MySQL (`xishie_testing`):
 
 ```sh
-make test-db                                   # sekali: buat DB testing
-make test IN_DOCKER=1
-make lint IN_DOCKER=1
+make test-db      # sekali: buat DB testing (xishie_testing)
+make test         # mode terdeteksi otomatis (host atau container)
+make lint
 ```
 
 Membuat database testing sekali saja:
@@ -106,14 +106,27 @@ make setup     # salin .env, install dependency, generate key, migrate + seed, b
 make up        # nyalakan Nginx + PHP-FPM + MySQL  →  http://localhost:8208
 ```
 
-Saat stack Docker berjalan, semua target bisa dieksekusi **di dalam container**
-dengan menambahkan `IN_DOCKER=1`:
+Mode eksekusi **terdeteksi otomatis**:
+
+1. Bila PHP ada di host → perintah dijalankan di host.
+2. Bila PHP tidak ada tapi container `php-fpm` berjalan → dijalankan di container.
+3. Selain itu → tampil arahan (`make up` atau `make ci`).
+
+Cek mode aktif dengan `make help` (baris "Mode aktif"). Paksa manual bila perlu:
 
 ```sh
-make test IN_DOCKER=1
-make routes IN_DOCKER=1
-make fresh IN_DOCKER=1
-make db-table TABLE="users" IN_DOCKER=1
+make test              # otomatis
+make test IN_DOCKER=1  # paksa lewat container
+make routes IN_DOCKER=0 # paksa di host
+```
+
+### Masuk ke Shell
+
+```sh
+make shell                              # shell PHP di container (auto nyalakan stack)
+make shell-root                         # shell sebagai root (perbaiki izin file)
+make shell-cmd CMD="php -v"             # jalankan satu perintah
+make db-shell                           # konsol MySQL
 ```
 
 Bila host tidak punya PHP dan stack Docker belum menyala, gunakan gerbang CI:
