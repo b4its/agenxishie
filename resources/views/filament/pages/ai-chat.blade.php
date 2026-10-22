@@ -80,7 +80,14 @@
                 @endif
 
                 {{-- Transkrip --}}
-                <div class="rb-terminal" style="max-height:30rem; min-height:12rem; padding:.9rem;">
+                <div
+                    class="rb-terminal"
+                    style="max-height:30rem; min-height:12rem; padding:.9rem;"
+                    x-data="{ scrollEnd() { this.$el.scrollTop = this.$el.scrollHeight; } }"
+                    x-on:chat-updated.window="scrollEnd()"
+                    wire:key="transcript-{{ count($messages) }}"
+                    x-init="scrollEnd()"
+                >
                     @forelse ($messages as $msg)
                         @if ($msg['role'] === 'user')
                             <div style="margin-bottom:.9rem;">
@@ -88,12 +95,24 @@
                                 <div style="white-space:pre-wrap;">{{ $msg['content'] }}</div>
                             </div>
                         @else
-                            <div style="margin-bottom:.9rem;">
-                                <div style="font-weight:700; color:var(--rb-terminal-fg);">
-                                    &#129302; {{ $msg['model'] ?? 'ASSISTANT' }}
-                                    @if (! empty($msg['latency_ms']))
-                                        <span class="rb-terminal__time">({{ $msg['latency_ms'] }}ms)</span>
-                                    @endif
+                            <div style="margin-bottom:.9rem;" x-data="{ copied: false }">
+                                <div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+                                    <div style="font-weight:700; color:var(--rb-terminal-fg);">
+                                        &#129302; {{ $msg['model'] ?? 'ASSISTANT' }}
+                                        @if (! empty($msg['latency_ms']))
+                                            <span class="rb-terminal__time">({{ $msg['latency_ms'] }}ms)</span>
+                                        @endif
+                                    </div>
+                                    @unless (str_starts_with($msg['content'], '[Gagal]'))
+                                        <button
+                                            type="button"
+                                            class="rb-terminal__time"
+                                            style="border:0; background:transparent; cursor:pointer; font-size:.62rem;"
+                                            title="Salin jawaban (Markdown)"
+                                            x-on:click="navigator.clipboard.writeText(@js($msg['content'])); copied = true; setTimeout(() => copied = false, 1500);"
+                                            x-text="copied ? '✓ tersalin' : '⧉ salin'"
+                                        >&#10697; salin</button>
+                                    @endunless
                                 </div>
                                 <div class="rb-chat-md {{ str_starts_with($msg['content'], '[Gagal]') ? 'rb-chat-md--error' : '' }}">
                                     {!! $this->markdownToHtml($msg['content']) !!}
@@ -102,12 +121,12 @@
                         @endif
                     @empty
                         <div class="rb-terminal__line">
-                            <span class="rb-terminal__time">[--:--:--]</span>
-                            standby — pilih model lalu ketik pesan.
+                            <span class="rb-terminal__time">[--:--:--]</span> standby — pilih model lalu ketik pesan.
                         </div>
                     @endforelse
 
                     <div wire:loading wire:target="send" class="rb-terminal__line">
+
                         <span class="rb-terminal__time">[...]</span> model sedang menyusun jawaban...
                     </div>
                 </div>

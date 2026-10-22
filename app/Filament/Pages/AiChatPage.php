@@ -212,16 +212,16 @@ class AiChatPage extends Page
         $this->messages[] = ['role' => 'user', 'content' => $text];
         $this->draft = '';
 
+        $history = array_map(
+            static fn (array $m): array => ['role' => $m['role'], 'content' => $m['content']],
+            $this->messages,
+        );
+
+        $client = app(OmnigensiChatClient::class);
+
         try {
-            $history = array_map(
-                static fn (array $m): array => ['role' => $m['role'], 'content' => $m['content']],
-                $this->messages,
-            );
-
-            $client = app(OmnigensiChatClient::class);
-
-            // Jalur resmi integrasi (X-API-Key) bila tersedia; jika tidak,
-            // fallback ke endpoint chat operator.
+            // Jalur integrasi (X-API-Key) bila tersedia; jika tidak, gunakan
+            // endpoint chat operator. Jawaban dirender sebagai Markdown di view.
             $result = $client->hasIntegrationKey()
                 ? $client->integrationComplete(
                     modelId: $modelId,
@@ -246,17 +246,28 @@ class AiChatPage extends Page
 
             $this->backendOnline = true;
         } catch (\Throwable $exception) {
-            $this->messages[] = [
-                'role' => 'assistant',
-                'content' => '[Gagal] '.$exception->getMessage(),
-            ];
-
-            Notification::make()
-                ->title('Gagal mendapatkan jawaban')
-                ->body($exception->getMessage())
-                ->danger()
-                ->send();
+            $this->pushError($exception->getMessage());
         }
+
+        // Beri tahu view untuk auto-scroll ke pesan terbaru.
+        $this->dispatch('chat-updated');
+    }
+
+    /**
+     * Tambahkan pesan galat ke transkrip + notifikasi.
+     */
+    private function pushError(string $message): void
+    {
+        $this->messages[] = [
+            'role' => 'assistant',
+            'content' => '[Gagal] '.$message,
+        ];
+
+        Notification::make()
+            ->title('Gagal mendapatkan jawaban')
+            ->body($message)
+            ->danger()
+            ->send();
     }
 
     /**

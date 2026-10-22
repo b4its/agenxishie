@@ -218,3 +218,72 @@ it('renders an error reply as escaped plain text', function (): void {
     expect($html)->toContain('&lt;b&gt;')
         ->and($html)->not->toContain('<b>');
 });
+
+it('streams integration tokens through a callback and stitches the final reply', function (): void {
+    $sse = "event: start\ndata: {\"model\":\"deepseek\",\"client\":\"agen xishie\"}\n\n"
+        ."event: token\ndata: {\"text\":\"**Ha\"}\n\n"
+        ."event: token\ndata: {\"text\":\"lo**\"}\n\n"
+        ."event: done\ndata: {\"content\":\"**Halo**\",\"latency_ms\":15}\n\n";
+
+    Http::fake([
+        '*/api/v1/integrations/v1/chat/completions' => Http::response($sse, 200, ['Content-Type' => 'text/event-stream']),
+    ]);
+
+    $client = new OmnigensiChatClient('http://omnigensi.test', '123', 30, 5, true, 'omni_live_test');
+
+    $tokens = [];
+    $result = $client->streamIntegration(
+        'deepseek',
+        [['role' => 'user', 'content' => 'hi']],
+        function (string $t) use (&$tokens): void {
+            $tokens[] = $t;
+        },
+    );
+
+    expect($tokens)->toBe(['**Ha', 'lo**'])
+        ->and($result['content'])->toBe('**Halo**')
+        ->and($result['model_id'])->toBe('deepseek')
+        ->and($result['latency_ms'])->toBe(15);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/integrations/v1/chat/completions')
+        && ($request['stream'] ?? null) === true);
+});
+
+it('sends through the integration endpoint and renders the reply as markdown', function (): void {
+    $this->actingAs(User::factory()->create());
+
+    config()->set('omnigensi.api_key', 'omni_live_test');
+    $this->app->forgetInstance(OmnigensiChatClient::class);
+
+    Http::fake([
+        '*/health' => Http::response(['status' => 'ok'], 200),
+        '*/api/v1/integrations/v1/models' => Http::response(['object' => 'list', 'data' => [
+            ['id' => 'deepseek', 'display_name' => 'DeepSeek', 'provider' => '9router', 'provider_id' => 'p1', 'is_default' => true],
+        ]], 200),
+        '*/api/v1/integrations/v1/chat/completions' => Http::response([
+            'id' => 'chatcmpl-1',
+            'object' => 'chat.completion',
+            'model' => 'deepseek',
+            'client' => 'agen xishie',
+            'choices' => [
+                ['index' => 0, 'message' => ['role' => 'assistant', 'content' => '# Judul'], 'finish_reason' => 'stop'],
+            ],
+            'latency_ms' => 9,
+        ], 200),
+    ]);
+
+    $component = Livewire\Livewire::test(AiChatPage::class)
+        ->assertSuccessful()
+        ->set('selectedModel', 'p1|deepseek')
+        ->set('draft', 'halo')
+        ->call('send');
+
+    $messages = $component->get('messages');
+
+    expect($messages)->toHaveCount(2)
+        ->and($messages[1]['role'])->toBe('assistant')
+        ->and($messages[1]['content'])->toBe('# Judul');
+
+    // Markdown dirender menjadi heading.
+    expect($component->instance()->markdownToHtml($messages[1]['content']))->toContain('<h1>Judul</h1>');
+});
