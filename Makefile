@@ -29,6 +29,7 @@ APACHE_HOST_PORT ?= 8316
 DB_HOST_PORT     ?= 3514
 PHPFPM_HOST_PORT ?= 9208
 VITE_HOST_PORT   ?= 5381
+REVERB_PORT      ?= 8282
 
 APP_URL         ?= http://localhost:$(HOST_PORT)
 
@@ -195,6 +196,10 @@ queue-work: require-php ## Jalankan queue worker (daemon, produksi)
 .PHONY: queue-restart
 queue-restart: require-php ## Restart semua queue worker yang berjalan
 	$(ARTISAN) queue:restart
+
+.PHONY: reverb
+reverb: require-php ## Jalankan server Laravel Reverb (real-time telemetry)
+	$(ARTISAN) reverb:start --host=0.0.0.0 --port=$(REVERB_PORT)
 
 .PHONY: schedule
 schedule: require-php ## Jalankan scheduler (dev)
@@ -491,7 +496,7 @@ ci-image: ## Bangun image CI (php:8.4-cli + pdo_sqlite, intl, pcov, unzip, git, 
 			'FROM php:8.4-cli' \
 			'RUN apt-get update && apt-get install -y --no-install-recommends \' \
 			'        git unzip libsqlite3-dev libicu-dev libzip-dev \' \
-			'    && docker-php-ext-install pdo_sqlite intl zip \' \
+			'    && docker-php-ext-install pdo_sqlite intl zip pcntl \' \
 			'    && pecl install pcov \' \
 			'    && docker-php-ext-enable pcov \' \
 			'    && apt-get clean && rm -rf /var/lib/apt/lists/*' \

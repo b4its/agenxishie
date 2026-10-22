@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
 
 # 2. Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo_mysql gd zip intl
+    && docker-php-ext-install pdo_mysql gd zip intl pcntl
 
 # 3. Selaraskan UID/GID www-data dengan user host (default 1000) agar file yang
 #    ditulis (storage, cache, log) tetap dapat diakses host maupun container.

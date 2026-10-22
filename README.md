@@ -33,6 +33,15 @@ Pencarian semantik memakai **FULLTEXT MySQL** + **Cosine Similarity** di PHP
 `Peer-Critic`, `Venue-Matcher` — dikoordinasikan `XishieSupervisor` dalam tiga
 mode kendali: `AUTOMATION`, `HITL` (approval gate), `MANUAL`.
 
+- **Queue**: `RunStagePipelineJob` & `RunFullPipelineJob` menjalankan pipeline
+  Automation di background, dan otomatis berhenti bila `control_mode` di-hot-swap.
+- **Vektor & memori**: `HybridVectorMatcherService` (FULLTEXT + cosine) dan
+  `SharedProjectMemory` menyuntikkan konteks ke seluruh agen.
+- **Xishie Assistant**: slash command `/sitasi`, `/parafrase`, `/cek-gap`,
+  `/cek-pedoman`, `/matriks-literatur`, `/cari-referensi`.
+- **Real-time**: Laravel Reverb menyiarkan telemetri agen (`AgentTelemetryUpdated`)
+  ke `xishie.project.{id}` untuk terminal aktivitas live.
+
 ### 8 Tabel Inti (MySQL InnoDB)
 
 `xishie_projects`, `project_stages`, `project_references`, `project_revisions`,

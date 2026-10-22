@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 
 # 2. Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo_mysql gd zip intl
+    && docker-php-ext-install pdo_mysql gd zip intl pcntl
 
 # 3. Apache: arahkan DocumentRoot ke public/ dan aktifkan mod_rewrite
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
