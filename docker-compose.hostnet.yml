@@ -1,0 +1,46 @@
+# Override agar container xishie dapat menjangkau layanan yang berjalan di HOST
+# (mis. backend Omnigensi pada http://localhost:8123) — karena pada sebagian
+# mesin, koneksi container (bridge) -> host gateway DIBLOKIR
+# (gejala: "Could not resolve host: host.docker.internal" atau connection reset).
+#
+# Pakai:
+#   docker compose -f docker-compose.yml -f docker-compose.hostnet.yml up -d
+# atau lewat Makefile:
+#   make up-hostnet
+#
+# Konsekuensi network_mode: host:
+#   - Port tidak lagi di-publish lewat pemetaan (proses bind langsung di host).
+#   - Nama service `db` / `php-fpm` tidak resolve; pakai 127.0.0.1:<port>.
+#   - nginx (host) listen 8208 dan proxy PHP ke 127.0.0.1:9100 (php-fpm host).
+services:
+  db:
+    # DB tetap di bridge; dipublikasikan ke host agar dapat dijangkau mode host.
+    ports:
+      - "${DB_HOST_PORT:-3514}:3306"
+
+  php-fpm:
+    network_mode: host
+    networks: !reset []
+    ports: !reset []
+    # network_mode host tidak memakai pemetaan hosts Docker.
+    extra_hosts: !reset []
+    # Dengarkan di loopback host :9100 (hindari bentrok dengan :9000 di host).
+    volumes:
+      - .:/var/www/html
+      - ./docker-nginx/php-fpm.docker.hostnet.conf:/usr/local/etc/php-fpm.d/docker.conf:ro
+    environment:
+      DB_SETUP: ${DB_SETUP:-migrate}
+      HOME: /tmp
+      # Service DNS `db` tak tersedia di mode host.
+      DB_HOST: 127.0.0.1
+      DB_PORT: ${DB_HOST_PORT:-3514}
+      # Mode host: omnigensi dijangkau lewat loopback host langsung.
+      OMNIGENSI_BASE_URL: http://127.0.0.1:8123
+
+  nginx:
+    network_mode: host
+    networks: !reset []
+    ports: !reset []
+    volumes:
+      - .:/var/www/html
+      - ./docker-nginx/default.hostnet.conf:/etc/nginx/conf.d/default.conf
