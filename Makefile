@@ -554,23 +554,36 @@ docker-fresh: ## migrate:fresh --seed di container (DESTRUKTIF)
 # Git & Utilitas
 # ------------------------------------------------------------------------------
 .PHONY: clean
-clean: ## Bersihkan cache framework & file sementara (aman tanpa PHP)
-	@if [ "$(IN_DOCKER)" = "1" ]; then \
-		$(ARTISAN) optimize:clear --ansi || true; \
-	elif command -v php >/dev/null 2>&1; then \
-		$(ARTISAN) optimize:clear --ansi || true; \
+clean: ## Perbaiki izin (host+container) lalu bersihkan semua cache & optimize
+	@# 1) Samakan kepemilikan berkas di host dengan user saat ini (bila perlu sudo).
+	@if [ "$$(id -u)" = "0" ]; then \
+		chown -R "$${SUDO_USER:-$$USER}:$${SUDO_USER:-$$USER}" . 2>/dev/null || true; \
+	elif command -v sudo >/dev/null 2>&1; then \
+		sudo -n chown -R "$$USER:$$USER" . 2>/dev/null || \
+			echo "ℹ Lewati 'sudo chown' (tanpa akses sudo non-interaktif); lanjut."; \
 	else \
-		echo "ℹ PHP tidak tersedia; membersihkan file cache secara manual."; \
+		echo "ℹ sudo tidak tersedia; lewati 'chown' host."; \
+	fi
+	@# 2) Perbaiki izin direktori tulis di dalam container (storage, cache, public).
+	@if $(COMPOSE) ps --status running --services 2>/dev/null | grep -qx '$(PHP_SERVICE)'; then \
+		echo "→ Perbaiki izin storage, bootstrap/cache, dan public di container"; \
+		$(COMPOSE) exec --user root -T $(PHP_SERVICE) sh -lc '\
+			chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public && \
+			find /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public -type d -exec chmod 775 {} + && \
+			find /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public -type f -exec chmod 664 {} +'; \
+		echo "→ Bersihkan cache (config, view, cache, route, optimize)"; \
+		$(ARTISAN) config:clear --ansi || true; \
+		$(ARTISAN) view:clear --ansi || true; \
+		$(ARTISAN) cache:clear --ansi || true; \
+		$(ARTISAN) route:clear --ansi || true; \
+		$(ARTISAN) optimize:clear --ansi || true; \
+		echo "→ Bangun ulang cache optimasi (optimize)"; \
+		$(ARTISAN) optimize --ansi || true; \
+	else \
+		echo "ℹ Container '$(PHP_SERVICE)' tidak berjalan; bersihkan file cache secara manual."; \
 		rm -rf bootstrap/cache/*.php storage/framework/cache/data/* \
 			storage/framework/sessions/* storage/framework/views/*.php 2>/dev/null || true; \
-	fi
-	@# Artefak build sering dimiliki root (dibuat di dalam container). Hapus
-	@# lewat container bila tersedia agar tidak memunculkan Permission denied.
-	@if [ "$(IN_DOCKER)" = "1" ]; then \
-		$(DOCKER_EXEC) rm -rf public/build public/hot 2>/dev/null || true; \
-	else \
-		rm -rf public/build public/hot 2>/dev/null || \
-			echo "⚠ Sebagian file build tidak dapat dihapus dari host (dimiliki container). Jalankan: make clean IN_DOCKER=1"; \
+		rm -rf public/build public/hot 2>/dev/null || true; \
 	fi
 	@echo "✓ Bersih."
 
