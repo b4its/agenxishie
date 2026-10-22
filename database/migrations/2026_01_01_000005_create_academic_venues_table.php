@@ -26,7 +26,13 @@ return new class extends Migration
             $table->boolean('is_active')->default(true)->index();
             $table->timestamps();
 
-            $table->fullText(['journal_name', 'aims_and_scope']);
+            // FULLTEXT hanya didukung MySQL/InnoDB. Pada driver lain (mis. SQLite
+            // untuk CI cepat) indeks dilewati; HybridVectorMatcherService sudah
+            // memiliki fallback LIKE sehingga pencarian tetap berfungsi.
+            if (Schema::getConnection()->getDriverName() === 'mysql') {
+                $table->fullText(['journal_name', 'aims_and_scope']);
+            }
+
             $table->engine = 'InnoDB';
             $table->charset = 'utf8mb4';
             $table->collation = 'utf8mb4_unicode_ci';
