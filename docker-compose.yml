@@ -50,6 +50,9 @@ services:
     command: php-fpm
     environment:
       DB_SETUP: ${DB_SETUP:-migrate}
+      # Home writable agar tinker (psysh) & cache composer tidak gagal menulis
+      # ketika container berjalan sebagai UID non-root.
+      HOME: /tmp
     ports:
       - "${PHPFPM_HOST_PORT:-9208}:9000"
     volumes:
