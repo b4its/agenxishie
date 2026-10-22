@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Domain\Assistant\XishieAssistantService;
+use App\Domain\GuidelineEngine\Enums\CitationStyle;
+use App\Domain\GuidelineEngine\GuidelineResolverService;
+use App\Domain\Research\LiteratureMatrixBuilder;
 use App\Domain\Research\ReferenceImportService;
 use App\Domain\Workspace\Enums\ControlMode;
 use App\Domain\Workspace\Enums\ProjectStage;
@@ -18,6 +21,7 @@ use App\Models\ProjectStageRecord;
 use App\Models\UxKpiTelemetry;
 use App\Models\XishieProject;
 use App\Omnigensi\Agents\PeerCriticAgent;
+use App\Omnigensi\Agents\RuleKeeperAgent;
 use App\Omnigensi\Agents\ScholarScoutAgent;
 use App\Omnigensi\Agents\VenueMatcherAgent;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
@@ -456,9 +460,95 @@ class AcademicWorkspacePage extends Page
             'metrics' => $metrics,
             'recommendations' => $project->recommendations()->get(),
             'references' => $project->references()->latest()->limit(20)->get(),
+            'literatureMatrix' => app(LiteratureMatrixBuilder::class)->build($project),
+            'violationSections' => $stage !== null ? $this->detectViolatingSections($project, $stage) : [],
             'pendingGate' => $pending,
             'agentLogs' => $project->agentLogs()->latest('id')->limit(15)->get(),
         ];
+    }
+
+    /**
+     * Live Guideline Auditor: tandai sub-bab yang melanggar batas kata atau
+     * tidak memiliki sitasi valid (PRD 3.4 & FASE 5).
+     *
+     * @return array<int, array{key: string, heading: string, issues: array<int, string>}>
+     */
+    public function detectViolatingSections(XishieProject $project, ProjectStageRecord $stage): array
+    {
+        $guideline = app(GuidelineResolverService::class)->resolve($project);
+        $citationStyle = CitationStyle::tryFrom($guideline->citationStyle)
+            ?? CitationStyle::APA7;
+
+        $flagged = [];
+
+        foreach ((array) ($stage->sections_content ?? []) as $section) {
+            if (! is_array($section)) {
+                continue;
+            }
+
+            $key = (string) ($section['key'] ?? '');
+            $content = (string) ($section['content'] ?? '');
+            $words = str_word_count(strip_tags($content));
+            $issues = [];
+
+            $range = $guideline->wordRangeFor($key);
+
+            if ($range !== null && $words < $range['min']) {
+                $issues[] = sprintf('Kurang %d kata (min %d)', $range['min'] - $words, $range['min']);
+            }
+
+            if ($range !== null && $words > $range['max']) {
+                $issues[] = sprintf('Lebih %d kata (maks %d)', $words - $range['max'], $range['max']);
+            }
+
+            if ($content !== '' && preg_match($citationStyle->inTextPattern(), $content) !== 1) {
+                $issues[] = 'Belum ada sitasi ('.$citationStyle->label().')';
+            }
+
+            if ($issues !== []) {
+                $flagged[] = [
+                    'key' => $key,
+                    'heading' => (string) ($section['heading'] ?? $key),
+                    'issues' => $issues,
+                ];
+            }
+        }
+
+        return $flagged;
+    }
+
+    /**
+     * Tombol "Audit Pedoman Instan": jalankan RuleKeeperAgent dan tampilkan hasil.
+     */
+    public function auditGuideline(): void
+    {
+        $project = $this->getProject();
+        $stage = $this->stage();
+
+        if ($project === null || $stage === null) {
+            Notification::make()->title('Belum ada naskah untuk diaudit')->warning()->send();
+
+            return;
+        }
+
+        $audit = app(RuleKeeperAgent::class)->run($project, $stage);
+
+        $stage->forceFill([
+            'compliance_score' => $audit->complianceScore,
+            'compiled_content' => $stage->compile(),
+        ])->save();
+
+        $violationCount = count((array) ($audit->outputPayload['violations'] ?? []));
+
+        Notification::make()
+            ->title(sprintf('Audit pedoman: %.1f%% patuh', $audit->complianceScore))
+            ->body($violationCount === 0
+                ? 'Tidak ada pelanggaran terdeteksi.'
+                : $violationCount.' pelanggaran terdeteksi pada naskah.')
+            ->when($violationCount === 0, fn ($n) => $n->success(), fn ($n) => $n->warning())
+            ->send();
+
+        $this->dispatch('$refresh');
     }
 
     /**

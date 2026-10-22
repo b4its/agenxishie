@@ -119,6 +119,37 @@
                             <div class="rb-mono" style="font-size:.7rem;">Matriks Literatur: {{ $references->count() }} entri</div>
                         </div>
 
+                        {{-- TAB: Tabel Matriks Literatur (SOTA) — PRD FASE 5 --}}
+                        <div class="rb-kpi-card__label" style="margin-top:1rem;">TABEL MATRIKS LITERATUR</div>
+                        <div style="max-height:13rem; overflow:auto; margin-top:.35rem;">
+                            @if (empty($literatureMatrix))
+                                <div class="rb-mono" style="font-size:.66rem; color:#64748b;">
+                                    Belum ada entri. Cari paper atau unggah PDF referensi.
+                                </div>
+                            @else
+                                <table class="rb-mono" style="width:100%; border-collapse:collapse; font-size:.6rem;">
+                                    <thead>
+                                        <tr style="background:var(--rb-primary); color:#fff;">
+                                            <th style="padding:.2rem .3rem; text-align:left;">PENULIS</th>
+                                            <th style="padding:.2rem .3rem;">THN</th>
+                                            <th style="padding:.2rem .3rem; text-align:left;">METODE</th>
+                                            <th style="padding:.2rem .3rem; text-align:left;">GAP</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($literatureMatrix as $row)
+                                            <tr style="border-bottom:1px solid #cbd5e1;">
+                                                <td style="padding:.2rem .3rem;">{{ \Illuminate\Support\Str::limit((string) $row['authors'], 22) }}</td>
+                                                <td style="padding:.2rem .3rem; text-align:center;">{{ $row['year'] ?? '-' }}</td>
+                                                <td style="padding:.2rem .3rem;">{{ \Illuminate\Support\Str::limit((string) ($row['method'] ?? '-'), 20) }}</td>
+                                                <td style="padding:.2rem .3rem;">{{ \Illuminate\Support\Str::limit((string) ($row['gap'] ?? '-'), 24) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            @endif
+                        </div>
+
                         <div class="rb-kpi-card__label" style="margin-top:1rem;">STATUS PIPA</div>
                         <div style="display:flex; flex-direction:column; gap:.4rem; margin-top:.4rem;">
                             <button type="button" class="rb-button rb-button--primary" wire:click="runPipeline">&#9889; Jalankan Pipeline</button>
@@ -188,9 +219,32 @@
                             </template>
                         </div>
 
+                        {{-- LIVE GUIDELINE AUDITOR: tandai sub-bab yang melanggar --}}
+                        @if (! empty($violationSections))
+                            <div class="rb-approval-gate" style="margin-bottom:1rem; background:#fef2f2;">
+                                <div class="rb-approval-gate__title">[&#9888;] LIVE GUIDELINE AUDITOR — {{ count($violationSections) }} SUB-BAB BERMASALAH</div>
+                                <ul class="rb-mono" style="font-size:.66rem; line-height:1.7; margin:.4rem 0 0 .8rem;">
+                                    @foreach ($violationSections as $flagged)
+                                        <li>
+                                            <strong>{{ $flagged['heading'] }}</strong> —
+                                            {{ implode('; ', $flagged['issues']) }}
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+
                         <div class="rb-editor">
                             @forelse ($sections as $section)
-                                <h3>{{ $section['heading'] ?? '' }}</h3>
+                                @php
+                                    $flagged = collect($violationSections)->firstWhere('key', $section['key'] ?? null);
+                                @endphp
+                                <h3 style="{{ $flagged ? 'color:#b91c1c;' : '' }}">
+                                    {{ $section['heading'] ?? '' }}
+                                    @if ($flagged)
+                                        <span class="rb-badge rb-badge--alert" style="font-size:.55rem; vertical-align:middle;">&#9888; MELANGGAR</span>
+                                    @endif
+                                </h3>
                                 <p>{{ $section['content'] ?? '' }}</p>
                             @empty
                                 <p class="rb-mono" style="font-size:.75rem;">Naskah kosong. Mode Manual: tulis langsung, atau jalankan pipeline.</p>
@@ -223,6 +277,16 @@
                             <input type="text" class="rb-mono" style="flex:1; border:1.5px solid #0f172a; padding:.35rem; font-size:.72rem;" placeholder="Tanya Xishie..." wire:model="assistantMessage" />
                             <button type="submit" class="rb-button rb-button--primary">Kirim</button>
                         </form>
+
+                        {{-- Tombol audit pedoman instan (PRD FASE 5 panel kanan) --}}
+                        <div style="display:flex; gap:.35rem; margin-top:.5rem; flex-wrap:wrap;">
+                            <button type="button" class="rb-button" wire:click="auditGuideline">
+                                &#128269; Audit Pedoman
+                            </button>
+                            <button type="button" class="rb-button" wire:click="runPipeline">
+                                &#9889; Jalankan Agen
+                            </button>
+                        </div>
 
                         <div style="margin-top:.75rem;">
                             @foreach (array_slice($assistantLog, -4) as $chat)
