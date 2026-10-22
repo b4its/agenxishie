@@ -27,6 +27,7 @@ COMPOSE         ?= docker compose
 PHP_SERVICE     ?= php-fpm
 DB_SERVICE      ?= db
 NGINX_SERVICE   ?= nginx
+PHPMYADMIN_SERVICE ?= phpmyadmin
 DB_NAME         ?= xishie
 
 # Port host (semua nilai = port lama + 114):
@@ -35,11 +36,13 @@ APACHE_HOST_PORT ?= 8316
 DB_HOST_PORT     ?= 3514
 PHPFPM_HOST_PORT ?= 9208
 VITE_HOST_PORT   ?= 5381
+PHPMYADMIN_HOST_PORT ?= 8422
 REVERB_PORT      ?= 8282
 # Port untuk `make serve-http` (PHP built-in server). Berbeda dari nginx.
 SERVE_PORT       ?= 8209
 
 APP_URL         ?= http://localhost:$(HOST_PORT)
+PHPMYADMIN_URL  ?= http://localhost:$(PHPMYADMIN_HOST_PORT)
 
 # Teruskan port ke docker compose (dipakai interpolasi ${...} di compose).
 export NGINX_HOST_PORT = $(HOST_PORT)
@@ -47,6 +50,8 @@ export APACHE_HOST_PORT
 export DB_HOST_PORT
 export PHPFPM_HOST_PORT
 export VITE_HOST_PORT
+export PHPMYADMIN_HOST_PORT
+export DB_SERVICE
 
 # --- Deteksi mode eksekusi -----------------------------------------------------
 # IN_DOCKER=auto (default) -> pilih host atau container secara otomatis.
@@ -552,6 +557,31 @@ db-shell: ## Masuk ke konsol MySQL
 		echo "✗ Container '$(DB_SERVICE)' tidak berjalan. Jalankan: make up"; exit 1; \
 	}
 	$(COMPOSE) exec $(DB_SERVICE) mysql -uroot $(DB_NAME)
+
+.PHONY: shell-db
+shell-db: ## Masuk ke konsol MySQL (alias `db-shell`) — DB opsional via DB_NAME
+	@$(COMPOSE) ps --status running --services 2>/dev/null | grep -qx '$(DB_SERVICE)' || { \
+		echo "→ Container '$(DB_SERVICE)' belum berjalan, menyalakan stack..."; \
+		$(COMPOSE) --profile nginx --profile apache up -d $(DB_SERVICE) >/dev/null; \
+		sleep 2; \
+	}
+	@echo "→ Masuk ke MySQL '$(DB_NAME)' (user root). Ketik 'exit' untuk keluar."
+	$(COMPOSE) exec $(DB_SERVICE) mysql -uroot $(if $(DB_NAME),$(DB_NAME),)
+
+.PHONY: phpmyadmin
+phpmyadmin: ## Jalankan phpMyAdmin dan tampilkan URL (default port 8422)
+	@echo "→ Menyalakan phpMyAdmin ($(PHPMYADMIN_SERVICE))..."
+	@$(COMPOSE) --profile nginx --profile apache up -d $(DB_SERVICE) $(PHPMYADMIN_SERVICE)
+	@for i in $$(seq 1 30); do \
+		if curl -fsS -o /dev/null "$(PHPMYADMIN_URL)"; then break; fi; \
+		sleep 1; \
+	done
+	@echo "✓ phpMyAdmin berjalan: $(PHPMYADMIN_URL)"
+	@echo "  Login: user 'root', password kosong (default dev). Host DB: $(DB_SERVICE)."
+
+.PHONY: phpmyadmin-stop
+phpmyadmin-stop: ## Hentikan container phpMyAdmin
+	@$(COMPOSE) stop $(PHPMYADMIN_SERVICE) >/dev/null 2>&1 && echo "✓ phpMyAdmin dihentikan." || echo "ℹ phpMyAdmin tidak berjalan."
 
 .PHONY: docker-health
 docker-health: ## Ringkasan status semua container
