@@ -43,6 +43,18 @@
                     </div>
 
                     <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+                        @if ($projects->count() > 1)
+                            <select
+                                class="rb-select"
+                                style="width:auto; min-width:11rem; font-size:.68rem;"
+                                wire:change="switchProject($event.target.value)"
+                                title="Pindah proyek"
+                            >
+                                @foreach ($projects as $p)
+                                    <option value="{{ $p->id }}" @selected($p->id === $project->id)>{{ \Illuminate\Support\Str::limit($p->title, 40) }}</option>
+                                @endforeach
+                            </select>
+                        @endif
                         <span class="rb-badge rb-badge--manual">TARGET: {{ strtoupper($project->target_tier ?? $project->target_scope->label()) }}</span>
                         <div class="rb-toggle">
                             @foreach (\App\Domain\Workspace\Enums\ControlMode::cases() as $mode)

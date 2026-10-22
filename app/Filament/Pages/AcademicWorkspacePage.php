@@ -74,6 +74,26 @@ class AcademicWorkspacePage extends Page
             : XishieProject::query()->latest()->value('id');
     }
 
+    /**
+     * Pindah proyek aktif dari workspace (multi-proyek).
+     */
+    public function switchProject(int $projectId): void
+    {
+        $project = XishieProject::find($projectId);
+
+        if ($project === null) {
+            Notification::make()->title('Proyek tidak ditemukan')->danger()->send();
+
+            return;
+        }
+
+        $this->projectId = $project->id;
+
+        Notification::make()->title('Proyek aktif: '.$project->title)->success()->send();
+
+        $this->dispatch('$refresh');
+    }
+
     public function getProject(): ?XishieProject
     {
         return $this->projectId !== null ? XishieProject::find($this->projectId) : null;
@@ -488,6 +508,7 @@ class AcademicWorkspacePage extends Page
                 'pendingGate' => null,
                 'agentLogs' => [],
                 'exportFormats' => app(ManuscriptExporter::class)->formats(),
+                'projects' => XishieProject::query()->latest()->get(['id', 'title']),
             ];
         }
 
@@ -517,6 +538,7 @@ class AcademicWorkspacePage extends Page
             'pendingGate' => $pending,
             'agentLogs' => $project->agentLogs()->latest('id')->limit(15)->get(),
             'exportFormats' => app(ManuscriptExporter::class)->formats(),
+            'projects' => XishieProject::query()->latest()->get(['id', 'title']),
         ];
     }
 
