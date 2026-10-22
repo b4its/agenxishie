@@ -1,11 +1,11 @@
-{{-- Academic Workspace — 3 panel Retro Blue --}}
+{{-- Academic Workspace — 3 panel Retro Blue, tema-aware --}}
 <x-filament-panels::page>
     <div class="rb-canvas" style="padding:1rem;">
         @if ($project === null)
             <div class="rb-window">
                 <div class="rb-window__titlebar"><span>WORKSPACE</span></div>
                 <div class="rb-window__body">
-                    <p class="rb-mono">Belum ada proyek. Jalankan Project Onboarding Wizard terlebih dahulu.</p>
+                    <p class="rb-mono rb-muted">Belum ada proyek. Jalankan Project Onboarding Wizard terlebih dahulu.</p>
                 </div>
             </div>
         @else
@@ -42,7 +42,7 @@
                         @endforeach
                     </div>
 
-                    <div style="display:flex; gap:.5rem; align-items:center;">
+                    <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
                         <span class="rb-badge rb-badge--manual">TARGET: {{ strtoupper($project->target_tier ?? $project->target_scope->label()) }}</span>
                         <div class="rb-toggle">
                             @foreach (\App\Domain\Workspace\Enums\ControlMode::cases() as $mode)
@@ -80,7 +80,7 @@
             </div>
 
             {{-- 3 Panel --}}
-            <div style="display:grid; grid-template-columns: 1fr 1.8fr 1fr; gap:1rem;">
+            <div class="rb-workspace-grid">
                 {{-- LEFT: Navigator & Riset --}}
                 <div class="rb-window">
                     <div class="rb-window__titlebar">
@@ -89,11 +89,11 @@
                     </div>
                     <div class="rb-window__body">
                         <div class="rb-kpi-card__label" style="margin-bottom:.4rem;">STRUKTUR BAB</div>
-                        <ul class="rb-mono" style="font-size:.72rem; line-height:1.8; margin-bottom:1rem;">
+                        <ul class="rb-mono" style="font-size:.72rem; line-height:1.8; margin-bottom:1rem; padding-left:.2rem;">
                             @forelse ($sections as $section)
                                 <li>&#9656; {{ $section['heading'] ?? '(tanpa judul)' }}</li>
                             @empty
-                                <li>&#9675; Belum ada naskah — jalankan pipeline.</li>
+                                <li class="rb-muted">&#9675; Belum ada naskah — jalankan pipeline.</li>
                             @endforelse
                         </ul>
 
@@ -101,48 +101,48 @@
                         <div style="display:flex; flex-direction:column; gap:.4rem; margin-top:.4rem;">
                             <button type="button" class="rb-button" wire:click="fetchReferences">+ Cari Paper (SINTA/DOI)</button>
 
-                            <label class="rb-button" style="cursor:pointer; justify-content:center;">
+                            <label class="rb-button" style="cursor:pointer;">
                                 &#8679; Upload PDF Referensi
                                 <input type="file" accept="application/pdf" wire:model="referenceUpload" style="display:none;" />
                             </label>
 
-                            <div wire:loading wire:target="referenceUpload" class="rb-mono" style="font-size:.68rem;">
+                            <div wire:loading wire:target="referenceUpload" class="rb-mono rb-muted" style="font-size:.68rem;">
                                 Mengimpor &amp; mengekstrak PDF...
                             </div>
 
                             @if ($importStatus !== '')
-                                <div class="rb-mono" style="font-size:.68rem; color:{{ str_starts_with($importStatus, 'OK') ? '#047857' : '#b91c1c' }};">
+                                <div class="rb-mono {{ str_starts_with($importStatus, 'OK') ? 'rb-text-pass' : 'rb-text-alert' }}" style="font-size:.68rem;">
                                     {{ $importStatus }}
                                 </div>
                             @endif
 
-                            <div class="rb-mono" style="font-size:.7rem;">Matriks Literatur: {{ $references->count() }} entri</div>
+                            <div class="rb-mono rb-muted" style="font-size:.7rem;">Matriks Literatur: {{ $references->count() }} entri</div>
                         </div>
 
-                        {{-- TAB: Tabel Matriks Literatur (SOTA) — PRD FASE 5 --}}
+                        {{-- TAB: Tabel Matriks Literatur (SOTA) --}}
                         <div class="rb-kpi-card__label" style="margin-top:1rem;">TABEL MATRIKS LITERATUR</div>
-                        <div style="max-height:13rem; overflow:auto; margin-top:.35rem;">
+                        <div style="max-height:13rem; overflow:auto; margin-top:.4rem;">
                             @if (empty($literatureMatrix))
-                                <div class="rb-mono" style="font-size:.66rem; color:#64748b;">
+                                <div class="rb-mono rb-muted" style="font-size:.66rem;">
                                     Belum ada entri. Cari paper atau unggah PDF referensi.
                                 </div>
                             @else
-                                <table class="rb-mono" style="width:100%; border-collapse:collapse; font-size:.6rem;">
+                                <table class="rb-table">
                                     <thead>
-                                        <tr style="background:var(--rb-primary); color:#fff;">
-                                            <th style="padding:.2rem .3rem; text-align:left;">PENULIS</th>
-                                            <th style="padding:.2rem .3rem;">THN</th>
-                                            <th style="padding:.2rem .3rem; text-align:left;">METODE</th>
-                                            <th style="padding:.2rem .3rem; text-align:left;">GAP</th>
+                                        <tr>
+                                            <th>PENULIS</th>
+                                            <th style="text-align:center;">THN</th>
+                                            <th>METODE</th>
+                                            <th>GAP</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach ($literatureMatrix as $row)
-                                            <tr style="border-bottom:1px solid #cbd5e1;">
-                                                <td style="padding:.2rem .3rem;">{{ \Illuminate\Support\Str::limit((string) $row['authors'], 22) }}</td>
-                                                <td style="padding:.2rem .3rem; text-align:center;">{{ $row['year'] ?? '-' }}</td>
-                                                <td style="padding:.2rem .3rem;">{{ \Illuminate\Support\Str::limit((string) ($row['method'] ?? '-'), 20) }}</td>
-                                                <td style="padding:.2rem .3rem;">{{ \Illuminate\Support\Str::limit((string) ($row['gap'] ?? '-'), 24) }}</td>
+                                            <tr>
+                                                <td>{{ \Illuminate\Support\Str::limit((string) $row['authors'], 22) }}</td>
+                                                <td style="text-align:center;">{{ $row['year'] ?? '-' }}</td>
+                                                <td>{{ \Illuminate\Support\Str::limit((string) ($row['method'] ?? '-'), 20) }}</td>
+                                                <td>{{ \Illuminate\Support\Str::limit((string) ($row['gap'] ?? '-'), 24) }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -166,13 +166,13 @@
                     </div>
                     <div class="rb-window__body">
                         @if ($pendingGate !== null)
-                            <div class="rb-approval-gate" style="margin-bottom:1rem;">
-                                <div class="rb-approval-gate__title">[&#129309;] HITL APPROVAL GATE</div>
-                                <p class="rb-mono" style="font-size:.72rem; margin:.4rem 0;">
+                            <div class="rb-notice rb-notice--warn" style="margin-bottom:1rem;">
+                                <div class="rb-notice__title">[&#129309;] HITL APPROVAL GATE</div>
+                                <p class="rb-mono rb-soft" style="font-size:.72rem; margin:.4rem 0;">
                                     {{ $pendingGate['agent'] }} menyelesaikan: {{ $pendingGate['section'] ?? 'sub-bab' }}.
                                     Tinjau sebelum dilanjutkan.
                                 </p>
-                                <div style="display:flex; gap:.4rem;">
+                                <div style="display:flex; gap:.4rem; flex-wrap:wrap;">
                                     <button type="button" class="rb-button rb-button--approve" wire:click="approvePendingSection">&#10003; Terima</button>
                                     <button type="button" class="rb-button" wire:click="requestRegeneration">&#8635; Revisi</button>
                                     <button type="button" class="rb-button" x-on:click="$dispatch('open-manual-edit')">&#9998; Edit Manual</button>
@@ -180,14 +180,14 @@
                             </div>
                         @endif
 
-                        {{-- Manual Edit modal: sunting naskah langsung lalu simpan --}}
+                        {{-- Manual Edit modal --}}
                         <div
                             x-data="{ open: false, draft: '' }"
                             x-on:open-manual-edit.window="open = true; draft = $el.dataset.content || ''"
                             data-content="{{ $stage?->compile() }}"
                         >
                             <template x-if="open">
-                                <div style="position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:50; display:flex; align-items:center; justify-content:center; padding:1rem;">
+                                <div style="position:fixed; inset:0; background:color-mix(in srgb, var(--rb-ink) 55%, transparent); z-index:50; display:flex; align-items:center; justify-content:center; padding:1rem;">
                                     <div class="rb-window" style="width:min(760px, 96vw);">
                                         <div class="rb-window__titlebar">
                                             <span>[&#9998;] EDIT NASKAH MANUAL — {{ strtoupper($stageLabel) }}</span>
@@ -196,15 +196,10 @@
                                             </span>
                                         </div>
                                         <div class="rb-window__body">
-                                            <p class="rb-mono" style="font-size:.7rem; margin-bottom:.5rem;">
+                                            <p class="rb-mono rb-muted" style="font-size:.7rem; margin-bottom:.5rem;">
                                                 Tulis/sunting naskah. Gunakan penanda "## Judul Sub-bab" untuk memisahkan bagian.
                                             </p>
-                                            <textarea
-                                                x-model="draft"
-                                                rows="14"
-                                                class="rb-mono"
-                                                style="width:100%; border:2px solid #0f172a; padding:.6rem; font-size:.78rem; line-height:1.6;"
-                                            ></textarea>
+                                            <textarea x-model="draft" rows="14" class="rb-textarea"></textarea>
                                             <div style="display:flex; gap:.5rem; margin-top:.75rem; justify-content:flex-end;">
                                                 <button type="button" class="rb-button" x-on:click="open = false">Batal</button>
                                                 <button
@@ -219,10 +214,10 @@
                             </template>
                         </div>
 
-                        {{-- LIVE GUIDELINE AUDITOR: tandai sub-bab yang melanggar --}}
+                        {{-- LIVE GUIDELINE AUDITOR --}}
                         @if (! empty($violationSections))
-                            <div class="rb-approval-gate" style="margin-bottom:1rem; background:#fef2f2;">
-                                <div class="rb-approval-gate__title">[&#9888;] LIVE GUIDELINE AUDITOR — {{ count($violationSections) }} SUB-BAB BERMASALAH</div>
+                            <div class="rb-notice rb-notice--alert" style="margin-bottom:1rem;">
+                                <div class="rb-notice__title">[&#9888;] LIVE GUIDELINE AUDITOR — {{ count($violationSections) }} SUB-BAB BERMASALAH</div>
                                 <ul class="rb-mono" style="font-size:.66rem; line-height:1.7; margin:.4rem 0 0 .8rem;">
                                     @foreach ($violationSections as $flagged)
                                         <li>
@@ -239,7 +234,7 @@
                                 @php
                                     $flagged = collect($violationSections)->firstWhere('key', $section['key'] ?? null);
                                 @endphp
-                                <h3 style="{{ $flagged ? 'color:#b91c1c;' : '' }}">
+                                <h3 class="{{ $flagged ? 'rb-text-alert' : '' }}">
                                     {{ $section['heading'] ?? '' }}
                                     @if ($flagged)
                                         <span class="rb-badge rb-badge--alert" style="font-size:.55rem; vertical-align:middle;">&#9888; MELANGGAR</span>
@@ -247,7 +242,7 @@
                                 </h3>
                                 <p>{{ $section['content'] ?? '' }}</p>
                             @empty
-                                <p class="rb-mono" style="font-size:.75rem;">Naskah kosong. Mode Manual: tulis langsung, atau jalankan pipeline.</p>
+                                <p class="rb-mono rb-muted" style="font-size:.75rem;">Naskah kosong. Mode Manual: tulis langsung, atau jalankan pipeline.</p>
                             @endforelse
                         </div>
                     </div>
@@ -264,28 +259,23 @@
                             OMNIGENSI: {{ $project->control_mode->shortLabel() }}
                         </span>
 
-                        <div style="margin-top:.6rem; max-height:10rem; overflow-y:auto;" class="rb-mono">
+                        <div class="rb-terminal" style="margin-top:.6rem; max-height:10rem;">
                             @foreach ($agentLogs as $log)
-                                <div style="font-size:.66rem; line-height:1.6;">
-                                    <span style="color:#64748b;">[{{ $log->created_at?->format('H:i:s') }}]</span>
-                                    <strong>{{ $log->agent_name }}</strong> — {{ $log->action }}
+                                <div class="rb-terminal__line" style="font-size:.66rem;">
+                                    <span class="rb-terminal__time">[{{ $log->created_at?->format('H:i:s') }}]</span>
+                                    <span class="rb-terminal__agent">{{ $log->agent_name }}</span> — {{ $log->action }}
                                 </div>
                             @endforeach
                         </div>
 
                         <form wire:submit="sendAssistantMessage" style="margin-top:.75rem; display:flex; gap:.35rem;">
-                            <input type="text" class="rb-mono" style="flex:1; border:1.5px solid #0f172a; padding:.35rem; font-size:.72rem;" placeholder="Tanya Xishie..." wire:model="assistantMessage" />
+                            <input type="text" class="rb-input" style="flex:1;" placeholder="Tanya Xishie..." wire:model="assistantMessage" />
                             <button type="submit" class="rb-button rb-button--primary">Kirim</button>
                         </form>
 
-                        {{-- Tombol audit pedoman instan (PRD FASE 5 panel kanan) --}}
                         <div style="display:flex; gap:.35rem; margin-top:.5rem; flex-wrap:wrap;">
-                            <button type="button" class="rb-button" wire:click="auditGuideline">
-                                &#128269; Audit Pedoman
-                            </button>
-                            <button type="button" class="rb-button" wire:click="runPipeline">
-                                &#9889; Jalankan Agen
-                            </button>
+                            <button type="button" class="rb-button" wire:click="auditGuideline">&#128269; Audit Pedoman</button>
+                            <button type="button" class="rb-button" wire:click="runPipeline">&#9889; Jalankan Agen</button>
                         </div>
 
                         <div style="margin-top:.75rem;">
@@ -297,11 +287,11 @@
                         </div>
 
                         <div class="rb-kpi-card__label" style="margin-top:1rem;">REKOMENDASI JURNAL</div>
-                        <ul class="rb-mono" style="font-size:.68rem; line-height:1.7;">
+                        <ul class="rb-mono" style="font-size:.68rem; line-height:1.7; padding-left:.2rem;">
                             @forelse ($recommendations as $rec)
                                 <li>{{ $loop->iteration }}. {{ $rec->journal_name }} ({{ number_format((float) $rec->match_score, 1) }}%)</li>
                             @empty
-                                <li>&#9675; Belum ada — tekan Match Venue.</li>
+                                <li class="rb-muted">&#9675; Belum ada — tekan Match Venue.</li>
                             @endforelse
                         </ul>
                         <button type="button" class="rb-button" style="margin-top:.4rem;" wire:click="matchVenues">Cocokkan Venue</button>
@@ -312,13 +302,13 @@
                                 <button
                                     type="button"
                                     class="rb-button"
-                                    style="padding:.15rem .45rem;"
+                                    style="padding:.15rem .5rem;"
                                     wire:click="rateSatisfaction({{ $star }})"
                                     title="Beri rating {{ $star }}"
                                 >{{ $star }}</button>
                             @endfor
                         </div>
-                        <div class="rb-mono" style="font-size:.65rem; margin-top:.25rem;">
+                        <div class="rb-mono rb-muted" style="font-size:.65rem; margin-top:.25rem;">
                             CSAT saat ini: {{ number_format((float) ($metrics['user_satisfaction_score']['value'] ?? 0), 1) }} / 5
                         </div>
                     </div>

@@ -1,4 +1,4 @@
-{{-- Tabel metrik per framework (HEART / AARRR) --}}
+{{-- Tabel metrik per framework (HEART / AARRR) — tema-aware --}}
 <div class="rb-window">
     <div class="rb-window__titlebar">
         <span>{{ $title }}</span>
@@ -10,15 +10,15 @@
     </div>
     <div class="rb-window__body">
         @if ($rows === [])
-            <p class="rb-mono" style="font-size:.7rem;">Belum ada data telemetri.</p>
+            <p class="rb-mono rb-muted" style="font-size:.72rem;">Belum ada data telemetri.</p>
         @else
-            <table style="width:100%; border-collapse:collapse;" class="rb-mono">
+            <table class="rb-table">
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr style="border-bottom:1px solid #e2e8f0;">
-                            <td style="padding:.35rem 0; font-size:.7rem;">{{ $row['label'] }}</td>
-                            <td style="padding:.35rem 0; text-align:right; font-size:.75rem; font-weight:700;">
-                                <span class="{{ $row['healthy'] ? 'rb-badge rb-badge--pass' : 'rb-badge rb-badge--alert' }}">
+                        <tr>
+                            <td>{{ $row['label'] }}</td>
+                            <td style="text-align:right;">
+                                <span class="rb-badge {{ $row['healthy'] ? 'rb-badge--pass' : 'rb-badge--alert' }}">
                                     {{ number_format((float) $row['value'], 1) }} {{ $row['unit'] }}
                                 </span>
                             </td>

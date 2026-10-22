@@ -1,4 +1,4 @@
-{{-- Retro KPI Bar — kartu metrik utama workspace --}}
+{{-- Workspace KPI bar — Retro Blue, tema-aware --}}
 @if ($project === null)
     <div class="rb-window">
         <div class="rb-window__titlebar">
@@ -10,7 +10,7 @@
             </span>
         </div>
         <div class="rb-window__body">
-            <p class="rb-mono" style="font-size:.75rem;">Belum ada proyek. Mulai dari Project Onboarding Wizard.</p>
+            <p class="rb-mono rb-muted" style="font-size:.75rem;">Belum ada proyek. Mulai dari Project Onboarding Wizard.</p>
         </div>
     </div>
 @else
@@ -28,9 +28,6 @@
                 @foreach ($cards as $card)
                     @php
                         $tone = $card['healthy'] ? 'rb-kpi-card__value--pass' : 'rb-kpi-card__value--alert';
-                        if ($card['key'] === 'guideline_compliance_score' && $card['value'] >= 50) {
-                            $tone = 'rb-kpi-card__value--pass';
-                        }
                     @endphp
                     <div class="rb-kpi-card">
                         <div class="rb-kpi-card__label">{{ $card['label'] }}</div>

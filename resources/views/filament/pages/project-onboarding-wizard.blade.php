@@ -11,7 +11,7 @@
                 </span>
             </div>
             <div class="rb-window__body">
-                <div class="rb-stepper" style="margin-bottom:1rem;">
+                <div class="rb-stepper" style="margin-bottom:1.25rem;">
                     @foreach ([1 => 'JUDUL & BIDANG', 2 => 'TOPIK & TARGET', 3 => 'PANDUAN', 4 => 'BASIS KENDALI'] as $index => $label)
                         <span class="rb-stepper__node {{ $step === $index ? 'rb-stepper__node--active' : ($step > $index ? 'rb-stepper__node--done' : 'rb-stepper__node--locked') }}">
                             {{ $index }}. {{ $label }}
@@ -25,7 +25,7 @@
                 <form wire:submit="createProject">
                     {{ $this->form }}
 
-                    <div style="display:flex; gap:.5rem; margin-top:1rem;">
+                    <div style="display:flex; gap:.5rem; margin-top:1.25rem; flex-wrap:wrap;">
                         @if ($step > 1)
                             <button type="button" class="rb-button" wire:click="previousStep">&#8592; Kembali</button>
                         @endif
@@ -33,7 +33,7 @@
                         @if ($step < 4)
                             <button type="button" class="rb-button rb-button--primary" wire:click="nextStep">Lanjut &#8594;</button>
                         @else
-                            <button type="submit" class="rb-button rb-button--approve">[ RUN XISHIE AUTO-PILOT ]</button>
+                            <button type="submit" class="rb-button rb-button--approve">&#9889; RUN XISHIE AUTO-PILOT</button>
                         @endif
                     </div>
                 </form>
