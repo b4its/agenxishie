@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Domain\Assistant\XishieAssistantService;
+use App\Domain\Research\ReferenceImportService;
 use App\Domain\Workspace\Enums\ControlMode;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Domain\Workspace\Enums\StageStatus;
+use App\Domain\Workspace\Enums\UxKpiMetric;
 use App\Domain\Workspace\StageStateManager;
 use App\Domain\Workspace\UxKpiTelemetryService;
+use App\Models\OmnigensiAgentLog;
 use App\Models\ProjectRevision;
 use App\Models\ProjectStageRecord;
+use App\Models\UxKpiTelemetry;
 use App\Models\XishieProject;
 use App\Omnigensi\Agents\PeerCriticAgent;
 use App\Omnigensi\Agents\ScholarScoutAgent;
@@ -19,6 +23,7 @@ use App\Omnigensi\Agents\VenueMatcherAgent;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Str;
 
 /**
  * AcademicWorkspacePage: layar kerja utama 3 panel (navigator & riset,
@@ -41,6 +46,13 @@ class AcademicWorkspacePage extends Page
     public ?int $projectId = null;
 
     public string $assistantMessage = '';
+
+    /**
+     * Berkas PDF referensi yang diunggah pengguna (Livewire temporary upload).
+     */
+    public mixed $referenceUpload = null;
+
+    public string $importStatus = '';
 
     /**
      * @var array<int, array<string, mixed>>
@@ -145,6 +157,138 @@ class AcademicWorkspacePage extends Page
         Notification::make()->title('Permintaan revisi dikirim')->warning()->send();
     }
 
+    /**
+     * HITL "Edit Manually": simpan suntingan pengguna langsung ke stage.
+     *
+     * @param  array<int, array<string, mixed>>  $sections
+     */
+    public function saveManualEdit(array $sections): void
+    {
+        $project = $this->getProject();
+
+        if ($project === null) {
+            return;
+        }
+
+        app(XishieSupervisor::class)->manualEdit($project, $project->current_stage, $sections);
+
+        Notification::make()
+            ->title('Suntingan manual disimpan')
+            ->body('Stage ditandai selesai dengan konten hasil editan pengguna.')
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
+     * Simpan suntingan manual dari editor teks bebas.
+     *
+     * Teks dipecah per penanda "## Heading"; bagian tanpa heading menjadi
+     * satu section "manual".
+     */
+    public function saveManualEditText(string $text): void
+    {
+        $sections = $this->parseManualText($text);
+
+        if ($sections === []) {
+            Notification::make()->title('Naskah kosong, tidak ada yang disimpan')->warning()->send();
+
+            return;
+        }
+
+        $this->saveManualEdit($sections);
+    }
+
+    /**
+     * @return array<int, array{key: string, heading: string, content: string}>
+     */
+    public function parseManualText(string $text): array
+    {
+        $normalized = trim(str_replace("\r\n", "\n", $text));
+
+        if ($normalized === '') {
+            return [];
+        }
+
+        // Pecah berdasarkan heading Markdown "## ...".
+        $parts = preg_split('/^##\s+/mu', $normalized) ?: [];
+        $sections = [];
+
+        foreach ($parts as $part) {
+            $part = trim($part);
+
+            if ($part === '') {
+                continue;
+            }
+
+            $lines = explode("\n", $part, 2);
+            $heading = trim($lines[0]);
+            $content = trim($lines[1] ?? '');
+
+            if ($content === '' && count($parts) === 1) {
+                $heading = 'Naskah Manual';
+                $content = $part;
+            }
+
+            $sections[] = [
+                'key' => Str::slug($heading) ?: 'manual',
+                'heading' => $heading,
+                'content' => $content,
+            ];
+        }
+
+        return $sections;
+    }
+
+    /**
+     * Teks gabungan stage aktif untuk editor manual.
+     */
+    public function editableContent(): string
+    {
+        $stage = $this->stage();
+
+        return $stage?->compile() ?? '';
+    }
+
+    /**
+     * Impor berkas PDF yang diunggah menjadi referensi proyek (PRD 3.4).
+     */
+    public function updatedReferenceUpload(): void
+    {
+        $project = $this->getProject();
+
+        if ($project === null || $this->referenceUpload === null) {
+            return;
+        }
+
+        try {
+            $binary = $this->referenceUpload->get();
+            $filename = $this->referenceUpload->getClientOriginalName();
+
+            $reference = app(ReferenceImportService::class)->import($project, $binary, $filename);
+
+            $this->importStatus = 'OK: referensi "'.$reference->citation_key.'" berhasil diimpor.';
+
+            Notification::make()
+                ->title('PDF referensi diimpor')
+                ->body($reference->title)
+                ->success()
+                ->send();
+        } catch (\Throwable $exception) {
+            $this->importStatus = 'Gagal: '.$exception->getMessage();
+
+            Notification::make()
+                ->title('Gagal mengimpor PDF')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        } finally {
+            $this->referenceUpload = null;
+            $this->dispatch('$refresh');
+        }
+    }
+
     public function fetchReferences(): void
     {
         $project = $this->getProject();
@@ -208,12 +352,66 @@ class AcademicWorkspacePage extends Page
         // /matriks-literatur, /cari-referensi — atau jawaban kontekstual bebas.
         $result = app(XishieAssistantService::class)->handle($project, $message);
 
+        // Catat query assistant agar KPI "Assistant Query Effectiveness" terukur
+        // (PRD KPI #8). "applied" menandai respons yang menghasilkan artefak
+        // siap tempel (sitasi, matriks, parafrase, audit).
+        OmnigensiAgentLog::create([
+            'project_id' => $project->id,
+            'stage_id' => $this->stage()?->id,
+            'agent_name' => 'Xishie-Assistant',
+            'action' => $result['command'],
+            'control_mode' => $project->control_mode->value,
+            'ttft_ms' => 0,
+            'execution_time_ms' => 0,
+            'token_usage' => str_word_count((string) $result['reply']),
+            'hallucination_rejected_count' => 0,
+            'status' => 'success',
+            'payload' => [
+                'query' => $message,
+                'command' => $result['command'],
+                'metadata' => [
+                    'applied' => in_array($result['command'], ['/sitasi', '/parafrase', '/matriks-literatur', '/cek-pedoman'], true),
+                ],
+            ],
+        ]);
+
         $this->assistantLog[] = [
             'role' => 'assistant',
             'content' => $result['reply'],
         ];
 
         $this->assistantMessage = '';
+    }
+
+    /**
+     * Catat rating kepuasan pengguna (CSAT 1-5) — PRD KPI #18.
+     */
+    public function rateSatisfaction(int $rating): void
+    {
+        $project = $this->getProject();
+
+        if ($project === null || $rating < 1 || $rating > 5) {
+            return;
+        }
+
+        UxKpiTelemetry::create([
+            'project_id' => $project->id,
+            'user_id' => $project->user_id,
+            'metric_key' => UxKpiMetric::USER_SATISFACTION_SCORE,
+            'metric_category' => UxKpiMetric::USER_SATISFACTION_SCORE->category(),
+            'metric_value' => $rating,
+            'metadata' => [
+                'stage' => $project->current_stage->value,
+                'recorded_by' => 'workspace_widget',
+            ],
+            'recorded_at' => now(),
+        ]);
+
+        Notification::make()
+            ->title('Terima kasih atas penilaian Anda')
+            ->body("Rating {$rating}/5 tercatat pada telemetri CSAT.")
+            ->success()
+            ->send();
     }
 
     /**

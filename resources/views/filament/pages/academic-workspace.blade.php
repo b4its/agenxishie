@@ -100,6 +100,22 @@
                         <div class="rb-kpi-card__label">FITUR RISET</div>
                         <div style="display:flex; flex-direction:column; gap:.4rem; margin-top:.4rem;">
                             <button type="button" class="rb-button" wire:click="fetchReferences">+ Cari Paper (SINTA/DOI)</button>
+
+                            <label class="rb-button" style="cursor:pointer; justify-content:center;">
+                                &#8679; Upload PDF Referensi
+                                <input type="file" accept="application/pdf" wire:model="referenceUpload" style="display:none;" />
+                            </label>
+
+                            <div wire:loading wire:target="referenceUpload" class="rb-mono" style="font-size:.68rem;">
+                                Mengimpor &amp; mengekstrak PDF...
+                            </div>
+
+                            @if ($importStatus !== '')
+                                <div class="rb-mono" style="font-size:.68rem; color:{{ str_starts_with($importStatus, 'OK') ? '#047857' : '#b91c1c' }};">
+                                    {{ $importStatus }}
+                                </div>
+                            @endif
+
                             <div class="rb-mono" style="font-size:.7rem;">Matriks Literatur: {{ $references->count() }} entri</div>
                         </div>
 
@@ -128,10 +144,49 @@
                                 <div style="display:flex; gap:.4rem;">
                                     <button type="button" class="rb-button rb-button--approve" wire:click="approvePendingSection">&#10003; Terima</button>
                                     <button type="button" class="rb-button" wire:click="requestRegeneration">&#8635; Revisi</button>
-                                    <button type="button" class="rb-button" wire:click="runPipeline">&#9998; Edit</button>
+                                    <button type="button" class="rb-button" x-on:click="$dispatch('open-manual-edit')">&#9998; Edit Manual</button>
                                 </div>
                             </div>
                         @endif
+
+                        {{-- Manual Edit modal: sunting naskah langsung lalu simpan --}}
+                        <div
+                            x-data="{ open: false, draft: '' }"
+                            x-on:open-manual-edit.window="open = true; draft = $el.dataset.content || ''"
+                            data-content="{{ $stage?->compile() }}"
+                        >
+                            <template x-if="open">
+                                <div style="position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:50; display:flex; align-items:center; justify-content:center; padding:1rem;">
+                                    <div class="rb-window" style="width:min(760px, 96vw);">
+                                        <div class="rb-window__titlebar">
+                                            <span>[&#9998;] EDIT NASKAH MANUAL — {{ strtoupper($stageLabel) }}</span>
+                                            <span class="rb-window__controls">
+                                                <span class="rb-window__control" style="cursor:pointer;" x-on:click="open = false">&#215;</span>
+                                            </span>
+                                        </div>
+                                        <div class="rb-window__body">
+                                            <p class="rb-mono" style="font-size:.7rem; margin-bottom:.5rem;">
+                                                Tulis/sunting naskah. Gunakan penanda "## Judul Sub-bab" untuk memisahkan bagian.
+                                            </p>
+                                            <textarea
+                                                x-model="draft"
+                                                rows="14"
+                                                class="rb-mono"
+                                                style="width:100%; border:2px solid #0f172a; padding:.6rem; font-size:.78rem; line-height:1.6;"
+                                            ></textarea>
+                                            <div style="display:flex; gap:.5rem; margin-top:.75rem; justify-content:flex-end;">
+                                                <button type="button" class="rb-button" x-on:click="open = false">Batal</button>
+                                                <button
+                                                    type="button"
+                                                    class="rb-button rb-button--approve"
+                                                    x-on:click="$wire.saveManualEditText(draft); open = false;"
+                                                >&#10003; Simpan</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
 
                         <div class="rb-editor">
                             @forelse ($sections as $section)
@@ -186,6 +241,22 @@
                             @endforelse
                         </ul>
                         <button type="button" class="rb-button" style="margin-top:.4rem;" wire:click="matchVenues">Cocokkan Venue</button>
+
+                        <div class="rb-kpi-card__label" style="margin-top:1rem;">KEPUASAN (CSAT 1-5)</div>
+                        <div style="display:flex; gap:.3rem; margin-top:.35rem;">
+                            @for ($star = 1; $star <= 5; $star++)
+                                <button
+                                    type="button"
+                                    class="rb-button"
+                                    style="padding:.15rem .45rem;"
+                                    wire:click="rateSatisfaction({{ $star }})"
+                                    title="Beri rating {{ $star }}"
+                                >{{ $star }}</button>
+                            @endfor
+                        </div>
+                        <div class="rb-mono" style="font-size:.65rem; margin-top:.25rem;">
+                            CSAT saat ini: {{ number_format((float) ($metrics['user_satisfaction_score']['value'] ?? 0), 1) }} / 5
+                        </div>
                     </div>
                 </div>
             </div>
