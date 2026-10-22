@@ -3,6 +3,69 @@
 Aplikasi Laravel 13 dengan PHP 8.4. Seluruh perintah pengembangan dibungkus dalam
 `Makefile`, sehingga tidak perlu mengingat kombinasi perintah artisan/npm/docker.
 
+## Agen Xishie — Intelligent Academic & Publication Workspace
+
+*Agentic Academic Workspace* yang memandu peneliti dari ideasi hingga publikasi
+(Jurnal, Skripsi, Tesis, Disertasi) untuk target **Nasional (SINTA 1-6)** maupun
+**Internasional (Scopus Q1-Q4 / WoS)**.
+
+- **Dokumen PRD**: [`docs/PRD.md`](docs/PRD.md)
+- **Master prompt implementasi**: [`PROMPT_IMPLEMENTATION.md`](PROMPT_IMPLEMENTATION.md)
+
+### Arsitektur
+
+Modular Monolith di atas **MySQL 8.4 InnoDB**: UI Filament 5 (`app/Filament`),
+logika domain (`app/Domain`), dan engine multi-agent `Omnigensi` (`app/Omnigensi`).
+Pencarian semantik memakai **FULLTEXT MySQL** + **Cosine Similarity** di PHP
+(`HybridVectorMatcherService`) tanpa ekstensi eksternal seperti pgvector.
+
+| Lapisan | Lokasi |
+| --- | --- |
+| Enums domain (bidang, dokumen, tahap, mode kendali, KPI) | `app/Domain/*/Enums` |
+| Guideline Engine (preset IMRaD & DIKTI) | `app/Domain/GuidelineEngine` |
+| State 3 tahap (Draft → Proposal → Final) | `app/Domain/Workspace/StageStateManager` |
+| Telemetri 18 UX KPI (HEART + AARRR) | `app/Domain/Workspace/UxKpiTelemetryService` |
+| Orkestrator & 5 agen spesialis | `app/Omnigensi/{Orchestrator,Agents}` |
+| Memori hybrid (FULLTEXT + cosine) | `app/Omnigensi/Memory` |
+| UI Retro Blue & 4 halaman | `app/Filament`, `resources/css/retro-blue-theme.css` |
+
+**5 agen Omnigensi**: `Rule-Keeper`, `Scholar-Scout`, `Academic-Scribe`,
+`Peer-Critic`, `Venue-Matcher` — dikoordinasikan `XishieSupervisor` dalam tiga
+mode kendali: `AUTOMATION`, `HITL` (approval gate), `MANUAL`.
+
+### 8 Tabel Inti (MySQL InnoDB)
+
+`xishie_projects`, `project_stages`, `project_references`, `project_revisions`,
+`academic_venues`, `platform_recommendations`, `omnigensi_agent_logs`,
+`ux_kpi_telemetries` — kolom dinamis memakai `JSON` native MySQL, dan pencarian
+teks memakai indeks `FULLTEXT`.
+
+### Mengakses Workspace
+
+```sh
+make up                      # nyalakan stack
+# login: test@example.com / password  →  http://localhost:8208/admin
+```
+
+Halaman tersedia: **Onboarding Wizard**, **Academic Workspace** (3 panel),
+**Smart Revision Center**, dan **Platform Matcher**.
+
+### Pengujian
+
+Test berjalan di atas MySQL (`xishie_testing`):
+
+```sh
+make test-db                                   # sekali: buat DB testing
+make test IN_DOCKER=1
+make lint IN_DOCKER=1
+```
+
+Membuat database testing sekali saja:
+
+```sh
+docker compose exec db mysql -uroot -e "CREATE DATABASE IF NOT EXISTS xishie_testing"
+```
+
 ## Prasyarat
 
 Pilih salah satu:

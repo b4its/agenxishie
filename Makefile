@@ -255,6 +255,12 @@ fresh: require-php ## migrate:fresh + seed (DESTRUKTIF)
 db-status: require-php ## Status migrasi
 	$(ARTISAN) migrate:status
 
+.PHONY: test-db
+test-db: ## Buat database pengujian MySQL (xishie_testing) bila belum ada
+	@$(COMPOSE) exec -T $(DB_SERVICE) mysql -uroot -e \
+		"CREATE DATABASE IF NOT EXISTS xishie_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+	@echo "✓ Database xishie_testing siap."
+
 .PHONY: db-rollback
 db-rollback: require-php ## Rollback migrasi terakhir
 	$(ARTISAN) migrate:rollback --ansi
@@ -476,7 +482,7 @@ CI_RUN_FLAGS    ?= --rm -v "$(CURDIR)":/app -w /app \
 CI_RUN          ?= docker run $(CI_RUN_FLAGS) $(CI_IMAGE)
 
 .PHONY: ci-image
-ci-image: ## Bangun image CI (php:8.4-cli + pdo_sqlite, pcov, unzip, git, composer)
+ci-image: ## Bangun image CI (php:8.4-cli + pdo_sqlite, intl, pcov, unzip, git, composer)
 	@if docker image inspect $(CI_IMAGE) >/dev/null 2>&1; then \
 		echo "✓ Image $(CI_IMAGE) sudah ada, dilewati."; \
 	else \
@@ -484,8 +490,8 @@ ci-image: ## Bangun image CI (php:8.4-cli + pdo_sqlite, pcov, unzip, git, compos
 		printf '%s\n' \
 			'FROM php:8.4-cli' \
 			'RUN apt-get update && apt-get install -y --no-install-recommends \' \
-			'        git unzip libsqlite3-dev \' \
-			'    && docker-php-ext-install pdo_sqlite \' \
+			'        git unzip libsqlite3-dev libicu-dev libzip-dev \' \
+			'    && docker-php-ext-install pdo_sqlite intl zip \' \
 			'    && pecl install pcov \' \
 			'    && docker-php-ext-enable pcov \' \
 			'    && apt-get clean && rm -rf /var/lib/apt/lists/*' \
