@@ -15,6 +15,8 @@ class HeartKpiTelemetryWidget extends Widget
 {
     protected string $view = 'filament.widgets.kpi-framework-table';
 
+    protected static bool $isLazy = false;
+
     protected int|string|array $columnSpan = 1;
 
     protected static ?int $sort = 2;

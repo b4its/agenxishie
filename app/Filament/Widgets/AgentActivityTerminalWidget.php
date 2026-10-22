@@ -15,6 +15,8 @@ class AgentActivityTerminalWidget extends Widget
 {
     protected string $view = 'filament.widgets.agent-activity-terminal';
 
+    protected static bool $isLazy = false;
+
     protected int|string|array $columnSpan = 'full';
 
     protected static ?int $sort = 4;

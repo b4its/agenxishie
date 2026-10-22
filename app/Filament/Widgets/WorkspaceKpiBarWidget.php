@@ -16,6 +16,8 @@ class WorkspaceKpiBarWidget extends Widget
 {
     protected string $view = 'filament.widgets.workspace-kpi-bar';
 
+    protected static bool $isLazy = false;
+
     protected int|string|array $columnSpan = 'full';
 
     protected static ?int $sort = 1;

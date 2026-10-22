@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\UxAnalyticsDashboard;
+use App\Filament\Widgets\AarrrFunnelWidget;
+use App\Filament\Widgets\AgentActivityTerminalWidget;
+use App\Filament\Widgets\HeartKpiTelemetryWidget;
+use App\Filament\Widgets\WorkspaceKpiBarWidget;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -45,7 +50,16 @@ class AdminPanelProvider extends PanelProvider
             ->viteTheme('resources/css/app.css')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
+            ->pages([
+                UxAnalyticsDashboard::class,
+            ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
+            ->widgets([
+                WorkspaceKpiBarWidget::class,
+                HeartKpiTelemetryWidget::class,
+                AarrrFunnelWidget::class,
+                AgentActivityTerminalWidget::class,
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
