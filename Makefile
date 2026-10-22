@@ -491,6 +491,22 @@ up: ## Nyalakan stack Nginx + PHP-FPM + MySQL (background)
 	@echo "✓ Aplikasi: $(APP_URL)"
 	@echo "  Mode DB : $(DB_SETUP) (ubah dengan DB_SETUP=fresh|migrate|none)"
 
+# Mode host-network: dipakai bila container (bridge) TIDAK bisa menjangkau
+# layanan di host — mis. backend Omnigensi di http://localhost:8123
+# ("Could not resolve/connect host.docker.internal"). Semua container memakai
+# jaringan host sehingga localhost:8123 dapat dijangkau langsung.
+COMPOSE_HOSTNET ?= docker compose -f docker-compose.yml -f docker-compose.hostnet.yml
+
+.PHONY: up-hostnet
+up-hostnet: ## Nyalakan stack dalam mode host-network (agar bisa akses Omnigensi di localhost:8123)
+	DB_SETUP=$(DB_SETUP) $(COMPOSE_HOSTNET) --profile nginx up -d --build
+	@echo "✓ Aplikasi (host network): $(APP_URL)"
+	@echo "  Omnigensi : http://localhost:8123 (dapat dijangkau dari container)"
+
+.PHONY: down-hostnet
+down-hostnet: ## Matikan stack mode host-network
+	$(COMPOSE_HOSTNET) --profile nginx down
+
 .PHONY: up-apache
 up-apache: ## Nyalakan stack Apache + MySQL (background)
 	DB_SETUP=$(DB_SETUP) $(COMPOSE) --profile apache up -d --build
