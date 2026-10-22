@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
-use App\Domain\Research\PdfTextExtractor;
 use App\Domain\Revision\Enums\RevisionStatus;
+use App\Domain\Shared\DocumentTextExtractor;
 use App\Models\XishieProject;
 use App\Omnigensi\Agents\PeerCriticAgent;
+use App\Omnigensi\Enums\AgentStatus;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -100,9 +101,7 @@ class SmartRevisionCenterPage extends Page implements HasForms
             $binary = $this->feedbackUpload->get();
             $filename = (string) $this->feedbackUpload->getClientOriginalName();
 
-            $text = str_ends_with(mb_strtolower($filename), '.pdf')
-                ? app(PdfTextExtractor::class)->extract($binary)
-                : $this->extractPlainText($binary);
+            $text = app(DocumentTextExtractor::class)->extract($binary);
 
             if (trim($text) === '') {
                 throw new \RuntimeException('Tidak ada teks yang dapat diekstrak dari berkas komentar.');
@@ -125,40 +124,6 @@ class SmartRevisionCenterPage extends Page implements HasForms
         } finally {
             $this->feedbackUpload = null;
         }
-    }
-
-    /**
-     * Ekstraksi teks sederhana (DOCX = arsip zip berisi word/document.xml).
-     */
-    private function extractPlainText(string $binary): string
-    {
-        $plain = mb_convert_encoding($binary, 'UTF-8', 'UTF-8');
-
-        // DOCX: baca word/document.xml dari arsip zip.
-        if (str_starts_with($plain, "PK\x03\x04") && class_exists(\ZipArchive::class)) {
-            $temp = tempnam(sys_get_temp_dir(), 'xishie-docx-');
-
-            if ($temp !== false) {
-                file_put_contents($temp, $binary);
-                $zip = new \ZipArchive;
-
-                if ($zip->open($temp) === true) {
-                    $xml = $zip->getFromName('word/document.xml');
-
-                    if (is_string($xml)) {
-                        $text = strip_tags((string) preg_replace('/<\/w:p>/u', "\n", $xml));
-                        $plain = html_entity_decode($text, ENT_QUOTES | ENT_XML1, 'UTF-8');
-                    }
-
-                    $zip->close();
-                }
-
-                @unlink($temp);
-            }
-        }
-
-        // Fallback: buang karakter non-printable dari berkas teks biasa.
-        return trim((string) preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]+/u', ' ', $plain));
     }
 
     public function analyseFeedback(): void
@@ -214,6 +179,72 @@ class SmartRevisionCenterPage extends Page implements HasForms
         }
 
         Notification::make()->title('Butir revisi ditandai selesai')->success()->send();
+    }
+
+    /**
+     * Tandai SELURUH butir revisi sebagai selesai sekaligus.
+     */
+    public function markAllResolved(int $revisionId): void
+    {
+        $revision = $this->getProject()?->revisions()->find($revisionId);
+
+        if ($revision === null) {
+            return;
+        }
+
+        $items = (array) ($revision->action_items ?? []);
+
+        foreach ($items as $index => $item) {
+            $items[$index]['status'] = RevisionStatus::RESOLVED->value;
+        }
+
+        $revision->forceFill([
+            'action_items' => $items,
+            'status' => RevisionStatus::RESOLVED,
+            'response_matrix_doc' => app(PeerCriticAgent::class)->renderResponseMatrix(
+                $revision->fresh() ?? $revision,
+            ),
+        ])->save();
+
+        Notification::make()
+            ->title('Semua butir revisi ditandai selesai')
+            ->body('Resolusi: '.number_format((float) $revision->fresh()?->resolutionPercentage(), 0).'%')
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Analisis ulang catatan mentah sebuah revisi (memperbarui action items &
+     * matriks Response to Reviewers).
+     */
+    public function reanalyseRevision(int $revisionId): void
+    {
+        $project = $this->getProject();
+        $revision = $project?->revisions()->find($revisionId);
+
+        if ($project === null || $revision === null) {
+            return;
+        }
+
+        $stage = app(XishieSupervisor::class)->ensureStage($project, $project->current_stage);
+        $result = app(PeerCriticAgent::class)->run($project, $stage, [
+            'raw_feedback' => (string) $revision->raw_feedback,
+            'reviewer_role' => (string) $revision->reviewer_role,
+        ]);
+
+        if (! $result->isSuccessful() && $result->status !== AgentStatus::SKIPPED) {
+            Notification::make()->title('Gagal menganalisis ulang')->danger()->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title('Revisi dianalisis ulang')
+            ->body('Action items & matriks diperbarui.')
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
     }
 
     public function getProject(): ?XishieProject

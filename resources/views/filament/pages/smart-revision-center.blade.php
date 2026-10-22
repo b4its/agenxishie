@@ -60,7 +60,13 @@
                             </div>
                         </div>
 
-                        <div class="rb-kpi-card__label">ACTIONABLE CHECKLIST</div>
+                        <div class="rb-kpi-card__label" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; flex-wrap:wrap;">
+                            <span>ACTIONABLE CHECKLIST</span>
+                            <span style="display:flex; gap:.35rem;">
+                                <button type="button" class="rb-button" style="padding:.15rem .5rem; font-size:.6rem;" wire:click="reanalyseRevision({{ $revision->id }})" wire:loading.attr="disabled">&#8635; Analisis Ulang</button>
+                                <button type="button" class="rb-button rb-button--approve" style="padding:.15rem .5rem; font-size:.6rem;" wire:click="markAllResolved({{ $revision->id }})" wire:loading.attr="disabled">&#10003; Semua Selesai</button>
+                            </span>
+                        </div>
                         <ul class="rb-mono" style="font-size:.72rem; line-height:1.9; margin:.4rem 0 1rem; padding-left:.2rem;">
                             @foreach ((array) $revision->action_items as $item)
                                 <li style="display:flex; align-items:center; gap:.5rem; margin-bottom:.35rem;">

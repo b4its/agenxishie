@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Domain\GuidelineEngine\CustomGuidelineParser;
 use App\Domain\GuidelineEngine\Enums\CitationStyle;
+use App\Domain\GuidelineEngine\GuidelinePresetFactory;
 use App\Domain\Personalization\Enums\DocumentType;
 use App\Domain\Personalization\Enums\FieldOfStudy;
 use App\Domain\Personalization\Enums\PublicationTarget;
 use App\Domain\Personalization\ProjectOnboardingService;
+use App\Domain\Shared\DocumentTextExtractor;
 use App\Domain\Workspace\Enums\ControlMode;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
 use Filament\Forms\Components\FileUpload;
@@ -22,6 +25,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * ProjectOnboardingWizard: 4 langkah personalisasi proyek.
@@ -172,8 +176,25 @@ class ProjectOnboardingWizard extends Page implements HasForms
             return;
         }
 
-        $state = $this->form->getState();
+        // Gabungkan state mentah wizard ($this->data, menyimpan semua langkah)
+        // dengan state field yang sedang terlihat. Field pada langkah lain
+        // bersifat tersembunyi sehingga tidak muncul di getState().
+        $state = array_merge($this->data, $this->form->getState());
         $documentType = DocumentType::from((string) $state['document_type']);
+        $guidelineType = (string) ($state['guideline_type'] ?? 'default');
+        $citationStyle = (string) ($state['citation_style'] ?? $documentType->defaultCitationStyle());
+
+        // Pedoman custom: ekstrak berkas PDF/DOCX lalu parsing menjadi aturan
+        // terstruktur (guideline_rules) agar langsung dipakai agen & auditor.
+        $guidelineRules = null;
+
+        if ($guidelineType === 'custom' && ! empty($state['custom_guideline_path'])) {
+            $guidelineRules = $this->parseCustomGuideline(
+                (string) $state['custom_guideline_path'],
+                $documentType,
+                $citationStyle,
+            );
+        }
 
         $project = app(ProjectOnboardingService::class)->create(
             userId: (int) Auth::id(),
@@ -184,8 +205,9 @@ class ProjectOnboardingWizard extends Page implements HasForms
                 'target_scope' => (string) $state['target_scope'],
                 'target_tier' => $state['target_tier'] ?? null,
                 'control_mode' => (string) $state['control_mode'],
-                'guideline_type' => (string) ($state['guideline_type'] ?? 'default'),
-                'citation_style' => (string) ($state['citation_style'] ?? $documentType->defaultCitationStyle()),
+                'guideline_type' => $guidelineType,
+                'citation_style' => $citationStyle,
+                'guideline_rules' => $guidelineRules,
                 'custom_guideline_path' => $state['custom_guideline_path'] ?? null,
             ],
         );
@@ -200,6 +222,63 @@ class ProjectOnboardingWizard extends Page implements HasForms
             ->send();
 
         $this->redirect(AcademicWorkspacePage::getUrl(['project' => $project->id]));
+    }
+
+    /**
+     * Ekstrak & parsing pedoman penulisan custom menjadi aturan terstruktur.
+     *
+     * Mengembalikan null bila berkas tak terbaca / tak ada aturan terdeteksi,
+     * sehingga proyek jatuh ke preset default (tidak menggagalkan onboarding).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function parseCustomGuideline(string $path, DocumentType $documentType, string $citationStyle): ?array
+    {
+        try {
+            $binary = $this->readStoredFile($path);
+
+            if ($binary === null || $binary === '') {
+                return null;
+            }
+
+            $text = app(DocumentTextExtractor::class)->extract($binary);
+
+            if (trim($text) === '') {
+                Notification::make()
+                    ->title('Pedoman custom tak terbaca')
+                    ->body('Teks tidak dapat diekstrak dari berkas; memakai preset default.')
+                    ->warning()
+                    ->send();
+
+                return null;
+            }
+
+            $fallback = app(GuidelinePresetFactory::class)->forDocumentType($documentType, $citationStyle);
+
+            return app(CustomGuidelineParser::class)->parse($text, $fallback)->toArray();
+        } catch (\Throwable $exception) {
+            Notification::make()
+                ->title('Gagal memproses pedoman custom')
+                ->body($exception->getMessage().' — memakai preset default.')
+                ->warning()
+                ->send();
+
+            return null;
+        }
+    }
+
+    /**
+     * Baca isi berkas terunggah dari disk local (Filament default).
+     */
+    private function readStoredFile(string $path): ?string
+    {
+        $disk = Storage::disk('local');
+
+        if (! $disk->exists($path)) {
+            return null;
+        }
+
+        return $disk->get($path);
     }
 
     protected function validateStep(): bool
