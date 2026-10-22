@@ -143,3 +143,78 @@ it('shows a graceful unavailable state when omnigensi is offline', function (): 
         ->assertSuccessful()
         ->assertSet('backendOnline', false);
 });
+
+it('filters the model picker by the search query', function (): void {
+    $this->actingAs(User::factory()->create());
+
+    Http::fake([
+        '*/health' => Http::response(['status' => 'ok'], 200),
+        '*/api/v1/auth/login' => Http::response(['token' => 'tok'], 200),
+        '*/api/v1/chat/models' => Http::response([
+            'models' => [
+                ['provider_id' => 'p1', 'provider_name' => '9router', 'model_id' => 'deepseek', 'display_name' => 'DeepSeek', 'is_default' => true],
+                ['provider_id' => 'p1', 'provider_name' => '9router', 'model_id' => 'claude', 'display_name' => 'Claude', 'is_default' => false],
+                ['provider_id' => 'p1', 'provider_name' => '9router', 'model_id' => 'gpt', 'display_name' => 'GPT-4', 'is_default' => false],
+            ],
+        ], 200),
+    ]);
+
+    $component = Livewire\Livewire::test(AiChatPage::class)->assertSuccessful();
+
+    $all = $component->instance()->modelOptions();
+    expect($all)->toHaveCount(3);
+
+    $component->set('modelSearch', 'claude');
+    expect($component->instance()->filteredModelOptions())->toHaveCount(1);
+
+    // Tidak peka huruf besar/kecil.
+    $component->set('modelSearch', 'DEEP');
+    expect($component->instance()->filteredModelOptions())->toHaveCount(1);
+
+    // Banyak kata kunci (AND).
+    $component->set('modelSearch', 'claude 9router');
+    expect($component->instance()->filteredModelOptions())->toHaveCount(1);
+
+    // Tidak ada yang cocok.
+    $component->set('modelSearch', 'zzz');
+    expect($component->instance()->filteredModelOptions())->toHaveCount(0)
+        ->and($component->instance()->modelCounts())->toMatchArray(['total' => 3, 'shown' => 0]);
+
+    // Bersihkan pencarian.
+    $component->call('clearModelSearch');
+    expect($component->get('modelSearch'))->toBe('')
+        ->and($component->instance()->filteredModelOptions())->toHaveCount(3);
+});
+
+it('renders assistant replies as safe markdown html', function (): void {
+    $component = Livewire\Livewire::test(AiChatPage::class);
+
+    $html = $component->instance()->markdownToHtml("**Tebal** dan `kode`.\n\n- satu\n- dua");
+
+    expect($html)->toContain('<strong>Tebal</strong>')
+        ->and($html)->toContain('<code>kode</code>')
+        ->and($html)->toContain('<li>satu</li>');
+});
+
+it('strips raw html from model markdown output', function (): void {
+    $component = Livewire\Livewire::test(AiChatPage::class);
+
+    // Blok HTML mentah (mis. <script>) dibuang total oleh html_input: strip.
+    $html = $component->instance()->markdownToHtml('<script>alert(1)</script>');
+
+    expect($html)->not->toContain('<script>')
+        ->and($html)->not->toContain('alert(1)');
+
+    // Markdown biasa di baris terpisah tetap dirender dengan aman.
+    $clean = $component->instance()->markdownToHtml("Halo dunia\n\n**aman**");
+    expect($clean)->toContain('<strong>aman</strong>');
+});
+
+it('renders an error reply as escaped plain text', function (): void {
+    $component = Livewire\Livewire::test(AiChatPage::class);
+
+    $html = $component->instance()->markdownToHtml('[Gagal] <b>x</b> & y');
+
+    expect($html)->toContain('&lt;b&gt;')
+        ->and($html)->not->toContain('<b>');
+});

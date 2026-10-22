@@ -575,6 +575,127 @@
     color: var(--rb-terminal-agent);
 }
 
+/* Markdown-rendered AI responses inside the chat terminal ------------------- */
+.rb-chat-md {
+    font-family: var(--rb-font-sans, 'Space Grotesk', sans-serif);
+    font-size: 0.82rem;
+    line-height: 1.65;
+    color: var(--rb-terminal-fg);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.rb-chat-md--error {
+    color: var(--rb-status-alert);
+}
+
+.rb-chat-md > :first-child {
+    margin-top: 0;
+}
+
+.rb-chat-md > :last-child {
+    margin-bottom: 0;
+}
+
+.rb-chat-md p {
+    margin: 0.4rem 0;
+}
+
+.rb-chat-md h1,
+.rb-chat-md h2,
+.rb-chat-md h3,
+.rb-chat-md h4 {
+    font-family: var(--rb-font-display);
+    color: var(--rb-terminal-agent);
+    margin: 0.7rem 0 0.35rem;
+    line-height: 1.25;
+}
+
+.rb-chat-md h1 { font-size: 1.15rem; }
+.rb-chat-md h2 { font-size: 1.05rem; }
+.rb-chat-md h3 { font-size: 0.95rem; }
+
+.rb-chat-md ul,
+.rb-chat-md ol {
+    margin: 0.35rem 0 0.35rem 1.2rem;
+    padding: 0;
+}
+
+.rb-chat-md ul { list-style: disc; }
+.rb-chat-md ol { list-style: decimal; }
+
+.rb-chat-md li {
+    margin: 0.15rem 0;
+}
+
+.rb-chat-md a {
+    color: var(--rb-terminal-agent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.rb-chat-md a:hover {
+    color: var(--rb-accent);
+}
+
+.rb-chat-md code {
+    font-family: var(--rb-font-mono);
+    font-size: 0.78rem;
+    background: color-mix(in srgb, var(--rb-terminal-fg) 12%, transparent);
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+}
+
+.rb-chat-md pre {
+    font-family: var(--rb-font-mono);
+    font-size: 0.76rem;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid color-mix(in srgb, var(--rb-terminal-fg) 18%, transparent);
+    border-radius: 4px;
+    padding: 0.6rem 0.7rem;
+    margin: 0.5rem 0;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.rb-chat-md pre code {
+    background: transparent;
+    padding: 0;
+    font-size: inherit;
+}
+
+.rb-chat-md blockquote {
+    margin: 0.5rem 0;
+    padding: 0.2rem 0.75rem;
+    border-left: 3px solid var(--rb-terminal-agent);
+    color: var(--rb-terminal-time);
+}
+
+.rb-chat-md table {
+    border-collapse: collapse;
+    margin: 0.5rem 0;
+    font-size: 0.74rem;
+    width: 100%;
+}
+
+.rb-chat-md th,
+.rb-chat-md td {
+    border: 1px solid color-mix(in srgb, var(--rb-terminal-fg) 22%, transparent);
+    padding: 0.25rem 0.45rem;
+    text-align: left;
+}
+
+.rb-chat-md th {
+    background: color-mix(in srgb, var(--rb-terminal-fg) 10%, transparent);
+    font-weight: 700;
+}
+
+.rb-chat-md hr {
+    border: 0;
+    border-top: 1px solid color-mix(in srgb, var(--rb-terminal-fg) 20%, transparent);
+    margin: 0.75rem 0;
+}
+
 /* -----------------------------------------------------------------------------
    Academic editor typography
    ----------------------------------------------------------------------------- */
