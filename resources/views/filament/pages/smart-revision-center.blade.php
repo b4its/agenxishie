@@ -13,6 +13,22 @@
                     <span class="rb-window__controls"><span class="rb-window__control">-</span><span class="rb-window__control">&#9633;</span><span class="rb-window__control">&#215;</span></span>
                 </div>
                 <div class="rb-window__body">
+                    {{-- Input multi-sumber: unggah dokumen komentar reviewer (PDF/DOCX) --}}
+                    <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.75rem; flex-wrap:wrap;">
+                        <label class="rb-button" style="cursor:pointer;">
+                            &#8679; Unggah Dokumen Komentar (PDF/DOCX)
+                            <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" wire:model="feedbackUpload" style="display:none;" />
+                        </label>
+                        <span wire:loading wire:target="feedbackUpload" class="rb-mono" style="font-size:.68rem;">
+                            Mengekstrak teks...
+                        </span>
+                        @if ($feedbackImportStatus !== '')
+                            <span class="rb-mono" style="font-size:.68rem; color:{{ str_starts_with($feedbackImportStatus, 'OK') ? '#047857' : '#b91c1c' }};">
+                                {{ $feedbackImportStatus }}
+                            </span>
+                        @endif
+                    </div>
+
                     <form wire:submit="analyseFeedback">
                         {{ $this->form }}
                         <div style="margin-top:.75rem;">
