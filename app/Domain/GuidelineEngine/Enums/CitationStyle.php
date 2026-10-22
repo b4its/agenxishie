@@ -23,14 +23,21 @@ enum CitationStyle: string
 
     /**
      * Pola sitasi dalam teks yang dikenali (dipakai validator).
+     *
+     * Semua gaya menerima bentuk kunci sitasi internal proyek "[Author, Year]"
+     * karena AcademicScribeAgent menulis sitasi terikat pada project_references,
+     * di samping bentuk baku masing-masing gaya.
      */
     public function inTextPattern(): string
     {
+        // Bentuk internal: [Prasetyo, 2023], [Prasetyo 2023], [Kumar et al., 2022].
+        $internal = '\[[A-Z][A-Za-z\-]+(?:\s(?:et al\.|dkk\.|&|dan)\s?[A-Za-z\-]*)?,?\s\d{4}[a-z]?\]';
+
         return match ($this) {
-            self::APA7 => '/\([A-Z][A-Za-z\-]+(?:\s(?:et al\.|&|dan)\s?[A-Za-z\-]*)?,\s\d{4}[a-z]?\)/u',
-            self::IEEE => '/\[\d{1,3}(?:[,\-]\s?\d{1,3})*\]/u',
-            self::VANCOUVER => '/\(\d{1,3}(?:[,\-]\s?\d{1,3})*\)/u',
-            self::CHICAGO => '/\([A-Z][A-Za-z\-]+\s\d{4}(?::\s?\d+)?\)/u',
+            self::APA7 => '/(?:'.$internal.'|\([A-Z][A-Za-z\-]+(?:\s(?:et al\.|&|dan)\s?[A-Za-z\-]*)?,\s\d{4}[a-z]?\))/u',
+            self::IEEE => '/(?:'.$internal.'|\[\d{1,3}(?:[,\-]\s?\d{1,3})*\])/u',
+            self::VANCOUVER => '/(?:'.$internal.'|\(\d{1,3}(?:[,\-]\s?\d{1,3})*\))/u',
+            self::CHICAGO => '/(?:'.$internal.'|\([A-Z][A-Za-z\-]+\s\d{4}(?::\s?\d+)?\))/u',
         };
     }
 
