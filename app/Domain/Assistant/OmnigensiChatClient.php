@@ -7,6 +7,7 @@ namespace App\Domain\Assistant;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Psr\Http\Message\StreamInterface;
 use RuntimeException;
 
 /**
@@ -184,6 +185,115 @@ final class OmnigensiChatClient
             'provider_name' => (string) $response->json('client', ''),
             'model_id' => (string) $response->json('model', $modelId),
             'latency_ms' => (int) $response->json('latency_ms', 0),
+        ];
+    }
+
+    /**
+     * Completion streaming lewat endpoint integrasi. Setiap potongan token
+     * diteruskan ke $onToken agar UI dapat merender Markdown secara progresif.
+     *
+     * @param  array<int, array{role: string, content: string}>  $messages
+     * @param  callable(string): void  $onToken
+     * @return array{content: string, provider_name: string, model_id: string, latency_ms: int}
+     */
+    public function streamIntegration(
+        string $modelId,
+        array $messages,
+        callable $onToken,
+        float $temperature = 0.7,
+        int $maxTokens = 2048,
+    ): array {
+        $response = $this->integrationHttp()
+            ->withOptions(['stream' => true])
+            ->withHeaders(['Accept' => 'text/event-stream'])
+            ->post('/api/v1/integrations/v1/chat/completions', [
+                'model' => $modelId,
+                'messages' => $messages,
+                'temperature' => $temperature,
+                'max_tokens' => $maxTokens,
+                'stream' => true,
+            ]);
+
+        if ($response->failed()) {
+            $detail = $response->json('detail') ?? $response->body();
+
+            throw new RuntimeException('Integrasi Omnigensi menolak permintaan: '.
+                (is_string($detail) ? $detail : json_encode($detail)));
+        }
+
+        /** @var StreamInterface $stream */
+        $stream = $response->toPsrResponse()->getBody();
+
+        $content = '';
+        $buffer = '';
+        $latency = 0;
+        $providerName = '';
+        $modelIdFinal = $modelId;
+        $error = null;
+        $event = null;
+
+        while (! $stream->eof()) {
+            $chunk = (string) $stream->read(8192);
+
+            if ($chunk === '') {
+                continue;
+            }
+
+            $buffer .= str_replace("\r\n", "\n", $chunk);
+
+            // Proses blok SSE lengkap (dipisah baris kosong).
+            while (($pos = strpos($buffer, "\n\n")) !== false) {
+                $block = substr($buffer, 0, $pos);
+                $buffer = substr($buffer, $pos + 2);
+                $event = null;
+                $data = null;
+
+                foreach (explode("\n", $block) as $line) {
+                    if (str_starts_with($line, 'event:')) {
+                        $event = trim(substr($line, 6));
+                    } elseif (str_starts_with($line, 'data:')) {
+                        $data = trim(substr($line, 5));
+                    }
+                }
+
+                if ($event === null || $data === null) {
+                    continue;
+                }
+
+                $decoded = json_decode($data, true);
+                $decoded = is_array($decoded) ? $decoded : [];
+
+                if ($event === 'start') {
+                    $providerName = (string) ($decoded['client'] ?? $decoded['provider_name'] ?? '');
+                    $modelIdFinal = (string) ($decoded['model'] ?? $modelId);
+                } elseif ($event === 'token') {
+                    $text = (string) ($decoded['text'] ?? '');
+
+                    if ($text !== '') {
+                        $content .= $text;
+                        $onToken($text);
+                    }
+                } elseif ($event === 'done') {
+                    $latency = (int) ($decoded['latency_ms'] ?? 0);
+                } elseif ($event === 'error') {
+                    $error = (string) ($decoded['message'] ?? 'Kesalahan tak dikenal');
+                }
+            }
+        }
+
+        if ($error !== null) {
+            throw new RuntimeException('Model mengembalikan kesalahan: '.$error);
+        }
+
+        if (trim($content) === '') {
+            throw new RuntimeException('Model tidak mengembalikan jawaban (stream).');
+        }
+
+        return [
+            'content' => $content,
+            'provider_name' => $providerName,
+            'model_id' => $modelIdFinal,
+            'latency_ms' => $latency,
         ];
     }
 
