@@ -1,64 +1,172 @@
 /* =============================================================================
-   Retro Blue Data-Literate System
-   Neo-Brutalist Retro OS / Technical Blueprint theme for Agen Xishie.
-   Philosophy: "Design without data is just opinion with better typography."
+   Agen Xishie — Retro Blue Data-Literate Design System
+   Neo-brutalist blueprint UI dengan dukungan Light & Dark theme penuh.
+
+   Prinsip:
+   - Semua warna diturunkan dari token (CSS variables) yang BERGANTI di `.dark`.
+   - Tidak ada warna hardcoded di komponen: gunakan var(--rb-*).
+   - Kontras teks/permukaan dijaga di kedua tema (tidak ada teks putih di atas
+     permukaan putih, dsb).
    ============================================================================= */
 
+/* -----------------------------------------------------------------------------
+   TOKEN — LIGHT (default)
+   ----------------------------------------------------------------------------- */
 :root {
     /* Canvas & surfaces */
-    --rb-canvas: #f0f6ff;
-    --rb-grid: #cbd5e1;
+    --rb-canvas: #eef3fb;
+    --rb-canvas-grid: #c7d6ea;
     --rb-surface: #ffffff;
-    --rb-surface-soft: #e0f2fe;
+    --rb-surface-soft: #f1f6ff;
+    --rb-surface-muted: #e3ebf7;
+    --rb-surface-inset: #f8fbff;
 
-    /* Blues */
-    --rb-primary: #1e40af; /* Cobalt */
-    --rb-secondary: #2563eb; /* Electric */
-    --rb-accent: #60a5fa;
-
-    /* Ink */
+    /* Ink (teks) */
     --rb-ink: #0f172a;
     --rb-ink-soft: #334155;
+    --rb-ink-muted: #55606f;
+    --rb-ink-invert: #ffffff;
 
-    /* Status */
-    --rb-status-automation: #3b82f6;
-    --rb-status-hitl: #f59e0b;
-    --rb-status-pass: #10b981;
-    --rb-status-alert: #ef4444;
+    /* Blues (identitas) */
+    --rb-primary: #1e40af;
+    --rb-primary-strong: #16307f;
+    --rb-secondary: #2563eb;
+    --rb-accent: #60a5fa;
+    --rb-accent-soft: #dbeafe;
+    /* Teks di atas permukaan biru (titlebar, header tabel) */
+    --rb-on-primary: #ffffff;
+
+    /* Semantic status — setiap pasangan fg/bg kontras & tema-aware */
+    --rb-status-automation: #2563eb;
+    --rb-status-automation-fg: #ffffff;
+    --rb-status-hitl: #b45309;
+    --rb-status-hitl-fg: #ffffff;
+    --rb-status-pass: #047857;
+    --rb-status-pass-fg: #ffffff;
+    --rb-status-alert: #b91c1c;
+    --rb-status-alert-fg: #ffffff;
+    --rb-status-info: #0e7490;
+    --rb-status-info-fg: #ffffff;
+
+    /* Tinted backgrounds (notices) */
+    --rb-tint-approve: #ecfdf5;
+    --rb-tint-approve-border: #047857;
+    --rb-tint-warn: #fffbeb;
+    --rb-tint-warn-border: #b45309;
+    --rb-tint-alert: #fef2f2;
+    --rb-tint-alert-border: #b91c1c;
+    --rb-tint-info: #eff6ff;
+    --rb-tint-info-border: #2563eb;
 
     /* Geometry */
-    --rb-border: 2px solid var(--rb-ink);
-    --rb-shadow: 4px 4px 0 var(--rb-ink);
-    --rb-shadow-sm: 2px 2px 0 var(--rb-ink);
-    --rb-radius: 0;
+    --rb-border-width: 2px;
+    --rb-border: var(--rb-border-width) solid var(--rb-ink);
+    --rb-border-soft: 1.5px solid color-mix(in srgb, var(--rb-ink) 28%, transparent);
+    --rb-shadow-color: #0f172a;
+    --rb-shadow: 4px 4px 0 var(--rb-shadow-color);
+    --rb-shadow-sm: 2px 2px 0 var(--rb-shadow-color);
+    --rb-shadow-hover: 3px 3px 0 var(--rb-shadow-color);
+    --rb-radius: 2px;
+    --rb-radius-lg: 6px;
+
+    /* Terminal (selalu gelap, diselaraskan di kedua tema) */
+    --rb-terminal-bg: #0b1220;
+    --rb-terminal-fg: #d7f9e0;
+    --rb-terminal-time: #7f8ea8;
+    --rb-terminal-agent: #7dd3fc;
 
     /* Typography */
     --rb-font-display: 'Space Grotesk', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     --rb-font-serif: 'Source Serif 4', 'Merriweather', Georgia, serif;
     --rb-font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
-}
 
-/* Blueprint dot-matrix canvas */
-.rb-canvas {
-    background-color: var(--rb-canvas);
-    background-image:
-        linear-gradient(var(--rb-grid) 1px, transparent 1px),
-        linear-gradient(90deg, var(--rb-grid) 1px, transparent 1px);
-    background-size: 16px 16px;
-    background-position: -1px -1px;
-    color: var(--rb-ink);
-    font-family: var(--rb-font-display);
+    color-scheme: light;
 }
 
 /* -----------------------------------------------------------------------------
-   Retro Window Frame
+   TOKEN — DARK
+   Filament menambahkan kelas `.dark` pada <html>.
+   ----------------------------------------------------------------------------- */
+.dark {
+    --rb-canvas: #070c16;
+    --rb-canvas-grid: #16233b;
+    --rb-surface: #0e1726;
+    --rb-surface-soft: #13203a;
+    --rb-surface-muted: #1a2a45;
+    --rb-surface-inset: #0a1320;
+
+    --rb-ink: #e6edf8;
+    --rb-ink-soft: #b7c4da;
+    --rb-ink-muted: #8496b3;
+    --rb-ink-invert: #0b1220;
+
+    --rb-primary: #93b4ff;
+    --rb-primary-strong: #6f97ff;
+    --rb-secondary: #4f8cff;
+    --rb-accent: #7fb0ff;
+    --rb-accent-soft: #16294a;
+    /* Pada dark, permukaan biru lebih terang sehingga teksnya gelap. */
+    --rb-on-primary: #04122b;
+
+    --rb-status-automation: #3b82f6;
+    --rb-status-automation-fg: #04122b;
+    --rb-status-hitl: #f59e0b;
+    --rb-status-hitl-fg: #1a1205;
+    --rb-status-pass: #10b981;
+    --rb-status-pass-fg: #04140d;
+    --rb-status-alert: #f87171;
+    --rb-status-alert-fg: #1a0505;
+    --rb-status-info: #22d3ee;
+    --rb-status-info-fg: #04151a;
+
+    --rb-tint-approve: #06231a;
+    --rb-tint-approve-border: #10b981;
+    --rb-tint-warn: #251a05;
+    --rb-tint-warn-border: #f59e0b;
+    --rb-tint-alert: #2a0b0b;
+    --rb-tint-alert-border: #f87171;
+    --rb-tint-info: #08203a;
+    --rb-tint-info-border: #3b82f6;
+
+    /* Pada dark, bayangan keras memakai warna terang-redup agar terbaca */
+    --rb-shadow-color: #02040a;
+    --rb-border-soft: 1.5px solid color-mix(in srgb, var(--rb-ink) 34%, transparent);
+
+    --rb-terminal-bg: #05090f;
+    --rb-terminal-fg: #d7f9e0;
+    --rb-terminal-time: #6b7c95;
+    --rb-terminal-agent: #7dd3fc;
+
+    color-scheme: dark;
+}
+
+/* -----------------------------------------------------------------------------
+   Canvas
+   ----------------------------------------------------------------------------- */
+.rb-canvas {
+    background-color: var(--rb-canvas);
+    background-image:
+        linear-gradient(var(--rb-canvas-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--rb-canvas-grid) 1px, transparent 1px);
+    background-size: 18px 18px;
+    background-position: -1px -1px;
+    color: var(--rb-ink);
+    font-family: var(--rb-font-display);
+    border-radius: var(--rb-radius-lg);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* -----------------------------------------------------------------------------
+   Window frame
    ----------------------------------------------------------------------------- */
 .rb-window {
     background: var(--rb-surface);
+    color: var(--rb-ink);
     border: var(--rb-border);
     box-shadow: var(--rb-shadow);
     border-radius: var(--rb-radius);
     overflow: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .rb-window__titlebar {
@@ -66,13 +174,13 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.4rem 0.75rem;
-    background: var(--rb-primary);
-    color: #ffffff;
+    padding: 0.45rem 0.75rem;
+    background: linear-gradient(100deg, var(--rb-primary) 0%, var(--rb-secondary) 100%);
+    color: var(--rb-on-primary);
     border-bottom: var(--rb-border);
     font-family: var(--rb-font-display);
     font-weight: 700;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -86,245 +194,369 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.1rem;
-    height: 1.1rem;
-    border: 1px solid rgba(255, 255, 255, 0.85);
+    width: 1.05rem;
+    height: 1.05rem;
+    border: 1px solid currentColor;
     background: transparent;
-    color: #ffffff;
+    color: currentColor;
     font-family: var(--rb-font-mono);
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     line-height: 1;
+    opacity: 0.85;
 }
 
 .rb-window__body {
     padding: 1rem;
+    color: var(--rb-ink);
 }
 
 /* -----------------------------------------------------------------------------
-   KPI Metric Cards
+   KPI cards
    ----------------------------------------------------------------------------- */
 .rb-kpi-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 0.75rem;
 }
 
 .rb-kpi-card {
     background: var(--rb-surface-soft);
+    color: var(--rb-ink);
     border: var(--rb-border);
     box-shadow: var(--rb-shadow-sm);
-    padding: 0.65rem 0.8rem;
+    border-radius: var(--rb-radius);
+    padding: 0.7rem 0.85rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .rb-kpi-card__label {
     font-family: var(--rb-font-mono);
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--rb-ink-soft);
+    color: var(--rb-ink-muted);
 }
 
 .rb-kpi-card__value {
     font-family: var(--rb-font-display);
     font-weight: 800;
-    font-size: 1.6rem;
+    font-size: 1.7rem;
     line-height: 1.1;
     color: var(--rb-primary);
     letter-spacing: -0.02em;
-}
-
-.rb-kpi-card__value--alert {
-    color: var(--rb-status-alert);
 }
 
 .rb-kpi-card__value--pass {
     color: var(--rb-status-pass);
 }
 
+.rb-kpi-card__value--alert {
+    color: var(--rb-status-alert);
+}
+
 .rb-kpi-card__unit {
     font-family: var(--rb-font-mono);
-    font-size: 0.7rem;
-    color: var(--rb-ink-soft);
+    font-size: 0.68rem;
+    color: var(--rb-ink-muted);
 }
 
 /* -----------------------------------------------------------------------------
-   Status badges & segmented toggles
+   Badges
    ----------------------------------------------------------------------------- */
 .rb-badge {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
     border: 1.5px solid var(--rb-ink);
-    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    padding: 0.12rem 0.55rem;
     font-family: var(--rb-font-mono);
-    font-size: 0.65rem;
+    font-size: 0.62rem;
+    font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+    line-height: 1.4;
 }
 
 .rb-badge--automation {
     background: var(--rb-status-automation);
-    color: #ffffff;
+    color: var(--rb-status-automation-fg);
 }
 
 .rb-badge--hitl {
     background: var(--rb-status-hitl);
-    color: var(--rb-ink);
+    color: var(--rb-status-hitl-fg);
 }
 
 .rb-badge--manual {
-    background: var(--rb-surface);
+    background: var(--rb-surface-muted);
     color: var(--rb-ink);
 }
 
 .rb-badge--pass {
     background: var(--rb-status-pass);
-    color: #ffffff;
+    color: var(--rb-status-pass-fg);
 }
 
 .rb-badge--alert {
     background: var(--rb-status-alert);
-    color: #ffffff;
+    color: var(--rb-status-alert-fg);
 }
 
-/* Mechanical segmented toggle: [ AUTO | HITL | MANUAL ] */
+.rb-badge--info {
+    background: var(--rb-status-info);
+    color: var(--rb-status-info-fg);
+}
+
+/* -----------------------------------------------------------------------------
+   Segmented toggle
+   ----------------------------------------------------------------------------- */
 .rb-toggle {
     display: inline-flex;
     border: var(--rb-border);
     box-shadow: var(--rb-shadow-sm);
     background: var(--rb-surface);
+    border-radius: var(--rb-radius);
+    overflow: hidden;
 }
 
 .rb-toggle__item {
-    padding: 0.25rem 0.7rem;
-    border-right: var(--rb-border);
+    padding: 0.3rem 0.75rem;
+    border-right: var(--rb-border-soft);
     font-family: var(--rb-font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     background: var(--rb-surface);
     color: var(--rb-ink);
     cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .rb-toggle__item:last-child {
     border-right: 0;
 }
 
-.rb-toggle__item--active {
+.rb-toggle__item:hover {
+    background: var(--rb-surface-muted);
+}
+
+.rb-toggle__item--active,
+.rb-toggle__item--active:hover {
     background: var(--rb-secondary);
-    color: #ffffff;
+    color: var(--rb-ink-invert);
 }
 
 /* -----------------------------------------------------------------------------
-   Pipeline stepper (pixel-progress)
+   Stepper
    ----------------------------------------------------------------------------- */
 .rb-stepper {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.5rem;
     font-family: var(--rb-font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
 }
 
 .rb-stepper__node {
     border: 1.5px solid var(--rb-ink);
-    padding: 0.15rem 0.5rem;
+    border-radius: var(--rb-radius);
+    padding: 0.2rem 0.55rem;
     background: var(--rb-surface);
+    color: var(--rb-ink);
 }
 
 .rb-stepper__node--done {
     background: var(--rb-status-pass);
-    color: #ffffff;
+    color: var(--rb-status-pass-fg);
+    border-color: var(--rb-status-pass);
 }
 
 .rb-stepper__node--active {
     background: var(--rb-secondary);
-    color: #ffffff;
+    color: var(--rb-ink-invert);
+    border-color: var(--rb-secondary);
 }
 
 .rb-stepper__node--locked {
-    background: var(--rb-canvas);
-    color: var(--rb-ink-soft);
+    background: var(--rb-surface-muted);
+    color: var(--rb-ink-muted);
+    border-color: var(--rb-border-soft);
 }
 
 .rb-stepper__arrow {
-    color: var(--rb-ink);
+    color: var(--rb-ink-muted);
 }
 
 /* -----------------------------------------------------------------------------
-   HITL Approval Gate
+   Notices / approval gates (tema-aware)
    ----------------------------------------------------------------------------- */
-.rb-approval-gate {
-    background: #fef3c7;
+.rb-notice {
     border: var(--rb-border);
-    box-shadow: var(--rb-shadow);
-    padding: 0.85rem 1rem;
+    border-left-width: 8px;
+    border-radius: var(--rb-radius);
+    box-shadow: var(--rb-shadow-sm);
+    padding: 0.8rem 0.95rem;
+    background: var(--rb-surface-soft);
+    color: var(--rb-ink);
+}
+
+.rb-notice__title {
+    font-family: var(--rb-font-display);
+    font-weight: 800;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 0.35rem;
+}
+
+.rb-notice--approve {
+    background: var(--rb-tint-approve);
+    border-color: var(--rb-tint-approve-border);
+}
+
+.rb-notice--warn {
+    background: var(--rb-tint-warn);
+    border-color: var(--rb-tint-warn-border);
+}
+
+.rb-notice--alert {
+    background: var(--rb-tint-alert);
+    border-color: var(--rb-tint-alert-border);
+}
+
+.rb-notice--info {
+    background: var(--rb-tint-info);
+    border-color: var(--rb-tint-info-border);
+}
+
+/* Legacy alias */
+.rb-approval-gate {
+    border: var(--rb-border);
+    border-left-width: 8px;
+    border-color: var(--rb-tint-warn-border);
+    background: var(--rb-tint-warn);
+    color: var(--rb-ink);
+    border-radius: var(--rb-radius);
+    box-shadow: var(--rb-shadow-sm);
+    padding: 0.8rem 0.95rem;
 }
 
 .rb-approval-gate__title {
     font-family: var(--rb-font-display);
     font-weight: 800;
-    font-size: 0.8rem;
-    letter-spacing: 0.08em;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
 }
 
+/* -----------------------------------------------------------------------------
+   Buttons
+   ----------------------------------------------------------------------------- */
 .rb-button {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.35rem;
     border: var(--rb-border);
+    border-radius: var(--rb-radius);
     box-shadow: var(--rb-shadow-sm);
-    padding: 0.3rem 0.7rem;
+    padding: 0.38rem 0.8rem;
     background: var(--rb-surface);
     color: var(--rb-ink);
     font-family: var(--rb-font-mono);
     font-size: 0.7rem;
-    letter-spacing: 0.05em;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
+    text-decoration: none;
     cursor: pointer;
-    transition: transform 80ms ease, box-shadow 80ms ease;
+    transition: transform 80ms ease, box-shadow 80ms ease, background-color 0.15s ease, color 0.15s ease;
 }
 
 .rb-button:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 3px 3px 0 var(--rb-ink);
+    box-shadow: var(--rb-shadow-hover);
 }
 
 .rb-button:active {
     transform: translate(2px, 2px);
-    box-shadow: 0 0 0 var(--rb-ink);
+    box-shadow: 0 0 0 var(--rb-shadow-color);
+}
+
+.rb-button:disabled,
+.rb-button[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .rb-button--primary {
     background: var(--rb-secondary);
-    color: #ffffff;
+    color: var(--rb-ink-invert);
 }
 
 .rb-button--approve {
     background: var(--rb-status-pass);
-    color: #ffffff;
+    color: var(--rb-status-pass-fg);
 }
 
 .rb-button--danger {
     background: var(--rb-status-alert);
-    color: #ffffff;
+    color: var(--rb-status-alert-fg);
+}
+
+.rb-button--ghost {
+    background: transparent;
+    box-shadow: none;
 }
 
 /* -----------------------------------------------------------------------------
-   Agent telemetry terminal
+   Form controls
+   ----------------------------------------------------------------------------- */
+.rb-input,
+.rb-textarea,
+.rb-select {
+    width: 100%;
+    background: var(--rb-surface-inset);
+    color: var(--rb-ink);
+    border: var(--rb-border-soft);
+    border-radius: var(--rb-radius);
+    padding: 0.4rem 0.6rem;
+    font-family: var(--rb-font-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rb-input:focus,
+.rb-textarea:focus,
+.rb-select:focus {
+    outline: none;
+    border-color: var(--rb-secondary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--rb-secondary) 30%, transparent);
+}
+
+.rb-input::placeholder,
+.rb-textarea::placeholder {
+    color: var(--rb-ink-muted);
+}
+
+/* -----------------------------------------------------------------------------
+   Terminal (agent telemetry) — always-dark, tuned per theme
    ----------------------------------------------------------------------------- */
 .rb-terminal {
-    background: #0b1220;
+    background: var(--rb-terminal-bg);
+    color: var(--rb-terminal-fg);
     border: var(--rb-border);
-    box-shadow: var(--rb-shadow);
-    color: #c7f9d0;
+    border-radius: var(--rb-radius);
     font-family: var(--rb-font-mono);
     font-size: 0.72rem;
-    line-height: 1.55;
+    line-height: 1.6;
     padding: 0.75rem;
     max-height: 16rem;
     overflow-y: auto;
@@ -336,11 +568,11 @@
 }
 
 .rb-terminal__time {
-    color: #94a3b8;
+    color: var(--rb-terminal-time);
 }
 
 .rb-terminal__agent {
-    color: #7dd3fc;
+    color: var(--rb-terminal-agent);
 }
 
 /* -----------------------------------------------------------------------------
@@ -353,6 +585,7 @@
     color: var(--rb-ink);
     background: var(--rb-surface);
     border: var(--rb-border);
+    border-radius: var(--rb-radius);
     padding: 1.25rem 1.5rem;
 }
 
@@ -364,12 +597,47 @@
     letter-spacing: -0.01em;
 }
 
-.rb-mono {
-    font-family: var(--rb-font-mono);
+.rb-editor--flag h3 {
+    color: var(--rb-status-alert);
 }
 
 /* -----------------------------------------------------------------------------
-   Diff viewer (side-by-side)
+   Data table
+   ----------------------------------------------------------------------------- */
+.rb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--rb-font-mono);
+    font-size: 0.68rem;
+    color: var(--rb-ink);
+}
+
+.rb-table thead th {
+    background: var(--rb-primary);
+    color: var(--rb-on-primary);
+    text-align: left;
+    padding: 0.35rem 0.45rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    position: sticky;
+    top: 0;
+}
+
+.rb-table tbody td {
+    padding: 0.3rem 0.45rem;
+    border-bottom: 1px solid var(--rb-border-soft);
+}
+
+.rb-table tbody tr:nth-child(even) {
+    background: var(--rb-surface-soft);
+}
+
+.rb-table tbody tr:hover {
+    background: var(--rb-surface-muted);
+}
+
+/* -----------------------------------------------------------------------------
+   Diff viewer
    ----------------------------------------------------------------------------- */
 .rb-diff {
     display: grid;
@@ -379,25 +647,83 @@
 
 .rb-diff__pane {
     border: var(--rb-border);
-    background: var(--rb-surface);
+    border-radius: var(--rb-radius);
     padding: 0.75rem;
     font-family: var(--rb-font-serif);
     font-size: 0.9rem;
+    color: var(--rb-ink);
+    background: var(--rb-surface);
 }
 
 .rb-diff__pane--before {
-    background: #fef2f2;
+    background: var(--rb-tint-alert);
+    border-color: var(--rb-tint-alert-border);
 }
 
 .rb-diff__pane--after {
-    background: #ecfdf5;
+    background: var(--rb-tint-approve);
+    border-color: var(--rb-tint-approve-border);
 }
 
 .rb-diff__header {
     font-family: var(--rb-font-mono);
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--rb-ink-soft);
+    color: var(--rb-ink-muted);
     margin-bottom: 0.4rem;
+}
+
+/* -----------------------------------------------------------------------------
+   Utilities
+   ----------------------------------------------------------------------------- */
+.rb-mono {
+    font-family: var(--rb-font-mono);
+}
+
+.rb-muted {
+    color: var(--rb-ink-muted);
+}
+
+.rb-soft {
+    color: var(--rb-ink-soft);
+}
+
+.rb-text-pass {
+    color: var(--rb-status-pass);
+}
+
+.rb-text-alert {
+    color: var(--rb-status-alert);
+}
+
+.rb-divider {
+    height: var(--rb-border-width);
+    background: var(--rb-border-soft);
+    border: 0;
+    margin: 0.75rem 0;
+}
+
+/* Responsive 3-panel workspace */
+.rb-workspace-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.8fr 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+@media (max-width: 1279px) {
+    .rb-workspace-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .rb-workspace-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .rb-diff {
+        grid-template-columns: 1fr;
+    }
 }
