@@ -39,6 +39,13 @@ mode kendali: `AUTOMATION`, `HITL` (approval gate), `MANUAL`.
   `SharedProjectMemory` menyuntikkan konteks ke seluruh agen.
 - **Xishie Assistant**: slash command `/sitasi`, `/parafrase`, `/cek-gap`,
   `/cek-pedoman`, `/matriks-literatur`, `/cari-referensi`.
+- **Fitur riset**: unggah PDF referensi (`PdfTextExtractor` + `ReferenceImportService`)
+  yang diekstrak otomatis menjadi matriks literatur (metode/hasil/gap).
+- **Revisi**: unggah dokumen komentar reviewer (PDF/DOCX) untuk dipecah menjadi
+  checklist, diff, dan matriks Response to Reviewers.
+- **Adaptive formatting**: `ManuscriptAdapter` memformat naskah ke template venue
+  (gaya sitasi, batas kata, daftar pustaka) dari tombol "Adapt Formatting".
+- **Telemetri CSAT**: rating 1-5 di panel assistant tercatat ke `ux_kpi_telemetries`.
 - **Real-time**: Laravel Reverb menyiarkan telemetri agen (`AgentTelemetryUpdated`)
   ke `xishie.project.{id}` untuk terminal aktivitas live.
 
