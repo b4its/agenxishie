@@ -41,6 +41,10 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <!-- Uji deterministik: default tanpa API key integrasi agar test base
+             memakai jalur operator; test integrasi menyetel key eksplisit. -->
+        <env name="OMNIGENSI_API_KEY" value="" force="true"/>
+        <env name="OMNIGENSI_BASE_URL" value="http://omnigensi.test" force="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

@@ -29,7 +29,16 @@ final class OmnigensiChatClient
         private readonly int $timeout,
         private readonly int $connectTimeout,
         private readonly bool $verifyTls,
+        private readonly string $apiKey = '',
     ) {}
+
+    /**
+     * Apakah proyek ini punya API Key integrasi (jalur resmi /integrations/v1).
+     */
+    public function hasIntegrationKey(): bool
+    {
+        return $this->apiKey !== '';
+    }
 
     /**
      * Apakah backend Omnigensi dapat dijangkau (dipakai UI untuk degradasi
@@ -94,6 +103,88 @@ final class OmnigensiChatClient
         }
 
         return $this->parseSse($response->body());
+    }
+
+    /**
+     * Handshake integrasi via API Key (endpoint /integrations/v1/handshake).
+     * Memverifikasi koneksi dan mengembalikan model yang tersedia.
+     *
+     * @return array{status: string, client_name: string, target_url: string, omnigensi_version: string, allowed_models: array<int, string>, available_models: array<int, array<string, mixed>>}
+     */
+    public function handshake(): array
+    {
+        $response = $this->integrationHttp()->get('/api/v1/integrations/v1/handshake');
+        $response->throw();
+
+        return [
+            'status' => (string) $response->json('status', 'unknown'),
+            'client_name' => (string) $response->json('client_name', ''),
+            'target_url' => (string) $response->json('target_url', ''),
+            'omnigensi_version' => (string) $response->json('omnigensi_version', ''),
+            'allowed_models' => (array) $response->json('allowed_models', ['*']),
+            'available_models' => (array) $response->json('available_models', []),
+        ];
+    }
+
+    /**
+     * Daftar model yang diizinkan untuk proyek ini via API Key
+     * (endpoint /integrations/v1/models).
+     *
+     * @return array<int, array{provider_id: string, provider_name: string, model_id: string, display_name: string, context_length: int|null, is_default: bool}>
+     */
+    public function integrationModels(): array
+    {
+        $response = $this->integrationHttp()->get('/api/v1/integrations/v1/models');
+        $response->throw();
+
+        $items = (array) $response->json('data', []);
+
+        return array_map(static fn (array $m): array => [
+            'provider_id' => (string) ($m['provider_id'] ?? ''),
+            'provider_name' => (string) ($m['provider'] ?? ''),
+            'model_id' => (string) ($m['id'] ?? ''),
+            'display_name' => (string) ($m['display_name'] ?? $m['id'] ?? ''),
+            'context_length' => isset($m['context_length']) ? (int) $m['context_length'] : null,
+            'is_default' => (bool) ($m['is_default'] ?? false),
+        ], $items);
+    }
+
+    /**
+     * Completion lewat endpoint integrasi OpenAI-compatible
+     * (/integrations/v1/chat/completions) memakai API Key proyek.
+     *
+     * @param  array<int, array{role: string, content: string}>  $messages
+     * @return array{content: string, provider_name: string, model_id: string, latency_ms: int}
+     */
+    public function integrationComplete(string $modelId, array $messages, float $temperature = 0.7, int $maxTokens = 2048): array
+    {
+        $response = $this->integrationHttp()->post('/api/v1/integrations/v1/chat/completions', [
+            'model' => $modelId,
+            'messages' => $messages,
+            'temperature' => $temperature,
+            'max_tokens' => $maxTokens,
+            'stream' => false,
+        ]);
+
+        if ($response->failed()) {
+            $detail = $response->json('detail') ?? $response->body();
+
+            throw new RuntimeException('Integrasi Omnigensi menolak permintaan: '.
+                (is_string($detail) ? $detail : json_encode($detail)));
+        }
+
+        $content = (string) $response->json('choices.0.message.content', '');
+
+        if (trim($content) === '') {
+            throw new RuntimeException('Model tidak mengembalikan jawaban (integrasi).');
+        }
+
+        return [
+            'content' => $content,
+            'provider_name' => (string) $response->json('client', ''),
+            'model_id' => (string) $response->json('model', $modelId),
+            'latency_ms' => (int) $response->json('latency_ms', 0),
+        ];
     }
 
     /**
@@ -214,5 +305,71 @@ final class OmnigensiChatClient
             ->connectTimeout($this->connectTimeout)
             ->withOptions(['verify' => $this->verifyTls])
             ->acceptJson();
+    }
+
+    /**
+     * Klien HTTP untuk endpoint integrasi eksternal (X-API-Key).
+     */
+    private function integrationHttp(): PendingRequest
+    {
+        return $this->http()->withHeaders(['X-API-Key' => $this->apiKey]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Monitoring (operator) — mendaftar & memantau proyek terhubung.
+    // -------------------------------------------------------------------------
+
+    /**
+     * Daftar proyek terhubung beserta status koneksinya (monitoring).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function integrationClients(): array
+    {
+        $response = $this->authorized()->get('/api/v1/integrations/clients');
+        $response->throw();
+
+        return (array) $response->json();
+    }
+
+    /**
+     * Probe (ping) satu proyek terhubung via operator.
+     *
+     * @return array<string, mixed>
+     */
+    public function pingClient(string $clientId): array
+    {
+        $response = $this->authorized()->post('/api/v1/integrations/clients/'.rawurlencode($clientId).'/ping');
+        $response->throw();
+
+        return (array) $response->json();
+    }
+
+    /**
+     * Probe seluruh proyek terhubung sekaligus.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function pingAll(): array
+    {
+        $response = $this->authorized()->post('/api/v1/integrations/ping-all');
+        $response->throw();
+
+        return (array) $response->json();
+    }
+
+    /**
+     * Daftarkan/pulihkan konfigurasi default target agen xishie.
+     *
+     * @return array<string, mixed>
+     */
+    public function seedXishie(int $frontendPort = 8208): array
+    {
+        $response = $this->authorized()->post('/api/v1/integrations/seed-xishie', [
+            'target_url' => 'http://localhost:'.$frontendPort.'/',
+        ]);
+        $response->throw();
+
+        return (array) $response->json();
     }
 }

@@ -21,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
                 timeout: (int) ($config['timeout'] ?? 120),
                 connectTimeout: (int) ($config['connect_timeout'] ?? 10),
                 verifyTls: (bool) ($config['verify_tls'] ?? true),
+                apiKey: (string) ($config['api_key'] ?? ''),
             );
         });
     }

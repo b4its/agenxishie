@@ -26,6 +26,14 @@ return [
     'password' => env('OMNIGENSI_PASSWORD', '123'),
 
     /*
+    | API Key integrasi proyek eksternal (omni_live_...) yang diterbitkan
+    | Omnigensi untuk proyek ini di halaman Connected Projects. Dipakai untuk
+    | endpoint /api/v1/integrations/v1/* (handshake, models, chat completions)
+    | via header X-API-Key — jalur resmi integrasi antar-platform.
+    */
+    'api_key' => env('OMNIGENSI_API_KEY', ''),
+
+    /*
     | Batas waktu permintaan (detik). Model LLM dapat lambat, jadi beri ruang
     | cukup untuk respons panjang.
     */
