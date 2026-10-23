@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             AcademicVenueSeeder::class,
+            ExternalClientSeeder::class,
         ]);
     }
 }

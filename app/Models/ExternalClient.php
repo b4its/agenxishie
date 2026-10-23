@@ -7,6 +7,7 @@ namespace App\Models;
 use Database\Factories\ExternalClientFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 /**
@@ -109,7 +110,54 @@ class ExternalClient extends Model
     }
 
     /**
-     * Simpan hasil probe status koneksi (ping).
+     * Relasi riwayat probe status koneksi.
+     *
+     * @return HasMany<ExternalClientPingLog, $this>
+     */
+    public function pingLogs(): HasMany
+    {
+        return $this->hasMany(ExternalClientPingLog::class, 'external_client_id');
+    }
+
+    /**
+     * Hitung persentase uptime dari riwayat probe terbaru.
+     */
+    public function getUptimePercentage(int $sampleSize = 50): float
+    {
+        $logs = $this->pingLogs()->latest('probed_at')->limit($sampleSize)->get();
+        if ($logs->isEmpty()) {
+            return $this->status === 'online' ? 100.0 : 0.0;
+        }
+
+        $onlineCount = $logs->where('status', 'online')->count();
+
+        return round(($onlineCount / $logs->count()) * 100, 1);
+    }
+
+    /**
+     * Ambil urutan probe terbaru untuk visualisasi baris status / spark timeline.
+     *
+     * @return array<int, array{status: string, latency_ms: int|null, status_code: int|null, probed_at: string}>
+     */
+    public function getRecentPings(int $limit = 10): array
+    {
+        return $this->pingLogs()
+            ->latest('probed_at')
+            ->limit($limit)
+            ->get()
+            ->reverse()
+            ->values()
+            ->map(static fn (ExternalClientPingLog $log): array => [
+                'status' => $log->status,
+                'latency_ms' => $log->latency_ms,
+                'status_code' => $log->status_code,
+                'probed_at' => $log->probed_at?->format('H:i:s') ?? '',
+            ])
+            ->all();
+    }
+
+    /**
+     * Simpan hasil probe status koneksi (ping) dan catat ke riwayat log.
      */
     public function recordPingResult(
         string $status,
@@ -125,5 +173,14 @@ class ExternalClient extends Model
         $this->last_error_message = $errorMessage;
         $this->last_ping_at = now();
         $this->saveQuietly();
+
+        $this->pingLogs()->create([
+            'status' => $status,
+            'status_code' => $statusCode,
+            'latency_ms' => $latencyMs,
+            'target_server' => $server,
+            'error_message' => $errorMessage,
+            'probed_at' => now(),
+        ]);
     }
 }
