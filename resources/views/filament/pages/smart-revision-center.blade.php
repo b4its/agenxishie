@@ -65,6 +65,7 @@
                             <span style="display:flex; gap:.35rem;">
                                 <button type="button" class="rb-button" style="padding:.15rem .5rem; font-size:.6rem;" wire:click="reanalyseRevision({{ $revision->id }})" wire:loading.attr="disabled">&#8635; Analisis Ulang</button>
                                 <button type="button" class="rb-button rb-button--approve" style="padding:.15rem .5rem; font-size:.6rem;" wire:click="markAllResolved({{ $revision->id }})" wire:loading.attr="disabled">&#10003; Semua Selesai</button>
+                                <button type="button" class="rb-button rb-button--danger" style="padding:.15rem .5rem; font-size:.6rem;" wire:click="deleteRevision({{ $revision->id }})" wire:confirm="Hapus revisi ini?" wire:loading.attr="disabled">&#128465; Hapus</button>
                             </span>
                         </div>
                         <ul class="rb-mono" style="font-size:.72rem; line-height:1.9; margin:.4rem 0 1rem; padding-left:.2rem;">

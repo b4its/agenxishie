@@ -247,6 +247,26 @@ class SmartRevisionCenterPage extends Page implements HasForms
         $this->dispatch('$refresh');
     }
 
+    /**
+     * Hapus satu catatan revisi (beserta action items & matriksnya).
+     */
+    public function deleteRevision(int $revisionId): void
+    {
+        $revision = $this->getProject()?->revisions()->find($revisionId);
+
+        if ($revision === null) {
+            Notification::make()->title('Revisi tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $revision->delete();
+
+        Notification::make()->title('Revisi dihapus')->success()->send();
+
+        $this->dispatch('$refresh');
+    }
+
     public function getProject(): ?XishieProject
     {
         return $this->projectId !== null ? XishieProject::find($this->projectId) : null;
