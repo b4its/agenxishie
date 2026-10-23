@@ -61,6 +61,24 @@ class XishieProject extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Pastikan custom_guideline_path selalu string tunggal.
+     *
+     * Filament FileUpload dapat memberikan array path; kolom bertipe string,
+     * jadi array mentah memicu "Array to string conversion". Mutator ini
+     * menjadi jaring pengaman di level model, apa pun pemanggilnya.
+     */
+    public function setCustomGuidelinePathAttribute(mixed $value): void
+    {
+        if (is_array($value)) {
+            $value = array_values(array_filter($value, static fn ($v): bool => is_string($v) && $v !== ''))[0] ?? null;
+        }
+
+        $this->attributes['custom_guideline_path'] = is_string($value) && trim($value) !== ''
+            ? trim($value)
+            : null;
+    }
+
     public function stages(): HasMany
     {
         return $this->hasMany(ProjectStageRecord::class, 'project_id');
