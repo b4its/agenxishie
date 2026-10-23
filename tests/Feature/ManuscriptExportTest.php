@@ -12,6 +12,7 @@ use App\Filament\Pages\PlatformMatcherPage;
 use App\Filament\Pages\SmartRevisionCenterPage;
 use App\Models\ProjectRevision;
 use App\Models\XishieProject;
+use App\Omnigensi\Agents\VenueMatcherAgent;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
 
 /**
@@ -31,9 +32,11 @@ function readyProject(): XishieProject
 it('lists the supported export formats with metadata', function (): void {
     $formats = app(ManuscriptExporter::class)->formats();
 
-    expect($formats)->toHaveKeys(['docx', 'markdown', 'latex', 'bibtex', 'text'])
+    expect($formats)->toHaveKeys(['docx', 'markdown', 'latex', 'bibtex', 'text', 'html', 'json'])
         ->and($formats['docx']['extension'])->toBe('docx')
-        ->and($formats['latex']['extension'])->toBe('tex');
+        ->and($formats['latex']['extension'])->toBe('tex')
+        ->and($formats['html']['extension'])->toBe('html')
+        ->and($formats['json']['extension'])->toBe('json');
 });
 
 it('renders markdown with title, sections and bibliography', function (): void {
@@ -189,5 +192,57 @@ it('downloads the response-to-reviewers matrix from the revision center', functi
 
     Livewire\Livewire::test(SmartRevisionCenterPage::class)
         ->call('downloadResponseMatrix', $revision->id)
+        ->assertSuccessful();
+});
+
+it('renders a standalone HTML manuscript document', function (): void {
+    $project = readyProject();
+
+    $html = app(ManuscriptExporter::class)->render($project, ManuscriptExporter::FORMAT_HTML);
+
+    expect($html)->toContain('<!DOCTYPE html>')
+        ->and($html)->toContain('<h1>')
+        ->and($html)->toContain(htmlspecialchars($project->title, ENT_QUOTES, 'UTF-8'))
+        ->and(mb_strlen($html))->toBeGreaterThan(100);
+});
+
+it('renders a structured JSON manuscript export', function (): void {
+    $project = readyProject();
+
+    $json = app(ManuscriptExporter::class)->render($project, ManuscriptExporter::FORMAT_JSON);
+    $decoded = json_decode($json, true);
+
+    expect($decoded)->toBeArray()
+        ->and($decoded)->toHaveKeys(['title', 'abstract', 'keywords', 'citation_style', 'sections', 'bibliography', 'total_words', 'exported_at'])
+        ->and($decoded['title'])->toBe($project->title);
+});
+
+it('downloads the response-to-reviewers matrix in JSON format', function (): void {
+    $project = readyProject();
+
+    $revision = ProjectRevision::create([
+        'project_id' => $project->id,
+        'reviewer_role' => 'pembimbing_1',
+        'raw_feedback' => 'Perbaiki rumusan masalah.',
+        'action_items' => [['id' => 1, 'task' => 'Perbaiki rumusan masalah', 'section_key' => 'chapter1', 'status' => 'pending']],
+        'response_matrix_doc' => "| No | Catatan | Status |\n| --- | --- | --- |\n| 1 | Perbaiki rumusan masalah | pending |",
+        'status' => RevisionStatus::PENDING,
+    ]);
+
+    Livewire\Livewire::test(SmartRevisionCenterPage::class)
+        ->call('downloadResponseMatrix', $revision->id, 'json')
+        ->assertSuccessful();
+});
+
+it('exports journal recommendations in json and csv format from platform matcher', function (): void {
+    $project = readyProject();
+    $stage = app(XishieSupervisor::class)->ensureStage($project, $project->current_stage);
+    app(VenueMatcherAgent::class)->run($project, $stage);
+
+    Livewire\Livewire::test(PlatformMatcherPage::class)
+        ->set('projectId', $project->id)
+        ->call('exportRecommendations', 'json')
+        ->assertSuccessful()
+        ->call('exportRecommendations', 'csv')
         ->assertSuccessful();
 });

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domain\Integration\Enums\ConnectionStatus;
 use App\Domain\Integration\ExternalClientManager;
 use App\Filament\Pages\ExternalProjectsPage;
 use App\Models\AcademicVenue;
@@ -609,4 +610,268 @@ it('returns client status via external api endpoint', function (): void {
 
     $this->getJson('/api/v1/external/status/non-existent-client')
         ->assertStatus(404);
+});
+
+// ==========================================
+// TEST WEBHOOKS, EXPORT, AND BIBTEX APIS
+// ==========================================
+
+it('dispatches webhooks with sha256 signature when url is configured', function (): void {
+    Http::fake([
+        'http://client-webhook.test/*' => Http::response(['received' => true], 200),
+    ]);
+
+    $client = ExternalClient::factory()->create([
+        'webhook_url' => 'http://client-webhook.test/callback',
+        'webhook_secret' => 'whsec_test_secret_123',
+    ]);
+
+    $manager = app(ExternalClientManager::class);
+    $result = $manager->sendWebhook($client, 'paper.audited', ['score' => 95]);
+
+    expect($result['status'])->toBe('delivered')
+        ->and($result['status_code'])->toBe(200)
+        ->and($result['signature'])->toStartWith('sha256=')
+        ->and($client->fresh()->last_webhook_status)->toBe('delivered');
+
+    // Test skipped if no webhook url
+    $clientWithoutWebhook = ExternalClient::factory()->create(['webhook_url' => null]);
+    $skipped = $manager->sendWebhook($clientWithoutWebhook, 'test', []);
+    expect($skipped['status'])->toBe('skipped');
+});
+
+it('exports manuscripts to markdown, html, json, and docx via external api', function (): void {
+    $client = ExternalClient::factory()->create([
+        'api_key' => 'xsk_export_test',
+        'allowed_models' => ['*'],
+    ]);
+
+    $payload = [
+        'title' => 'Studi Kecerdasan Buatan pada Penulisan Ilmiah',
+        'abstract' => 'Abstrak penelitian ini membahas otomatisasi format akademik.',
+        'keywords' => ['AI', 'IMRaD', 'Akademik'],
+        'sections' => [
+            ['heading' => 'Pendahuluan', 'content' => 'Latar belakang penelitian ini adalah pentingnya akurasi penulisan.'],
+            ['heading' => 'Metode', 'content' => 'Metode penelitian kuantitatif dengan eksperimen bertahap.'],
+        ],
+        'bibliography' => [
+            '[1] Doe, J. (2025). AI in Research. Journal of AI.',
+        ],
+    ];
+
+    // Markdown export
+    $resMd = $this->withHeaders(['X-API-Key' => 'xsk_export_test'])
+        ->postJson('/api/v1/external/export', array_merge($payload, ['format' => 'markdown']));
+    $resMd->assertStatus(200)
+        ->assertJson(['success' => true, 'format' => 'markdown'])
+        ->assertJsonStructure(['content', 'filename', 'mime']);
+
+    // HTML export
+    $resHtml = $this->withHeaders(['X-API-Key' => 'xsk_export_test'])
+        ->postJson('/api/v1/external/export', array_merge($payload, ['format' => 'html']));
+    $resHtml->assertStatus(200)
+        ->assertJson(['success' => true, 'format' => 'html']);
+
+    // JSON export
+    $resJson = $this->withHeaders(['X-API-Key' => 'xsk_export_test'])
+        ->postJson('/api/v1/external/export', array_merge($payload, ['format' => 'json']));
+    $resJson->assertStatus(200)
+        ->assertJson(['success' => true, 'format' => 'json']);
+
+    // DOCX export (returns base64)
+    $resDocx = $this->withHeaders(['X-API-Key' => 'xsk_export_test'])
+        ->postJson('/api/v1/external/export', array_merge($payload, ['format' => 'docx']));
+    $resDocx->assertStatus(200)
+        ->assertJson(['success' => true, 'format' => 'docx'])
+        ->assertJsonStructure(['base64']);
+});
+
+it('parses raw bibtex text into structured references via external api', function (): void {
+    $client = ExternalClient::factory()->create([
+        'api_key' => 'xsk_bibtex_test',
+        'allowed_models' => ['*'],
+    ]);
+
+    $bibtex = <<<'BIB'
+@article{vaswani2017attention,
+  title={Attention is all you need},
+  author={Vaswani, Ashish and Shazeer, Noam},
+  journal={Advances in neural information processing systems},
+  year={2017}
+}
+BIB;
+
+    $response = $this->withHeaders(['X-API-Key' => 'xsk_bibtex_test'])
+        ->postJson('/api/v1/external/references/parse-bibtex', ['bibtex' => $bibtex]);
+
+    $response->assertStatus(200)
+        ->assertJson(['success' => true, 'total_parsed' => 1])
+        ->assertJsonStructure(['references']);
+});
+
+it('tests webhook endpoint via external api and web route', function (): void {
+    Http::fake([
+        'http://webhook-target.test/*' => Http::response('OK', 200),
+    ]);
+
+    $client = ExternalClient::factory()->create([
+        'api_key' => 'xsk_wh_test',
+        'webhook_url' => 'http://webhook-target.test/hook',
+    ]);
+
+    // External API
+    $this->withHeaders(['X-API-Key' => 'xsk_wh_test'])
+        ->postJson('/api/v1/external/webhook/test')
+        ->assertStatus(200)
+        ->assertJson(['status' => 'delivered']);
+
+    // Web Route
+    $this->post("/connected-projects/{$client->id}/test-webhook")
+        ->assertRedirect(route('connected-projects.index'))
+        ->assertSessionHas('status_message');
+});
+
+it('tests webhook action on Livewire page', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    Http::fake([
+        'http://livewire-wh.test/*' => Http::response('OK', 200),
+    ]);
+
+    $client = ExternalClient::factory()->create([
+        'name' => 'Livewire Webhook Client',
+        'webhook_url' => 'http://livewire-wh.test/hook',
+    ]);
+
+    Livewire::test(ExternalProjectsPage::class)
+        ->call('testWebhook', $client->id);
+
+    expect($client->fresh()->last_webhook_status)->toBe('delivered');
+});
+
+it('executes handshake probe validating connection status enum and metadata', function (): void {
+    Http::fake([
+        'http://handshake-target.test/*' => Http::response([
+            'status' => 'connected',
+            'app' => 'Agen Xishie Target',
+            'framework' => 'Laravel 12',
+            'version' => '1.0.0',
+        ], 200, ['Server' => 'nginx/1.24']),
+    ]);
+
+    $client = ExternalClient::factory()->create([
+        'target_url' => 'http://handshake-target.test/',
+    ]);
+
+    $result = app(ExternalClientManager::class)->handshake($client);
+
+    expect($result['state'])->toBe(ConnectionStatus::CONNECTED)
+        ->and($result['status_code'])->toBe(200)
+        ->and($result['app_name'])->toBe('Agen Xishie Target')
+        ->and($result['framework'])->toBe('Laravel 12');
+
+    $fresh = $client->fresh();
+    expect($fresh->connection_state)->toBe(ConnectionStatus::CONNECTED)
+        ->and($fresh->target_app_name)->toBe('Agen Xishie Target');
+});
+
+it('handles handshake action via web route', function (): void {
+    Http::fake([
+        'http://handshake-web.test/*' => Http::response(['status' => 'connected'], 200),
+    ]);
+
+    $client = ExternalClient::factory()->create([
+        'target_url' => 'http://handshake-web.test/',
+    ]);
+
+    $this->post("/connected-projects/{$client->id}/handshake")
+        ->assertRedirect(route('connected-projects.index'))
+        ->assertSessionHas('status_message');
+});
+
+it('handles handshake action on Livewire page', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    Http::fake([
+        'http://handshake-livewire.test/*' => Http::response(['status' => 'connected'], 200),
+    ]);
+
+    $client = ExternalClient::factory()->create([
+        'target_url' => 'http://handshake-livewire.test/',
+    ]);
+
+    Livewire::test(ExternalProjectsPage::class)
+        ->call('handshakeClient', $client->id)
+        ->assertSuccessful();
+
+    expect($client->fresh()->connection_state)->toBe(ConnectionStatus::CONNECTED);
+});
+
+it('rejects self-registration when registration secret is missing or invalid', function (): void {
+    config()->set('integration.registration_secret', 'secret-token-xyz');
+
+    // Missing secret
+    $this->postJson('/api/v1/external/register', [
+        'name' => 'Unauthorized Client',
+        'target_url' => 'http://unauth.test',
+    ])->assertStatus(401);
+
+    // Invalid secret
+    $this->withHeaders(['X-Registration-Secret' => 'wrong-secret'])
+        ->postJson('/api/v1/external/register', [
+            'name' => 'Unauthorized Client',
+            'target_url' => 'http://unauth.test',
+        ])->assertStatus(401);
+});
+
+it('registers client via self-registration API when valid secret is provided', function (): void {
+    config()->set('integration.registration_secret', 'secret-token-xyz');
+
+    $response = $this->withHeaders(['X-Registration-Secret' => 'secret-token-xyz'])
+        ->postJson('/api/v1/external/register', [
+            'name' => 'Auto Registered Project',
+            'target_url' => 'http://auto-registered.test',
+            'description' => 'Proyek terdaftar mandiri',
+            'allowed_models' => ['AcademicScribeAgent'],
+        ]);
+
+    $response->assertStatus(201)
+        ->assertJson([
+            'success' => true,
+            'already_registered' => false,
+            'client' => [
+                'name' => 'Auto Registered Project',
+                'allowed_models' => ['AcademicScribeAgent'],
+            ],
+        ])
+        ->assertJsonStructure(['client' => ['id', 'name', 'client_slug', 'api_key', 'connection_status']]);
+
+    expect(ExternalClient::where('target_url', 'http://auto-registered.test')->exists())->toBeTrue();
+});
+
+it('returns existing client info on duplicate target url self-registration', function (): void {
+    config()->set('integration.registration_secret', 'secret-token-xyz');
+
+    $client = ExternalClient::factory()->create([
+        'name' => 'Existing Registered Project',
+        'target_url' => 'http://duplicate-target.test',
+    ]);
+
+    $response = $this->withHeaders(['X-Registration-Secret' => 'secret-token-xyz'])
+        ->postJson('/api/v1/external/register', [
+            'name' => 'Existing Registered Project Duplicate',
+            'target_url' => 'http://duplicate-target.test',
+        ]);
+
+    $response->assertStatus(200)
+        ->assertJson([
+            'success' => true,
+            'already_registered' => true,
+            'client' => [
+                'id' => $client->id,
+                'name' => $client->name,
+            ],
+        ]);
 });
