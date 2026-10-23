@@ -34,7 +34,7 @@ class SmartRevisionCenterPage extends Page implements HasForms
 
     protected static ?string $title = 'Smart Revision Center';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     protected string $view = 'filament.pages.smart-revision-center';
 

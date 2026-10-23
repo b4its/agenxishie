@@ -24,7 +24,7 @@ class AiChatPage extends Page
 
     protected static ?string $title = 'AI Chat (Omnigensi)';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 6;
 
     protected string $view = 'filament.pages.ai-chat';
 

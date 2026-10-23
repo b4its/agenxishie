@@ -43,7 +43,7 @@ class AcademicWorkspacePage extends Page
 
     protected static ?string $title = 'Academic Workspace';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
 
     protected static bool $shouldRegisterNavigation = true;
 
@@ -409,6 +409,68 @@ class AcademicWorkspacePage extends Page
             ->title('Referensi ditambahkan (fallback offline)')
             ->body('Backend Omnigensi tidak tersedia; memakai referensi sintetis.')
             ->warning()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
+     * Tandai/batalkan verifikasi sebuah referensi (hanya referensi terverifikasi
+     * yang boleh dijadikan sitasi).
+     */
+    public function toggleReferenceVerified(int $referenceId): void
+    {
+        $project = $this->getProject();
+
+        if ($project === null) {
+            return;
+        }
+
+        $reference = $project->references()->find($referenceId);
+
+        if ($reference === null) {
+            Notification::make()->title('Referensi tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $reference->forceFill(['is_verified' => ! $reference->is_verified])->save();
+
+        Notification::make()
+            ->title($reference->is_verified ? 'Referensi diverifikasi' : 'Verifikasi referensi dibatalkan')
+            ->body($reference->citation_key)
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
+     * Hapus sebuah referensi dari proyek.
+     */
+    public function deleteReference(int $referenceId): void
+    {
+        $project = $this->getProject();
+
+        if ($project === null) {
+            return;
+        }
+
+        $reference = $project->references()->find($referenceId);
+
+        if ($reference === null) {
+            Notification::make()->title('Referensi tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $key = $reference->citation_key;
+        $reference->delete();
+
+        Notification::make()
+            ->title('Referensi dihapus')
+            ->body($key)
+            ->success()
             ->send();
 
         $this->dispatch('$refresh');

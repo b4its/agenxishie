@@ -40,7 +40,7 @@ class ProjectOnboardingWizard extends Page implements HasForms
 
     protected static ?string $title = 'Project Onboarding Wizard';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     protected string $view = 'filament.pages.project-onboarding-wizard';
 
