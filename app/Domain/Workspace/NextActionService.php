@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Workspace;
 
+use App\Domain\Revision\Enums\RevisionStatus;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Domain\Workspace\Enums\StageStatus;
 use App\Models\XishieProject;
@@ -86,7 +87,22 @@ final class NextActionService
             ];
         }
 
-        // 5) Belum ada rekomendasi jurnal (relevan di tahap Proposal/Final).
+        // 5) Catatan revisi reviewer yang belum selesai.
+        $unresolvedRevisions = $project->revisions()
+            ->where('status', '!=', RevisionStatus::RESOLVED->value)
+            ->count();
+
+        if ($unresolvedRevisions > 0) {
+            $actions[] = [
+                'key' => 'revision',
+                'label' => 'Selesaikan catatan revisi reviewer',
+                'detail' => sprintf('Terdapat %d siklus revisi yang belum selesai. Tinjau checklist & side-by-side diff.', $unresolvedRevisions),
+                'url' => '/admin/smart-revision-center-page?project='.$project->id,
+                'severity' => 'warn',
+            ];
+        }
+
+        // 6) Belum ada rekomendasi jurnal (relevan di tahap Proposal/Final).
         if ($recommendations === 0 && in_array($stage, [ProjectStage::PROPOSAL, ProjectStage::FINAL], true)) {
             $actions[] = [
                 'key' => 'venue',
@@ -97,7 +113,22 @@ final class NextActionService
             ];
         }
 
-        // 6) Bisa lanjut ke tahap berikutnya.
+        // 7) Naskah skripsi tahap akhir siap dikonversi ke artikel jurnal.
+        if ($project->document_type->isThesisFamily() && $stage === ProjectStage::FINAL && $sections > 0) {
+            $finalRecord = $project->stages()->where('stage_name', ProjectStage::FINAL->value)->first();
+            $pending = (array) ($finalRecord?->hitl_pending_payload ?? []);
+            if (! isset($pending['extracted_journal_manuscript'])) {
+                $actions[] = [
+                    'key' => 'journal_extraction',
+                    'label' => 'Konversi skripsi ke naskah jurnal (IMRaD)',
+                    'detail' => 'Naskah akhir siap dikonversi ke artikel jurnal ilmiah siap publikasi (PRD KPI #16).',
+                    'url' => $workspace,
+                    'severity' => 'info',
+                ];
+            }
+        }
+
+        // 8) Bisa lanjut ke tahap berikutnya.
         if ($record?->status === StageStatus::COMPLETED && $stage !== ProjectStage::FINAL) {
             $actions[] = [
                 'key' => 'advance',
