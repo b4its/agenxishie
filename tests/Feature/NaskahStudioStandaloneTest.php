@@ -221,3 +221,26 @@ it('executes wordcraft in-block actions in standalone studio', function (): void
     $page->call('aiFixTone', 0, 'akademik');
     expect($page->get('blocks')[0]['text'])->not->toBeEmpty();
 });
+
+it('renders the standalone 18 ux kpis analytics dashboard outside admin panel', function (): void {
+    $project = XishieProject::factory()->create([
+        'title' => 'Riset Evaluasi Usabilitas Interaktif',
+        'document_type' => 'journal',
+    ]);
+
+    $response = $this->get('/analytics');
+
+    $response->assertOk()
+        ->assertSee('18 UX &amp; PRODUCT METRICS DASHBOARD', false)
+        ->assertSee('GOOGLE HEART HEALTH')
+        ->assertSee('AARRR PIRATE FUNNEL')
+        ->assertSee('USABILITY SPECIFIC METRICS')
+        ->assertSee('Understanding Metrics')
+        ->assertSee($project->title);
+});
+
+it('redirects /ux-analytics alias to /analytics', function (): void {
+    $response = $this->get('/ux-analytics');
+
+    $response->assertRedirect('/analytics');
+});
