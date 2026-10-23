@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Integration;
 
 use App\Domain\Assistant\OmnigensiChatClient;
+use App\Domain\Integration\Enums\ConnectionStatus;
 use App\Models\AcademicVenue;
 use App\Models\ExternalClient;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -32,6 +33,9 @@ class ExternalClientManager
         string $targetUrl,
         ?array $allowedModels = null,
         ?string $description = null,
+        ?string $webhookUrl = null,
+        ?string $webhookSecret = null,
+        ?string $handshakeEndpoint = null,
     ): ExternalClient {
         $normalizedUrl = $this->normalizeUrl($targetUrl);
         $slug = ExternalClient::createUniqueSlug($name);
@@ -42,9 +46,13 @@ class ExternalClientManager
             'client_slug' => $slug,
             'api_key' => $apiKey,
             'target_url' => $normalizedUrl,
+            'webhook_url' => $webhookUrl !== null ? $this->normalizeUrl($webhookUrl) : null,
+            'webhook_secret' => $webhookSecret !== null ? trim($webhookSecret) : null,
             'description' => $description !== null ? trim($description) : null,
             'allowed_models' => ! empty($allowedModels) ? array_values($allowedModels) : ['*'],
             'status' => 'unknown',
+            'connection_status' => ConnectionStatus::UNVERIFIED->value,
+            'handshake_endpoint' => $handshakeEndpoint !== null ? $this->normalizeUrl($handshakeEndpoint) : null,
             'is_active' => true,
         ]);
     }
@@ -169,6 +177,195 @@ class ExternalClientManager
 
         foreach ($clients as $client) {
             $results[] = $this->ping($client, $timeoutSeconds);
+        }
+
+        return $results;
+    }
+
+    /**
+     * Handshake end-to-end: verifikasi server target hidup SEKALIGUS
+     * memvalidasi kontrak respons (API key diterima, bukan sekadar
+     * halaman HTML/redirect 200).
+     *
+     * @return array{
+     *     client_id: int,
+     *     name: string,
+     *     target_url: string,
+     *     endpoint: string,
+     *     state: ConnectionStatus,
+     *     status_code: int|null,
+     *     latency_ms: int|null,
+     *     server: string|null,
+     *     app_name: string|null,
+     *     framework: string|null,
+     *     version: string|null,
+     *     message: string|null
+     * }
+     */
+    public function handshake(ExternalClient $client, int $timeoutSeconds = 5): array
+    {
+        $endpoint = $this->resolveHandshakeEndpoint($client);
+        $start = microtime(true);
+
+        try {
+            $response = Http::timeout($timeoutSeconds)
+                ->withoutVerifying()
+                ->acceptJson()
+                ->withHeaders([
+                    'X-Xishie-Probe' => 'handshake',
+                    'X-API-Key' => $client->api_key,
+                    'Authorization' => 'Bearer '.$client->api_key,
+                ])
+                ->get($endpoint);
+        } catch (\Throwable $exception) {
+            return $this->completeHandshake(
+                client: $client,
+                endpoint: $endpoint,
+                state: Str::contains(strtolower($exception->getMessage()), 'timed out')
+                    ? ConnectionStatus::TIMEOUT
+                    : ConnectionStatus::UNREACHABLE,
+                statusCode: null,
+                latencyMs: (int) round((microtime(true) - $start) * 1000),
+                message: Str::limit($exception->getMessage(), 250),
+            );
+        }
+
+        $latencyMs = (int) round((microtime(true) - $start) * 1000);
+        $statusCode = $response->status();
+        $server = $response->header('Server') ?: $response->header('X-Powered-By');
+        $payload = $response->json();
+        $payload = is_array($payload) ? $payload : [];
+
+        $state = match (true) {
+            $statusCode === 401 || $statusCode === 403 => ConnectionStatus::UNAUTHORIZED,
+            $statusCode >= 500 => ConnectionStatus::DEGRADED,
+            $statusCode >= 200 && $statusCode < 300 => $this->classifyHandshakePayload($payload),
+            default => ConnectionStatus::DEGRADED,
+        };
+
+        $message = match ($state) {
+            ConnectionStatus::CONNECTED => 'Handshake sukses: endpoint target merespon dan menerima kredensial.',
+            ConnectionStatus::UNAUTHORIZED => 'Target merespon tetapi menolak kredensial (HTTP '.$statusCode.'). Pasang X-API-Key di proyek target.',
+            ConnectionStatus::DEGRADED => 'Target merespon HTTP '.$statusCode.' tanpa payload handshake yang dikenali.',
+            default => 'Respons tidak dikenali (HTTP '.$statusCode.').',
+        };
+
+        return $this->completeHandshake(
+            client: $client,
+            endpoint: $endpoint,
+            state: $state,
+            statusCode: $statusCode,
+            latencyMs: $latencyMs,
+            message: $message,
+            server: $server,
+            appName: $this->stringOrNull($payload['app'] ?? $payload['name'] ?? $payload['app_name'] ?? null),
+            framework: $this->stringOrNull($payload['framework'] ?? $payload['laravel_version'] ?? null),
+            version: $this->stringOrNull($payload['version'] ?? null),
+        );
+    }
+
+    /**
+     * Tentukan apakah payload JSON 2xx benar-benar menandakan koneksi terautentikasi.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function classifyHandshakePayload(array $payload): ConnectionStatus
+    {
+        if ($payload === []) {
+            return ConnectionStatus::DEGRADED;
+        }
+
+        if (isset($payload['error']) || isset($payload['exception'])) {
+            return ConnectionStatus::UNAUTHORIZED;
+        }
+
+        $marker = strtolower((string) ($payload['status'] ?? $payload['state'] ?? ''));
+
+        if (in_array($marker, ['connected', 'ok', 'healthy', 'online', 'success'], true)) {
+            return ConnectionStatus::CONNECTED;
+        }
+
+        if (isset($payload['client_slug']) || isset($payload['client_name']) || isset($payload['allowed_models'])) {
+            return ConnectionStatus::CONNECTED;
+        }
+
+        return ConnectionStatus::DEGRADED;
+    }
+
+    /**
+     * Bangun URL handshake (dari handshake_endpoint atau default /api/v1/external/ping).
+     */
+    public function resolveHandshakeEndpoint(ExternalClient $client): string
+    {
+        if ($client->handshake_endpoint !== null && trim($client->handshake_endpoint) !== '') {
+            return $this->normalizeUrl($client->handshake_endpoint);
+        }
+
+        return rtrim($this->normalizeUrl($client->target_url), '/').'/api/v1/external/ping';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function completeHandshake(
+        ExternalClient $client,
+        string $endpoint,
+        ConnectionStatus $state,
+        ?int $statusCode,
+        ?int $latencyMs,
+        ?string $message,
+        ?string $server = null,
+        ?string $appName = null,
+        ?string $framework = null,
+        ?string $version = null,
+    ): array {
+        $client->recordHandshakeResult(
+            state: $state,
+            statusCode: $statusCode,
+            latencyMs: $latencyMs,
+            message: $message,
+            server: $server,
+            appName: $appName,
+            framework: $framework,
+            version: $version,
+        );
+
+        return [
+            'client_id' => $client->id,
+            'name' => $client->name,
+            'target_url' => $client->target_url,
+            'endpoint' => $endpoint,
+            'state' => $state,
+            'status_code' => $statusCode,
+            'latency_ms' => $latencyMs,
+            'server' => $server ?? $client->target_server,
+            'app_name' => $appName ?? $client->target_app_name,
+            'framework' => $framework ?? $client->target_framework,
+            'version' => $version ?? $client->target_version,
+            'message' => $message,
+        ];
+    }
+
+    private function stringOrNull(mixed $value): ?string
+    {
+        if (is_string($value) && trim($value) !== '') {
+            return Str::limit(trim($value), 120);
+        }
+
+        return null;
+    }
+
+    /**
+     * Handshake seluruh proyek aktif.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function handshakeAll(int $timeoutSeconds = 5): array
+    {
+        $results = [];
+
+        foreach (ExternalClient::query()->where('is_active', true)->get() as $client) {
+            $results[] = $this->handshake($client, $timeoutSeconds);
         }
 
         return $results;
@@ -508,6 +705,79 @@ class ExternalClientManager
             'bibliography' => $formatted,
             'formatted_at' => now()->toIso8601String(),
         ];
+    }
+
+    /**
+     * Kirim webhook event ke proyek eksternal dengan signature HMAC-SHA256.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function sendWebhook(
+        ExternalClient $client,
+        string $event,
+        array $payload,
+        int $timeoutSeconds = 3,
+    ): array {
+        if ($client->webhook_url === null || trim($client->webhook_url) === '') {
+            return [
+                'status' => 'skipped',
+                'message' => "Klien '{$client->name}' tidak memiliki webhook_url yang dikonfigurasi.",
+            ];
+        }
+
+        $url = $this->normalizeUrl($client->webhook_url);
+        $body = [
+            'event' => $event,
+            'client_slug' => $client->client_slug,
+            'client_name' => $client->name,
+            'timestamp' => now()->toIso8601String(),
+            'data' => $payload,
+        ];
+
+        $encoded = json_encode($body, JSON_THROW_ON_ERROR);
+        $secret = $client->webhook_secret ?: $client->api_key;
+        $signature = hash_hmac('sha256', $encoded, $secret);
+
+        $start = microtime(true);
+
+        try {
+            $response = Http::timeout($timeoutSeconds)
+                ->withoutVerifying()
+                ->withHeaders([
+                    'X-Xishie-Event' => $event,
+                    'X-Xishie-Signature' => 'sha256='.$signature,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($url, $body);
+
+            $latency = (int) round((microtime(true) - $start) * 1000);
+            $statusCode = $response->status();
+            $status = $statusCode >= 200 && $statusCode < 300 ? 'delivered' : 'failed';
+
+            $client->recordWebhookResult($status);
+
+            return [
+                'status' => $status,
+                'status_code' => $statusCode,
+                'latency_ms' => $latency,
+                'event' => $event,
+                'signature' => 'sha256='.$signature,
+                'error' => null,
+            ];
+        } catch (\Throwable $e) {
+            $latency = (int) round((microtime(true) - $start) * 1000);
+            $client->recordWebhookResult('failed');
+
+            return [
+                'status' => 'failed',
+                'status_code' => null,
+                'latency_ms' => $latency,
+                'event' => $event,
+                'signature' => 'sha256='.$signature,
+                'error' => Str::limit($e->getMessage(), 250),
+            ];
+        }
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Domain\Integration\Enums\ConnectionStatus;
 use Database\Factories\ExternalClientFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,17 +27,28 @@ class ExternalClient extends Model
         'client_slug',
         'api_key',
         'target_url',
+        'webhook_url',
+        'webhook_secret',
+        'handshake_endpoint',
         'description',
         'allowed_models',
         'status',
+        'connection_status',
         'last_status_code',
         'last_latency_ms',
         'target_server',
+        'target_app_name',
+        'target_framework',
+        'target_version',
         'last_ping_at',
+        'last_handshake_at',
         'last_error_message',
+        'last_handshake_message',
         'inbound_requests_count',
         'last_inbound_at',
         'last_inbound_endpoint',
+        'last_webhook_at',
+        'last_webhook_status',
         'is_active',
     ];
 
@@ -49,7 +61,9 @@ class ExternalClient extends Model
             'allowed_models' => 'array',
             'is_active' => 'boolean',
             'last_ping_at' => 'datetime',
+            'last_handshake_at' => 'datetime',
             'last_inbound_at' => 'datetime',
+            'last_webhook_at' => 'datetime',
             'last_status_code' => 'integer',
             'last_latency_ms' => 'integer',
             'inbound_requests_count' => 'integer',
@@ -107,6 +121,70 @@ class ExternalClient extends Model
         $this->last_inbound_at = now();
         $this->last_inbound_endpoint = $endpoint;
         $this->saveQuietly();
+    }
+
+    /**
+     * Catat hasil pengiriman webhook ke proyek klien.
+     */
+    public function recordWebhookResult(string $status): void
+    {
+        $this->last_webhook_at = now();
+        $this->last_webhook_status = $status;
+        $this->saveQuietly();
+    }
+
+    /**
+     * Status konektivitas terstruktur (fallback ke kolom legacy `status`).
+     */
+    public function getConnectionStateAttribute(): ConnectionStatus
+    {
+        $raw = $this->connection_status;
+
+        if (is_string($raw) && $raw !== '') {
+            $state = ConnectionStatus::tryFrom($raw);
+            if ($state !== null) {
+                return $state;
+            }
+        }
+
+        return ConnectionStatus::fromLegacy((string) $this->status);
+    }
+
+    /**
+     * Catat hasil handshake end-to-end ke proyek klien.
+     */
+    public function recordHandshakeResult(
+        ConnectionStatus $state,
+        ?int $statusCode,
+        ?int $latencyMs,
+        ?string $message = null,
+        ?string $server = null,
+        ?string $appName = null,
+        ?string $framework = null,
+        ?string $version = null,
+    ): void {
+        $this->connection_status = $state->value;
+        $this->status = $state->isReachable() ? 'online' : ($state === ConnectionStatus::TIMEOUT ? 'timeout' : 'offline');
+        $this->last_status_code = $statusCode;
+        $this->last_latency_ms = $latencyMs;
+        $this->last_handshake_at = now();
+        $this->last_handshake_message = $message !== null ? Str::limit($message, 500) : null;
+        $this->last_error_message = $state->isHealthy() ? null : ($message !== null ? Str::limit($message, 250) : null);
+        $this->target_server = $server ?? $this->target_server;
+        $this->target_app_name = $appName ?? $this->target_app_name;
+        $this->target_framework = $framework ?? $this->target_framework;
+        $this->target_version = $version ?? $this->target_version;
+        $this->last_ping_at = now();
+        $this->saveQuietly();
+
+        $this->pingLogs()->create([
+            'status' => $state->isReachable() ? 'online' : ($state === ConnectionStatus::TIMEOUT ? 'timeout' : 'offline'),
+            'status_code' => $statusCode,
+            'latency_ms' => $latencyMs,
+            'target_server' => $server,
+            'error_message' => $state->isHealthy() ? null : $message,
+            'probed_at' => now(),
+        ]);
     }
 
     /**
