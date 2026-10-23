@@ -113,8 +113,19 @@ class ExternalProjectsPage extends Page
         $this->avgLatencyMs = $latencies->isNotEmpty() ? (int) round($latencies->avg()) : 0;
 
         $this->clients = $records->map(static function (ExternalClient $c): array {
+            $state = $c->connection_state;
+
             return [
                 'id' => $c->id,
+                'connection_status' => $state->value,
+                'connection_label' => $state->label(),
+                'connection_short' => $state->shortLabel(),
+                'connection_tone' => $state->tone(),
+                'connection_description' => $state->description(),
+                'target_app_name' => $c->target_app_name,
+                'target_version' => $c->target_version,
+                'last_handshake_at' => $c->last_handshake_at?->diffForHumans() ?? 'Belum pernah',
+                'last_handshake_message' => $c->last_handshake_message,
                 'name' => $c->name,
                 'client_slug' => $c->client_slug,
                 'api_key' => $c->api_key,

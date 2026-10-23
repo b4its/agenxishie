@@ -9,6 +9,7 @@ use App\Models\AcademicVenue;
 use App\Models\ExternalClient;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -874,4 +875,105 @@ it('returns existing client info on duplicate target url self-registration', fun
                 'name' => $client->name,
             ],
         ]);
+});
+
+// ==========================================
+// HANDSHAKE: VERIFIKASI END-TO-END YANG SEBENARNYA
+// ==========================================
+
+it('forwards the client api key when performing a handshake', function (): void {
+    Http::fake([
+        'http://key-forward.test/*' => Http::response(['status' => 'connected'], 200),
+    ]);
+
+    $client = ExternalClient::factory()->create([
+        'target_url' => 'http://key-forward.test/',
+        'api_key' => 'xsk_forward_this_key',
+    ]);
+
+    app(ExternalClientManager::class)->handshake($client);
+
+    Http::assertSent(function ($request): bool {
+        return $request->url() === 'http://key-forward.test/api/v1/external/ping'
+            && $request->hasHeader('X-API-Key', 'xsk_forward_this_key');
+    });
+});
+
+it('maps rejected credentials to the unauthorized connection state', function (): void {
+    Http::fake([
+        'http://rejects-key.test/*' => Http::response([
+            'error' => 'Unauthorized: API Key tidak valid.',
+        ], 401),
+    ]);
+
+    $client = ExternalClient::factory()->create(['target_url' => 'http://rejects-key.test/']);
+
+    $result = app(ExternalClientManager::class)->handshake($client);
+
+    expect($result['state'])->toBe(ConnectionStatus::UNAUTHORIZED)
+        ->and($result['state']->isReachable())->toBeTrue()
+        ->and($result['state']->isHealthy())->toBeFalse()
+        ->and($client->fresh()->connection_state)->toBe(ConnectionStatus::UNAUTHORIZED);
+});
+
+it('maps server errors to degraded and timeouts to timeout states', function (): void {
+    Http::fake([
+        'http://broken-server.test/*' => Http::response('Internal Server Error', 500),
+        'http://slow-server.test/*' => fn () => throw new ConnectionException('cURL error 28: Operation timed out'),
+    ]);
+
+    $manager = app(ExternalClientManager::class);
+
+    $degraded = $manager->handshake(ExternalClient::factory()->create(['target_url' => 'http://broken-server.test/']));
+    $timeout = $manager->handshake(ExternalClient::factory()->create(['target_url' => 'http://slow-server.test/']));
+
+    expect($degraded['state'])->toBe(ConnectionStatus::DEGRADED)
+        ->and($timeout['state'])->toBe(ConnectionStatus::TIMEOUT)
+        ->and($timeout['state']->isReachable())->toBeFalse();
+});
+
+it('treats a plain 200 page without handshake payload as degraded, not connected', function (): void {
+    Http::fake([
+        'http://plain-html.test/*' => Http::response('<html>hello</html>', 200),
+    ]);
+
+    $client = ExternalClient::factory()->create(['target_url' => 'http://plain-html.test/']);
+
+    $result = app(ExternalClientManager::class)->handshake($client);
+
+    expect($result['state'])->toBe(ConnectionStatus::DEGRADED)
+        ->and($client->fresh()->connection_state)->toBe(ConnectionStatus::DEGRADED);
+});
+
+it('runs handshake-all via web route and reports connected totals', function (): void {
+    Http::fake([
+        'http://yes-a.test/*' => Http::response(['status' => 'connected', 'app' => 'A'], 200),
+        'http://no-b.test/*' => Http::response('down', 503),
+    ]);
+
+    ExternalClient::factory()->create(['target_url' => 'http://yes-a.test/']);
+    ExternalClient::factory()->create(['target_url' => 'http://no-b.test/']);
+
+    $this->post(route('connected-projects.handshake-all'))
+        ->assertRedirect(route('connected-projects.index'))
+        ->assertSessionHas('status_message', fn (string $msg): bool => str_contains($msg, '1/2 TERHUBUNG'));
+});
+
+it('shows the connection state legend and connected pill on the public page', function (): void {
+    Http::fake([
+        'http://legend-online.test/*' => Http::response(['status' => 'connected', 'version' => '1.0.0'], 200),
+    ]);
+
+    $client = ExternalClient::factory()->create([
+        'target_url' => 'http://legend-online.test/',
+        'connection_status' => ConnectionStatus::CONNECTED->value,
+        'target_app_name' => 'Agen Xishie Target',
+    ]);
+
+    $this->get('/connected-projects')
+        ->assertStatus(200)
+        ->assertSee('ARTI STATUS KONEKSI')
+        ->assertSee('Tidak Dapat Dijangkau')
+        ->assertSee('SELF-REGISTER')
+        ->assertSee($client->name);
 });
