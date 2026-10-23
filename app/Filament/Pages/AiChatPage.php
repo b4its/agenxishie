@@ -7,7 +7,7 @@ namespace App\Filament\Pages;
 use App\Domain\Assistant\OmnigensiChatClient;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use League\CommonMark\CommonMarkConverter;
+use League\CommonMark\GithubFlavoredMarkdownConverter;
 
 /**
  * AiChatPage: konsol AI Chat yang memilih model langsung dari backend
@@ -294,7 +294,10 @@ class AiChatPage extends Page
         }
 
         try {
-            $converter = new CommonMarkConverter([
+            // GitHub-flavored Markdown: dukung tabel, strikethrough, autolink,
+            // task list — apa adanya dari keluaran model. HTML mentah dibuang
+            // dan tautan tidak aman diblokir agar tetap aman.
+            $converter = new GithubFlavoredMarkdownConverter([
                 'html_input' => 'strip',
                 'allow_unsafe_links' => false,
             ]);
