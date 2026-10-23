@@ -12,6 +12,7 @@ use App\Domain\Research\ReferenceImportService;
 use App\Domain\Revision\Enums\RevisionStatus;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Domain\Workspace\Enums\UxKpiMetric;
+use App\Domain\Workspace\StageStateManager;
 use App\Domain\Workspace\UxKpiTelemetryService;
 use App\Filament\Pages\AcademicWorkspacePage;
 use App\Filament\Pages\PlatformMatcherPage;
@@ -19,11 +20,13 @@ use App\Filament\Pages\ProjectsPage;
 use App\Filament\Pages\SmartRevisionCenterPage;
 use App\Filament\Pages\VenueCatalogPage;
 use App\Filament\Pages\XishieAssistantPage;
+use App\Filament\Widgets\AgentActivityTerminalWidget;
 use App\Models\AcademicVenue;
 use App\Models\PlatformRecommendation;
 use App\Models\ProjectRevision;
 use App\Models\XishieProject;
 use App\Omnigensi\Agents\AcademicScribeAgent;
+use App\Omnigensi\Agents\PeerCriticAgent;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
 use Livewire\Livewire;
 
@@ -393,4 +396,142 @@ it('executes /ringkas command and exports assistant transcript', function (): vo
 
     $component->call('exportTranscript')
         ->assertSuccessful();
+});
+
+it('exports literature matrix to JSON format', function (): void {
+    $project = makeProject();
+    seedReferences($project);
+
+    $builder = app(LiteratureMatrixBuilder::class);
+    $json = $builder->toJson($project);
+
+    expect($json)->toBeJson()
+        ->and($json)->toContain('project_id')
+        ->and($json)->toContain('matrix');
+
+    Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id])
+        ->call('exportLiteratureMatrix', 'json')
+        ->assertSuccessful();
+});
+
+it('switches between unlocked stages in workspace via selectStage', function (): void {
+    $project = makeProject();
+    seedReferences($project);
+
+    // Buka draft & proposal.
+    app(XishieSupervisor::class)->run($project, ProjectStage::DRAFT);
+    app(StageStateManager::class)->complete($project, ProjectStage::DRAFT);
+    app(StageStateManager::class)->advance($project, ProjectStage::PROPOSAL);
+
+    expect($project->fresh()->current_stage->value)->toBe(ProjectStage::PROPOSAL->value);
+
+    // Kembali ke draft via selectStage.
+    Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id])
+        ->call('selectStage', ProjectStage::DRAFT->value)
+        ->assertSuccessful();
+
+    expect($project->fresh()->current_stage->value)->toBe(ProjectStage::DRAFT->value);
+
+    // Coba ke final yang masih locked (harus ditolak).
+    Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id])
+        ->call('selectStage', ProjectStage::FINAL->value)
+        ->assertSuccessful();
+
+    expect($project->fresh()->current_stage->value)->toBe(ProjectStage::DRAFT->value);
+});
+
+it('resets stage draft content in workspace via resetStageContent', function (): void {
+    $project = makeProject();
+    seedReferences($project);
+    app(XishieSupervisor::class)->run($project, ProjectStage::DRAFT);
+
+    $stage = $project->stages()->where('stage_name', ProjectStage::DRAFT->value)->first();
+    expect($stage->fresh()->sections_content)->not->toBeEmpty();
+
+    Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id])
+        ->call('resetStageContent')
+        ->assertSuccessful();
+
+    $freshStage = $stage->fresh();
+    expect($freshStage->sections_content)->toBeNull()
+        ->and($freshStage->word_count)->toBe(0)
+        ->and($freshStage->compiled_content)->toBeNull();
+});
+
+it('toggles revision action item status and recalculates resolution percentage', function (): void {
+    $project = makeProject();
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+
+    $revision = ProjectRevision::create([
+        'project_id' => $project->id,
+        'stage_id' => $stage->id,
+        'reviewer_role' => 'pembimbing_1',
+        'status' => RevisionStatus::PENDING,
+        'raw_feedback' => '1. Perjelas gap riset',
+        'action_items' => [
+            ['id' => 1, 'task' => 'Perjelas gap riset', 'section_key' => 'pendahuluan', 'status' => 'pending'],
+            ['id' => 2, 'task' => 'Perbaiki sitasi', 'section_key' => 'pendahuluan', 'status' => 'pending'],
+        ],
+    ]);
+
+    expect($revision->resolutionPercentage())->toBe(0.0);
+
+    // Toggle item 1: pending -> resolved.
+    Livewire::test(SmartRevisionCenterPage::class, ['projectId' => $project->id])
+        ->call('toggleItemStatus', $revision->id, 1)
+        ->assertSuccessful();
+
+    $fresh = $revision->fresh();
+    expect($fresh->resolutionPercentage())->toBe(50.0)
+        ->and($fresh->status->value)->toBe(RevisionStatus::IN_PROGRESS->value);
+
+    // Toggle item 1 lagi: resolved -> in_progress.
+    Livewire::test(SmartRevisionCenterPage::class, ['projectId' => $project->id])
+        ->call('toggleItemStatus', $revision->id, 1)
+        ->assertSuccessful();
+
+    $fresh = $revision->fresh();
+    expect($fresh->resolutionPercentage())->toBe(0.0);
+});
+
+it('exports response matrix to CSV format from revision center', function (): void {
+    $project = makeProject();
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+
+    $revision = ProjectRevision::create([
+        'project_id' => $project->id,
+        'stage_id' => $stage->id,
+        'reviewer_role' => 'reviewer_jurnal',
+        'status' => RevisionStatus::PENDING,
+        'raw_feedback' => '1. Perkuat metodologi eksperimen',
+        'action_items' => [
+            ['id' => 1, 'task' => 'Perkuat metodologi eksperimen', 'section_key' => 'metode', 'status' => 'pending'],
+        ],
+    ]);
+
+    $csv = app(PeerCriticAgent::class)->renderResponseMatrixCsv($revision);
+    expect($csv)->toContain('No,"Catatan Reviewer",Bagian,Status,"Rencana Perbaikan"')
+        ->and($csv)->toContain('Perkuat metodologi eksperimen');
+
+    Livewire::test(SmartRevisionCenterPage::class, ['projectId' => $project->id])
+        ->call('downloadResponseMatrix', $revision->id, 'csv')
+        ->assertSuccessful();
+
+    Livewire::test(SmartRevisionCenterPage::class, ['projectId' => $project->id])
+        ->call('downloadResponseMatrix', $revision->id, 'markdown')
+        ->assertSuccessful();
+});
+
+it('renders live terminal logs with project filtering', function (): void {
+    $project = makeProject();
+    seedReferences($project);
+    app(XishieSupervisor::class)->run($project, ProjectStage::DRAFT);
+
+    Livewire::test(AgentActivityTerminalWidget::class, ['projectId' => $project->id])
+        ->assertSuccessful()
+        ->assertSee('OMNIGENSI AGENT TERMINAL');
+
+    Livewire::test(AgentActivityTerminalWidget::class, ['projectId' => null])
+        ->assertSuccessful()
+        ->assertSee('Semua Proyek');
 });
