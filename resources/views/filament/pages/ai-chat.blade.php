@@ -65,9 +65,12 @@
                         <div class="rb-kpi-card__label" style="margin-bottom:.3rem;">MAX TOKENS</div>
                         <input type="number" class="rb-input" min="1" max="32000" step="1" wire:model="maxTokens" />
                     </div>
-                    <div style="display:flex; gap:.4rem;">
+                    <div style="display:flex; gap:.4rem; flex-wrap:wrap;">
                         <button type="button" class="rb-button" wire:click="refreshModels" wire:loading.attr="disabled">
                             &#8635; Muat Model
+                        </button>
+                        <button type="button" class="rb-button" wire:click="exportChat" title="Unduh transkrip percakapan sebagai Markdown">
+                            &#11015; Unduh Transkrip
                         </button>
                         <button type="button" class="rb-button" wire:click="clearChat" wire:loading.attr="disabled">
                             &#128465; Bersihkan

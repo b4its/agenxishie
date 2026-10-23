@@ -8,6 +8,7 @@ use App\Domain\Assistant\OmnigensiChatClient;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use League\CommonMark\GithubFlavoredMarkdownConverter;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * AiChatPage: konsol AI Chat yang memilih model langsung dari backend
@@ -277,6 +278,50 @@ class AiChatPage extends Page
     {
         $this->messages = [];
         $this->status = 'Percakapan dibersihkan.';
+    }
+
+    /**
+     * Unduh transkrip percakapan AI Chat sebagai berkas Markdown.
+     */
+    public function exportChat(): ?StreamedResponse
+    {
+        if (empty($this->messages)) {
+            Notification::make()->title('Transkrip masih kosong')->warning()->send();
+
+            return null;
+        }
+
+        $timestamp = now()->format('Y-m-d_H-i-s');
+        $filename = 'omnigensi_aichat_transcript_'.$timestamp.'.md';
+
+        $lines = [
+            '# Transkrip Percakapan AI Chat (Omnigensi)',
+            '- **Waktu Ekspor**: '.now()->toIso8601String(),
+            '- **Model Terpilih**: '.($this->selectedModel ?: 'Default'),
+            '- **Total Pesan**: '.count($this->messages),
+            '',
+            '---',
+            '',
+        ];
+
+        foreach ($this->messages as $msg) {
+            $sender = $msg['role'] === 'user' ? 'Peneliti' : 'AI Model ('.($msg['model'] ?? 'Omnigensi').')';
+            $lines[] = "### [{$sender}]";
+            if (isset($msg['latency_ms'])) {
+                $lines[] = "*Latensi: {$msg['latency_ms']}ms*";
+                $lines[] = '';
+            }
+            $lines[] = $msg['content'];
+            $lines[] = '';
+        }
+
+        $content = implode("\n", $lines);
+
+        return response()->streamDownload(static function () use ($content): void {
+            echo $content;
+        }, $filename, [
+            'Content-Type' => 'text/markdown; charset=UTF-8',
+        ]);
     }
 
     /**
