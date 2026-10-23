@@ -22,6 +22,18 @@
                     @endforeach
                 </div>
 
+                @if ($step === 1)
+                    <div style="margin-bottom:1rem; padding:.6rem; border:var(--rb-border-soft); background:var(--rb-blueprint);">
+                        <div class="rb-mono" style="font-size:.65rem; font-weight:bold; margin-bottom:.4rem;">⚡ TEMPLATE &amp; INSPIRASI TOPIK CEPAT:</div>
+                        <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
+                            <button type="button" class="rb-button" style="font-size:.62rem; padding:.2rem .45rem;" wire:click="applyTemplate('ai_iot')">IoT &amp; AI (Scopus Q2)</button>
+                            <button type="button" class="rb-button" style="font-size:.62rem; padding:.2rem .45rem;" wire:click="applyTemplate('nlp_health')">NLP Biomedis (Scopus Q1)</button>
+                            <button type="button" class="rb-button" style="font-size:.62rem; padding:.2rem .45rem;" wire:click="applyTemplate('cyber_security')">Keamanan Cloud (SINTA 2)</button>
+                            <button type="button" class="rb-button" style="font-size:.62rem; padding:.2rem .45rem;" wire:click="applyTemplate('social_education')">AI Pendidikan (Tesis SINTA 2)</button>
+                        </div>
+                    </div>
+                @endif
+
                 <form wire:submit="createProject">
                     {{ $this->form }}
 

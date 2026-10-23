@@ -160,6 +160,61 @@ class ProjectOnboardingWizard extends Page implements HasForms
         $this->step = max(1, $this->step - 1);
     }
 
+    /**
+     * Terapkan template topik riset cepat ke form onboarding.
+     */
+    public function applyTemplate(string $templateKey): void
+    {
+        $templates = [
+            'ai_iot' => [
+                'title' => 'Optimasi Routing Jaringan IoT Berbasis Machine Learning',
+                'field_of_study' => FieldOfStudy::STEM->value,
+                'document_type' => DocumentType::JOURNAL->value,
+                'target_scope' => PublicationTarget::INTERNATIONAL_SCOPUS->value,
+                'target_tier' => 'Q2',
+                'citation_style' => CitationStyle::IEEE->value,
+            ],
+            'nlp_health' => [
+                'title' => 'Ekstraksi Informasi Klinis Rekam Medis Menggunakan Transformer',
+                'field_of_study' => FieldOfStudy::HEALTH->value,
+                'document_type' => DocumentType::JOURNAL->value,
+                'target_scope' => PublicationTarget::INTERNATIONAL_SCOPUS->value,
+                'target_tier' => 'Q1',
+                'citation_style' => CitationStyle::APA7->value,
+            ],
+            'cyber_security' => [
+                'title' => 'Analisis Forensik Digital dan Deteksi Intrusi pada Cloud Computing',
+                'field_of_study' => FieldOfStudy::STEM->value,
+                'document_type' => DocumentType::SKRIPSI->value,
+                'target_scope' => PublicationTarget::NATIONAL_SINTA->value,
+                'target_tier' => 'SINTA 2',
+                'citation_style' => CitationStyle::IEEE->value,
+            ],
+            'social_education' => [
+                'title' => 'Efektivitas Pembelajaran Berbasis AI Terhadap Literasi Digital Mahasiswa',
+                'field_of_study' => FieldOfStudy::SOCIAL_HUMANITIES->value,
+                'document_type' => DocumentType::THESIS->value,
+                'target_scope' => PublicationTarget::NATIONAL_SINTA->value,
+                'target_tier' => 'SINTA 2',
+                'citation_style' => CitationStyle::APA7->value,
+            ],
+        ];
+
+        if (! isset($templates[$templateKey])) {
+            return;
+        }
+
+        $chosen = $templates[$templateKey];
+        $this->data = array_merge($this->data, $chosen);
+        $this->form->fill($this->data);
+
+        Notification::make()
+            ->title('Template topik diterapkan')
+            ->body('"'.$chosen['title'].'"')
+            ->success()
+            ->send();
+    }
+
     public function createProject(): void
     {
         // Hanya boleh membuat proyek dari langkah terakhir.
