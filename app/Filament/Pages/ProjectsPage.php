@@ -28,9 +28,20 @@ class ProjectsPage extends Page
 
     public string $search = '';
 
+    public string $filterMode = '';
+
+    public string $filterStage = '';
+
     public function mount(): void
     {
         //
+    }
+
+    public function resetFilters(): void
+    {
+        $this->search = '';
+        $this->filterMode = '';
+        $this->filterStage = '';
     }
 
     /**
@@ -49,6 +60,9 @@ class ProjectsPage extends Page
                     ->orWhere('field_of_study', 'like', $term);
             });
         });
+
+        $query->when($this->filterMode !== '', fn ($q) => $q->where('control_mode', $this->filterMode));
+        $query->when($this->filterStage !== '', fn ($q) => $q->where('current_stage', $this->filterStage));
 
         $kpi = app(UxKpiTelemetryService::class);
 

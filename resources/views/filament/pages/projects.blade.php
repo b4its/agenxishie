@@ -10,10 +10,25 @@
                 <input
                     type="text"
                     class="rb-input"
-                    style="flex:1 1 18rem; min-width:14rem;"
+                    style="flex:1 1 14rem; min-width:12rem;"
                     placeholder="&#128269; Cari proyek (judul / bidang)…"
                     wire:model.live.debounce.300ms="search"
                 />
+                <select class="rb-select" style="width:9rem;" wire:model.live="filterMode">
+                    <option value="">Semua Mode</option>
+                    <option value="automation">Automation</option>
+                    <option value="hitl">HITL</option>
+                    <option value="manual">Manual</option>
+                </select>
+                <select class="rb-select" style="width:9rem;" wire:model.live="filterStage">
+                    <option value="">Semua Tahap</option>
+                    <option value="draft">Draft</option>
+                    <option value="proposal">Proposal</option>
+                    <option value="final">Final</option>
+                </select>
+                @if ($search !== '' || $filterMode !== '' || $filterStage !== '')
+                    <button type="button" class="rb-button" wire:click="resetFilters">&#8635; Reset</button>
+                @endif
                 <button type="button" class="rb-button rb-button--primary" wire:click="newProject">
                     &#43; Proyek Baru
                 </button>
