@@ -182,6 +182,50 @@ class SmartRevisionCenterPage extends Page implements HasForms
     }
 
     /**
+     * Beralih status butir revisi (selesai <-> dalam proses).
+     */
+    public function toggleItemStatus(int $revisionId, int $itemId): void
+    {
+        $revision = $this->getProject()?->revisions()->find($revisionId);
+
+        if ($revision === null) {
+            return;
+        }
+
+        $items = (array) ($revision->action_items ?? []);
+        $newStatus = null;
+
+        foreach ($items as $index => $item) {
+            if ((int) ($item['id'] ?? 0) === $itemId) {
+                $current = (string) ($item['status'] ?? 'pending');
+                $newStatus = ($current === RevisionStatus::RESOLVED->value)
+                    ? RevisionStatus::IN_PROGRESS->value
+                    : RevisionStatus::RESOLVED->value;
+                $items[$index]['status'] = $newStatus;
+                break;
+            }
+        }
+
+        $revision->forceFill([
+            'action_items' => $items,
+            'response_matrix_doc' => app(PeerCriticAgent::class)->renderResponseMatrix(
+                $revision->fresh() ?? $revision,
+            ),
+        ])->save();
+
+        if ($revision->resolutionPercentage() >= 100.0) {
+            $revision->forceFill(['status' => RevisionStatus::RESOLVED])->save();
+        } else {
+            $revision->forceFill(['status' => RevisionStatus::IN_PROGRESS])->save();
+        }
+
+        $label = ($newStatus === RevisionStatus::RESOLVED->value) ? 'selesai' : 'dalam proses';
+        Notification::make()->title("Butir revisi ditandai {$label}")->success()->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
      * Tandai SELURUH butir revisi sebagai selesai sekaligus.
      */
     public function markAllResolved(int $revisionId): void
@@ -366,9 +410,9 @@ class SmartRevisionCenterPage extends Page implements HasForms
     }
 
     /**
-     * Unduh "Response to Reviewers" (matriks perbaikan revisi) sebagai Markdown.
+     * Unduh "Response to Reviewers" (matriks perbaikan revisi) sebagai Markdown atau CSV.
      */
-    public function downloadResponseMatrix(int $revisionId): ?StreamedResponse
+    public function downloadResponseMatrix(int $revisionId, string $format = 'markdown'): ?StreamedResponse
     {
         $revision = $this->getProject()?->revisions()->find($revisionId);
 
@@ -380,18 +424,25 @@ class SmartRevisionCenterPage extends Page implements HasForms
 
         $project = $this->getProject();
         $base = Str::slug((string) ($project?->title ?? 'naskah')) ?: 'naskah';
-        $filename = $base.'-response-to-reviewers-'.$revision->id.'.md';
 
-        $body = '# Response to Reviewers'."\n\n";
-        $body .= 'Proyek: '.($project?->title ?? '-')."\n";
-        $body .= 'Reviewer: '.$revision->reviewer_role."\n";
-        $body .= 'Status: '.$revision->status->label().' ('.$revision->resolutionPercentage()."% selesai)\n\n";
-        $body .= (string) ($revision->response_matrix_doc ?? '')."\n";
+        if ($format === 'csv') {
+            $filename = $base.'-response-to-reviewers-'.$revision->id.'.csv';
+            $body = app(PeerCriticAgent::class)->renderResponseMatrixCsv($revision);
+            $mime = 'text/csv';
+        } else {
+            $filename = $base.'-response-to-reviewers-'.$revision->id.'.md';
+            $body = '# Response to Reviewers'."\n\n";
+            $body .= 'Proyek: '.($project?->title ?? '-')."\n";
+            $body .= 'Reviewer: '.$revision->reviewer_role."\n";
+            $body .= 'Status: '.$revision->status->label().' ('.$revision->resolutionPercentage()."% selesai)\n\n";
+            $body .= (string) ($revision->response_matrix_doc ?? '')."\n";
+            $mime = 'text/markdown';
+        }
 
         return response()->streamDownload(
             static fn () => print $body,
             $filename,
-            ['Content-Type' => 'text/markdown'],
+            ['Content-Type' => $mime],
         );
     }
 

@@ -337,4 +337,33 @@ final class PeerCriticAgent implements XishieAgentContract
 
         return implode("\n", $rows);
     }
+
+    /**
+     * Susun dokumen matriks Response to Reviewers sebagai CSV.
+     */
+    public function renderResponseMatrixCsv(ProjectRevision $revision): string
+    {
+        $handle = fopen('php://temp', 'r+');
+        if ($handle === false) {
+            return '';
+        }
+
+        fputcsv($handle, ['No', 'Catatan Reviewer', 'Bagian', 'Status', 'Rencana Perbaikan']);
+
+        foreach ((array) ($revision->action_items ?? []) as $item) {
+            fputcsv($handle, [
+                (int) ($item['id'] ?? 0),
+                (string) ($item['task'] ?? ''),
+                (string) ($item['section_key'] ?? '-'),
+                (string) ($item['status'] ?? 'pending'),
+                'Perbaikan diterapkan pada bagian terkait.',
+            ]);
+        }
+
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return $csv !== false ? $csv : '';
+    }
 }

@@ -72,14 +72,31 @@
                             @foreach ((array) $revision->action_items as $item)
                                 <li style="display:flex; align-items:center; gap:.5rem; margin-bottom:.35rem;">
                                     @if (($item['status'] ?? '') === 'resolved')
-                                        <span class="rb-badge rb-badge--pass">&#10003;</span>
+                                        <button
+                                            type="button"
+                                            class="rb-badge rb-badge--pass"
+                                            style="cursor:pointer; border:none;"
+                                            wire:click="toggleItemStatus({{ $revision->id }}, {{ (int) ($item['id'] ?? 0) }})"
+                                            title="Klik untuk membuka kembali"
+                                        >&#10003; SELESAI</button>
                                     @else
-                                        <span class="rb-badge rb-badge--alert">&#9675;</span>
+                                        <button
+                                            type="button"
+                                            class="rb-badge rb-badge--alert"
+                                            style="cursor:pointer; border:none;"
+                                            wire:click="toggleItemStatus({{ $revision->id }}, {{ (int) ($item['id'] ?? 0) }})"
+                                            title="Klik untuk menandai selesai"
+                                        >&#9675; PENDING</button>
                                     @endif
-                                    <span>[{{ $item['section_key'] ?? '-' }}] {{ $item['task'] ?? '' }}</span>
-                                    @if (($item['status'] ?? '') !== 'resolved')
-                                        <button type="button" class="rb-button" style="padding:.1rem .45rem; font-size:.6rem;" wire:click="markResolved({{ $revision->id }}, {{ (int) ($item['id'] ?? 0) }})">Selesai</button>
-                                    @endif
+                                    <span style="flex:1;">[{{ $item['section_key'] ?? '-' }}] {{ $item['task'] ?? '' }}</span>
+                                    <button
+                                        type="button"
+                                        class="rb-button"
+                                        style="padding:.1rem .45rem; font-size:.6rem;"
+                                        wire:click="toggleItemStatus({{ $revision->id }}, {{ (int) ($item['id'] ?? 0) }})"
+                                    >
+                                        {{ ($item['status'] ?? '') === 'resolved' ? '↺ Buka' : '✓ Selesai' }}
+                                    </button>
                                 </li>
                             @endforeach
                         </ul>
@@ -110,13 +127,24 @@
 
                         <div class="rb-kpi-card__label" style="margin-top:1rem; display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
                             <span>MATRIKS RESPONSE TO REVIEWERS</span>
-                            <button
-                                type="button"
-                                class="rb-button"
-                                style="padding:.15rem .5rem; font-size:.6rem;"
-                                wire:click="downloadResponseMatrix({{ $revision->id }})"
-                                wire:loading.attr="disabled"
-                            >&#11015; Unduh</button>
+                            <span style="display:flex; gap:.3rem;">
+                                <button
+                                    type="button"
+                                    class="rb-button"
+                                    style="padding:.15rem .5rem; font-size:.6rem;"
+                                    wire:click="downloadResponseMatrix({{ $revision->id }}, 'markdown')"
+                                    wire:loading.attr="disabled"
+                                    title="Unduh matriks sebagai Markdown"
+                                >&#11015; MD</button>
+                                <button
+                                    type="button"
+                                    class="rb-button"
+                                    style="padding:.15rem .5rem; font-size:.6rem;"
+                                    wire:click="downloadResponseMatrix({{ $revision->id }}, 'csv')"
+                                    wire:loading.attr="disabled"
+                                    title="Unduh matriks sebagai CSV"
+                                >&#11015; CSV</button>
+                            </span>
                         </div>
                         <pre class="rb-terminal" style="max-height:none; margin-top:.5rem;">{{ $revision->response_matrix_doc }}</pre>
                     </div>
