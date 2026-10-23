@@ -24,7 +24,7 @@ class OmnigensiMonitoringPage extends Page
 
     protected static ?string $title = 'Omnigensi Integration Monitor';
 
-    protected static ?int $navigationSort = 7;
+    protected static ?int $navigationSort = 8;
 
     protected string $view = 'filament.pages.omnigensi-monitoring';
 
