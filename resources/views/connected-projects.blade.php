@@ -229,6 +229,7 @@
             </div>
             <div style="display:flex; gap:.5rem;">
                 <a href="/" class="rb-button">&larr; Beranda</a>
+                <a href="/studio" class="rb-button rb-button--primary" style="background:#1d4ed8;">&#9997; Naskah Studio</a>
                 <a href="/admin" class="rb-button rb-button--primary">&#9889; Admin Panel</a>
                 <a href="/admin/connected-projects" class="rb-button">&#128187; Filament Monitor</a>
             </div>
