@@ -1161,6 +1161,34 @@ class AcademicWorkspacePage extends Page
     }
 
     /**
+     * Unduh seluruh daftar pustaka referensi proyek sebagai berkas BibTeX (.bib).
+     */
+    public function exportReferencesBibtex(): ?StreamedResponse
+    {
+        $project = $this->getProject();
+        if ($project === null) {
+            return null;
+        }
+
+        if ($project->references()->count() === 0) {
+            Notification::make()->title('Belum ada referensi pada proyek ini')->warning()->send();
+
+            return null;
+        }
+
+        $exporter = app(ManuscriptExporter::class);
+        $content = $exporter->render($project, ManuscriptExporter::FORMAT_BIBTEX, $project->current_stage);
+        $base = Str::slug((string) $project->title) ?: 'references';
+        $filename = $base.'-references.bib';
+
+        return response()->streamDownload(
+            static fn () => print $content,
+            $filename,
+            ['Content-Type' => 'application/x-bibtex'],
+        );
+    }
+
+    /**
      * Preview action items revisi terakhir (untuk panel revisi ringkas).
      */
     public function latestRevision(): ?ProjectRevision

@@ -166,6 +166,15 @@
                                 </div>
                             </div>
 
+                            <button
+                                type="button"
+                                class="rb-button"
+                                wire:click="exportReferencesBibtex"
+                                title="Unduh seluruh daftar pustaka proyek sebagai file BibTeX (.bib)"
+                            >
+                                &#11015; Unduh Pustaka (.bib)
+                            </button>
+
                             <div wire:loading wire:target="referenceUpload" class="rb-mono rb-muted" style="font-size:.68rem;">
                                 Mengimpor referensi...
                             </div>
