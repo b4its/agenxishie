@@ -138,3 +138,29 @@ it('marks every revision item resolved in bulk', function (): void {
     expect($fresh->resolutionPercentage())->toBe(100.0)
         ->and($fresh->status)->toBe(RevisionStatus::RESOLVED);
 });
+
+it('accepts a FileUpload array value for custom_guideline_path without crashing', function (): void {
+    // Regresi: Filament FileUpload mengembalikan array; kolom DB bertipe string
+    // sehingga array mentah memicu "Array to string conversion".
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    Livewire\Livewire::test(ProjectOnboardingWizard::class)
+        ->fillForm([
+            'title' => 'Proyek Path Array',
+            'field_of_study' => FieldOfStudy::STEM->value,
+            'document_type' => DocumentType::JOURNAL->value,
+            'target_scope' => PublicationTarget::NATIONAL_SINTA->value,
+            'control_mode' => ControlMode::MANUAL->value,
+            'acknowledge_control_mode' => true,
+        ])
+        ->set('step', 4)
+        ->set('data.custom_guideline_path', ['guidelines/a.docx'])
+        ->call('createProject')
+        ->assertHasNoFormErrors();
+
+    $project = XishieProject::query()->where('title', 'Proyek Path Array')->first();
+
+    expect($project)->not->toBeNull()
+        ->and($project->custom_guideline_path)->toBe('guidelines/a.docx');
+});

@@ -76,7 +76,7 @@ final class ProjectOnboardingService
                 'guideline_type' => (string) ($data['guideline_type'] ?? 'default'),
                 'citation_style' => CitationStyle::from((string) $citationStyle),
                 'guideline_rules' => $data['guideline_rules'] ?? null,
-                'custom_guideline_path' => $data['custom_guideline_path'] ?? null,
+                'custom_guideline_path' => $this->normalizePath($data['custom_guideline_path'] ?? null),
                 'onboarded_at' => now(),
             ]);
 
@@ -103,5 +103,24 @@ final class ProjectOnboardingService
     public function previewGuideline(DocumentType $type, string $citationStyle): array
     {
         return $this->presetFactory->forDocumentType($type, $citationStyle)->toArray();
+    }
+
+    /**
+     * Normalkan nilai path pedoman (FileUpload bisa memberi array) menjadi
+     * string tunggal — kolom `custom_guideline_path` bertipe string.
+     */
+    private function normalizePath(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $value = array_values(array_filter($value, static fn ($v): bool => is_string($v) && $v !== ''))[0] ?? null;
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 }

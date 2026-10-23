@@ -184,13 +184,16 @@ class ProjectOnboardingWizard extends Page implements HasForms
         $guidelineType = (string) ($state['guideline_type'] ?? 'default');
         $citationStyle = (string) ($state['citation_style'] ?? $documentType->defaultCitationStyle());
 
+        // FileUpload dapat mengembalikan array path; normalisasi ke string tunggal.
+        $customPath = $this->normalizeGuidelinePath($state['custom_guideline_path'] ?? null);
+
         // Pedoman custom: ekstrak berkas PDF/DOCX lalu parsing menjadi aturan
         // terstruktur (guideline_rules) agar langsung dipakai agen & auditor.
         $guidelineRules = null;
 
-        if ($guidelineType === 'custom' && ! empty($state['custom_guideline_path'])) {
+        if ($guidelineType === 'custom' && $customPath !== null) {
             $guidelineRules = $this->parseCustomGuideline(
-                (string) $state['custom_guideline_path'],
+                $customPath,
                 $documentType,
                 $citationStyle,
             );
@@ -208,7 +211,7 @@ class ProjectOnboardingWizard extends Page implements HasForms
                 'guideline_type' => $guidelineType,
                 'citation_style' => $citationStyle,
                 'guideline_rules' => $guidelineRules,
-                'custom_guideline_path' => $state['custom_guideline_path'] ?? null,
+                'custom_guideline_path' => $customPath,
             ],
         );
 
@@ -222,6 +225,28 @@ class ProjectOnboardingWizard extends Page implements HasForms
             ->send();
 
         $this->redirect(AcademicWorkspacePage::getUrl(['project' => $project->id]));
+    }
+
+    /**
+     * Normalisasi nilai custom_guideline_path menjadi satu string path.
+     *
+     * Filament FileUpload mengembalikan array path (single upload = 1 elemen).
+     * Kolom database bertipe string, jadi array mentah memicu error
+     * "Array to string conversion". Ambil elemen pertama yang valid.
+     */
+    private function normalizeGuidelinePath(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $value = array_values(array_filter($value, static fn ($v): bool => is_string($v) && $v !== ''))[0] ?? null;
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     /**
