@@ -366,4 +366,33 @@ final class PeerCriticAgent implements XishieAgentContract
 
         return $csv !== false ? $csv : '';
     }
+
+    /**
+     * Susun dokumen matriks Response to Reviewers sebagai JSON.
+     */
+    public function renderResponseMatrixJson(ProjectRevision $revision): string
+    {
+        $items = [];
+        foreach ((array) ($revision->action_items ?? []) as $item) {
+            $items[] = [
+                'id' => (int) ($item['id'] ?? 0),
+                'task' => (string) ($item['task'] ?? ''),
+                'section_key' => (string) ($item['section_key'] ?? '-'),
+                'status' => (string) ($item['status'] ?? 'pending'),
+                'action_plan' => 'Perbaikan diterapkan pada bagian terkait.',
+            ];
+        }
+
+        $payload = [
+            'revision_id' => $revision->id,
+            'reviewer_role' => $revision->reviewer_role,
+            'status' => $revision->status->value,
+            'resolution_percentage' => $revision->resolutionPercentage(),
+            'total_items' => count($items),
+            'action_items' => $items,
+            'exported_at' => now()->toIso8601String(),
+        ];
+
+        return (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
 }

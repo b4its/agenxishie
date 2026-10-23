@@ -35,6 +35,10 @@ final class ManuscriptExporter
 
     public const FORMAT_DOCX = 'docx';
 
+    public const FORMAT_HTML = 'html';
+
+    public const FORMAT_JSON = 'json';
+
     public function __construct(
         private readonly CitationFormatter $citationFormatter,
     ) {}
@@ -50,6 +54,8 @@ final class ManuscriptExporter
             self::FORMAT_DOCX => ['label' => 'Word (DOCX)', 'extension' => 'docx', 'mime' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
             self::FORMAT_MARKDOWN => ['label' => 'Markdown', 'extension' => 'md', 'mime' => 'text/markdown'],
             self::FORMAT_LATEX => ['label' => 'LaTeX', 'extension' => 'tex', 'mime' => 'application/x-tex'],
+            self::FORMAT_HTML => ['label' => 'HTML (Web/Cetak)', 'extension' => 'html', 'mime' => 'text/html'],
+            self::FORMAT_JSON => ['label' => 'JSON (Struktur Data)', 'extension' => 'json', 'mime' => 'application/json'],
             self::FORMAT_BIBTEX => ['label' => 'BibTeX', 'extension' => 'bib', 'mime' => 'application/x-bibtex'],
             self::FORMAT_TEXT => ['label' => 'Teks Polos', 'extension' => 'txt', 'mime' => 'text/plain'],
         ];
@@ -87,6 +93,8 @@ final class ManuscriptExporter
         return match ($format) {
             self::FORMAT_MARKDOWN => $this->toMarkdown($manuscript),
             self::FORMAT_LATEX => $this->toLatex($manuscript),
+            self::FORMAT_HTML => $this->toHtml($manuscript),
+            self::FORMAT_JSON => $this->toJson($manuscript),
             self::FORMAT_BIBTEX => $this->toBibtex($project),
             self::FORMAT_TEXT => $this->toText($manuscript),
             self::FORMAT_DOCX => $this->toDocx($manuscript),
@@ -259,6 +267,81 @@ final class ManuscriptExporter
         }
 
         return rtrim($out)."\n";
+    }
+
+    /**
+     * @param  array{title: string, abstract: string, keywords: array<int, string>, sections: array<int, array{heading: string, content: string}>, bibliography: array<int, string>, citation_style: string}  $m
+     */
+    private function toHtml(array $m): string
+    {
+        $escapedTitle = htmlspecialchars($m['title'], ENT_QUOTES, 'UTF-8');
+        $html = "<!DOCTYPE html>\n<html lang=\"id\">\n<head>\n";
+        $html .= "    <meta charset=\"utf-8\">\n";
+        $html .= "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
+        $html .= "    <title>{$escapedTitle}</title>\n";
+        $html .= "    <style>\n";
+        $html .= "        body { font-family: 'Times New Roman', Georgia, serif; line-height: 1.6; max-width: 800px; margin: 2rem auto; padding: 0 1.5rem; color: #111; }\n";
+        $html .= "        h1 { font-size: 1.8rem; text-align: center; margin-bottom: 1.5rem; }\n";
+        $html .= "        .abstract-box { background: #f8f9fa; border-left: 3px solid #1E40AF; padding: 1rem 1.25rem; margin: 1.5rem 0; font-style: italic; }\n";
+        $html .= "        .abstract-title { font-weight: bold; font-style: normal; margin-bottom: 0.5rem; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.05em; }\n";
+        $html .= "        .keywords { margin-top: 0.75rem; font-weight: normal; font-style: normal; font-size: 0.9rem; }\n";
+        $html .= "        h2 { font-size: 1.25rem; margin-top: 1.75rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3rem; text-transform: uppercase; }\n";
+        $html .= "        p { text-align: justify; margin-bottom: 1rem; text-indent: 1.5em; }\n";
+        $html .= "        .bib-entry { margin-bottom: 0.5rem; padding-left: 2rem; text-indent: -2rem; font-size: 0.95rem; }\n";
+        $html .= "        @media print { body { max-width: 100%; margin: 0; padding: 1in; font-size: 12pt; } h1 { font-size: 16pt; } h2 { font-size: 13pt; } .abstract-box { background: none; border-left: none; padding: 0; font-size: 10pt; } }\n";
+        $html .= "    </style>\n</head>\n<body>\n";
+        $html .= "    <h1>{$escapedTitle}</h1>\n";
+
+        if ($m['abstract'] !== '') {
+            $html .= "    <div class=\"abstract-box\">\n";
+            $html .= "        <div class=\"abstract-title\">Abstrak</div>\n";
+            $html .= '        <div>'.nl2br(htmlspecialchars($m['abstract'], ENT_QUOTES, 'UTF-8'))."</div>\n";
+            if ($m['keywords'] !== []) {
+                $html .= '        <div class="keywords"><strong>Kata Kunci:</strong> '.htmlspecialchars(implode(', ', $m['keywords']), ENT_QUOTES, 'UTF-8')."</div>\n";
+            }
+            $html .= "    </div>\n";
+        }
+
+        foreach ($m['sections'] as $sec) {
+            $heading = htmlspecialchars($sec['heading'], ENT_QUOTES, 'UTF-8');
+            $content = nl2br(htmlspecialchars($sec['content'], ENT_QUOTES, 'UTF-8'));
+            $html .= "    <h2>{$heading}</h2>\n";
+            $html .= "    <p>{$content}</p>\n";
+        }
+
+        if ($m['bibliography'] !== []) {
+            $html .= "    <h2>Daftar Pustaka</h2>\n";
+            foreach ($m['bibliography'] as $entry) {
+                $html .= '    <div class="bib-entry">'.htmlspecialchars($entry, ENT_QUOTES, 'UTF-8')."</div>\n";
+            }
+        }
+
+        $html .= "</body>\n</html>";
+
+        return $html;
+    }
+
+    /**
+     * @param  array{title: string, abstract: string, keywords: array<int, string>, sections: array<int, array{heading: string, content: string}>, bibliography: array<int, string>, citation_style: string}  $m
+     */
+    private function toJson(array $m): string
+    {
+        $payload = [
+            'title' => $m['title'],
+            'abstract' => $m['abstract'],
+            'keywords' => $m['keywords'],
+            'citation_style' => $m['citation_style'],
+            'total_words' => str_word_count(strip_tags($m['abstract'].' '.implode(' ', array_column($m['sections'], 'content')))),
+            'sections' => array_map(static fn (array $s): array => [
+                'heading' => $s['heading'],
+                'word_count' => str_word_count(strip_tags($s['content'])),
+                'content' => $s['content'],
+            ], $m['sections']),
+            'bibliography' => $m['bibliography'],
+            'exported_at' => now()->toIso8601String(),
+        ];
+
+        return (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /**

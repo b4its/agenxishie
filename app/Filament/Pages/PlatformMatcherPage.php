@@ -251,6 +251,27 @@ class PlatformMatcherPage extends Page
 
             $content = implode("\n", $lines);
             $mime = 'text/markdown';
+        } elseif ($format === 'json') {
+            $filename = $base.'-journal-recommendations.json';
+            $data = [
+                'project_id' => $project->id,
+                'project_title' => $project->title,
+                'field_of_study' => $project->field_of_study->value,
+                'total_recommendations' => $recs->count(),
+                'recommendations' => $recs->map(static fn ($r): array => [
+                    'id' => $r->id,
+                    'journal_name' => $r->journal_name,
+                    'publisher' => $r->publisher,
+                    'index_tier' => $r->index_tier,
+                    'match_score' => (float) $r->match_score,
+                    'apc_estimate' => $r->apc_estimate,
+                    'is_selected' => (bool) $r->is_selected,
+                    'submission_url' => $r->submission_url,
+                ])->all(),
+                'exported_at' => now()->toIso8601String(),
+            ];
+            $content = (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $mime = 'application/json';
         } else {
             $filename = $base.'-journal-recommendations.csv';
             $handle = fopen('php://temp', 'r+');

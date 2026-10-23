@@ -429,6 +429,10 @@ class SmartRevisionCenterPage extends Page implements HasForms
             $filename = $base.'-response-to-reviewers-'.$revision->id.'.csv';
             $body = app(PeerCriticAgent::class)->renderResponseMatrixCsv($revision);
             $mime = 'text/csv';
+        } elseif ($format === 'json') {
+            $filename = $base.'-response-to-reviewers-'.$revision->id.'.json';
+            $body = app(PeerCriticAgent::class)->renderResponseMatrixJson($revision);
+            $mime = 'application/json';
         } else {
             $filename = $base.'-response-to-reviewers-'.$revision->id.'.md';
             $body = '# Response to Reviewers'."\n\n";

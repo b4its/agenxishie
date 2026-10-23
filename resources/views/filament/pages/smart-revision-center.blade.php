@@ -144,6 +144,14 @@
                                     wire:loading.attr="disabled"
                                     title="Unduh matriks sebagai CSV"
                                 >&#11015; CSV</button>
+                                <button
+                                    type="button"
+                                    class="rb-button"
+                                    style="padding:.15rem .5rem; font-size:.6rem;"
+                                    wire:click="downloadResponseMatrix({{ $revision->id }}, 'json')"
+                                    wire:loading.attr="disabled"
+                                    title="Unduh matriks sebagai JSON"
+                                >&#11015; JSON</button>
                             </span>
                         </div>
                         <pre class="rb-terminal" style="max-height:none; margin-top:.5rem;">{{ $revision->response_matrix_doc }}</pre>

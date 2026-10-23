@@ -75,6 +75,7 @@
                     <span class="rb-mono rb-muted" style="font-size:.7rem; margin-left:auto;">Daftar Rekomendasi Jurnal:</span>
                     <button type="button" class="rb-button" wire:click="exportRecommendations('csv')" title="Unduh daftar rekomendasi sebagai CSV">&#11015; CSV</button>
                     <button type="button" class="rb-button" wire:click="exportRecommendations('markdown')" title="Unduh daftar rekomendasi sebagai Markdown">&#11015; MD</button>
+                    <button type="button" class="rb-button" wire:click="exportRecommendations('json')" title="Unduh daftar rekomendasi sebagai JSON">&#11015; JSON</button>
                 </div>
             </div>
 
