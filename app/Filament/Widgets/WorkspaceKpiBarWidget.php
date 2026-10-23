@@ -25,6 +25,17 @@ class WorkspaceKpiBarWidget extends Widget
     public ?int $projectId = null;
 
     /**
+     * @return array<int, string>
+     */
+    public function projectOptions(): array
+    {
+        return XishieProject::query()
+            ->latest('updated_at')
+            ->pluck('title', 'id')
+            ->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function getViewData(): array
@@ -32,7 +43,7 @@ class WorkspaceKpiBarWidget extends Widget
         $project = $this->projectId !== null ? XishieProject::find($this->projectId) : XishieProject::query()->latest()->first();
 
         if ($project === null) {
-            return ['project' => null, 'cards' => []];
+            return ['project' => null, 'cards' => [], 'projectOptions' => $this->projectOptions()];
         }
 
         $service = app(UxKpiTelemetryService::class);
@@ -62,6 +73,7 @@ class WorkspaceKpiBarWidget extends Widget
         return [
             'project' => $project,
             'cards' => $cards,
+            'projectOptions' => $this->projectOptions(),
         ];
     }
 }

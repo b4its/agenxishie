@@ -15,13 +15,22 @@
     </div>
 @else
     <div class="rb-window">
-        <div class="rb-window__titlebar">
-            <span>WORKSPACE TELEMETRY — {{ strtoupper($project->document_type->label()) }}</span>
-            <span class="rb-window__controls">
-                <span class="rb-window__control">-</span>
-                <span class="rb-window__control">&#9633;</span>
-                <span class="rb-window__control">&#215;</span>
-            </span>
+        <div class="rb-window__titlebar" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>WORKSPACE TELEMETRY — {{ strtoupper($project->title) }}</span>
+            <div style="display:flex; gap:.4rem; align-items:center;">
+                @if (! empty($projectOptions))
+                    <select class="rb-select" style="font-size:.6rem; padding:.1rem .3rem; height:auto; color:#000;" wire:model.live="projectId">
+                        @foreach ($projectOptions as $pid => $ptitle)
+                            <option value="{{ $pid }}">{{ \Illuminate\Support\Str::limit($ptitle, 28) }}</option>
+                        @endforeach
+                    </select>
+                @endif
+                <span class="rb-window__controls">
+                    <span class="rb-window__control">-</span>
+                    <span class="rb-window__control">&#9633;</span>
+                    <span class="rb-window__control">&#215;</span>
+                </span>
+            </div>
         </div>
         <div class="rb-window__body">
             <div class="rb-kpi-row">

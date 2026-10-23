@@ -23,15 +23,35 @@ class HeartKpiTelemetryWidget extends Widget
 
     public string $framework = 'HEART';
 
+    public ?int $projectId = null;
+
+    /**
+     * @return array<int, string>
+     */
+    public function projectOptions(): array
+    {
+        return XishieProject::query()
+            ->latest('updated_at')
+            ->pluck('title', 'id')
+            ->all();
+    }
+
     /**
      * @return array<string, mixed>
      */
     protected function getViewData(): array
     {
-        $project = XishieProject::query()->latest()->first();
+        $project = $this->projectId !== null
+            ? XishieProject::find($this->projectId)
+            : XishieProject::query()->latest()->first();
 
         if ($project === null) {
-            return ['title' => 'HEART FRAMEWORK', 'rows' => [], 'framework' => $this->framework];
+            return [
+                'title' => $this->framework.' FRAMEWORK',
+                'rows' => [],
+                'framework' => $this->framework,
+                'projectOptions' => $this->projectOptions(),
+            ];
         }
 
         $summary = app(UxKpiTelemetryService::class)->dashboardSummary($project);
@@ -56,6 +76,7 @@ class HeartKpiTelemetryWidget extends Widget
             'title' => $this->framework.' FRAMEWORK',
             'rows' => $rows,
             'framework' => $this->framework,
+            'projectOptions' => $this->projectOptions(),
         ];
     }
 }
