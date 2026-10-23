@@ -11,6 +11,7 @@ use App\Models\ProjectStageRecord;
 use App\Models\XishieProject;
 use App\Omnigensi\Agents\RuleKeeperAgent;
 use App\Omnigensi\Agents\ScholarScoutAgent;
+use App\Omnigensi\Data\SharedContextData;
 use App\Omnigensi\Memory\SharedProjectMemory;
 
 /**
@@ -24,6 +25,7 @@ final class XishieAssistantService
         private readonly ScholarScoutAgent $scholarScout,
         private readonly RuleKeeperAgent $ruleKeeper,
         private readonly LiteratureMatrixBuilder $matrixBuilder,
+        private readonly OmnigensiChatClient $llm,
     ) {}
 
     /**
@@ -153,6 +155,14 @@ final class XishieAssistantService
     {
         $context = $this->memory->build($project, $input);
 
+        // Jawab via LLM Omnigensi dengan konteks proyek (terintegrasi).
+        $answer = $this->answerWithLlm($project, $input, $context);
+
+        if ($answer !== null) {
+            return ['command' => 'freeform', 'reply' => $answer, 'data' => ['request' => $input, 'source' => 'omnigensi-llm']];
+        }
+
+        // Fallback offline: ringkasan konteks.
         $reply = sprintf(
             'Konteks proyek: %d referensi (%d terverifikasi), pedoman %s, tahap %s. Gunakan /sitasi, /cek-gap, /cek-pedoman, atau /matriks-literatur.',
             $context->referenceCount,
@@ -161,7 +171,46 @@ final class XishieAssistantService
             $context->stage,
         );
 
-        return ['command' => 'freeform', 'reply' => $reply, 'data' => ['request' => $input]];
+        return ['command' => 'freeform', 'reply' => $reply, 'data' => ['request' => $input, 'source' => 'offline-fallback']];
+    }
+
+    /**
+     * Jawab pertanyaan bebas memakai LLM Omnigensi dengan konteks proyek.
+     */
+    private function answerWithLlm(XishieProject $project, string $input, SharedContextData $context): ?string
+    {
+        if (! config('omnigensi.agents_enabled', true)) {
+            return null;
+        }
+
+        $citationKeys = $context->citationKeys();
+
+        $system = 'Anda Xishie Assistant untuk penulisan akademik. Jawab ringkas, akurat, '
+            .'dan actionable dalam Bahasa Indonesia. Jangan mengarang referensi; bila menyebut '
+            .'sumber gunakan hanya kunci sitasi yang tersedia: '
+            .($citationKeys === [] ? '(belum ada)' : implode(', ', $citationKeys)).'.';
+
+        $prompt = sprintf(
+            "Konteks proyek:\n- Judul: %s\n- Bidang: %s\n- Jenis: %s\n- Tahap: %s\n- Referensi: %d (%d terverifikasi)\n- Pedoman: %s\n\nPertanyaan/permintaan pengguna:\n%s",
+            $context->projectTitle,
+            $context->fieldOfStudy,
+            $context->documentType,
+            $context->stage,
+            $context->referenceCount,
+            $context->verifiedReferenceCount,
+            $context->guideline->source,
+            $input,
+        );
+
+        $result = $this->llm->generate($prompt, $system, 0.6, 800);
+
+        if ($result === null) {
+            return null;
+        }
+
+        $content = trim((string) $result['content']);
+
+        return $content === '' ? null : $content;
     }
 
     private function stageRecord(XishieProject $project): ?ProjectStageRecord

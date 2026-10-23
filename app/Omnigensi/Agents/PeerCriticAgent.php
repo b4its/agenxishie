@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Omnigensi\Agents;
 
+use App\Domain\Assistant\OmnigensiChatClient;
 use App\Domain\Revision\Enums\RevisionStatus;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\ProjectRevision;
@@ -22,6 +23,10 @@ use Illuminate\Support\Str;
 final class PeerCriticAgent implements XishieAgentContract
 {
     use ResolvesStageRecord;
+
+    public function __construct(
+        private readonly OmnigensiChatClient $llm,
+    ) {}
 
     public function name(): string
     {
@@ -81,24 +86,33 @@ final class PeerCriticAgent implements XishieAgentContract
         $items = [];
         $diffs = [];
 
-        foreach ($this->splitFeedback($rawFeedback) as $index => $note) {
-            $targetKey = $this->mapToSection($note, $sectionKeys, $index);
+        // Analisis via LLM Omnigensi (action items + usulan perbaikan). Bila
+        // backend tidak tersedia, pakai pemecahan pola di bawah (offline).
+        $llm = $this->analyseWithLlm($project, $rawFeedback, $sections, $sectionKeys);
 
-            $items[] = [
-                'id' => $index + 1,
-                'task' => $note,
-                'section_key' => $targetKey,
-                'status' => RevisionStatus::PENDING->value,
-                'paragraph_ref' => $targetKey.'#p'.($index + 1),
-            ];
+        if ($llm !== null) {
+            $items = $llm['items'];
+            $diffs = $llm['diffs'];
+        } else {
+            foreach ($this->splitFeedback($rawFeedback) as $index => $note) {
+                $targetKey = $this->mapToSection($note, $sectionKeys, $index);
 
-            $before = $this->sectionContent($sections, $targetKey);
-            $diffs[] = [
-                'section_key' => $targetKey,
-                'before' => $before,
-                'after' => $this->proposeRevision($before, $note),
-                'note' => $note,
-            ];
+                $items[] = [
+                    'id' => $index + 1,
+                    'task' => $note,
+                    'section_key' => $targetKey,
+                    'status' => RevisionStatus::PENDING->value,
+                    'paragraph_ref' => $targetKey.'#p'.($index + 1),
+                ];
+
+                $before = $this->sectionContent($sections, $targetKey);
+                $diffs[] = [
+                    'section_key' => $targetKey,
+                    'before' => $before,
+                    'after' => $this->proposeRevision($before, $note),
+                    'note' => $note,
+                ];
+            }
         }
 
         $revision = ProjectRevision::create([
@@ -121,6 +135,106 @@ final class PeerCriticAgent implements XishieAgentContract
     /**
      * @return array<int, string>
      */
+    /**
+     * Analisis catatan revisi via LLM Omnigensi menjadi action items + usulan
+     * perbaikan (diff). Kembalikan null bila tidak tersedia (fallback offline).
+     *
+     * @param  array<int, array<string, mixed>>  $sections
+     * @param  array<int, string>  $sectionKeys
+     * @return array{items: array<int, array<string, mixed>>, diffs: array<int, array<string, mixed>>}|null
+     */
+    private function analyseWithLlm(XishieProject $project, string $rawFeedback, array $sections, array $sectionKeys): ?array
+    {
+        if (! config('omnigensi.agents_enabled', true)) {
+            return null;
+        }
+
+        $system = 'Anda Peer-Critic: analis revisi akademik. Pecah catatan reviewer menjadi '
+            .'butir tugas terstruktur dan usulkan perbaikan konkret. Kembalikan JSON saja.';
+
+        $prompt = sprintf(
+            "Sub-bab tersedia (key): %s\n\nCatatan reviewer:\n%s\n\n".
+            'Balas JSON array objek: {"task":string,"section_key":salah satu key,"suggestion":string}. '.
+            'Maksimal 10 butir.',
+            implode(', ', array_filter($sectionKeys)),
+            $rawFeedback,
+        );
+
+        $result = $this->llm->generate($prompt, $system, 0.3, 1200);
+
+        if ($result === null) {
+            return null;
+        }
+
+        $decoded = $this->extractJsonArray((string) $result['content']);
+
+        if ($decoded === []) {
+            return null;
+        }
+
+        $items = [];
+        $diffs = [];
+
+        foreach ($decoded as $index => $item) {
+            if (! is_array($item) || ! isset($item['task'])) {
+                continue;
+            }
+
+            $targetKey = $this->resolveSectionKey((string) ($item['section_key'] ?? ''), $sectionKeys, $index);
+            $task = (string) $item['task'];
+            $suggestion = (string) ($item['suggestion'] ?? '');
+            $before = $this->sectionContent($sections, $targetKey);
+
+            $items[] = [
+                'id' => $index + 1,
+                'task' => $task,
+                'section_key' => $targetKey,
+                'status' => RevisionStatus::PENDING->value,
+                'paragraph_ref' => $targetKey.'#p'.($index + 1),
+                'suggestion' => $suggestion,
+            ];
+
+            $diffs[] = [
+                'section_key' => $targetKey,
+                'before' => $before,
+                'after' => $suggestion !== '' ? $suggestion : $this->proposeRevision($before, $task),
+                'note' => $task,
+            ];
+        }
+
+        return $items === [] ? null : ['items' => $items, 'diffs' => $diffs];
+    }
+
+    /**
+     * Pilih section key valid dari usulan LLM (fallback ke mapToSection).
+     *
+     * @param  array<int, string>  $sectionKeys
+     */
+    private function resolveSectionKey(string $candidate, array $sectionKeys, int $index): string
+    {
+        if ($candidate !== '' && in_array($candidate, $sectionKeys, true)) {
+            return $candidate;
+        }
+
+        return $sectionKeys[$index % max(count($sectionKeys), 1)] ?? 'general';
+    }
+
+    /**
+     * Ekstrak array JSON dari keluaran LLM.
+     *
+     * @return array<int, mixed>
+     */
+    private function extractJsonArray(string $content): array
+    {
+        if (preg_match('/\[.*\]/s', $content, $m) !== 1) {
+            return [];
+        }
+
+        $decoded = json_decode($m[0], true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
     private function splitFeedback(string $rawFeedback): array
     {
         $lines = preg_split('/\r\n|\r|\n/', $rawFeedback) ?: [];
