@@ -414,17 +414,27 @@ class AcademicWorkspacePage extends Page
 
         try {
             $binary = $this->referenceUpload->get();
-            $filename = $this->referenceUpload->getClientOriginalName();
+            $filename = (string) $this->referenceUpload->getClientOriginalName();
+            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 
-            $reference = app(ReferenceImportService::class)->import($project, $binary, $filename);
+            if ($ext === 'bib') {
+                $count = app(ReferenceImportService::class)->importBibtex($project, $binary);
+                $this->importStatus = "OK: {$count} referensi BibTeX berhasil diimpor.";
 
-            $this->importStatus = 'OK: referensi "'.$reference->citation_key.'" berhasil diimpor.';
+                Notification::make()
+                    ->title("{$count} referensi BibTeX diimpor")
+                    ->success()
+                    ->send();
+            } else {
+                $reference = app(ReferenceImportService::class)->import($project, $binary, $filename);
+                $this->importStatus = 'OK: referensi "'.$reference->citation_key.'" berhasil diimpor.';
 
-            Notification::make()
-                ->title('PDF referensi diimpor')
-                ->body($reference->title)
-                ->success()
-                ->send();
+                Notification::make()
+                    ->title('PDF referensi diimpor')
+                    ->body($reference->title)
+                    ->success()
+                    ->send();
+            }
         } catch (\Throwable $exception) {
             $this->importStatus = 'Gagal: '.$exception->getMessage();
 
@@ -1018,6 +1028,67 @@ class AcademicWorkspacePage extends Page
             ->send();
 
         $this->dispatch('$refresh');
+    }
+
+    /**
+     * Impor teks mentah BibTeX ke dalam referensi proyek.
+     */
+    public function importBibtexText(string $bibtexText): void
+    {
+        $project = $this->getProject();
+        if ($project === null || trim($bibtexText) === '') {
+            return;
+        }
+
+        try {
+            $count = app(ReferenceImportService::class)->importBibtex($project, $bibtexText);
+            $this->importStatus = "OK: {$count} referensi BibTeX berhasil diimpor.";
+
+            Notification::make()
+                ->title("{$count} referensi BibTeX ditambahkan")
+                ->success()
+                ->send();
+        } catch (\Throwable $exception) {
+            $this->importStatus = 'Gagal: '.$exception->getMessage();
+
+            Notification::make()
+                ->title('Gagal mengimpor BibTeX')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        } finally {
+            $this->dispatch('$refresh');
+        }
+    }
+
+    /**
+     * Unduh Tabel Matriks Literatur (SOTA) sebagai berkas CSV atau Markdown.
+     */
+    public function exportLiteratureMatrix(string $format = 'csv'): ?StreamedResponse
+    {
+        $project = $this->getProject();
+        if ($project === null) {
+            return null;
+        }
+
+        $builder = app(LiteratureMatrixBuilder::class);
+        $base = Str::slug((string) $project->title) ?: 'matriks';
+
+        if ($format === 'markdown' || $format === 'md') {
+            $content = "# Matriks Literatur (SOTA) — {$project->title}\n\n".$builder->toMarkdown($project);
+            $filename = $base.'-literature-matrix.md';
+            $mime = 'text/markdown';
+        } else {
+            $content = $builder->toCsv($project);
+            $filename = $base.'-literature-matrix.csv';
+            $mime = 'text/csv';
+        }
+
+        return response()->streamDownload(
+            static fn () => print $content,
+            $filename,
+            ['Content-Type' => $mime],
+        );
     }
 
     /**

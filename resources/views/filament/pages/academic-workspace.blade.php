@@ -136,12 +136,29 @@
                             </div>
 
                             <label class="rb-button" style="cursor:pointer;">
-                                &#8679; Upload PDF Referensi
-                                <input type="file" accept="application/pdf" wire:model="referenceUpload" style="display:none;" />
+                                &#8679; Upload PDF / BibTeX (.bib)
+                                <input type="file" accept=".pdf,.bib,application/pdf,text/plain" wire:model="referenceUpload" style="display:none;" />
                             </label>
 
+                            <div x-data="{ openBibtex: false, bibtexCode: '' }">
+                                <button type="button" class="rb-button" style="width:100%;" x-on:click="openBibtex = ! openBibtex">+ Tempel Teks BibTeX</button>
+                                <div x-show="openBibtex" x-cloak style="border:var(--rb-border-soft); padding:.5rem; background:var(--rb-blueprint); margin-top:.3rem;">
+                                    <div class="rb-mono" style="font-size:.65rem; font-weight:bold; margin-bottom:.3rem;">TEMPEL TEKS BIBTEX</div>
+                                    <textarea x-model="bibtexCode" placeholder="@article{key, title={...}, author={...}, year={2024}}" rows="4" class="rb-textarea" style="font-size:.65rem;"></textarea>
+                                    <div style="display:flex; gap:.3rem; justify-content:flex-end; margin-top:.3rem;">
+                                        <button type="button" class="rb-button" style="font-size:.6rem; padding:.15rem .4rem;" x-on:click="openBibtex = false">Batal</button>
+                                        <button
+                                            type="button"
+                                            class="rb-button rb-button--primary"
+                                            style="font-size:.6rem; padding:.15rem .4rem;"
+                                            x-on:click="$wire.importBibtexText(bibtexCode); openBibtex = false; bibtexCode = '';"
+                                        >Impor</button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div wire:loading wire:target="referenceUpload" class="rb-mono rb-muted" style="font-size:.68rem;">
-                                Mengimpor &amp; mengekstrak PDF...
+                                Mengimpor referensi...
                             </div>
 
                             @if ($importStatus !== '')
@@ -154,7 +171,13 @@
                         </div>
 
                         {{-- TAB: Tabel Matriks Literatur (SOTA) --}}
-                        <div class="rb-kpi-card__label" style="margin-top:1rem;">TABEL MATRIKS LITERATUR</div>
+                        <div class="rb-kpi-card__label" style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center;">
+                            <span>TABEL MATRIKS LITERATUR</span>
+                            <span style="display:flex; gap:.25rem;">
+                                <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="exportLiteratureMatrix('csv')" title="Unduh tabel SOTA sebagai CSV">&#11015; CSV</button>
+                                <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="exportLiteratureMatrix('markdown')" title="Unduh tabel SOTA sebagai Markdown">&#11015; MD</button>
+                            </span>
+                        </div>
                         <div style="max-height:13rem; overflow:auto; margin-top:.4rem;">
                             @if (empty($literatureMatrix))
                                 <div class="rb-mono rb-muted" style="font-size:.66rem;">

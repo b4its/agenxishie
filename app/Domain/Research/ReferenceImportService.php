@@ -72,6 +72,89 @@ final class ReferenceImportService
     }
 
     /**
+     * Impor entri-entri BibTeX (.bib) menjadi referensi ilmiah proyek (PRD 3.4).
+     *
+     * @return int Jumlah referensi yang berhasil diimpor
+     */
+    public function importBibtex(XishieProject $project, string $bibtexContent): int
+    {
+        $entries = $this->parseBibtex($bibtexContent);
+
+        if ($entries === []) {
+            throw new RuntimeException('Tidak ada entri BibTeX yang valid ditemukan.');
+        }
+
+        return $this->scholarScout->ingestCandidates($project, $entries);
+    }
+
+    /**
+     * Parser teks BibTeX menjadi array metadata kandidat referensi.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function parseBibtex(string $bibtex): array
+    {
+        $normalized = trim(str_replace("\r\n", "\n", $bibtex));
+        if ($normalized === '') {
+            return [];
+        }
+
+        preg_match_all('/@([a-zA-Z]+)\s*\{\s*([^,\s]+)\s*,(.*?)\n\s*\}\s*(?=@|\z)/s', $normalized, $matches, PREG_SET_ORDER);
+
+        $candidates = [];
+
+        foreach ($matches as $match) {
+            $rawKey = trim($match[2]);
+            $body = $match[3];
+
+            $fields = $this->parseBibtexFields($body);
+
+            $title = $fields['title'] ?? 'Referensi BibTeX ('.$rawKey.')';
+            $authorRaw = $fields['author'] ?? $fields['authors'] ?? 'Anonim';
+            $authors = array_values(array_filter(array_map('trim', preg_split('/\s+and\s+/i', $authorRaw) ?: [$authorRaw])));
+
+            $year = isset($fields['year']) && is_numeric(trim($fields['year'])) ? (int) trim($fields['year']) : null;
+            $journal = $fields['journal'] ?? $fields['booktitle'] ?? null;
+            $doi = $fields['doi'] ?? null;
+            $abstract = $fields['abstract'] ?? "Kajian tentang {$title}";
+
+            $candidates[] = [
+                'title' => $title,
+                'authors' => $authors !== [] ? $authors : ['Anonim'],
+                'year' => $year,
+                'journal_name' => $journal,
+                'doi' => $doi,
+                'abstract' => $abstract,
+                'citation_key' => $rawKey !== '' ? $rawKey : null,
+                'method' => $this->detect($abstract, ['metode', 'method', 'experiment', 'survey', 'framework']),
+                'result' => $this->detect($abstract, ['hasil', 'result', 'accuracy', 'akurasi', 'evaluation']),
+                'gap' => $this->detect($abstract, ['gap', 'limitation', 'future work', 'keterbatasan']),
+                'source' => 'bibtex_import',
+                'is_verified' => true,
+            ];
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function parseBibtexFields(string $body): array
+    {
+        $fields = [];
+        preg_match_all('/([a-zA-Z_\-]+)\s*=\s*(?:\{([^{}]*)\}|"([^"]*)"|([^\s,]+))/s', $body, $fMatches, PREG_SET_ORDER);
+
+        foreach ($fMatches as $fm) {
+            $key = strtolower(trim($fm[1]));
+            $val = $fm[2] !== '' ? $fm[2] : ($fm[3] !== '' ? $fm[3] : ($fm[4] ?? ''));
+            $fields[$key] = trim(preg_replace('/\s+/u', ' ', $val) ?? '');
+        }
+
+        return $fields;
+    }
+
+    /**
      * Tebak metadata dari teks awal PDF (pendekatan heuristik).
      *
      * @return array{title: string, abstract: string, authors: array<int, string>, year: int|null, citation_key: string, method: string|null, result: string|null, gap: string|null}

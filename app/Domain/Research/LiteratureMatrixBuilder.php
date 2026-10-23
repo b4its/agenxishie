@@ -72,6 +72,40 @@ final class LiteratureMatrixBuilder
         return implode("\n", $lines);
     }
 
+    /**
+     * Render matriks sebagai string CSV.
+     */
+    public function toCsv(XishieProject $project): string
+    {
+        $rows = $this->build($project);
+        $handle = fopen('php://temp', 'r+');
+
+        if ($handle === false) {
+            return '';
+        }
+
+        fputcsv($handle, ['No', 'Citation Key', 'Authors', 'Year', 'Verified', 'Method', 'Result', 'Gap']);
+
+        foreach ($rows as $index => $row) {
+            fputcsv($handle, [
+                $index + 1,
+                $row['citation_key'],
+                $row['authors'],
+                $row['year'] ?? '',
+                $row['is_verified'] ? 'Yes' : 'No',
+                $row['method'] ?? '',
+                $row['result'] ?? '',
+                $row['gap'] ?? '',
+            ]);
+        }
+
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return $csv !== false ? $csv : '';
+    }
+
     private function escape(string $value): string
     {
         return str_replace('|', '\\|', $value);
