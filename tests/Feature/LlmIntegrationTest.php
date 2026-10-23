@@ -196,3 +196,34 @@ it('normalizes an array custom_guideline_path to a string at the model layer', f
 
     expect($project->fresh()->custom_guideline_path)->toBeNull();
 });
+
+it('cleans LLM scribe output: strips preamble, markdown headings and meta', function (): void {
+    $agent = app(AcademicScribeAgent::class);
+    $method = new ReflectionMethod($agent, 'cleanSectionContent');
+    $method->setAccessible(true);
+
+    $raw = "Berikut adalah draf untuk sub-bab **1. Introduction** pada proposal jurnal ilmiah Anda:\n\n"
+        ."## 1. Introduction\n\n"
+        ."Pertumbuhan trafik jaringan mendorong kebutuhan deteksi anomali [Ravi 2021].\n\n"
+        .'Semoga membantu.';
+
+    $clean = $method->invoke($agent, $raw, '1. Introduction');
+
+    expect($clean)->not->toContain('Berikut adalah draf')
+        ->and($clean)->not->toContain('## ')
+        ->and($clean)->not->toContain('Semoga membantu')
+        ->and($clean)->toContain('Pertumbuhan trafik jaringan')
+        ->and($clean)->toContain('[Ravi 2021]');
+});
+
+it('builds a valid "Surname YYYY" citation key even for initial-style authors', function (): void {
+    $agent = app(ScholarScoutAgent::class);
+    $method = new ReflectionMethod($agent, 'buildCitationKey');
+    $method->setAccessible(true);
+
+    // "R. Smith" harus menjadi "Smith 2019" (bukan "R. 2019").
+    $key = $method->invoke($agent, ['authors' => ['R. Smith'], 'year' => 2019]);
+
+    expect($key)->toBe('Smith 2019')
+        ->and($key)->toMatch('/^[A-Z][A-Za-z\-]+ \d{4}$/');
+});

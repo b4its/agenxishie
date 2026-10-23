@@ -269,13 +269,32 @@ final class ScholarScoutAgent implements XishieAgentContract
         $firstAuthor = 'Anon';
 
         if (isset($candidate['authors']) && is_array($candidate['authors']) && $candidate['authors'] !== []) {
-            $author = (string) $candidate['authors'][0];
-            $parts = preg_split('/\s+/u', trim($author)) ?: [];
-            $firstAuthor = $parts[0] ?? 'Anon';
+            $author = trim((string) $candidate['authors'][0]);
+            $parts = preg_split('/\s+/u', $author) ?: [];
+
+            // Lewati token inisial (mis. "R.", "J.") agar memakai nama keluarga.
+            $surname = '';
+
+            foreach ($parts as $part) {
+                $clean = preg_replace('/[^A-Za-z\-]/u', '', $part) ?? '';
+
+                if (mb_strlen($clean) >= 2) {
+                    $surname = $clean;
+                    break;
+                }
+            }
+
+            // Fallback: buang titik/tanda baca dari token pertama.
+            if ($surname === '') {
+                $surname = preg_replace('/[^A-Za-z\-]/u', '', $parts[0] ?? '') ?: 'Anon';
+            }
+
+            $firstAuthor = ucfirst($surname);
         }
 
         $year = isset($candidate['year']) ? (int) $candidate['year'] : (int) now()->year;
 
+        // Format wajib cocok dengan pola sitasi internal: "Surname YYYY".
         return $firstAuthor.' '.$year;
     }
 }
