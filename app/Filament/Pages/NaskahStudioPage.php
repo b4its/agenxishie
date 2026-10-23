@@ -8,6 +8,9 @@ use App\Domain\Assistant\OmnigensiChatClient;
 use App\Domain\Assistant\SlashCommand;
 use App\Domain\Assistant\XishieAssistantService;
 use App\Domain\Publication\NaskahBlockParser;
+use App\Domain\Publication\NaskahDocxExporter;
+use App\Domain\Publication\NaskahOdtExporter;
+use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Shared\DocumentTextExtractor;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\NaskahDocument;
@@ -20,13 +23,14 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * NaskahStudioPage: editor naskah bergaya word processor (mengikuti WordCraft)
- * dengan ribbon, panel navigasi judul, kanvas halaman, galeri gaya, dan status
- * bar. Naskah dapat bersumber dari unggahan dokumen lokal (.docx/.pdf/.txt/.md)
- * atau dari sub-bab sebuah proyek Xishie.
+ * NaskahStudioPage: word processor web bergaya WordCraft.
  *
- * Xishie Assistant hadir sebagai tombol mengapung di kanan bawah; menekannya
- * membuka jendela tools berisi opsi perintah yang dapat dipilih untuk diaktifkan.
+ * Ribbon lengkap (File/Home/Insert/Design/Layout/References/Review/View/
+ * Mailings/Table/Outlining), format inline & paragraf, tabel, gambar,
+ * komentar, track changes, daftar isi, catatan kaki, watermark, pengaturan
+ * halaman, mail merge CSV, pencarian, mode tampilan, dan ekspor DOCX/HTML/MD/TXT.
+ *
+ * Xishie Assistant tampil mengapung di kanan bawah.
  */
 class NaskahStudioPage extends Page
 {
@@ -47,9 +51,9 @@ class NaskahStudioPage extends Page
     public string $docTitle = 'Dokumen Tanpa Judul';
 
     /**
-     * Blok naskah: ['type' => heading|paragraph|quote|bullet|numbered, 'level' => int, 'text' => string].
+     * Blok naskah kaya (lihat NaskahRichModel untuk skema).
      *
-     * @var array<int, array{type: string, level: int, text: string}>
+     * @var array<int, array<string, mixed>>
      */
     public array $blocks = [];
 
@@ -63,30 +67,157 @@ class NaskahStudioPage extends Page
 
     public ?string $lastSavedAt = null;
 
-    // --- Sumber dokumen ---
+    // ===== Sumber dokumen =====
     public mixed $upload = null;
+
+    public mixed $imageUpload = null;
 
     public ?int $sourceProjectId = null;
 
     public string $sourceProjectStage = ProjectStage::DRAFT->value;
 
-    // --- Preferensi tampilan (ribbon & kanvas) ---
+    // ===== Tampilan =====
     public string $activeTab = 'home';
 
     public string $zoom = '100';
 
     public bool $showNavigation = true;
 
+    public bool $showRuler = false;
+
+    public bool $showGridlines = false;
+
+    public string $viewMode = 'print';
+
     public string $fontFamily = 'serif';
 
     public string $fontSize = '16';
 
-    // --- Xishie Assistant (mengapung) ---
+    public bool $darkMode = false;
+
+    public int $activeBlock = 0;
+
+    /**
+     * Stack undo/redo.
+     *
+     * @var array<int, array<int, array<string, mixed>>>
+     */
+    public array $undoStack = [];
+
+    /**
+     * @var array<int, array<int, array<string, mixed>>>
+     */
+    public array $redoStack = [];
+
+    /**
+     * Format painter buffer.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $copiedFormat = null;
+
+    /**
+     * Pilihan teks pada blok aktif: ['start'=>int,'end'=>int] atau null.
+     *
+     * @var array{start: int, end: int}|null
+     */
+    public ?array $selection = null;
+
+    /**
+     * Pengaturan halaman.
+     *
+     * @var array<string, mixed>
+     */
+    public array $pageSetup = [
+        'size' => 'A4',
+        'orientation' => 'portrait',
+        'marginTop' => 25,
+        'marginRight' => 25,
+        'marginBottom' => 25,
+        'marginLeft' => 25,
+        'columns' => 1,
+        'lineNumbers' => false,
+        'pageColor' => '#ffffff',
+        'pageBorder' => false,
+        'watermark' => '',
+    ];
+
+    /**
+     * Metadata gaya global.
+     *
+     * @var array<string, mixed>
+     */
+    public array $styleMeta = [
+        'theme' => 'academic',
+        'fontFamily' => 'serif',
+        'fontSize' => 16,
+        'lineSpacing' => 1.7,
+    ];
+
+    /**
+     * Komentar dokumen.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $comments = [];
+
+    /**
+     * Revisi/track changes.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $revisions = [];
+
+    public bool $trackChanges = false;
+
+    public bool $showComments = true;
+
+    public bool $showRevisions = false;
+
+    public string $commentDraft = '';
+
+    // ===== Dialog =====
+    public string $dialog = '';
+
+    public string $findQuery = '';
+
+    public string $replaceQuery = '';
+
+    public string $findResult = '';
+
+    public string $thesaurusWord = '';
+
+    public string $thesaurusResult = '';
+
+    public string $spellResult = '';
+
+    public int $tableRows = 3;
+
+    public int $tableCols = 3;
+
+    public string $linkUrl = '';
+
+    public string $linkText = '';
+
+    public string $imageAlt = '';
+
+    public string $imageWidth = '320';
+
+    public string $footnoteText = '';
+
+    public string $mergeCsv = '';
+
+    public string $mergeTemplate = 'Halo {{nama}}, selamat datang di {{lembaga}}.';
+
+    /**
+     * @var array<int, array<string, mixed>>
+     */
+    public array $mergePreviews = [];
+
+    // ===== Xishie Assistant =====
     public bool $assistantOpen = false;
 
     /**
-     * Tools asisten yang dipilih (diaktifkan) dari jendela tools.
-     *
      * @var array<int, string>
      */
     public array $activeTools = [];
@@ -100,8 +231,17 @@ class NaskahStudioPage extends Page
 
     public bool $assistantBusy = false;
 
+    private NaskahRichModel $model;
+
+    public function boot(): void
+    {
+        $this->model = app(NaskahRichModel::class);
+    }
+
     public function mount(): void
     {
+        $this->model = app(NaskahRichModel::class);
+
         $documentId = request()->query('document');
 
         if (is_numeric($documentId)) {
@@ -115,8 +255,8 @@ class NaskahStudioPage extends Page
         }
 
         $this->blocks = [
-            ['type' => 'heading', 'level' => 1, 'text' => 'Dokumen Tanpa Judul'],
-            ['type' => 'paragraph', 'text' => 'Mulai menulis di sini, atau muat naskah dari dokumen lokal maupun dari proyek Anda melalui panel sumber di atas.'],
+            $this->model->newBlock('heading', 'Dokumen Tanpa Judul', 1),
+            $this->model->newBlock('paragraph', 'Mulai menulis di sini, atau muat naskah dari dokumen lokal maupun dari proyek Anda.'),
         ];
     }
 
@@ -124,9 +264,6 @@ class NaskahStudioPage extends Page
     // Sumber dokumen
     // =====================================================================
 
-    /**
-     * Muat naskah dari berkas lokal yang diunggah (DOCX/PDF/TXT/MD).
-     */
     public function updatedUpload(): void
     {
         if ($this->upload === null) {
@@ -139,16 +276,12 @@ class NaskahStudioPage extends Page
             $text = app(DocumentTextExtractor::class)->extract($binary);
 
             if (trim($text) === '') {
-                Notification::make()
-                    ->title('Teks tidak terbaca')
-                    ->body('Berkas tidak memuat teks yang dapat diekstrak. Coba DOCX, PDF, atau TXT.')
-                    ->warning()
-                    ->send();
+                $this->notify('Teks tidak terbaca', 'Berkas tidak memuat teks. Coba DOCX, PDF, atau TXT.', 'warning');
 
                 return;
             }
 
-            $blocks = app(NaskahBlockParser::class)->parse($text);
+            $blocks = $this->model->normalize(app(NaskahBlockParser::class)->parse($text));
 
             $this->blocks = $blocks !== [] ? $blocks : $this->blocks;
             $this->docTitle = pathinfo($filename, PATHINFO_FILENAME) ?: 'Dokumen Impor';
@@ -159,29 +292,18 @@ class NaskahStudioPage extends Page
             $this->documentId = null;
             $this->dirty = true;
 
-            Notification::make()
-                ->title('Naskah dimuat dari berkas')
-                ->body($filename.' — '.count($blocks).' blok diekstrak.')
-                ->success()
-                ->send();
+            $this->notify('Naskah dimuat dari berkas', $filename.' — '.count($blocks).' blok.', 'success');
         } catch (\Throwable $exception) {
-            Notification::make()
-                ->title('Gagal memuat berkas')
-                ->body(Str::limit($exception->getMessage(), 160))
-                ->danger()
-                ->send();
+            $this->notify('Gagal memuat berkas', Str::limit($exception->getMessage(), 160), 'danger');
         }
     }
 
-    /**
-     * Muat naskah dari sub-bab tahap sebuah proyek Xishie.
-     */
     public function loadFromProject(): void
     {
         $project = $this->sourceProjectId !== null ? XishieProject::find($this->sourceProjectId) : null;
 
         if ($project === null) {
-            Notification::make()->title('Pilih proyek terlebih dahulu')->warning()->send();
+            $this->notify('Pilih proyek terlebih dahulu', '', 'warning');
 
             return;
         }
@@ -190,23 +312,22 @@ class NaskahStudioPage extends Page
         $stage = $project->stages()->where('stage_name', $stageEnum->value)->first();
 
         if ($stage === null) {
-            Notification::make()
-                ->title('Tahap belum tersedia')
-                ->body('Proyek ini belum memiliki rekaman tahap '.$stageEnum->label().'.')
-                ->warning()
-                ->send();
+            $this->notify('Tahap belum tersedia', 'Proyek belum memiliki rekaman tahap '.$stageEnum->label().'.', 'warning');
 
             return;
         }
 
-        $blocks = app(NaskahBlockParser::class)->fromProjectStage($project, $stage);
+        $blocks = $this->model->fromSections((array) ($stage->sections_content ?? []));
 
         if ($blocks === []) {
-            Notification::make()
-                ->title('Naskah proyek masih kosong')
-                ->body('Tahap '.$stageEnum->label().' belum memiliki sub-bab untuk dimuat.')
-                ->warning()
-                ->send();
+            $compiled = trim((string) ($stage->compiled_content ?? ''));
+            if ($compiled !== '') {
+                $blocks = $this->model->normalize(app(NaskahBlockParser::class)->parse($compiled));
+            }
+        }
+
+        if ($blocks === []) {
+            $this->notify('Naskah proyek masih kosong', 'Tahap '.$stageEnum->label().' belum memiliki sub-bab.', 'warning');
 
             return;
         }
@@ -219,50 +340,42 @@ class NaskahStudioPage extends Page
         $this->documentId = null;
         $this->dirty = true;
 
-        Notification::make()
-            ->title('Naskah proyek dimuat')
-            ->body($project->title.' ('.$stageEnum->label().') — '.count($blocks).' blok.')
-            ->success()
-            ->send();
+        $this->notify('Naskah proyek dimuat', $project->title.' ('.$stageEnum->label().') — '.count($blocks).' blok.', 'success');
     }
 
-    /**
-     * Muat dokumen tersimpan ke kanvas.
-     */
     public function loadDocument(NaskahDocument $document): void
     {
+        $this->model ??= app(NaskahRichModel::class);
+
         $this->documentId = $document->id;
         $this->docTitle = $document->title;
-        $this->blocks = app(NaskahBlockParser::class)->normalize((array) $document->blocks);
+        $this->blocks = $this->model->normalize((array) $document->blocks);
         $this->sourceType = $document->source_type;
         $this->sourceFilename = $document->source_filename;
         $this->sourceStage = $document->source_stage;
         $this->sourceProjectId = $document->project_id;
+        $this->comments = $document->commentsList();
+        $this->revisions = $document->revisionsList();
+        $this->pageSetup = array_merge($this->pageSetup, (array) ($document->page_setup ?? []));
+        $this->styleMeta = array_merge($this->styleMeta, (array) ($document->style_meta ?? []));
         $this->lastSavedAt = $document->last_saved_at?->diffForHumans();
         $this->dirty = false;
     }
 
-    /**
-     * Buka dokumen tersimpan berdasarkan id (dari daftar dokumen).
-     */
     public function openDocument(int $documentId): void
     {
         $document = NaskahDocument::query()->find($documentId);
 
         if ($document === null) {
-            Notification::make()->title('Dokumen tidak ditemukan')->danger()->send();
+            $this->notify('Dokumen tidak ditemukan', '', 'danger');
 
             return;
         }
 
         $this->loadDocument($document);
-
-        Notification::make()->title('Dokumen dibuka')->success()->send();
+        $this->notify('Dokumen dibuka', $document->title, 'success');
     }
 
-    /**
-     * Dokumen kosong baru.
-     */
     public function newDocument(): void
     {
         $this->documentId = null;
@@ -272,15 +385,18 @@ class NaskahStudioPage extends Page
         $this->sourceStage = null;
         $this->sourceProjectId = null;
         $this->lastSavedAt = null;
+        $this->comments = [];
+        $this->revisions = [];
         $this->blocks = [
-            ['type' => 'heading', 'level' => 1, 'text' => 'Dokumen Tanpa Judul'],
-            ['type' => 'paragraph', 'text' => 'Mulai menulis di sini…'],
+            $this->model->newBlock('heading', 'Dokumen Tanpa Judul', 1),
+            $this->model->newBlock('paragraph', 'Mulai menulis di sini…'),
         ];
         $this->dirty = false;
+        $this->activeBlock = 0;
     }
 
     // =====================================================================
-    // Penyuntingan blok
+    // Blok
     // =====================================================================
 
     public function markDirty(): void
@@ -288,11 +404,211 @@ class NaskahStudioPage extends Page
         $this->dirty = true;
     }
 
+    public function pushUndo(): void
+    {
+        $this->undoStack[] = $this->blocks;
+        if (count($this->undoStack) > 30) {
+            array_shift($this->undoStack);
+        }
+        $this->redoStack = [];
+    }
+
+    public function undo(): void
+    {
+        if ($this->undoStack === []) {
+            return;
+        }
+
+        $this->redoStack[] = $this->blocks;
+        $this->blocks = array_pop($this->undoStack) ?? [];
+        $this->dirty = true;
+    }
+
+    public function redo(): void
+    {
+        if ($this->redoStack === []) {
+            return;
+        }
+
+        $this->undoStack[] = $this->blocks;
+        $this->blocks = array_pop($this->redoStack) ?? [];
+        $this->dirty = true;
+    }
+
+    public function copyFormat(int $index): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $b = $this->blocks[$index];
+        $this->copiedFormat = [
+            'align' => $b['align'] ?? 'left',
+            'indent' => $b['indent'] ?? 0,
+            'lineSpacing' => $b['lineSpacing'] ?? 1.0,
+            'spacingBefore' => $b['spacingBefore'] ?? 0,
+            'spacingAfter' => $b['spacingAfter'] ?? 0,
+            'type' => $b['type'] ?? 'paragraph',
+            'level' => $b['level'] ?? 1,
+        ];
+
+        $this->notify('Format disalin', 'Klik blok tujuan lalu terapkan format.', 'info');
+    }
+
+    public function pasteFormat(int $index): void
+    {
+        if ($this->copiedFormat === null || ! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $this->pushUndo();
+        $this->blocks[$index]['align'] = $this->copiedFormat['align'];
+        $this->blocks[$index]['indent'] = $this->copiedFormat['indent'];
+        $this->blocks[$index]['lineSpacing'] = $this->copiedFormat['lineSpacing'];
+        $this->blocks[$index]['spacingBefore'] = $this->copiedFormat['spacingBefore'];
+        $this->blocks[$index]['spacingAfter'] = $this->copiedFormat['spacingAfter'];
+
+        if (in_array($this->copiedFormat['type'], ['heading', 'paragraph', 'quote', 'bullet', 'numbered'], true)) {
+            $this->blocks[$index]['type'] = $this->copiedFormat['type'];
+            $this->blocks[$index]['level'] = $this->copiedFormat['level'];
+        }
+
+        $this->copiedFormat = null;
+        $this->dirty = true;
+        $this->notify('Format diterapkan', '', 'success');
+    }
+
+    public function toggleDarkMode(): void
+    {
+        $this->darkMode = ! $this->darkMode;
+    }
+
+    public function updatePageSetup(string $key, mixed $value): void
+    {
+        $this->pageSetup[$key] = $value;
+        $this->dirty = true;
+    }
+
+    // ===== Bantuan AI Blok (Wordcraft Co-Writing) =====
+
+    public function aiElaborateBlock(int $index): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $this->pushUndo();
+        $text = (string) ($this->blocks[$index]['text'] ?? '');
+        if (trim($text) === '') {
+            return;
+        }
+
+        $prompt = "Tolong perjelas dan kembangkan gagasan pada paragraf berikut dengan argumen atau elaborasi yang relevan, tetap mempertahankan nada ilmiah/akademik:\n\n\"{$text}\"";
+        $reply = $this->answer(null, $prompt);
+
+        if (trim($reply) !== '') {
+            $this->recordRevision($index, $text, $reply);
+            $this->blocks[$index]['text'] = $reply;
+            $this->blocks[$index]['runs'] = [];
+            $this->dirty = true;
+            $this->notify('Teks dielaborasi', 'Gagasan diperluas oleh Xishie AI.', 'success');
+        }
+    }
+
+    public function aiShortenBlock(int $index): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $this->pushUndo();
+        $text = (string) ($this->blocks[$index]['text'] ?? '');
+        if (trim($text) === '') {
+            return;
+        }
+
+        $prompt = "Tolong persingkat dan padatkan paragraf berikut agar lebih padat, efektif, dan langsung ke inti gagasan:\n\n\"{$text}\"";
+        $reply = $this->answer(null, $prompt);
+
+        if (trim($reply) !== '') {
+            $this->recordRevision($index, $text, $reply);
+            $this->blocks[$index]['text'] = $reply;
+            $this->blocks[$index]['runs'] = [];
+            $this->dirty = true;
+            $this->notify('Teks diringkas', 'Paragraf diperpendek.', 'success');
+        }
+    }
+
+    public function aiImproveBlock(int $index): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $this->pushUndo();
+        $text = (string) ($this->blocks[$index]['text'] ?? '');
+        if (trim($text) === '') {
+            return;
+        }
+
+        $prompt = "Tolong perbaiki tata bahasa, diksi, dan alur kalimat pada teks berikut agar bernada akademik dan mengalir natural:\n\n\"{$text}\"";
+        $reply = $this->answer(null, $prompt);
+
+        if (trim($reply) !== '') {
+            $this->recordRevision($index, $text, $reply);
+            $this->blocks[$index]['text'] = $reply;
+            $this->blocks[$index]['runs'] = [];
+            $this->dirty = true;
+            $this->notify('Gaya diperbaiki', 'Diksi dan tata bahasa ditingkatkan.', 'success');
+        }
+    }
+
+    public function aiContinueStory(int $index): void
+    {
+        $this->pushUndo();
+        $context = $this->model->toPlainText(array_slice($this->blocks, max(0, $index - 2), 3));
+        $prompt = "Berdasarkan konteks naskah berikut:\n\n\"{$context}\"\n\nLanjutkan dengan 1 atau 2 kalimat/paragraf berikutnya secara logis dan menyatu dengan bahasan naskah.";
+        $reply = $this->answer(null, $prompt);
+
+        if (trim($reply) !== '') {
+            array_splice($this->blocks, $index + 1, 0, [$this->model->newBlock('paragraph', $reply)]);
+            $this->activeBlock = $index + 1;
+            $this->dirty = true;
+            $this->notify('Kelanjutan naskah dibuat', 'Blok baru disisipkan.', 'success');
+        }
+    }
+
+    public function aiFixTone(int $index, string $tone = 'akademik'): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $this->pushUndo();
+        $text = (string) ($this->blocks[$index]['text'] ?? '');
+        $prompt = "Ubah gaya dan nada bahasa teks berikut menjadi bernada '{$tone}' (misalnya formal akademik, ringkas lugas, atau persuasif):\n\n\"{$text}\"";
+        $reply = $this->answer(null, $prompt);
+
+        if (trim($reply) !== '') {
+            $this->recordRevision($index, $text, $reply);
+            $this->blocks[$index]['text'] = $reply;
+            $this->blocks[$index]['runs'] = [];
+            $this->dirty = true;
+            $this->notify('Nada diubah', 'Nada bahasa disesuaikan ke '.$tone.'.', 'success');
+        }
+    }
+
     public function addBlock(string $type = 'paragraph'): void
     {
-        $level = $type === 'heading' ? 1 : 0;
+        $block = match ($type) {
+            'table' => ['type' => 'table', 'table' => ['rows' => $this->emptyRows($this->tableRows, $this->tableCols), 'header' => true]],
+            'pagebreak' => ['type' => 'pagebreak', 'pageBreak' => true],
+            'heading' => $this->model->newBlock('heading', '', 1),
+            default => $this->model->newBlock($type),
+        };
 
-        $this->blocks[] = ['type' => $type, 'level' => $level, 'text' => ''];
+        $this->blocks[] = $this->model->normalizeBlock($block);
+        $this->activeBlock = count($this->blocks) - 1;
         $this->dirty = true;
     }
 
@@ -304,6 +620,7 @@ class NaskahStudioPage extends Page
 
         array_splice($this->blocks, $index, 1);
         $this->blocks = array_values($this->blocks);
+        $this->activeBlock = max(0, min($this->activeBlock, count($this->blocks) - 1));
         $this->dirty = true;
     }
 
@@ -316,12 +633,36 @@ class NaskahStudioPage extends Page
         }
 
         [$this->blocks[$index], $this->blocks[$target]] = [$this->blocks[$target], $this->blocks[$index]];
+        $this->activeBlock = $target;
         $this->dirty = true;
     }
 
+    public function duplicateBlock(int $index): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        array_splice($this->blocks, $index + 1, 0, [$this->blocks[$index]]);
+        $this->dirty = true;
+    }
+
+    public function selectBlock(int $index): void
+    {
+        if (isset($this->blocks[$index])) {
+            $this->activeBlock = $index;
+        }
+    }
+
     /**
-     * Terapkan gaya blok (Paragraph/Heading/Quote/List) ke satu blok.
+     * Simpan seleksi teks dari klien (dipanggil via JS).
      */
+    public function setSelection(int $index, int $start, int $end): void
+    {
+        $this->activeBlock = $index;
+        $this->selection = $end > $start ? ['start' => $start, 'end' => $end] : null;
+    }
+
     public function applyStyle(int $index, string $style): void
     {
         if (! isset($this->blocks[$index])) {
@@ -329,8 +670,7 @@ class NaskahStudioPage extends Page
         }
 
         [$type, $level] = match ($style) {
-            'title' => ['heading', 1],
-            'heading1' => ['heading', 1],
+            'title', 'heading1' => ['heading', 1],
             'heading2' => ['heading', 2],
             'heading3' => ['heading', 3],
             'quote' => ['quote', 0],
@@ -345,23 +685,802 @@ class NaskahStudioPage extends Page
     }
 
     // =====================================================================
+    // Format inline
+    // =====================================================================
+
+    /**
+     * Terapkan format inline ke seleksi (atau seluruh blok bila tak ada seleksi).
+     *
+     * @param  array<string, mixed>  $attribute
+     */
+    public function formatInline(string $attribute, mixed $value = null): void
+    {
+        $index = $this->activeBlock;
+
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $attr = [$attribute => $value];
+
+        $block = $this->blocks[$index];
+        $text = (string) ($block['text'] ?? '');
+        $length = mb_strlen($text);
+
+        if ($this->selection !== null && $this->selection['end'] > $this->selection['start']) {
+            $block = $this->model->applyInlineFormat($block, (int) $this->selection['start'], (int) $this->selection['end'], $attr);
+        } elseif ($length > 0) {
+            $block = $this->model->applyInlineFormatAll($block, $attr);
+        }
+
+        $this->blocks[$index] = $block;
+        $this->dirty = true;
+    }
+
+    public function clearFormatting(): void
+    {
+        $index = $this->activeBlock;
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $text = (string) ($this->blocks[$index]['text'] ?? '');
+        $this->blocks[$index]['runs'] = $text === '' ? [] : [['text' => $text]];
+        $this->blocks[$index]['align'] = 'left';
+        $this->blocks[$index]['indent'] = 0;
+        $this->dirty = true;
+    }
+
+    public function changeCase(string $mode): void
+    {
+        $index = $this->activeBlock;
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $text = (string) ($this->blocks[$index]['text'] ?? '');
+        $converted = match ($mode) {
+            'upper' => mb_strtoupper($text),
+            'lower' => mb_strtolower($text),
+            'title' => mb_convert_case($text, MB_CASE_TITLE, 'UTF-8'),
+            'sentence' => mb_strtoupper(mb_substr($text, 0, 1)).mb_strtolower(mb_substr($text, 1)),
+            default => $text,
+        };
+
+        $this->blocks[$index]['text'] = $converted;
+        $this->blocks[$index]['runs'] = $converted === '' ? [] : [['text' => $converted]];
+        $this->dirty = true;
+    }
+
+    public function adjustFontSize(int $delta): void
+    {
+        $this->styleMeta['fontSize'] = max(8, min(48, (int) $this->styleMeta['fontSize'] + $delta));
+    }
+
+    /**
+     * Format paragraf pada blok aktif.
+     */
+    public function formatParagraph(string $attribute, mixed $value = null): void
+    {
+        $index = $this->activeBlock;
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        match ($attribute) {
+            'align' => $this->blocks[$index]['align'] = in_array($value, ['left', 'center', 'right', 'justify'], true) ? $value : 'left',
+            'indent+' => $this->blocks[$index]['indent'] = min(8, (int) ($this->blocks[$index]['indent'] ?? 0) + 1),
+            'indent-' => $this->blocks[$index]['indent'] = max(0, (int) ($this->blocks[$index]['indent'] ?? 0) - 1),
+            'spacingBefore+' => $this->blocks[$index]['spacingBefore'] = min(72, (float) ($this->blocks[$index]['spacingBefore'] ?? 0) + 6),
+            'spacingAfter+' => $this->blocks[$index]['spacingAfter'] = min(72, (float) ($this->blocks[$index]['spacingAfter'] ?? 0) + 6),
+            'lineSpacing' => $this->blocks[$index]['lineSpacing'] = max(0.8, min(3.0, (float) $value)),
+            'listBullet' => $this->toggleList('bullet', $index),
+            'listNumbered' => $this->toggleList('numbered', $index),
+            default => null,
+        };
+
+        $this->dirty = true;
+    }
+
+    private function toggleList(string $type, int $index): void
+    {
+        $current = (string) ($this->blocks[$index]['type'] ?? '');
+
+        if ($current === $type) {
+            $this->blocks[$index]['type'] = 'paragraph';
+            $this->blocks[$index]['listType'] = 'none';
+        } else {
+            $this->blocks[$index]['type'] = $type;
+            $this->blocks[$index]['listType'] = $type;
+        }
+    }
+
+    /**
+     * Terapkan format ke semua blok (Select All).
+     */
+    public function formatAllBlocks(string $attribute, mixed $value = null): void
+    {
+        foreach (array_keys($this->blocks) as $index) {
+            $this->activeBlock = $index;
+            $this->formatParagraph($attribute, $value);
+        }
+
+        $this->activeBlock = 0;
+        $this->dirty = true;
+    }
+
+    // =====================================================================
+    // Tabel
+    // =====================================================================
+
+    /**
+     * @return array<int, array<int, array{text: string, runs: array<int, mixed>}>>
+     */
+    private function emptyRows(int $rows, int $cols): array
+    {
+        $rows = max(1, min(20, $rows));
+        $cols = max(1, min(10, $cols));
+
+        $out = [];
+        for ($r = 0; $r < $rows; $r++) {
+            $row = [];
+            for ($c = 0; $c < $cols; $c++) {
+                $row[] = ['text' => '', 'runs' => []];
+            }
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
+    public function insertTable(): void
+    {
+        $this->blocks[] = [
+            'type' => 'table',
+            'table' => ['rows' => $this->emptyRows($this->tableRows, $this->tableCols), 'header' => true],
+            'align' => 'left',
+            'text' => '',
+            'runs' => [],
+        ];
+        $this->activeBlock = count($this->blocks) - 1;
+        $this->dirty = true;
+        $this->dialog = '';
+    }
+
+    public function tableInsertRow(int $index, int $after): void
+    {
+        $block = $this->blocks[$index] ?? null;
+        if ($block === null || $block['type'] !== 'table') {
+            return;
+        }
+
+        $rows = (array) $block['table']['rows'];
+        $cols = count((array) ($rows[0] ?? []));
+        $newRow = array_fill(0, max(1, $cols), ['text' => '', 'runs' => []]);
+        array_splice($rows, $after + 1, 0, [$newRow]);
+
+        $this->blocks[$index]['table']['rows'] = $rows;
+        $this->dirty = true;
+    }
+
+    public function tableDeleteRow(int $index, int $rowIndex): void
+    {
+        $rows = (array) ($this->blocks[$index]['table']['rows'] ?? []);
+        if (count($rows) <= 1) {
+            return;
+        }
+
+        array_splice($rows, $rowIndex, 1);
+        $this->blocks[$index]['table']['rows'] = array_values($rows);
+        $this->dirty = true;
+    }
+
+    public function tableInsertColumn(int $index, int $after): void
+    {
+        $rows = (array) ($this->blocks[$index]['table']['rows'] ?? []);
+
+        foreach ($rows as $r => $row) {
+            array_splice($rows[$r], $after + 1, 0, [['text' => '', 'runs' => []]]);
+        }
+
+        $this->blocks[$index]['table']['rows'] = $rows;
+        $this->dirty = true;
+    }
+
+    public function tableDeleteColumn(int $index, int $colIndex): void
+    {
+        $rows = (array) ($this->blocks[$index]['table']['rows'] ?? []);
+        $cols = count((array) ($rows[0] ?? []));
+
+        if ($cols <= 1) {
+            return;
+        }
+
+        foreach ($rows as $r => $row) {
+            array_splice($rows[$r], $colIndex, 1);
+        }
+
+        $this->blocks[$index]['table']['rows'] = $rows;
+        $this->dirty = true;
+    }
+
+    public function tableToggleHeader(int $index): void
+    {
+        $current = (bool) ($this->blocks[$index]['table']['header'] ?? true);
+        $this->blocks[$index]['table']['header'] = ! $current;
+        $this->dirty = true;
+    }
+
+    // =====================================================================
+    // Sisipkan: gambar, tautan, catatan kaki, pemisah halaman
+    // =====================================================================
+
+    public function updatedImageUpload(): void
+    {
+        if ($this->imageUpload === null) {
+            return;
+        }
+
+        try {
+            $binary = $this->imageUpload->get();
+            $mime = (string) ($this->imageUpload->getMimeType() ?: 'image/png');
+
+            if (! str_starts_with($mime, 'image/')) {
+                $this->notify('Berkas bukan gambar', '', 'warning');
+
+                return;
+            }
+
+            $dataUrl = 'data:'.$mime.';base64,'.base64_encode($binary);
+            $width = max(80, min(900, (int) ($this->imageWidth ?: 320)));
+
+            $this->blocks[] = $this->model->normalizeBlock([
+                'type' => 'image',
+                'image' => ['src' => $dataUrl, 'alt' => $this->imageAlt ?: pathinfo((string) $this->imageUpload->getClientOriginalName(), PATHINFO_FILENAME), 'width' => $width],
+            ]);
+
+            $this->activeBlock = count($this->blocks) - 1;
+            $this->dirty = true;
+            $this->dialog = '';
+            $this->imageAlt = '';
+            $this->notify('Gambar disisipkan', '', 'success');
+        } catch (\Throwable $exception) {
+            $this->notify('Gagal menyisipkan gambar', Str::limit($exception->getMessage(), 140), 'danger');
+        }
+    }
+
+    public function insertLink(): void
+    {
+        $url = trim($this->linkUrl);
+
+        if ($url === '') {
+            return;
+        }
+
+        $text = trim($this->linkText) !== '' ? trim($this->linkText) : $url;
+
+        $index = $this->activeBlock;
+        if (! isset($this->blocks[$index])) {
+            $this->blocks[] = $this->model->newBlock('paragraph', '');
+            $index = count($this->blocks) - 1;
+        }
+
+        $block = $this->blocks[$index];
+        $existing = (string) ($block['text'] ?? '');
+        $runs = $this->model->runsWithText($block);
+        $runs[] = ['text' => ($existing !== '' ? ' ' : '').$text, 'link' => $url] + $this->plainRun();
+
+        $this->blocks[$index]['runs'] = $runs;
+        $this->blocks[$index]['text'] = $existing.($existing !== '' ? ' ' : '').$text;
+        $this->linkUrl = '';
+        $this->linkText = '';
+        $this->dialog = '';
+        $this->dirty = true;
+    }
+
+    public function insertFootnote(): void
+    {
+        $text = trim($this->footnoteText);
+        if ($text === '') {
+            return;
+        }
+
+        $this->blocks[] = $this->model->newBlock('footnote-ref', $text);
+        $this->activeBlock = count($this->blocks) - 1;
+        $this->footnoteText = '';
+        $this->dialog = '';
+        $this->dirty = true;
+    }
+
+    public function insertPageBreak(): void
+    {
+        $this->blocks[] = $this->model->normalizeBlock(['type' => 'pagebreak']);
+        $this->dirty = true;
+    }
+
+    public function insertHorizontalRule(): void
+    {
+        $this->blocks[] = $this->model->newBlock('paragraph', '――――――――――――――――――――――――――――――');
+        $this->dirty = true;
+    }
+
+    public function insertDate(): void
+    {
+        $this->blocks[] = $this->model->newBlock('paragraph', now()->translatedFormat('d F Y'));
+        $this->dirty = true;
+    }
+
+    public function insertPageNumberField(): void
+    {
+        $this->blocks[] = $this->model->newBlock('paragraph', 'Halaman 1');
+        $this->dirty = true;
+    }
+
+    public function insertSymbol(string $symbol): void
+    {
+        $this->blocks[] = $this->model->newBlock('paragraph', $symbol);
+        $this->dirty = true;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function plainRun(): array
+    {
+        return ['bold' => false, 'italic' => false, 'underline' => false, 'strike' => false, 'sub' => false, 'sup' => false, 'smallCaps' => false, 'allCaps' => false, 'code' => false, 'color' => null, 'highlight' => null, 'link' => null];
+    }
+
+    // =====================================================================
+    // Referensi: daftar isi, bibliografi
+    // =====================================================================
+
+    public function insertTableOfContents(): void
+    {
+        $outline = $this->model->outline($this->blocks);
+
+        if ($outline === []) {
+            $this->notify('Belum ada judul', 'Tambahkan blok Heading untuk membuat daftar isi.', 'warning');
+
+            return;
+        }
+
+        // Hapus TOC lama lalu sisipkan di awal.
+        $this->blocks = array_values(array_filter($this->blocks, static fn (array $b): bool => ($b['type'] ?? '') !== 'toc'));
+        array_unshift($this->blocks, $this->model->normalizeBlock(['type' => 'heading', 'level' => 1, 'text' => 'Daftar Isi']));
+
+        foreach (array_reverse($outline) as $node) {
+            $indent = str_repeat('— ', max(0, $node['level'] - 1));
+            array_splice($this->blocks, 1, 0, [$this->model->newBlock('paragraph', $indent.$node['text'])]);
+        }
+
+        $this->buildTocBlock();
+        $this->dirty = true;
+        $this->notify('Daftar isi dibuat', count($outline).' judul.', 'success');
+    }
+
+    private function buildTocBlock(): void
+    {
+        $outline = $this->model->outline($this->blocks);
+        $rows = [];
+        foreach ($outline as $node) {
+            $rows[] = [['text' => str_repeat('  ', max(0, $node['level'] - 1)).$node['text'], 'runs' => []], ['text' => '…', 'runs' => []]];
+        }
+
+        if ($rows === []) {
+            return;
+        }
+
+        array_unshift($rows, [['text' => 'Judul', 'runs' => []], ['text' => 'Halaman', 'runs' => []]]);
+
+        $toc = $this->model->normalizeBlock(['type' => 'table', 'table' => ['rows' => $rows, 'header' => true]]);
+        $toc['type'] = 'toc';
+
+        // Sisipkan tabel TOC setelah judul "Daftar Isi".
+        $insertAt = 1;
+        array_splice($this->blocks, $insertAt, 0, [$toc]);
+    }
+
+    public function insertBibliography(?int $projectId = null): void
+    {
+        $project = $projectId !== null ? XishieProject::find($projectId) : ($this->sourceProjectId !== null ? XishieProject::find($this->sourceProjectId) : null);
+
+        if ($project === null) {
+            $this->notify('Bibliografi butuh proyek', 'Muat naskah dari proyek agar referensinya tersedia.', 'warning');
+
+            return;
+        }
+
+        $refs = $project->references()->limit(50)->get();
+
+        if ($refs->isEmpty()) {
+            $this->notify('Proyek belum punya referensi', '', 'warning');
+
+            return;
+        }
+
+        $this->blocks[] = $this->model->newBlock('heading', 'Daftar Pustaka', 1);
+
+        foreach ($refs as $ref) {
+            $authors = implode(', ', (array) ($ref->authors ?? []));
+            $entry = trim($authors.'. '.(string) $ref->title.'. '.(string) ($ref->journal_name ?? '').'. '.((string) ($ref->year ?? '')).'.');
+            $this->blocks[] = $this->model->newBlock('paragraph', $entry);
+        }
+
+        $this->dirty = true;
+        $this->notify('Daftar pustaka disisipkan', $refs->count().' referensi.', 'success');
+    }
+
+    // =====================================================================
+    // Review: komentar, track changes, kata, tesaurus, ejaan
+    // =====================================================================
+
+    public function addComment(): void
+    {
+        $text = trim($this->commentDraft);
+
+        if ($text === '') {
+            return;
+        }
+
+        $this->comments[] = [
+            'id' => (int) (microtime(true) * 1000),
+            'blockIndex' => $this->activeBlock,
+            'body' => $text,
+            'author' => (string) (Auth::user()?->name ?? 'Penulis'),
+            'resolved' => false,
+            'replies' => [],
+            'at' => now()->toIso8601String(),
+        ];
+
+        $this->commentDraft = '';
+        $this->showComments = true;
+        $this->dirty = true;
+        $this->notify('Komentar ditambahkan', '', 'success');
+    }
+
+    public function resolveComment(int $commentIndex): void
+    {
+        if (! isset($this->comments[$commentIndex])) {
+            return;
+        }
+
+        $this->comments[$commentIndex]['resolved'] = ! ($this->comments[$commentIndex]['resolved'] ?? false);
+        $this->dirty = true;
+    }
+
+    public function deleteComment(int $commentIndex): void
+    {
+        if (! isset($this->comments[$commentIndex])) {
+            return;
+        }
+
+        array_splice($this->comments, $commentIndex, 1);
+        $this->comments = array_values($this->comments);
+        $this->dirty = true;
+    }
+
+    public function replyComment(int $commentIndex, string $reply = ''): void
+    {
+        if (! isset($this->comments[$commentIndex])) {
+            return;
+        }
+
+        $text = trim($reply);
+        if ($text === '') {
+            return;
+        }
+
+        $this->comments[$commentIndex]['replies'][] = [
+            'author' => (string) (Auth::user()?->name ?? 'Penulis'),
+            'body' => $text,
+            'at' => now()->toIso8601String(),
+        ];
+        $this->dirty = true;
+    }
+
+    /**
+     * Catat revisi (track changes) untuk blok aktif bila selisih teks terdeteksi.
+     */
+    public function recordRevision(int $index, string $before, string $after): void
+    {
+        if (trim($before) === trim($after)) {
+            return;
+        }
+
+        $this->revisions[] = [
+            'id' => (int) (microtime(true) * 1000),
+            'blockIndex' => $index,
+            'before' => $before,
+            'after' => $after,
+            'status' => 'pending',
+            'author' => (string) (Auth::user()?->name ?? 'Penulis'),
+            'at' => now()->toIso8601String(),
+        ];
+        $this->dirty = true;
+    }
+
+    public function acceptRevision(int $revisionIndex): void
+    {
+        if (! isset($this->revisions[$revisionIndex])) {
+            return;
+        }
+
+        $rev = $this->revisions[$revisionIndex];
+        $index = (int) ($rev['blockIndex'] ?? -1);
+
+        if (isset($this->blocks[$index])) {
+            $this->blocks[$index]['text'] = (string) $rev['after'];
+            $this->blocks[$index]['runs'] = [];
+        }
+
+        $this->revisions[$revisionIndex]['status'] = 'accepted';
+        $this->dirty = true;
+    }
+
+    public function rejectRevision(int $revisionIndex): void
+    {
+        if (! isset($this->revisions[$revisionIndex])) {
+            return;
+        }
+
+        $rev = $this->revisions[$revisionIndex];
+        $index = (int) ($rev['blockIndex'] ?? -1);
+
+        if (isset($this->blocks[$index])) {
+            $this->blocks[$index]['text'] = (string) $rev['before'];
+            $this->blocks[$index]['runs'] = [];
+        }
+
+        $this->revisions[$revisionIndex]['status'] = 'rejected';
+        $this->dirty = true;
+    }
+
+    public function acceptAllRevisions(): void
+    {
+        foreach (array_keys($this->revisions) as $i) {
+            if (($this->revisions[$i]['status'] ?? '') === 'pending') {
+                $this->acceptRevision($i);
+            }
+        }
+    }
+
+    public function rejectAllRevisions(): void
+    {
+        foreach (array_keys($this->revisions) as $i) {
+            if (($this->revisions[$i]['status'] ?? '') === 'pending') {
+                $this->rejectRevision($i);
+            }
+        }
+    }
+
+    public function runSpellCheck(): void
+    {
+        $text = $this->model->toPlainText($this->blocks);
+        $words = preg_split('/[^\p{L}\-]+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $dictionary = $this->smallDictionary();
+
+        $unknown = [];
+        foreach (array_unique($words) as $word) {
+            $lower = mb_strtolower($word);
+            if (mb_strlen($lower) < 4 || in_array($lower, $dictionary, true)) {
+                continue;
+            }
+            $unknown[] = $word;
+        }
+
+        $unknown = array_slice($unknown, 0, 25);
+
+        $this->spellResult = $unknown === []
+            ? 'Tidak ada kata yang ditandai (kamus ringkas).'
+            : 'Kata tak dikenali kamus ringkas: '.implode(', ', $unknown).'.';
+
+        $this->dialog = 'spelling';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function smallDictionary(): array
+    {
+        return explode(' ', 'yang dan atau dengan untuk pada dari dalam adalah ini itu tidak akan dapat juga karena sebagai oleh terhadap serta para telah sudah akan masih lebih sangat hanya jika maka bahwa secara melalui antara hingga sampai bagi bahwa tanpa harus perlu suatu setiap semua beberapa banyak sedikit besar kecil tinggi rendah baru lama baik buruk dapat bisa harus data penelitian metode hasil analisis pembahasan kesimpulan tujuan masalah solusi sistem model proses teori konsep kajian studi artikel jurnal penulis referensi abstrak pendahuluan latar belakang tinjauan pustaka metodologi diskusi saran kontribusi implikasi praktis akademik ilmiah kualitas efektivitas pengaruh hubungan perbandingan pengembangan implementasi evaluasi pengukuran sampel populasi variabel hipotesis signifikan valid reliabel responden kuesioner wawancara observasi dokumentasi kuantitatif kualitatif campuran eksperimen survei kasus literature review framework design research development testing results discussion conclusion this that with from have been were their which these those using based approach analysis method data system model process theory concept study article journal author reference abstract introduction background review methodology contribution implication practical academic scientific quality effectiveness influence relationship comparison implementation evaluation measurement sample population variable hypothesis significant valid reliable respondent questionnaire interview observation documentation quantitative qualitative mixed experiment survey case');
+    }
+
+    public function runThesaurus(): void
+    {
+        $word = mb_strtolower(trim($this->thesaurusWord));
+
+        if ($word === '') {
+            $this->thesaurusResult = 'Masukkan kata terlebih dahulu.';
+            $this->dialog = 'thesaurus';
+
+            return;
+        }
+
+        $map = [
+            'penelitian' => ['kajian', 'studi', 'riset', 'investigasi'],
+            'metode' => ['metodologi', 'pendekatan', 'prosedur', 'teknik'],
+            'hasil' => ['temuan', 'capaian', 'keluaran', 'output'],
+            'masalah' => ['permasalahan', 'kendala', 'isu', 'tantangan'],
+            'tujuan' => ['sasaran', 'maksud', 'target', 'arah'],
+            'analisis' => ['telaah', 'kajian', 'penguraian', 'pembahasan'],
+            'penting' => ['signifikan', 'krusial', 'esensial', 'vital'],
+            'meningkatkan' => ['menaikkan', 'memperbaiki', 'mengembangkan', 'memperkuat'],
+            'data' => ['informasi', 'keterangan', 'fakta', 'bahan'],
+        ];
+
+        $this->thesaurusResult = isset($map[$word])
+            ? 'Sinonim "'.$word.'": '.implode(', ', $map[$word]).'.'
+            : 'Tidak ada sinonim untuk "'.$word.'" di tesaurus ringkas.';
+
+        $this->dialog = 'thesaurus';
+    }
+
+    // =====================================================================
+    // Cari & ganti
+    // =====================================================================
+
+    public function findText(): void
+    {
+        $query = trim($this->findQuery);
+
+        if ($query === '') {
+            $this->findResult = 'Masukkan kata yang dicari.';
+
+            return;
+        }
+
+        $hits = 0;
+        foreach ($this->blocks as $i => $block) {
+            if (($block['type'] ?? '') === 'table') {
+                continue;
+            }
+
+            $count = mb_substr_count(mb_strtolower((string) ($block['text'] ?? '')), mb_strtolower($query));
+            if ($count > 0) {
+                $hits += $count;
+                if ($hits > 0 && (int) $this->activeBlock === 0) {
+                    $this->activeBlock = $i;
+                }
+            }
+        }
+
+        $this->findResult = $hits > 0 ? "Ditemukan {$hits} kemunculan '{$query}'." : "Tidak ditemukan '{$query}'.";
+    }
+
+    public function replaceAll(): void
+    {
+        $find = trim($this->findQuery);
+        $replace = $this->replaceQuery;
+
+        if ($find === '') {
+            return;
+        }
+
+        $replaced = 0;
+        foreach ($this->blocks as $i => $block) {
+            if (($block['type'] ?? '') === 'table') {
+                continue;
+            }
+
+            $text = (string) ($block['text'] ?? '');
+            $count = mb_substr_count(mb_strtolower($text), mb_strtolower($find));
+
+            if ($count > 0) {
+                $this->blocks[$i]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $text);
+                $this->blocks[$i]['runs'] = [];
+                $replaced += $count;
+            }
+        }
+
+        $this->findResult = "Mengganti {$replaced} kemunculan.";
+        $this->dirty = true;
+    }
+
+    // =====================================================================
+    // Mail merge
+    // =====================================================================
+
+    public function previewMerge(): void
+    {
+        $rows = $this->parseCsv($this->mergeCsv);
+
+        if ($rows === []) {
+            $this->notify('CSV kosong', 'Tempel data CSV (baris pertama = header kolom).', 'warning');
+
+            return;
+        }
+
+        $previews = [];
+        foreach (array_slice($rows, 0, 10) as $row) {
+            $previews[] = ['values' => $row, 'text' => $this->renderMergeTemplate($row)];
+        }
+
+        $this->mergePreviews = $previews;
+        $this->notify('Pratinjau dibuat', count($previews).' baris.', 'success');
+    }
+
+    public function insertMerge(): void
+    {
+        $rows = $this->parseCsv($this->mergeCsv);
+
+        if ($rows === []) {
+            $this->notify('CSV kosong', '', 'warning');
+
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $text = $this->renderMergeTemplate($row);
+            if (trim($text) !== '') {
+                $this->blocks[] = $this->model->newBlock('paragraph', $text);
+            }
+        }
+
+        $this->dirty = true;
+        $this->dialog = '';
+        $this->notify('Mail merge disisipkan', count($rows).' dokumen.', 'success');
+    }
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function parseCsv(string $csv): array
+    {
+        $lines = preg_split('/\r\n|\r|\n/', trim($csv)) ?: [];
+        $lines = array_values(array_filter($lines, static fn (string $l): bool => trim($l) !== ''));
+
+        if (count($lines) < 2) {
+            return [];
+        }
+
+        $header = array_map('trim', str_getcsv(array_shift($lines)));
+        $rows = [];
+
+        foreach ($lines as $line) {
+            $cells = str_getcsv($line);
+            $row = [];
+            foreach ($header as $i => $col) {
+                $row[$col] = (string) ($cells[$i] ?? '');
+            }
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<string, string>  $row
+     */
+    private function renderMergeTemplate(array $row): string
+    {
+        $text = $this->mergeTemplate;
+        foreach ($row as $key => $value) {
+            $text = str_replace(['{{'.$key.'}}', '{{ '.$key.' }}'], $value, $text);
+        }
+
+        return $text;
+    }
+
+    // =====================================================================
     // Simpan & ekspor
     // =====================================================================
 
     public function save(): void
     {
-        $blocks = app(NaskahBlockParser::class)->normalize($this->blocks);
-        $wordCount = app(NaskahBlockParser::class)->countWords($blocks);
+        $blocks = $this->model->normalize($this->blocks);
+        $wordCount = $this->model->countWords($blocks);
 
         $data = [
             'title' => trim($this->docTitle) !== '' ? trim($this->docTitle) : 'Dokumen Tanpa Judul',
-            'source_type' => in_array($this->sourceType, [NaskahDocument::SOURCE_LOCAL, NaskahDocument::SOURCE_PROJECT], true)
-                ? $this->sourceType
-                : NaskahDocument::SOURCE_LOCAL,
+            'source_type' => in_array($this->sourceType, [NaskahDocument::SOURCE_LOCAL, NaskahDocument::SOURCE_PROJECT], true) ? $this->sourceType : NaskahDocument::SOURCE_LOCAL,
             'source_stage' => $this->sourceType === NaskahDocument::SOURCE_PROJECT ? $this->sourceStage : null,
             'source_filename' => $this->sourceFilename,
             'project_id' => $this->sourceType === NaskahDocument::SOURCE_PROJECT ? $this->sourceProjectId : null,
             'blocks' => $blocks,
+            'comments' => $this->comments,
+            'revisions' => $this->revisions,
+            'page_setup' => $this->pageSetup,
+            'style_meta' => $this->styleMeta,
             'word_count' => $wordCount,
             'last_saved_at' => now(),
             'user_id' => Auth::id(),
@@ -378,31 +1497,42 @@ class NaskahStudioPage extends Page
         $this->dirty = false;
         $this->lastSavedAt = 'baru saja';
 
-        Notification::make()
-            ->title('Naskah tersimpan')
-            ->body($wordCount.' kata · '.count($blocks).' blok.')
-            ->success()
-            ->send();
+        $this->notify('Naskah tersimpan', $wordCount.' kata · '.count($blocks).' blok.', 'success');
     }
 
-    /**
-     * Unduh naskah dalam format markdown/txt/html.
-     */
-    public function export(string $format = 'md'): ?StreamedResponse
+    public function export(string $format = 'docx'): ?StreamedResponse
     {
         if ($this->blocks === []) {
-            Notification::make()->title('Naskah masih kosong')->warning()->send();
+            $this->notify('Naskah masih kosong', '', 'warning');
 
             return null;
         }
 
-        $document = new NaskahDocument(['title' => $this->docTitle, 'blocks' => $this->blocks]);
         $base = Str::slug($this->docTitle) ?: 'naskah';
+        $blocks = $this->model->normalize($this->blocks);
+
+        if ($format === 'docx') {
+            $binary = app(NaskahDocxExporter::class)->build($blocks, $this->docTitle, ['watermark' => (string) ($this->pageSetup['watermark'] ?? '')]);
+
+            return response()->streamDownload(static function () use ($binary): void {
+                echo $binary;
+            }, $base.'.docx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
+        }
+
+        if ($format === 'odt') {
+            $binary = app(NaskahOdtExporter::class)->build($blocks, $this->docTitle, ['watermark' => (string) ($this->pageSetup['watermark'] ?? '')]);
+
+            return response()->streamDownload(static function () use ($binary): void {
+                echo $binary;
+            }, $base.'.odt', ['Content-Type' => 'application/vnd.oasis.opendocument.text']);
+        }
 
         [$content, $extension, $mime] = match ($format) {
-            'txt' => [$document->toPlainText(), 'txt', 'text/plain; charset=UTF-8'],
-            'html' => [$this->toHtml($document), 'html', 'text/html; charset=UTF-8'],
-            default => ['# '.$this->docTitle."\n\n".$document->toPlainText(), 'md', 'text/markdown; charset=UTF-8'],
+            'html' => [$this->model->toHtml($blocks, $this->docTitle, $this->htmlOptions()), 'html', 'text/html; charset=UTF-8'],
+            'txt' => [$this->model->toPlainText($blocks), 'txt', 'text/plain; charset=UTF-8'],
+            'rtf' => [$this->model->toRtf($blocks, $this->docTitle), 'rtf', 'application/rtf; charset=UTF-8'],
+            'latex', 'tex' => [$this->model->toLatex($blocks, $this->docTitle), 'tex', 'application/x-tex; charset=UTF-8'],
+            default => [$this->model->toMarkdown($blocks, $this->docTitle), 'md', 'text/markdown; charset=UTF-8'],
         };
 
         $filename = $base.'.'.$extension;
@@ -412,33 +1542,72 @@ class NaskahStudioPage extends Page
         }, $filename, ['Content-Type' => $mime]);
     }
 
-    private function toHtml(NaskahDocument $document): string
+    /**
+     * @return array<string, mixed>
+     */
+    private function htmlOptions(): array
     {
-        $escape = static fn (string $text): string => htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $title = $escape((string) $this->docTitle);
-
-        $body = '';
-        foreach ($document->blocks as $block) {
-            $text = $escape((string) ($block['text'] ?? ''));
-            $type = (string) ($block['type'] ?? 'paragraph');
-
-            $body .= match ($type) {
-                'heading' => '<h'.(int) ($block['level'] ?? 1).'>'.$text.'</h'.(int) ($block['level'] ?? 1).'>',
-                'quote' => '<blockquote>'.$text.'</blockquote>',
-                'bullet' => '<li>'.$text.'</li>',
-                'numbered' => '<li>'.$text.'</li>',
-                default => '<p>'.$text.'</p>',
-            };
-        }
-
-        return '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>'.$title.'</title>'
-            .'<style>body{font-family:Georgia,serif;line-height:1.7;max-width:800px;margin:2rem auto;padding:0 1.5rem;color:#111}'
-            .'h1,h2,h3{font-family:system-ui,sans-serif}li{margin-bottom:.35rem}blockquote{border-left:3px solid #1e40af;padding-left:1rem;color:#334155;font-style:italic}</style>'
-            .'</head><body>'.$body.'</body></html>';
+        return [
+            'watermark' => (string) ($this->pageSetup['watermark'] ?? ''),
+            'pageColor' => (string) ($this->pageSetup['pageColor'] ?? ''),
+            'pageBorder' => (bool) ($this->pageSetup['pageBorder'] ?? false),
+            'lineNumbers' => (bool) ($this->pageSetup['lineNumbers'] ?? false),
+        ];
     }
 
     // =====================================================================
-    // Xishie Assistant (mengapung)
+    // Dialog
+    // =====================================================================
+
+    public function openDialog(string $dialog): void
+    {
+        $this->dialog = $dialog;
+    }
+
+    public function closeDialog(): void
+    {
+        $this->dialog = '';
+    }
+
+    public function applyTheme(string $theme): void
+    {
+        $presets = [
+            'academic' => ['fontFamily' => 'serif', 'fontSize' => 16, 'lineSpacing' => 1.7],
+            'modern' => ['fontFamily' => 'sans', 'fontSize' => 15, 'lineSpacing' => 1.6],
+            'compact' => ['fontFamily' => 'sans', 'fontSize' => 14, 'lineSpacing' => 1.4],
+            'code' => ['fontFamily' => 'mono', 'fontSize' => 14, 'lineSpacing' => 1.5],
+        ];
+
+        $this->styleMeta = array_merge($this->styleMeta, ['theme' => $theme] + ($presets[$theme] ?? $presets['academic']));
+        $this->dirty = true;
+    }
+
+    public function setViewMode(string $mode): void
+    {
+        $this->viewMode = in_array($mode, ['print', 'web', 'draft', 'outline', 'read'], true) ? $mode : 'print';
+    }
+
+    public function setZoom(string $zoom): void
+    {
+        $this->zoom = in_array($zoom, ['50', '75', '100', '125', '150', '200'], true) ? $zoom : '100';
+    }
+
+    public function zoomIn(): void
+    {
+        $steps = ['50', '75', '100', '125', '150', '200'];
+        $i = array_search($this->zoom, $steps, true);
+        $this->zoom = $steps[min(count($steps) - 1, ($i === false ? 2 : $i) + 1)];
+    }
+
+    public function zoomOut(): void
+    {
+        $steps = ['50', '75', '100', '125', '150', '200'];
+        $i = array_search($this->zoom, $steps, true);
+        $this->zoom = $steps[max(0, ($i === false ? 2 : $i) - 1)];
+    }
+
+    // =====================================================================
+    // Xishie Assistant
     // =====================================================================
 
     /**
@@ -448,25 +1617,14 @@ class NaskahStudioPage extends Page
     {
         $tools = [];
         foreach (SlashCommand::cases() as $command) {
-            $tools[] = [
-                'name' => $command->value,
-                'label' => str_replace('-', ' ', ltrim($command->value, '/')),
-                'description' => $command->description(),
-            ];
+            $tools[] = ['name' => $command->value, 'label' => str_replace('-', ' ', ltrim($command->value, '/')), 'description' => $command->description()];
         }
 
-        $tools[] = [
-            'name' => 'chat',
-            'label' => 'tanya bebas',
-            'description' => 'Ajukan pertanyaan bebas; jawaban memakai konteks naskah dan proyek.',
-        ];
+        $tools[] = ['name' => 'chat', 'label' => 'tanya bebas', 'description' => 'Ajukan pertanyaan bebas; jawaban memakai konteks naskah dan proyek.'];
 
         return $tools;
     }
 
-    /**
-     * Aktifkan/nonaktifkan sebuah tool asisten.
-     */
     public function toggleTool(string $tool): void
     {
         if (in_array($tool, $this->activeTools, true)) {
@@ -488,9 +1646,6 @@ class NaskahStudioPage extends Page
         $this->assistantOpen = false;
     }
 
-    /**
-     * Jalankan tool terpilih terhadap konteks naskah; hasil masuk ke log.
-     */
     public function runTool(string $tool): void
     {
         if (! in_array($tool, $this->activeTools, true)) {
@@ -501,10 +1656,8 @@ class NaskahStudioPage extends Page
 
         if (str_starts_with($tool, '/')) {
             $input = $tool;
-
             if (str_contains($tool, 'parafrase')) {
-                $excerpt = Str::limit(trim($documentText), 400, '');
-                $input = $tool.' '.$excerpt;
+                $input = $tool.' '.Str::limit(trim($documentText), 400, '');
             }
 
             $this->dispatchAssistant($input, $tool);
@@ -512,15 +1665,9 @@ class NaskahStudioPage extends Page
             return;
         }
 
-        // Tool "chat": butuh pertanyaan pengguna.
         $question = trim($this->assistantInput);
-
         if ($question === '') {
-            Notification::make()
-                ->title('Tulis pertanyaan dulu')
-                ->body('Ketik pertanyaan pada kolom chat, lalu tekan Kirim.')
-                ->info()
-                ->send();
+            $this->notify('Tulis pertanyaan dulu', 'Ketik pertanyaan pada kolom chat, lalu tekan Kirim.', 'info');
 
             return;
         }
@@ -528,13 +1675,9 @@ class NaskahStudioPage extends Page
         $this->dispatchAssistant($question.' '.Str::limit($documentText, 600, ''), 'chat');
     }
 
-    /**
-     * Kirim pesan bebas dari kolom chat asisten.
-     */
     public function sendAssistant(): void
     {
         $question = trim($this->assistantInput);
-
         if ($question === '') {
             return;
         }
@@ -575,9 +1718,6 @@ class NaskahStudioPage extends Page
         }
     }
 
-    /**
-     * Proyek konteks asisten: dari sumber terpilih, atau proyek aktif pengguna.
-     */
     private function resolveAssistantProject(): ?XishieProject
     {
         if ($this->sourceType === NaskahDocument::SOURCE_PROJECT && $this->sourceProjectId !== null) {
@@ -601,8 +1741,7 @@ class NaskahStudioPage extends Page
             return (string) $result['reply'];
         }
 
-        // Tanpa proyek: jawab lewat LLM dengan konteks naskah, fallback offline.
-        $wordCount = app(NaskahBlockParser::class)->countWords($this->blocks);
+        $wordCount = $this->model->countWords($this->model->normalize($this->blocks));
 
         $llm = app(OmnigensiChatClient::class);
         $generated = $llm->generate(
@@ -622,7 +1761,7 @@ class NaskahStudioPage extends Page
 
     public function documentText(): string
     {
-        return (new NaskahDocument(['blocks' => $this->blocks]))->toPlainText();
+        return $this->model->toPlainText($this->model->normalize($this->blocks));
     }
 
     // =====================================================================
@@ -630,33 +1769,28 @@ class NaskahStudioPage extends Page
     // =====================================================================
 
     /**
-     * Daftar judul untuk panel navigasi (heading blok).
-     *
      * @return array<int, array{index: int, level: int, text: string}>
      */
     public function outline(): array
     {
-        $items = [];
+        return $this->model->outline($this->model->normalize($this->blocks));
+    }
 
-        foreach ($this->blocks as $index => $block) {
-            if (($block['type'] ?? '') !== 'heading') {
-                continue;
-            }
-
-            $text = trim((string) ($block['text'] ?? ''));
-
-            if ($text === '') {
-                continue;
-            }
-
-            $items[] = [
-                'index' => $index,
-                'level' => (int) ($block['level'] ?? 1),
-                'text' => $text,
-            ];
+    private function notify(string $title, string $body, string $type = 'success'): void
+    {
+        $n = Notification::make()->title($title);
+        if ($body !== '') {
+            $n->body($body);
         }
 
-        return $items;
+        match ($type) {
+            'warning' => $n->warning(),
+            'danger' => $n->danger(),
+            'info' => $n->info(),
+            default => $n->success(),
+        };
+
+        $n->send();
     }
 
     /**
@@ -664,37 +1798,51 @@ class NaskahStudioPage extends Page
      */
     protected function getViewData(): array
     {
-        $wordCount = app(NaskahBlockParser::class)->countWords($this->blocks);
+        $blocks = $this->model->normalize($this->blocks);
 
         return [
-            'outline' => $this->outline(),
-            'wordCount' => $wordCount,
-            'charCount' => mb_strlen($this->documentText()),
-            'blockCount' => count($this->blocks),
+            'renderBlocks' => $blocks,
+            'outline' => $this->model->outline($blocks),
+            'wordCount' => $this->model->countWords($blocks),
+            'charCount' => mb_strlen($this->model->toPlainText($blocks)),
+            'blockCount' => count($blocks),
             'projects' => XishieProject::query()->latest()->get(['id', 'title']),
-            'documents' => NaskahDocument::query()
-                ->latest('last_saved_at')
-                ->limit(8)
-                ->get(['id', 'title', 'source_type', 'word_count', 'last_saved_at']),
+            'documents' => NaskahDocument::query()->latest('last_saved_at')->limit(8)->get(['id', 'title', 'source_type', 'word_count', 'last_saved_at']),
             'assistantTools' => $this->assistantTools(),
             'stageOptions' => ProjectStage::options(),
             'ribbonTabs' => [
+                'file' => 'Berkas',
                 'home' => 'Home',
                 'insert' => 'Sisipkan',
+                'design' => 'Desain',
                 'layout' => 'Tata Letak',
                 'references' => 'Referensi',
-                'review' => 'Review',
+                'review' => 'Peninjauan',
                 'view' => 'Tampilan',
+                'mailings' => 'Surat Menyurat',
+                'table' => 'Alat Tabel',
             ],
             'stylesGallery' => [
-                'normal' => 'Normal',
-                'title' => 'Title',
-                'heading1' => 'Heading 1',
-                'heading2' => 'Heading 2',
-                'heading3' => 'Heading 3',
-                'quote' => 'Kutipan',
-                'bullet' => 'Daftar Poin',
-                'numbered' => 'Daftar Nomor',
+                'normal' => 'Normal', 'title' => 'Title', 'heading1' => 'Heading 1',
+                'heading2' => 'Heading 2', 'heading3' => 'Heading 3', 'quote' => 'Kutipan',
+                'bullet' => 'Daftar Poin', 'numbered' => 'Daftar Nomor',
+            ],
+            'fontSizes' => [10, 11, 12, 14, 16, 18, 20, 24, 28, 32],
+            'fontFamilies' => ['serif' => 'Georgia (Serif)', 'sans' => 'Inter (Sans)', 'mono' => 'JetBrains Mono'],
+            'colors' => ['#0f172a', '#1e40af', '#b91c1c', '#047857', '#b45309', '#7c3aed', '#0891b2', '#475569'],
+            'highlights' => ['#fde68a', '#bbf7d0', '#bfdbfe', '#fecaca', '#e9d5ff', '#fed7aa'],
+            'pendingRevisionCount' => collect($this->revisions)->where('status', 'pending')->count(),
+            'resolvedCommentCount' => collect($this->comments)->where('resolved', true)->count(),
+            'pageSetup' => $this->pageSetup,
+            'styleMeta' => $this->styleMeta,
+            'statistics' => $this->model->computeStatistics($blocks),
+            'elements' => [
+                'headings' => count($this->model->outline($blocks)),
+                'tables' => count(array_filter($blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'table')),
+                'images' => count(array_filter($blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'image')),
+                'footnotes' => count(array_filter($blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'footnote-ref')),
+                'comments' => count($this->comments),
+                'revisions' => count($this->revisions),
             ],
         ];
     }

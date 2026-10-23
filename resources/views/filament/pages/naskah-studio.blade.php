@@ -1,88 +1,699 @@
-{{-- Naskah Studio — editor naskah bergaya word processor (ribbon, panel navigasi, kanvas halaman, status bar) --}}
+{{-- Naskah Studio — Word processor web lengkap (menggabungkan WordCraft & LibreOffice Writer) --}}
 <x-filament-panels::page>
     <style>
-        .ns-shell { display:flex; flex-direction:column; gap:.75rem; }
-        .ns-ribbon { border:var(--rb-border); background:var(--rb-surface); box-shadow:var(--rb-shadow-sm); }
-        .ns-ribbon__tabs { display:flex; gap:.15rem; flex-wrap:wrap; padding:.3rem .4rem 0; border-bottom:var(--rb-border-soft); background:var(--rb-surface-soft); }
-        .ns-ribbon__tab { border:1px solid transparent; border-bottom:none; background:transparent; color:var(--rb-ink-soft); font-family:var(--rb-font-mono); font-size:.68rem; font-weight:700; padding:.3rem .6rem; cursor:pointer; border-radius:2px 2px 0 0; }
-        .ns-ribbon__tab:hover { background:var(--rb-surface); color:var(--rb-ink); }
-        .ns-ribbon__tab--active { background:var(--rb-surface); color:var(--rb-primary); border-color:var(--rb-ink); }
-        .ns-ribbon__body { display:flex; gap:.9rem; flex-wrap:wrap; align-items:stretch; padding:.55rem .7rem; }
-        .ns-group { display:flex; flex-direction:column; gap:.3rem; padding-right:.9rem; border-right:1px solid var(--rb-border-color, #cbd5e1); }
-        .ns-group:last-child { border-right:none; }
-        .ns-group__label { font-family:var(--rb-font-mono); font-size:.55rem; letter-spacing:.05em; text-transform:uppercase; color:var(--rb-ink-muted); }
-        .ns-group__row { display:flex; gap:.25rem; flex-wrap:wrap; align-items:center; }
-        .ns-tool { border:1px solid var(--rb-ink-soft); background:var(--rb-surface); color:var(--rb-ink); font-family:var(--rb-font-mono); font-size:.6rem; font-weight:700; padding:.2rem .45rem; cursor:pointer; min-width:1.6rem; text-align:center; }
-        .ns-tool:hover { background:var(--rb-accent-soft); }
-        .ns-tool--active { background:var(--rb-primary); color:var(--rb-on-primary); border-color:var(--rb-primary); }
+        .ns-root {
+            display: flex;
+            flex-direction: column;
+            gap: .65rem;
+            font-family: var(--rb-font-display, system-ui, -apple-system, sans-serif);
+            color: var(--rb-ink, #0f172a);
+        }
+        .ns-root--dark {
+            --rb-surface: #0f172a;
+            --rb-surface-soft: #1e293b;
+            --rb-surface-muted: #334155;
+            --rb-ink: #f8fafc;
+            --rb-ink-soft: #cbd5e1;
+            --rb-ink-muted: #94a3b8;
+            --rb-border-color: #334155;
+            background: #0b1120;
+            color: #f8fafc;
+        }
 
-        .ns-workspace { display:grid; grid-template-columns: 232px minmax(0,1fr); gap:.75rem; align-items:start; }
-        @media (max-width: 1024px) { .ns-workspace { grid-template-columns: 1fr; } }
+        /* Topbar akses cepat */
+        .ns-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            padding: .45rem .85rem;
+            background: var(--rb-surface, #ffffff);
+            border: 1px solid var(--rb-border-color, #e2e8f0);
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(15,23,42,.05);
+        }
+        .ns-topbar__left { display: flex; align-items: center; gap: .5rem; flex: 1; min-width: 0; }
+        .ns-topbar__title-input {
+            border: none;
+            background: transparent;
+            font-size: .95rem;
+            font-weight: 700;
+            color: inherit;
+            padding: .15rem .4rem;
+            border-bottom: 1px dashed var(--rb-border-color, #cbd5e1);
+            outline: none;
+            max-width: 320px;
+        }
+        .ns-topbar__title-input:focus { border-bottom-color: #2563eb; background: rgba(37,99,235,.05); }
+        .ns-topbar__actions { display: flex; align-items: center; gap: .35rem; }
 
-        .ns-nav { border:var(--rb-border); background:var(--rb-surface); box-shadow:var(--rb-shadow-sm); position:sticky; top:.5rem; max-height:70vh; overflow:auto; }
-        .ns-nav__title { font-family:var(--rb-font-mono); font-size:.6rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:.45rem .6rem; border-bottom:var(--rb-border-soft); background:var(--rb-surface-soft); color:var(--rb-primary); }
-        .ns-nav__item { display:block; width:100%; text-align:left; border:none; background:transparent; padding:.32rem .6rem; font-family:var(--rb-font-display); font-size:.72rem; color:var(--rb-ink-soft); cursor:pointer; border-left:3px solid transparent; }
-        .ns-nav__item:hover { background:var(--rb-surface-soft); color:var(--rb-ink); }
-        .ns-nav__item--l2 { padding-left:1.15rem; font-size:.68rem; }
-        .ns-nav__item--l3 { padding-left:1.7rem; font-size:.64rem; }
-        .ns-nav__empty { padding:.6rem; font-family:var(--rb-font-mono); font-size:.62rem; color:var(--rb-ink-muted); }
+        /* Ribbon */
+        .ns-ribbon {
+            border: 1px solid var(--rb-border-color, #cbd5e1);
+            background: var(--rb-surface, #ffffff);
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(15,23,42,.06);
+            overflow: hidden;
+        }
+        .ns-ribbon__tabs {
+            display: flex;
+            gap: .15rem;
+            flex-wrap: wrap;
+            padding: .35rem .5rem 0;
+            background: var(--rb-surface-soft, #f8fafc);
+            border-bottom: 1px solid var(--rb-border-color, #e2e8f0);
+        }
+        .ns-ribbon__tab {
+            border: 1px solid transparent;
+            border-bottom: none;
+            background: transparent;
+            color: var(--rb-ink-soft, #475569);
+            font-family: var(--rb-font-mono, ui-monospace, monospace);
+            font-size: .67rem;
+            font-weight: 700;
+            padding: .35rem .7rem;
+            cursor: pointer;
+            border-radius: 3px 3px 0 0;
+            transition: all .15s;
+        }
+        .ns-ribbon__tab:hover { background: var(--rb-surface, #ffffff); color: var(--rb-ink, #0f172a); }
+        .ns-ribbon__tab--active {
+            background: var(--rb-surface, #ffffff);
+            color: #1e40af;
+            border-color: var(--rb-border-color, #cbd5e1);
+            border-bottom: 2px solid #2563eb;
+            margin-bottom: -1px;
+        }
+        .ns-ribbon__body {
+            display: flex;
+            gap: .85rem;
+            flex-wrap: wrap;
+            align-items: stretch;
+            padding: .5rem .75rem;
+            background: var(--rb-surface, #ffffff);
+            min-height: 58px;
+        }
+        .ns-group {
+            display: flex;
+            flex-direction: column;
+            gap: .3rem;
+            padding-right: .85rem;
+            border-right: 1px solid var(--rb-border-color, #e2e8f0);
+        }
+        .ns-group:last-child { border-right: none; }
+        .ns-group__label {
+            font-family: var(--rb-font-mono, ui-monospace, monospace);
+            font-size: .52rem;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--rb-ink-muted, #64748b);
+            font-weight: 700;
+        }
+        .ns-group__row { display: flex; gap: .25rem; flex-wrap: wrap; align-items: center; }
 
-        .ns-canvas { background:var(--rb-canvas-grid); border:var(--rb-border); box-shadow:var(--rb-shadow); padding:1.25rem 1rem; }
-        .ns-page { background:#ffffff; color:#0f172a; max-width:820px; margin:0 auto; padding:2.5rem 2.75rem; box-shadow:0 1px 3px rgba(15,23,42,.18), 0 10px 24px rgba(15,23,42,.08); border:1px solid #e2e8f0; }
-        .ns-page__title-input { width:100%; border:none; outline:none; font-family:var(--rb-font-display); font-size:1.45rem; font-weight:800; color:#0f172a; padding:.1rem 0 .5rem; border-bottom:2px solid #e2e8f0; margin-bottom:1.25rem; background:transparent; }
-        .ns-block { position:relative; margin-bottom:.35rem; border:1px dashed transparent; border-radius:3px; padding:.1rem .25rem; }
-        .ns-block:hover { border-color:#cbd5e1; }
-        .ns-block:focus-within { border-color:#2563eb; background:#f8fbff; }
-        .ns-block__gutter { position:absolute; right:.15rem; top:.1rem; display:none; gap:.15rem; }
-        .ns-block:focus-within .ns-block__gutter, .ns-block:hover .ns-block__gutter { display:flex; }
-        .ns-block__btn { border:1px solid #cbd5e1; background:#fff; color:#475569; font-size:.55rem; line-height:1; padding:.1rem .25rem; cursor:pointer; }
-        .ns-block__btn:hover { background:#eff6ff; color:#1e40af; }
-        .ns-block textarea { width:100%; border:none; resize:none; outline:none; background:transparent; font-family:var(--rb-font-serif); font-size:1rem; line-height:1.75; color:#0f172a; overflow:hidden; }
-        .ns-block--heading textarea { font-family:var(--rb-font-display); font-weight:700; color:#1e40af; }
-        .ns-block--h1 textarea { font-size:1.35rem; }
-        .ns-block--h2 textarea { font-size:1.15rem; }
-        .ns-block--h3 textarea { font-size:1rem; }
-        .ns-block--quote { border-left:3px solid #1e40af; margin-left:0; padding-left:.9rem; }
-        .ns-block--quote textarea { font-style:italic; color:#334155; }
-        .ns-block--bullet::before { content:"•"; position:absolute; left:-.1rem; color:#1e40af; font-weight:700; }
-        .ns-block--bullet textarea, .ns-block--numbered textarea { padding-left:.9rem; }
-        .ns-page--serif textarea { font-family:var(--rb-font-serif); }
-        .ns-page--sans textarea { font-family:var(--rb-font-display); }
-        .ns-page--mono textarea { font-family:var(--rb-font-mono); font-size:.9rem; }
+        .ns-btn {
+            border: 1px solid var(--rb-border-color, #cbd5e1);
+            background: var(--rb-surface, #ffffff);
+            color: var(--rb-ink, #0f172a);
+            font-size: .65rem;
+            font-weight: 600;
+            padding: .25rem .5rem;
+            border-radius: 3px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            line-height: 1.2;
+            transition: all .12s;
+        }
+        .ns-btn:hover { background: var(--rb-surface-soft, #f1f5f9); border-color: #94a3b8; }
+        .ns-btn--primary { background: #1e40af; color: #ffffff; border-color: #1e40af; }
+        .ns-btn--primary:hover { background: #1d4ed8; }
+        .ns-btn--active { background: #eff6ff; color: #1d4ed8; border-color: #3b82f6; font-weight: 700; }
+        .ns-btn--icon { padding: .25rem .45rem; min-width: 1.75rem; justify-content: center; }
 
-        .ns-statusbar { display:flex; gap:1rem; flex-wrap:wrap; align-items:center; border:var(--rb-border); background:var(--rb-surface); box-shadow:var(--rb-shadow-sm); padding:.35rem .7rem; font-family:var(--rb-font-mono); font-size:.62rem; color:var(--rb-ink-muted); }
-        .ns-statusbar__spacer { flex:1; }
+        /* Penggaris Horisontal (Ruler) */
+        .ns-ruler {
+            display: flex;
+            align-items: center;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            height: 22px;
+            max-width: 860px;
+            margin: 0 auto;
+            position: relative;
+            font-family: var(--rb-font-mono, ui-monospace, monospace);
+            font-size: .55rem;
+            color: #64748b;
+            user-select: none;
+            border-radius: 2px 2px 0 0;
+        }
+        .ns-ruler__track {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            align-items: flex-end;
+            position: relative;
+            padding: 0 25px;
+        }
+        .ns-ruler__unit {
+            flex: 1;
+            text-align: center;
+            border-right: 1px solid #cbd5e1;
+            height: 60%;
+            font-size: .52rem;
+            line-height: 1;
+            position: relative;
+        }
+        .ns-ruler__margin-left, .ns-ruler__margin-right {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 25px;
+            background: rgba(148,163,184,.3);
+        }
+        .ns-ruler__margin-left { left: 0; }
+        .ns-ruler__margin-right { right: 0; }
+        .ns-ruler__marker {
+            position: absolute;
+            top: 2px;
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 6px solid #1e40af;
+            cursor: pointer;
+        }
 
-        .ns-source { border:var(--rb-border); background:var(--rb-surface); box-shadow:var(--rb-shadow-sm); }
-        .ns-source__body { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:.9rem; padding:.75rem; }
-        .ns-source__card { border:1px solid var(--rb-border-color,#cbd5e1); padding:.6rem; background:var(--rb-surface-soft); }
-        .ns-source__card h4 { font-family:var(--rb-font-mono); font-size:.62rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--rb-primary); margin:0 0 .45rem; }
+        /* Workspace & Canvas */
+        .ns-workspace {
+            display: grid;
+            grid-template-columns: 240px minmax(0, 1fr) auto;
+            gap: .75rem;
+            align-items: start;
+        }
+        @media (max-width: 1024px) {
+            .ns-workspace { grid-template-columns: 1fr; }
+        }
 
-        /* Xishie Assistant mengapung di kanan bawah */
-        .ns-fab { position:fixed; right:1.5rem; bottom:1.5rem; z-index:60; display:inline-flex; align-items:center; gap:.5rem; padding:.7rem 1.05rem; border-radius:999px; background:var(--rb-primary); color:var(--rb-on-primary); border:2px solid var(--rb-ink); box-shadow:0 6px 18px rgba(15,23,42,.35); font-family:var(--rb-font-mono); font-size:.72rem; font-weight:700; cursor:pointer; }
-        .ns-fab:hover { background:var(--rb-primary-strong); transform:translateY(-1px); }
-        .ns-fab__dot { width:9px; height:9px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 3px rgba(74,222,128,.3); }
+        /* Panel Navigasi / Navigator */
+        .ns-nav {
+            border: 1px solid var(--rb-border-color, #cbd5e1);
+            background: var(--rb-surface, #ffffff);
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(15,23,42,.05);
+            position: sticky;
+            top: .5rem;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .ns-nav__header {
+            display: flex;
+            border-bottom: 1px solid var(--rb-border-color, #e2e8f0);
+            background: var(--rb-surface-soft, #f8fafc);
+        }
+        .ns-nav__tab {
+            flex: 1;
+            padding: .45rem .3rem;
+            border: none;
+            background: transparent;
+            font-family: var(--rb-font-mono, ui-monospace, monospace);
+            font-size: .58rem;
+            font-weight: 700;
+            color: var(--rb-ink-soft, #64748b);
+            cursor: pointer;
+            text-align: center;
+        }
+        .ns-nav__tab--active {
+            color: #1e40af;
+            background: var(--rb-surface, #ffffff);
+            border-bottom: 2px solid #1e40af;
+        }
+        .ns-nav__body {
+            padding: .4rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: .15rem;
+        }
+        .ns-nav__item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            text-align: left;
+            border: 1px solid transparent;
+            background: transparent;
+            padding: .3rem .5rem;
+            font-size: .7rem;
+            color: var(--rb-ink, #0f172a);
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .ns-nav__item:hover { background: var(--rb-surface-soft, #f1f5f9); }
+        .ns-nav__item--active { background: #eff6ff; color: #1e40af; font-weight: 600; border-color: #bfdbfe; }
+        .ns-nav__item--l2 { padding-left: 1.1rem; font-size: .67rem; color: var(--rb-ink-soft, #475569); }
+        .ns-nav__item--l3 { padding-left: 1.7rem; font-size: .63rem; color: var(--rb-ink-muted, #64748b); }
 
-        .ns-assistant { position:fixed; right:1.5rem; bottom:5.4rem; z-index:61; width:min(380px, calc(100vw - 2rem)); max-height:min(72vh, 640px); display:flex; flex-direction:column; border:var(--rb-border); background:var(--rb-surface); box-shadow:0 12px 32px rgba(15,23,42,.4); }
-        .ns-assistant__titlebar { display:flex; justify-content:space-between; align-items:center; background:var(--rb-primary); color:var(--rb-on-primary); padding:.45rem .65rem; font-family:var(--rb-font-mono); font-size:.68rem; font-weight:700; }
-        .ns-assistant__body { padding:.6rem .65rem; overflow:auto; }
-        .ns-tools { display:grid; grid-template-columns:1fr 1fr; gap:.3rem; }
-        .ns-tool-card { display:flex; align-items:flex-start; gap:.35rem; border:1px solid var(--rb-border-color,#cbd5e1); background:var(--rb-surface-soft); padding:.35rem .4rem; cursor:pointer; text-align:left; font-family:var(--rb-font-mono); font-size:.58rem; color:var(--rb-ink-soft); }
-        .ns-tool-card:hover { border-color:var(--rb-primary); }
-        .ns-tool-card--on { background:var(--rb-accent-soft); border-color:var(--rb-primary); color:var(--rb-primary); font-weight:700; }
-        .ns-tool-card__check { width:.85rem; height:.85rem; flex:0 0 auto; border:1px solid var(--rb-ink-soft); display:inline-flex; align-items:center; justify-content:center; font-size:.55rem; background:#fff; }
-        .ns-tool-card--on .ns-tool-card__check { background:var(--rb-primary); color:#fff; border-color:var(--rb-primary); }
-        .ns-chatlog { max-height:14rem; overflow:auto; margin-top:.5rem; display:flex; flex-direction:column; gap:.35rem; }
-        .ns-msg { font-family:var(--rb-font-mono); font-size:.62rem; line-height:1.55; padding:.4rem .5rem; border:1px solid var(--rb-border-color,#cbd5e1); }
-        .ns-msg--user { background:var(--rb-surface-muted); }
-        .ns-msg--assistant { background:var(--rb-surface-inset); border-left:3px solid var(--rb-primary); white-space:pre-wrap; }
-        .ns-msg__role { display:block; font-weight:700; font-size:.55rem; letter-spacing:.05em; text-transform:uppercase; color:var(--rb-primary); margin-bottom:.15rem; }
+        /* Kanvas Lembar Dokumen */
+        .ns-canvas {
+            background: #cbd5e1;
+            border: 1px solid var(--rb-border-color, #94a3b8);
+            border-radius: 4px;
+            padding: 1.5rem 1rem 3rem;
+            min-height: 80vh;
+            overflow-x: auto;
+        }
+        .ns-canvas--web { background: transparent; border: none; padding: 0; }
+        .ns-canvas--read { background: #fdfbf7; padding: 2rem 1rem; }
+        .ns-canvas--gridlines {
+            background-image: linear-gradient(to right, rgba(148,163,184,.15) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,.15) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .ns-page {
+            background: #ffffff;
+            color: #0f172a;
+            max-width: 860px;
+            min-height: 1100px;
+            margin: 0 auto;
+            box-shadow: 0 4px 6px -1px rgba(15,23,42,.12), 0 20px 25px -5px rgba(15,23,42,.15);
+            position: relative;
+            box-sizing: border-box;
+            transition: all .2s;
+        }
+        .ns-page--web { max-width: 100%; box-shadow: none; min-height: auto; border: none !important; }
+        .ns-page--read { max-width: 720px; box-shadow: 0 1px 3px rgba(15,23,42,.08); border: none; }
+        .ns-page--border { border: 2px solid #94a3b8; }
+
+        /* Tanda air (Watermark) */
+        .ns-watermark {
+            position: absolute;
+            top: 35%;
+            left: 5%;
+            right: 5%;
+            text-align: center;
+            font-size: 4.8rem;
+            font-weight: 900;
+            letter-spacing: .15em;
+            color: rgba(30,64,175,.09);
+            transform: rotate(-30deg);
+            pointer-events: none;
+            user-select: none;
+            text-transform: uppercase;
+            z-index: 0;
+        }
+
+        /* Blok naskah */
+        .ns-blocks-wrap { position: relative; z-index: 1; }
+        .ns-block {
+            position: relative;
+            margin-bottom: .4rem;
+            border: 1px dashed transparent;
+            border-radius: 3px;
+            padding: .15rem .35rem;
+            transition: border-color .15s, background .15s;
+        }
+        .ns-block:hover { border-color: #cbd5e1; }
+        .ns-block--active, .ns-block:focus-within {
+            border-color: #3b82f6;
+            background: rgba(239, 246, 255, .55);
+        }
+        .ns-block__gutter {
+            position: absolute;
+            right: .25rem;
+            top: -.75rem;
+            display: none;
+            gap: .2rem;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            padding: .15rem .3rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(15,23,42,.12);
+            z-index: 10;
+        }
+        .ns-block:hover .ns-block__gutter, .ns-block:focus-within .ns-block__gutter { display: flex; }
+        .ns-block__btn {
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #475569;
+            font-size: .6rem;
+            padding: .15rem .3rem;
+            border-radius: 2px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .ns-block__btn:hover { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
+        .ns-block__btn--ai { background: #fdf2f8; color: #be185d; border-color: #fbcfe8; font-weight: 700; }
+        .ns-block__btn--ai:hover { background: #fce7f3; color: #9d174d; }
+
+        /* Textarea blok */
+        .ns-block textarea {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            resize: none;
+            overflow: hidden;
+            display: block;
+            color: inherit;
+        }
+        .ns-block--heading textarea { font-family: var(--rb-font-display, system-ui); font-weight: 800; color: #1e40af; }
+        .ns-block--h1 textarea { font-size: 1.55rem; line-height: 1.35; margin-bottom: .2rem; }
+        .ns-block--h2 textarea { font-size: 1.3rem; line-height: 1.4; margin-bottom: .15rem; }
+        .ns-block--h3 textarea { font-size: 1.1rem; line-height: 1.45; }
+        .ns-block--quote {
+            border-left: 4px solid #1e40af;
+            background: #f8fafc;
+            padding: .45rem .85rem;
+            border-radius: 0 3px 3px 0;
+        }
+        .ns-block--quote textarea { font-style: italic; color: #334155; }
+        .ns-block--bullet { display: flex; align-items: flex-start; gap: .4rem; }
+        .ns-block--bullet::before { content: "•"; color: #1e40af; font-weight: 900; font-size: 1.1rem; line-height: 1.6; }
+        .ns-block--numbered { display: flex; align-items: flex-start; gap: .4rem; }
+        .ns-block--numbered__num { font-weight: 700; color: #1e40af; font-size: .85rem; line-height: 1.7; flex: 0 0 1.4rem; }
+
+        /* Alignment & typography classes */
+        .align-left { text-align: left; }
+        .align-center { text-align: center; }
+        .align-right { text-align: right; }
+        .align-justify { text-align: justify; }
+
+        /* Tabel interaktif */
+        .ns-table-wrap {
+            overflow-x: auto;
+            margin: .5rem 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 3px;
+        }
+        .ns-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .88rem;
+        }
+        .ns-table th, .ns-table td {
+            border: 1px solid #cbd5e1;
+            padding: .35rem .5rem;
+            min-width: 60px;
+        }
+        .ns-table th { background: #eff6ff; font-weight: 700; color: #1e40af; }
+        .ns-table input {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: inherit;
+            color: inherit;
+        }
+        .ns-table-toolbar {
+            display: flex;
+            gap: .3rem;
+            background: #f8fafc;
+            padding: .25rem .4rem;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: .65rem;
+        }
+
+        /* Gambar */
+        .ns-image-wrap { margin: .5rem 0; text-align: center; }
+        .ns-image-wrap img { border-radius: 4px; box-shadow: 0 2px 8px rgba(15,23,42,.1); max-width: 100%; }
+
+        /* Pemisah halaman */
+        .ns-pagebreak-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .6rem;
+            padding: .85rem 0;
+            border-top: 2px dashed #94a3b8;
+            border-bottom: 2px dashed #94a3b8;
+            margin: 1.25rem 0;
+            color: #64748b;
+            font-family: var(--rb-font-mono, monospace);
+            font-size: .68rem;
+            font-weight: 700;
+            background: #f8fafc;
+            border-radius: 3px;
+            user-select: none;
+        }
+
+        /* Nomor baris */
+        .ns-lineno {
+            position: absolute;
+            left: -2.3rem;
+            color: #94a3b8;
+            font-family: var(--rb-font-mono, monospace);
+            font-size: .62rem;
+            user-select: none;
+            text-align: right;
+            width: 1.8rem;
+        }
+
+        /* Panel Samping (Drawer Kanan) */
+        .ns-drawer {
+            border: 1px solid var(--rb-border-color, #cbd5e1);
+            background: var(--rb-surface, #ffffff);
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(15,23,42,.05);
+            width: 290px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .ns-drawer__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: .5rem .75rem;
+            background: var(--rb-surface-soft, #f8fafc);
+            border-bottom: 1px solid var(--rb-border-color, #e2e8f0);
+            font-family: var(--rb-font-mono, monospace);
+            font-size: .65rem;
+            font-weight: 700;
+            color: #1e40af;
+        }
+        .ns-drawer__body {
+            padding: .6rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+        }
+        .ns-comment-card {
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: .5rem;
+            background: var(--rb-surface-soft, #f8fafc);
+            font-size: .72rem;
+        }
+        .ns-comment-card--resolved { opacity: .65; border-left: 3px solid #16a34a; }
+        .ns-rev-card {
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: .5rem;
+            background: #fff;
+            font-size: .7rem;
+        }
+        .ns-rev-diff-del { color: #dc2626; text-decoration: line-through; background: #fee2e2; padding: .1rem .2rem; border-radius: 2px; }
+        .ns-rev-diff-ins { color: #16a34a; font-weight: 700; background: #dcfce7; padding: .1rem .2rem; border-radius: 2px; }
+
+        /* Modal Dialog */
+        .ns-dialog-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,.5);
+            backdrop-filter: blur(2px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .ns-dialog {
+            background: var(--rb-surface, #ffffff);
+            border: 1px solid var(--rb-border-color, #cbd5e1);
+            border-radius: 6px;
+            width: min(520px, 96vw);
+            max-height: 88vh;
+            box-shadow: 0 20px 25px -5px rgba(15,23,42,.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: nsScaleIn .15s ease-out;
+        }
+        @keyframes nsScaleIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .ns-dialog__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: .65rem .95rem;
+            background: #1e40af;
+            color: #ffffff;
+            font-family: var(--rb-font-mono, monospace);
+            font-size: .72rem;
+            font-weight: 700;
+        }
+        .ns-dialog__body {
+            padding: .95rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+            font-size: .78rem;
+        }
+        .ns-dialog__footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: .4rem;
+            padding: .65rem .95rem;
+            background: var(--rb-surface-soft, #f8fafc);
+            border-top: 1px solid var(--rb-border-color, #e2e8f0);
+        }
+
+        /* Bilah Status (Status Bar) */
+        .ns-statusbar {
+            display: flex;
+            gap: .85rem;
+            flex-wrap: wrap;
+            align-items: center;
+            border: 1px solid var(--rb-border-color, #cbd5e1);
+            background: var(--rb-surface, #ffffff);
+            border-radius: 4px;
+            padding: .35rem .75rem;
+            font-family: var(--rb-font-mono, monospace);
+            font-size: .63rem;
+            color: var(--rb-ink-muted, #64748b);
+            box-shadow: 0 1px 2px rgba(15,23,42,.04);
+        }
+        .ns-statusbar__spacer { flex: 1; }
+
+        /* Floating Assistant (Wordcraft / Xishie FAB) */
+        .ns-fab {
+            position: fixed;
+            right: 1.5rem;
+            bottom: 1.5rem;
+            z-index: 60;
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .65rem 1rem;
+            border-radius: 999px;
+            background: #1e40af;
+            color: #ffffff;
+            border: 2px solid #0f172a;
+            box-shadow: 0 6px 18px rgba(15,23,42,.35);
+            font-family: var(--rb-font-mono, monospace);
+            font-size: .72rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .ns-fab:hover { background: #1d4ed8; transform: translateY(-2px); }
+        .ns-fab__dot { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 3px rgba(74,222,128,.35); }
+
+        .ns-assistant {
+            position: fixed;
+            right: 1.5rem;
+            bottom: 5.2rem;
+            z-index: 61;
+            width: min(390px, calc(100vw - 2rem));
+            max-height: min(74vh, 650px);
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #cbd5e1;
+            background: var(--rb-surface, #ffffff);
+            border-radius: 6px;
+            box-shadow: 0 14px 34px rgba(15,23,42,.35);
+            overflow: hidden;
+        }
+        .ns-assistant__titlebar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1e40af;
+            color: #ffffff;
+            padding: .5rem .75rem;
+            font-family: var(--rb-font-mono, monospace);
+            font-size: .68rem;
+            font-weight: 700;
+        }
+        .ns-assistant__body { padding: .7rem; overflow-y: auto; display: flex; flex-direction: column; gap: .6rem; }
+        .ns-tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem; }
+        .ns-tool-card {
+            display: flex;
+            align-items: center;
+            gap: .35rem;
+            border: 1px solid #cbd5e1;
+            background: var(--rb-surface-soft, #f8fafc);
+            padding: .35rem .45rem;
+            border-radius: 3px;
+            cursor: pointer;
+            text-align: left;
+            font-family: var(--rb-font-mono, monospace);
+            font-size: .58rem;
+            color: var(--rb-ink, #0f172a);
+        }
+        .ns-tool-card:hover { border-color: #2563eb; }
+        .ns-tool-card--on { background: #eff6ff; border-color: #2563eb; color: #1e40af; font-weight: 700; }
+        .ns-chatlog {
+            max-height: 15rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: .4rem;
+        }
+        .ns-msg {
+            font-family: var(--rb-font-mono, monospace);
+            font-size: .63rem;
+            line-height: 1.55;
+            padding: .45rem .6rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+        .ns-msg--user { background: #f1f5f9; }
+        .ns-msg--assistant { background: #eff6ff; border-left: 3px solid #1e40af; white-space: pre-wrap; }
+        .ns-msg__role { display: block; font-weight: 700; font-size: .53rem; letter-spacing: .06em; text-transform: uppercase; color: #1e40af; margin-bottom: .15rem; }
     </style>
 
-    <div class="ns-shell">
+    <div class="ns-root @if($darkMode) ns-root--dark @endif">
 
-        {{-- ================= RIBBON ================= --}}
-        <div class="ns-ribbon">
+        {{-- ================= BILAH AKSES CEPAT (TOPBAR) ================= --}}
+        <header class="ns-topbar">
+            <div class="ns-topbar__left">
+                <button type="button" class="ns-btn ns-btn--primary" wire:click="save" wire:loading.attr="disabled" wire:target="save" title="Simpan Dokumen (Ctrl+S)">
+                    <span wire:loading.remove wire:target="save">&#128190; Simpan</span>
+                    <span wire:loading wire:target="save">Menyimpan…</span>
+                </button>
+                <button type="button" class="ns-btn ns-btn--icon" wire:click="undo" @disabled(empty($undoStack)) title="Urungkan (Undo)">&#8630;</button>
+                <button type="button" class="ns-btn ns-btn--icon" wire:click="redo" @disabled(empty($redoStack)) title="Ulangi (Redo)">&#8631;</button>
+
+                <input type="text" class="ns-topbar__title-input" wire:model="docTitle" wire:change="markDirty" placeholder="Judul Dokumen" aria-label="Judul Dokumen" />
+
+                @if ($dirty)
+                    <span class="badge" style="background:#fee2e2; color:#b91c1c; font-size:.6rem; padding:.15rem .4rem; border-radius:3px; font-weight:700;">● Belum disimpan</span>
+                @elseif ($lastSavedAt)
+                    <span style="color:var(--rb-ink-muted); font-size:.62rem; font-family:var(--rb-font-mono);">&#10003; Tersimpan {{ $lastSavedAt }}</span>
+                @endif
+
+                @if ($copiedFormat)
+                    <span style="background:#fef3c7; color:#b45309; font-size:.6rem; padding:.15rem .45rem; border-radius:3px; font-weight:700;">&#128396; Sapu Format Aktif</span>
+                @endif
+            </div>
+
+            <div class="ns-topbar__actions">
+                <button type="button" class="ns-btn @if($viewMode === 'read') ns-btn--active @endif" wire:click="setViewMode('{{ $viewMode === 'read' ? 'print' : 'read' }}')" title="Mode Fokus / Bebas Gangguan">&#128214; Fokus</button>
+                <button type="button" class="ns-btn" wire:click="toggleDarkMode" title="Ganti Mode Gelap / Terang">&#9680; {{ $darkMode ? 'Terang' : 'Gelap' }}</button>
+                <button type="button" class="ns-btn" x-on:click="window.print()" title="Cetak Dokumen">&#128424; Cetak</button>
+                <button type="button" class="ns-btn" wire:click="openDialog('stats')" title="Statistik &amp; Keterbacaan">&#128202; Statistik</button>
+            </div>
+        </header>
+
+        {{-- ================= RIBBON UTAMA ================= --}}
+        <nav class="ns-ribbon" aria-label="Ribbon Naskah Studio">
             <div class="ns-ribbon__tabs">
                 @foreach ($ribbonTabs as $key => $label)
                     <button type="button" class="ns-ribbon__tab @if($activeTab === $key) ns-ribbon__tab--active @endif" wire:click="$set('activeTab', '{{ $key }}')">{{ $label }}</button>
@@ -90,131 +701,396 @@
             </div>
 
             <div class="ns-ribbon__body">
-                @if ($activeTab === 'home')
+                {{-- TAB: BERKAS (FILE) --}}
+                @if ($activeTab === 'file')
                     <div class="ns-group">
-                        <span class="ns-group__label">Berkas</span>
+                        <span class="ns-group__label">Dokumen</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-tool" wire:click="newDocument" title="Dokumen baru">&#128196; Baru</button>
-                            <button type="button" class="ns-tool" wire:click="save" wire:loading.attr="disabled" wire:target="save" title="Simpan naskah">&#128190; Simpan</button>
+                            <button type="button" class="ns-btn" wire:click="newDocument" title="Dokumen baru">&#128196; Baru</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="save" title="Simpan naskah">&#128190; Simpan</button>
                         </div>
                     </div>
                     <div class="ns-group">
-                        <span class="ns-group__label">Gaya</span>
+                        <span class="ns-group__label">Ekspor Format</span>
                         <div class="ns-group__row">
-                            @foreach ($stylesGallery as $styleKey => $styleLabel)
-                                <button type="button" class="ns-tool" wire:click="addBlock('{{ $styleKey === 'quote' ? 'quote' : ($styleKey === 'bullet' ? 'bullet' : ($styleKey === 'numbered' ? 'numbered' : ($styleKey === 'normal' ? 'paragraph' : 'heading'))) }}')" title="Tambah blok {{ $styleLabel }}">+ {{ $styleLabel }}</button>
+                            <button type="button" class="ns-btn" wire:click="export('docx')" title="Ekspor ke Microsoft Word (.docx)">&#128196; DOCX</button>
+                            <button type="button" class="ns-btn" wire:click="export('odt')" title="Ekspor ke LibreOffice Writer (.odt)">&#128214; ODT</button>
+                            <button type="button" class="ns-btn" wire:click="export('html')" title="Ekspor HTML / Print Web">&#127760; HTML</button>
+                            <button type="button" class="ns-btn" wire:click="export('md')" title="Ekspor Markdown">&#9888; MD</button>
+                            <button type="button" class="ns-btn" wire:click="export('rtf')" title="Ekspor Rich Text Format">&#128221; RTF</button>
+                            <button type="button" class="ns-btn" wire:click="export('latex')" title="Ekspor LaTeX (.tex)">&#8734; LaTeX</button>
+                            <button type="button" class="ns-btn" wire:click="export('txt')" title="Ekspor Teks Polos">TXT</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Pengaturan &amp; Cetak</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="openDialog('pagesetup')">&#9881; Tata Kertas</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('stats')">&#128202; Info &amp; Statistik</button>
+                            <button type="button" class="ns-btn" x-on:click="window.print()">&#128424; Cetak</button>
+                        </div>
+                    </div>
+
+                {{-- TAB: HOME (BERANDA) --}}
+                @elseif ($activeTab === 'home')
+                    <div class="ns-group">
+                        <span class="ns-group__label">Papan Klip</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="copyFormat({{ $activeBlock }})" title="Sapu Format (Salin Gaya Blok)">&#128396; Salin Format</button>
+                            <button type="button" class="ns-btn" wire:click="pasteFormat({{ $activeBlock }})" @disabled(! $copiedFormat) title="Terapkan Gaya Tersalin">&#128203; Terapkan</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Huruf (Font)</span>
+                        <div class="ns-group__row">
+                            <select class="ns-btn" style="padding:.2rem .35rem;" wire:model.live="fontFamily">
+                                @foreach ($fontFamilies as $fKey => $fLabel)
+                                    <option value="{{ $fKey }}">{{ $fLabel }}</option>
+                                @endforeach
+                            </select>
+                            <select class="ns-btn" style="padding:.2rem .35rem;" wire:model.live="fontSize">
+                                @foreach ($fontSizes as $fSize)
+                                    <option value="{{ $fSize }}">{{ $fSize }} pt</option>
+                                @endforeach
+                            </select>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="adjustFontSize(1)" title="Perbesar Font (A+)">A&#9650;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="adjustFontSize(-1)" title="Perkecil Font (A-)">A&#9660;</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Gaya Huruf</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('bold')" title="Tebal (Ctrl+B)"><strong>B</strong></button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('italic')" title="Miring (Ctrl+I)"><em>I</em></button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('underline')" title="Garis Bawah (Ctrl+U)"><span style="text-decoration:underline;">U</span></button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('strike')" title="Coret"><span style="text-decoration:line-through;">S</span></button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('sub')" title="Subscript">X<sub>2</sub></button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('sup')" title="Superscript">X<sup>2</sup></button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('code')" title="Inline Code"><code>&lt;&gt;</code></button>
+                            <button type="button" class="ns-btn" wire:click="clearFormatting" title="Hapus Format Huruf &amp; Paragraf">&#129529; Bersihkan</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Warna &amp; Sorotan</span>
+                        <div class="ns-group__row">
+                            @foreach ($colors as $color)
+                                <button type="button" style="width:16px; height:16px; border-radius:2px; border:1px solid #cbd5e1; background:{{ $color }}; cursor:pointer;"
+                                        wire:click="formatInline('color', '{{ $color }}')" title="Warna teks {{ $color }}"></button>
+                            @endforeach
+                            <span style="border-left:1px solid #e2e8f0; height:16px; margin:0 .15rem;"></span>
+                            @foreach ($highlights as $hl)
+                                <button type="button" style="width:16px; height:16px; border-radius:2px; border:1px solid #cbd5e1; background:{{ $hl }}; cursor:pointer;"
+                                        wire:click="formatInline('highlight', '{{ $hl }}')" title="Sorot warna {{ $hl }}"></button>
                             @endforeach
                         </div>
                     </div>
                     <div class="ns-group">
                         <span class="ns-group__label">Paragraf</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-tool" wire:click="addBlock('paragraph')" title="Tambah paragraf">+ Paragraf</button>
-                            <button type="button" class="ns-tool" wire:click="addBlock('quote')" title="Tambah kutipan">&ldquo; Kutipan</button>
-                        </div>
-                    </div>
-                @elseif ($activeTab === 'insert')
-                    <div class="ns-group">
-                        <span class="ns-group__label">Sisipkan Blok</span>
-                        <div class="ns-group__row">
-                            <button type="button" class="ns-tool" wire:click="addBlock('heading')">+ Judul</button>
-                            <button type="button" class="ns-tool" wire:click="addBlock('paragraph')">+ Paragraf</button>
-                            <button type="button" class="ns-tool" wire:click="addBlock('bullet')">+ Daftar Poin</button>
-                            <button type="button" class="ns-tool" wire:click="addBlock('numbered')">+ Daftar Nomor</button>
-                            <button type="button" class="ns-tool" wire:click="addBlock('quote')">+ Kutipan</button>
-                        </div>
-                    </div>
-                @elseif ($activeTab === 'layout')
-                    <div class="ns-group">
-                        <span class="ns-group__label">Tipografi</span>
-                        <div class="ns-group__row">
-                            <select class="rb-select" style="width:auto; font-size:.65rem;" wire:model.live="fontFamily">
-                                <option value="serif">Serif (akademik)</option>
-                                <option value="sans">Sans-serif</option>
-                                <option value="mono">Monospace</option>
-                            </select>
-                            <select class="rb-select" style="width:auto; font-size:.65rem;" wire:model.live="fontSize">
-                                <option value="14">14 pt</option>
-                                <option value="16">16 pt</option>
-                                <option value="18">18 pt</option>
-                            </select>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('align', 'left')" title="Rata Kiri">&#9776;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('align', 'center')" title="Rata Tengah">&#9778;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('align', 'right')" title="Rata Kanan">&#9777;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('align', 'justify')" title="Rata Kanan-Kiri">&#9779;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('indent-')" title="Kurangi Indentasi">&#8676;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('indent+')" title="Tambah Indentasi">&#8677;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('listBullet')" title="Daftar Poin (Bullet)">• List</button>
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('listNumbered')" title="Daftar Nomor">1. List</button>
                         </div>
                     </div>
                     <div class="ns-group">
-                        <span class="ns-group__label">Zoom</span>
+                        <span class="ns-group__label">Galeri Gaya</span>
                         <div class="ns-group__row">
-                            @foreach (['75','100','125','150'] as $z)
-                                <button type="button" class="ns-tool @if($zoom === $z) ns-tool--active @endif" wire:click="$set('zoom','{{ $z }}')">{{ $z }}%</button>
+                            @foreach ($stylesGallery as $styleKey => $styleLabel)
+                                <button type="button" class="ns-btn" wire:click="applyStyle({{ $activeBlock }}, '{{ $styleKey }}')" title="Terapkan {{ $styleLabel }}">{{ $styleLabel }}</button>
                             @endforeach
                         </div>
                     </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Sunting</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="openDialog('find')">&#128269; Cari &amp; Ganti</button>
+                        </div>
+                    </div>
+
+                {{-- TAB: SISIPKAN (INSERT) --}}
+                @elseif ($activeTab === 'insert')
+                    <div class="ns-group">
+                        <span class="ns-group__label">Blok Teks</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="addBlock('heading')">+ Judul</button>
+                            <button type="button" class="ns-btn" wire:click="addBlock('paragraph')">+ Paragraf</button>
+                            <button type="button" class="ns-btn" wire:click="addBlock('quote')">&ldquo; Kutipan</button>
+                            <button type="button" class="ns-btn" wire:click="addBlock('bullet')">+ Poin</button>
+                            <button type="button" class="ns-btn" wire:click="addBlock('numbered')">+ Nomor</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Tabel &amp; Gambar</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="openDialog('table')">&#8862; Sisipkan Tabel</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('image')">&#128444; Sisipkan Gambar</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Tautan &amp; Catatan</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="openDialog('link')">&#128279; Tautan</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('footnote')">&#128278; Catatan Kaki</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('symbols')">&#937; Simbol Khusus</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Pemisah &amp; Bidang</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="insertPageBreak">&#9986; Pemisah Halaman</button>
+                            <button type="button" class="ns-btn" wire:click="insertHorizontalRule">&#8213; Garis Pembatas</button>
+                            <button type="button" class="ns-btn" wire:click="insertDate">&#128197; Tanggal</button>
+                            <button type="button" class="ns-btn" wire:click="insertPageNumberField"># Nomor Halaman</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Otomatisasi</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="insertTableOfContents">&#9776; Daftar Isi</button>
+                            <button type="button" class="ns-btn" wire:click="insertBibliography">&#128218; Daftar Pustaka</button>
+                        </div>
+                    </div>
+
+                {{-- TAB: DESAIN (DESIGN) --}}
+                @elseif ($activeTab === 'design')
+                    <div class="ns-group">
+                        <span class="ns-group__label">Tema Dokumen</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn @if(($styleMeta['theme'] ?? '') === 'academic') ns-btn--active @endif" wire:click="applyTheme('academic')">Akademik</button>
+                            <button type="button" class="ns-btn @if(($styleMeta['theme'] ?? '') === 'modern') ns-btn--active @endif" wire:click="applyTheme('modern')">Modern</button>
+                            <button type="button" class="ns-btn @if(($styleMeta['theme'] ?? '') === 'compact') ns-btn--active @endif" wire:click="applyTheme('compact')">Kompak</button>
+                            <button type="button" class="ns-btn @if(($styleMeta['theme'] ?? '') === 'code') ns-btn--active @endif" wire:click="applyTheme('code')">Teknis</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Warna Kertas</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('pageColor', '#ffffff')">Putih</button>
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('pageColor', '#fdfbf7')">Gading</button>
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('pageColor', '#fcf6e9')">Sepia</button>
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('pageColor', '#f8fafc')">Abu Lembut</button>
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('pageBorder', {{ !($pageSetup['pageBorder'] ?? false) ? 'true' : 'false' }})">
+                                Bingkai: {{ !empty($pageSetup['pageBorder']) ? 'Aktif' : 'Nonaktif' }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Tanda Air (Watermark)</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', 'DRAF')">DRAF</button>
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', 'RAHASIA')">RAHASIA</button>
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', 'CONFIDENTIAL')">CONFIDENTIAL</button>
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', '')">Hapus Tanda Air</button>
+                        </div>
+                    </div>
+
+                {{-- TAB: TATA LETAK (LAYOUT) --}}
+                @elseif ($activeTab === 'layout')
+                    <div class="ns-group">
+                        <span class="ns-group__label">Margin</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('marginTop', 25); updatePageSetup('marginRight', 25); updatePageSetup('marginBottom', 25); updatePageSetup('marginLeft', 25)">Normal (2.5 cm)</button>
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('marginTop', 12); updatePageSetup('marginRight', 12); updatePageSetup('marginBottom', 12); updatePageSetup('marginLeft', 12)">Sempit (1.2 cm)</button>
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('marginTop', 38); updatePageSetup('marginRight', 38); updatePageSetup('marginBottom', 38); updatePageSetup('marginLeft', 38)">Lebar (3.8 cm)</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('pagesetup')">Kustom…</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Orientasi &amp; Ukuran</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn @if(($pageSetup['orientation'] ?? 'portrait') === 'portrait') ns-btn--active @endif" wire:click="updatePageSetup('orientation', 'portrait')">Potret</button>
+                            <button type="button" class="ns-btn @if(($pageSetup['orientation'] ?? '') === 'landscape') ns-btn--active @endif" wire:click="updatePageSetup('orientation', 'landscape')">Lanskap</button>
+                            <select class="ns-btn" style="padding:.2rem .35rem;" wire:change="updatePageSetup('size', $event.target.value)">
+                                <option value="A4" @selected(($pageSetup['size'] ?? '') === 'A4')>A4 (210×297 mm)</option>
+                                <option value="Letter" @selected(($pageSetup['size'] ?? '') === 'Letter')>Letter (8.5×11 in)</option>
+                                <option value="Legal" @selected(($pageSetup['size'] ?? '') === 'Legal')>Legal (8.5×14 in)</option>
+                                <option value="A5" @selected(($pageSetup['size'] ?? '') === 'A5')>A5</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Kolom &amp; Baris</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn @if(($pageSetup['columns'] ?? 1) == 1) ns-btn--active @endif" wire:click="updatePageSetup('columns', 1)">1 Kolom</button>
+                            <button type="button" class="ns-btn @if(($pageSetup['columns'] ?? 1) == 2) ns-btn--active @endif" wire:click="updatePageSetup('columns', 2)">2 Kolom</button>
+                            <button type="button" class="ns-btn" wire:click="updatePageSetup('lineNumbers', {{ !($pageSetup['lineNumbers'] ?? false) ? 'true' : 'false' }})">
+                                Nomor Baris: {{ !empty($pageSetup['lineNumbers']) ? 'Aktif' : 'Nonaktif' }}
+                            </button>
+                        </div>
+                    </div>
+
+                {{-- TAB: REFERENSI (REFERENCES) --}}
                 @elseif ($activeTab === 'references')
                     <div class="ns-group">
-                        <span class="ns-group__label">Referensi Proyek</span>
+                        <span class="ns-group__label">Daftar Isi &amp; Catatan Kaki</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-tool" wire:click="toggleTool('/sitasi'); $set('assistantOpen', true)">&#128279; Sitasi</button>
-                            <button type="button" class="ns-tool" wire:click="toggleTool('/cari-referensi'); $set('assistantOpen', true)">&#128269; Cari Referensi</button>
-                            <button type="button" class="ns-tool" wire:click="toggleTool('/matriks-literatur'); $set('assistantOpen', true)">&#128202; Matriks Literatur</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertTableOfContents">&#9776; Buat/Perbarui Daftar Isi</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('footnote')">&#128278; Sisipkan Catatan Kaki</button>
                         </div>
                     </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Bibliografi Proyek</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="insertBibliography">&#128218; Sisipkan Daftar Pustaka</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Asisten Riset</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="toggleTool('/sitasi'); $set('assistantOpen', true)">&#128279; Sitasi</button>
+                            <button type="button" class="ns-btn" wire:click="toggleTool('/cari-referensi'); $set('assistantOpen', true)">&#128269; Cari Referensi</button>
+                            <button type="button" class="ns-btn" wire:click="toggleTool('/matriks-literatur'); $set('assistantOpen', true)">&#128202; Matriks Literatur</button>
+                        </div>
+                    </div>
+
+                {{-- TAB: PENINJAUAN (REVIEW) --}}
                 @elseif ($activeTab === 'review')
                     <div class="ns-group">
-                        <span class="ns-group__label">Tinjauan</span>
+                        <span class="ns-group__label">Pemeriksaan Kata</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-tool" wire:click="toggleTool('/cek-pedoman'); $set('assistantOpen', true)">&#128269; Cek Pedoman</button>
-                            <button type="button" class="ns-tool" wire:click="toggleTool('/cek-gap'); $set('assistantOpen', true)">&#128300; Cek Gap</button>
-                            <button type="button" class="ns-tool" wire:click="toggleTool('/ringkas'); $set('assistantOpen', true)">&#128221; Ringkas</button>
+                            <button type="button" class="ns-btn" wire:click="runSpellCheck">&#10003; Cek Ejaan</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('thesaurus')">&#128214; Tesaurus</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('stats')">&#128202; Skor Keterbacaan</button>
                         </div>
                     </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Komentar</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="openDialog('comment')">+ Komentar</button>
+                            <button type="button" class="ns-btn @if($showComments) ns-btn--active @endif" wire:click="$toggle('showComments')">&#128172; Panel Komentar ({{ count($comments) }})</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Lacak Perubahan (Track Changes)</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn @if($trackChanges) ns-btn--active @endif" wire:click="$toggle('trackChanges')">
+                                &#128065; Lacak: {{ $trackChanges ? 'AKTIF' : 'NONAKTIF' }}
+                            </button>
+                            <button type="button" class="ns-btn @if($showRevisions) ns-btn--active @endif" wire:click="$toggle('showRevisions')">Panel Revisi ({{ $pendingRevisionCount }})</button>
+                            <button type="button" class="ns-btn" wire:click="acceptAllRevisions" title="Terima semua perubahan">&#10004; Terima Semua</button>
+                            <button type="button" class="ns-btn" wire:click="rejectAllRevisions" title="Tolak semua perubahan">&#10008; Tolak Semua</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Audit Asisten</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="toggleTool('/cek-pedoman'); $set('assistantOpen', true)">&#128269; Cek Pedoman</button>
+                            <button type="button" class="ns-btn" wire:click="toggleTool('/cek-gap'); $set('assistantOpen', true)">&#128300; Cek Gap Riset</button>
+                            <button type="button" class="ns-btn" wire:click="toggleTool('/ringkas'); $set('assistantOpen', true)">&#128221; Ringkas Naskah</button>
+                        </div>
+                    </div>
+
+                {{-- TAB: TAMPILAN (VIEW) --}}
                 @elseif ($activeTab === 'view')
                     <div class="ns-group">
-                        <span class="ns-group__label">Panel &amp; Tampilan</span>
+                        <span class="ns-group__label">Mode Tampilan</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-tool @if($showNavigation) ns-tool--active @endif" wire:click="$toggle('showNavigation')">&#9776; Navigasi</button>
-                            <button type="button" class="ns-tool" wire:click="$toggle('assistantOpen')">&#10024; Asisten</button>
+                            <button type="button" class="ns-btn @if($viewMode === 'print') ns-btn--active @endif" wire:click="setViewMode('print')">Tata Cetak</button>
+                            <button type="button" class="ns-btn @if($viewMode === 'web') ns-btn--active @endif" wire:click="setViewMode('web')">Web Kontinu</button>
+                            <button type="button" class="ns-btn @if($viewMode === 'read') ns-btn--active @endif" wire:click="setViewMode('read')">Mode Baca/Fokus</button>
+                            <button type="button" class="ns-btn @if($viewMode === 'outline') ns-btn--active @endif" wire:click="setViewMode('outline')">Garis Besar</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Tampilkan/Sembunyikan</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn @if($showRuler) ns-btn--active @endif" wire:click="$toggle('showRuler')">&#128207; Penggaris</button>
+                            <button type="button" class="ns-btn @if($showNavigation) ns-btn--active @endif" wire:click="$toggle('showNavigation')">&#9776; Navigasi</button>
+                            <button type="button" class="ns-btn @if($showGridlines) ns-btn--active @endif" wire:click="$toggle('showGridlines')">&#8862; Kisi Kertas</button>
+                            <button type="button" class="ns-btn @if($showComments) ns-btn--active @endif" wire:click="$toggle('showComments')">&#128172; Komentar</button>
+                            <button type="button" class="ns-btn @if($showRevisions) ns-btn--active @endif" wire:click="$toggle('showRevisions')">&#128065; Revisi</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Pembesaran (Zoom)</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="zoomOut">-</button>
+                            @foreach (['75', '100', '125', '150'] as $z)
+                                <button type="button" class="ns-btn @if($zoom === $z) ns-btn--active @endif" wire:click="setZoom('{{ $z }}')">{{ $z }}%</button>
+                            @endforeach
+                            <button type="button" class="ns-btn ns-btn--icon" wire:click="zoomIn">+</button>
+                        </div>
+                    </div>
+
+                {{-- TAB: SURAT MENYURAT (MAILINGS) --}}
+                @elseif ($activeTab === 'mailings')
+                    <div class="ns-group">
+                        <span class="ns-group__label">Sumber Data CSV</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="openDialog('merge')">&#128196; Buka Data &amp; Template Mail Merge</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Pratinjau &amp; Gabung</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="previewMerge">&#128065; Pratinjau Merge</button>
+                            <button type="button" class="ns-btn" wire:click="insertMerge" @disabled(empty($mergePreviews)) title="Terapkan rekaman merge ke naskah">&#9889; Terapkan ke Naskah</button>
+                        </div>
+                    </div>
+
+                {{-- TAB: ALAT TABEL (TABLE) --}}
+                @elseif ($activeTab === 'table')
+                    <div class="ns-group">
+                        <span class="ns-group__label">Baris &amp; Kolom</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="tableInsertRow({{ $activeBlock }}, 0)">+ Baris Atas</button>
+                            <button type="button" class="ns-btn" wire:click="tableInsertRow({{ $activeBlock }}, 1)">+ Baris Bawah</button>
+                            <button type="button" class="ns-btn" wire:click="tableDeleteRow({{ $activeBlock }}, 0)">- Hapus Baris</button>
+                            <button type="button" class="ns-btn" wire:click="tableInsertColumn({{ $activeBlock }}, 0)">+ Kolom Kiri</button>
+                            <button type="button" class="ns-btn" wire:click="tableInsertColumn({{ $activeBlock }}, 1)">+ Kolom Kanan</button>
+                            <button type="button" class="ns-btn" wire:click="tableDeleteColumn({{ $activeBlock }}, 0)">- Hapus Kolom</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Struktur Tabel</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="tableToggleHeader({{ $activeBlock }})">Toggle Baris Header</button>
+                            <button type="button" class="ns-btn" style="color:#b91c1c;" wire:click="removeBlock({{ $activeBlock }})">&#128465; Hapus Tabel</button>
                         </div>
                     </div>
                 @endif
             </div>
-        </div>
+        </nav>
 
-        {{-- ================= SUMBER DOKUMEN ================= --}}
-        <div class="ns-source">
-            <div class="ns-source__body">
-                <div class="ns-source__card">
-                    <h4>&#128196; Dari Dokumen Lokal</h4>
-                    <input type="file" wire:model="upload" accept=".docx,.pdf,.txt,.md,.markdown" class="rb-input" style="font-size:.68rem;" />
-                    <div wire:loading wire:target="upload" class="rb-mono" style="font-size:.6rem; color:var(--rb-ink-muted); margin-top:.3rem;">Mengekstrak teks…</div>
-                    <p class="rb-mono" style="font-size:.58rem; color:var(--rb-ink-muted); margin:.35rem 0 0;">DOCX, PDF, TXT, atau Markdown. Teks diekstrak menjadi blok naskah.</p>
+        {{-- ================= SUMBER DOKUMEN & INTEGRASI PROYEK ================= --}}
+        <div class="ns-source" style="border:1px solid var(--rb-border-color, #cbd5e1); background:var(--rb-surface, #ffffff); border-radius:4px; padding:.65rem .85rem; box-shadow:0 1px 2px rgba(15,23,42,.04);">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:.75rem;">
+                <div>
+                    <h4 style="font-family:var(--rb-font-mono); font-size:.62rem; font-weight:700; text-transform:uppercase; color:#1e40af; margin:0 0 .35rem;">&#128196; Dari Dokumen Lokal</h4>
+                    <input type="file" wire:model="upload" accept=".docx,.pdf,.txt,.md,.markdown" class="ns-btn" style="width:100%; font-size:.65rem;" />
+                    <div wire:loading wire:target="upload" style="font-family:var(--rb-font-mono); font-size:.6rem; color:var(--rb-ink-muted); margin-top:.2rem;">Mengekstrak teks dokumen…</div>
                 </div>
 
-                <div class="ns-source__card">
-                    <h4>&#128218; Dari Proyek</h4>
+                <div>
+                    <h4 style="font-family:var(--rb-font-mono); font-size:.62rem; font-weight:700; text-transform:uppercase; color:#1e40af; margin:0 0 .35rem;">&#128218; Dari Proyek Xishie</h4>
                     <div style="display:flex; gap:.3rem; flex-wrap:wrap;">
-                        <select class="rb-select" style="flex:1; min-width:120px; font-size:.66rem;" wire:model="sourceProjectId">
+                        <select class="ns-btn" style="flex:1; min-width:140px; font-size:.65rem;" wire:model="sourceProjectId">
                             <option value="">— Pilih proyek —</option>
                             @foreach ($projects as $p)
                                 <option value="{{ $p->id }}">{{ $p->title }}</option>
                             @endforeach
                         </select>
-                        <select class="rb-select" style="width:auto; font-size:.66rem;" wire:model="sourceProjectStage">
+                        <select class="ns-btn" style="width:auto; font-size:.65rem;" wire:model="sourceProjectStage">
                             @foreach ($stageOptions as $val => $label)
                                 <option value="{{ $val }}">{{ $label }}</option>
                             @endforeach
                         </select>
+                        <button type="button" class="ns-btn ns-btn--primary" style="font-size:.62rem;" wire:click="loadFromProject" wire:loading.attr="disabled" wire:target="loadFromProject">Muat Naskah</button>
                     </div>
-                    <button type="button" class="rb-button rb-button--primary" style="margin-top:.45rem; font-size:.62rem;" wire:click="loadFromProject" wire:loading.attr="disabled" wire:target="loadFromProject">Muat Naskah Proyek</button>
-                    <p class="rb-mono" style="font-size:.58rem; color:var(--rb-ink-muted); margin:.35rem 0 0;">Mengambil sub-bab tahap proyek sebagai blok naskah.</p>
                 </div>
 
                 @if ($documents->isNotEmpty())
-                    <div class="ns-source__card">
-                        <h4>&#128193; Dokumen Tersimpan</h4>
-                        <div style="display:flex; flex-direction:column; gap:.2rem;">
+                    <div>
+                        <h4 style="font-family:var(--rb-font-mono); font-size:.62rem; font-weight:700; text-transform:uppercase; color:#1e40af; margin:0 0 .35rem;">&#128193; Naskah Tersimpan</h4>
+                        <div style="display:flex; gap:.3rem; flex-wrap:wrap; max-height:45px; overflow-y:auto;">
                             @foreach ($documents as $doc)
-                                <button type="button" class="ns-nav__item" style="border-left:none; padding:.25rem .2rem;" wire:click="openDocument({{ $doc->id }})">
-                                    {{ $doc->title }}
-                                    <span class="rb-mono" style="color:var(--rb-ink-muted); font-size:.55rem;">· {{ $doc->word_count }} kata</span>
+                                <button type="button" class="ns-btn" style="font-size:.62rem; padding:.2rem .4rem;" wire:click="openDocument({{ $doc->id }})" title="{{ $doc->title }} ({{ $doc->word_count }} kata)">
+                                    {{ Str::limit($doc->title, 24) }}
                                 </button>
                             @endforeach
                         </div>
@@ -223,102 +1099,608 @@
             </div>
         </div>
 
+        {{-- ================= PENGGARIS HORISONTAL (RULER) ================= --}}
+        @if ($showRuler)
+            <div class="ns-ruler">
+                <div class="ns-ruler__margin-left"></div>
+                <div class="ns-ruler__track">
+                    <span class="ns-ruler__marker" style="left:25px;" title="Indentasi Kiri"></span>
+                    @for ($cm = 1; $cm <= 16; $cm++)
+                        <div class="ns-ruler__unit"><span>{{ $cm }}</span></div>
+                    @endfor
+                    <span class="ns-ruler__marker" style="right:25px;" title="Indentasi Kanan"></span>
+                </div>
+                <div class="ns-ruler__margin-right"></div>
+            </div>
+        @endif
+
         {{-- ================= WORKSPACE ================= --}}
-        <div class="ns-workspace" style="@if(! $showNavigation) grid-template-columns: 1fr; @endif">
+        <div class="ns-workspace" style="@if(!$showNavigation) grid-template-columns: minmax(0,1fr) @if($showComments || $showRevisions) auto @endif; @endif">
+
+            {{-- 1. LEFT SIDEBAR: NAVIGATOR --}}
             @if ($showNavigation)
-                <aside class="ns-nav">
-                    <div class="ns-nav__title">Navigasi Judul</div>
-                    @forelse ($outline as $node)
-                        <button type="button" class="ns-nav__item @if($node['level'] === 2) ns-nav__item--l2 @elseif($node['level'] >= 3) ns-nav__item--l3 @endif"
-                                x-on:click="document.getElementById('ns-block-{{ $node['index'] }}')?.scrollIntoView({behavior:'smooth', block:'center'})">
-                            {{ $node['text'] }}
-                        </button>
-                    @empty
-                        <div class="ns-nav__empty">Belum ada judul. Tambah blok Heading untuk mengisi navigasi.</div>
-                    @endforelse
+                <aside class="ns-nav" aria-label="Navigator Dokumen">
+                    <div class="ns-nav__header">
+                        <div class="ns-nav__tab ns-nav__tab--active">&#9776; Judul ({{ $elements['headings'] ?? 0 }})</div>
+                    </div>
+                    <div class="ns-nav__body">
+                        @forelse ($outline as $node)
+                            <button type="button" class="ns-nav__item @if($node['level'] === 2) ns-nav__item--l2 @elseif($node['level'] >= 3) ns-nav__item--l3 @endif"
+                                    x-on:click="document.getElementById('ns-block-{{ $node['index'] }}')?.scrollIntoView({behavior:'smooth', block:'center'})">
+                                <span>{{ $node['text'] }}</span>
+                                <span style="font-size:.55rem; color:var(--rb-ink-muted);">H{{ $node['level'] }}</span>
+                            </button>
+                        @empty
+                            <div style="padding:.5rem; font-family:var(--rb-font-mono); font-size:.62rem; color:var(--rb-ink-muted);">
+                                Belum ada judul. Sisipkan blok Heading untuk membuat navigasi.
+                            </div>
+                        @endforelse
+
+                        <div style="border-top:1px solid #e2e8f0; margin-top:.5rem; padding-top:.4rem; font-family:var(--rb-font-mono); font-size:.58rem; color:var(--rb-ink-muted);">
+                            <div>&#8862; Tabel: {{ $elements['tables'] ?? 0 }}</div>
+                            <div>&#128444; Gambar: {{ $elements['images'] ?? 0 }}</div>
+                            <div>&#128278; Catatan Kaki: {{ $elements['footnotes'] ?? 0 }}</div>
+                            <div>&#128172; Komentar: {{ $elements['comments'] ?? 0 }}</div>
+                            <div>&#128065; Revisi: {{ $elements['revisions'] ?? 0 }}</div>
+                        </div>
+                    </div>
                 </aside>
             @endif
 
-            <div class="ns-canvas">
-                <div class="ns-page ns-page--{{ $fontFamily }}" style="font-size:{{ $fontSize }}px; transform-origin: top center; zoom: {{ (int) $zoom / 100 }};"
+            {{-- 2. CENTER: KANVAS HALAMAN --}}
+            <main class="ns-canvas @if($viewMode === 'web') ns-canvas--web @elseif($viewMode === 'read') ns-canvas--read @endif @if($showGridlines) ns-canvas--gridlines @endif">
+                <div class="ns-page ns-page--{{ $fontFamily }} @if($viewMode === 'web') ns-page--web @elseif($viewMode === 'read') ns-page--read @endif @if(!empty($pageSetup['pageBorder'])) ns-page--border @endif"
+                     style="font-size:{{ $fontSize }}px;
+                            transform-origin: top center;
+                            zoom: {{ (int) $zoom / 100 }};
+                            padding: {{ max(10, (int)($pageSetup['marginTop'] ?? 25)) }}mm {{ max(10, (int)($pageSetup['marginRight'] ?? 25)) }}mm {{ max(10, (int)($pageSetup['marginBottom'] ?? 25)) }}mm {{ max(10, (int)($pageSetup['marginLeft'] ?? 25)) }}mm;
+                            background: {{ $pageSetup['pageColor'] ?? '#ffffff' }};
+                            @if(($pageSetup['columns'] ?? 1) > 1) column-count: {{ (int)$pageSetup['columns'] }}; column-gap: 2rem; @endif"
                      wire:key="ns-page-{{ $documentId ?? 'new' }}">
-                    <input type="text" class="ns-page__title-input" wire:model="docTitle" wire:change="markDirty" placeholder="Judul dokumen" aria-label="Judul dokumen" />
 
-                    @forelse ($blocks as $index => $block)
-                        @php
-                            $type = $block['type'] ?? 'paragraph';
-                            $level = (int) ($block['level'] ?? 1);
-                            $classes = 'ns-block ns-block--'.$type;
-                            if ($type === 'heading') { $classes .= ' ns-block--h'.max(1, min(3, $level)); }
-                            $rows = max(1, (int) ceil(mb_strlen((string) ($block['text'] ?? '')) / 78) + 1);
-                        @endphp
-                        <div class="{{ $classes }}" id="ns-block-{{ $index }}" wire:key="ns-block-{{ $index }}-{{ $type }}-{{ $level }}">
-                            <div class="ns-block__gutter">
-                                <button type="button" class="ns-block__btn" wire:click="moveBlock({{ $index }}, -1)" title="Naikkan" @disabled($index === 0)>&#9650;</button>
-                                <button type="button" class="ns-block__btn" wire:click="moveBlock({{ $index }}, 1)" title="Turunkan" @disabled($index === $blockCount - 1)>&#9660;</button>
-                                <button type="button" class="ns-block__btn" wire:click="applyStyle({{ $index }}, 'heading1')" title="Jadikan Heading 1">H1</button>
-                                <button type="button" class="ns-block__btn" wire:click="applyStyle({{ $index }}, 'paragraph')" title="Jadikan Paragraf">P</button>
-                                <button type="button" class="ns-block__btn" wire:click="removeBlock({{ $index }})" title="Hapus blok">&times;</button>
+                    {{-- Watermark --}}
+                    @if (!empty($pageSetup['watermark']))
+                        <div class="ns-watermark">{{ $pageSetup['watermark'] }}</div>
+                    @endif
+
+                    {{-- Judul Dokumen --}}
+                    <input type="text" style="width:100%; border:none; outline:none; font-family:var(--rb-font-display); font-size:1.65rem; font-weight:800; color:inherit; padding:.2rem 0 .5rem; border-bottom:2px solid #e2e8f0; margin-bottom:1.5rem; background:transparent; text-align:{{ ($pageSetup['columns'] ?? 1) > 1 ? 'left' : 'center' }};"
+                           wire:model="docTitle" wire:change="markDirty" placeholder="Judul Dokumen" aria-label="Judul Dokumen" />
+
+                    {{-- Blok-blok Dokumen --}}
+                    <div class="ns-blocks-wrap">
+                        @forelse ($blocks as $index => $block)
+                            @php
+                                $type = (string) ($block['type'] ?? 'paragraph');
+                                $level = (int) ($block['level'] ?? 1);
+                                $align = (string) ($block['align'] ?? 'left');
+                                $indent = (int) ($block['indent'] ?? 0);
+                                $lineSpacing = (float) ($block['lineSpacing'] ?? 1.5);
+                                $spacingBefore = (float) ($block['spacingBefore'] ?? 0);
+                                $spacingAfter = (float) ($block['spacingAfter'] ?? 0);
+
+                                $classes = 'ns-block ns-block--'.$type.' align-'.$align;
+                                if ($type === 'heading') { $classes .= ' ns-block--h'.max(1, min(3, $level)); }
+                                if ($activeBlock === $index) { $classes .= ' ns-block--active'; }
+
+                                $blockStyle = "line-height: {$lineSpacing};";
+                                if ($indent > 0) { $blockStyle .= " margin-left: ".($indent * 1.5)."rem;"; }
+                                if ($spacingBefore > 0) { $blockStyle .= " margin-top: ".($spacingBefore)."pt;"; }
+                                if ($spacingAfter > 0) { $blockStyle .= " margin-bottom: ".($spacingAfter)."pt;"; }
+                            @endphp
+
+                            <div class="{{ $classes }}" id="ns-block-{{ $index }}" style="{{ $blockStyle }}" wire:key="ns-block-{{ $index }}-{{ $type }}" wire:click="selectBlock({{ $index }})">
+                                {{-- Nomor baris --}}
+                                @if (!empty($pageSetup['lineNumbers']))
+                                    <span class="ns-lineno">{{ $index + 1 }}</span>
+                                @endif
+
+                                {{-- Action Gutter melayang --}}
+                                <div class="ns-block__gutter">
+                                    <button type="button" class="ns-block__btn" wire:click.stop="moveBlock({{ $index }}, -1)" title="Pindahkan Ke Atas" @disabled($index === 0)>&#9650;</button>
+                                    <button type="button" class="ns-block__btn" wire:click.stop="moveBlock({{ $index }}, 1)" title="Pindahkan Ke Bawah" @disabled($index === count($blocks) - 1)>&#9660;</button>
+                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'heading1')" title="Jadikan H1">H1</button>
+                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'heading2')" title="Jadikan H2">H2</button>
+                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'paragraph')" title="Jadikan Paragraf">P</button>
+                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'quote')" title="Jadikan Kutipan">&ldquo;</button>
+
+                                    {{-- Wordcraft AI Actions --}}
+                                    <button type="button" class="ns-block__btn ns-block__btn--ai" wire:click.stop="aiElaborateBlock({{ $index }})" title="Kembangkan gagasan teks ini dengan AI">&#9889; Kembangkan</button>
+                                    <button type="button" class="ns-block__btn ns-block__btn--ai" wire:click.stop="aiShortenBlock({{ $index }})" title="Persingkat teks ini">&#9986; Padatkan</button>
+                                    <button type="button" class="ns-block__btn ns-block__btn--ai" wire:click.stop="aiImproveBlock({{ $index }})" title="Perbaiki gaya &amp; tata bahasa">&#10024; Poles</button>
+                                    <button type="button" class="ns-block__btn ns-block__btn--ai" wire:click.stop="aiContinueStory({{ $index }})" title="Lanjutkan naskah setelah blok ini">&#10133; Lanjutkan</button>
+
+                                    <button type="button" class="ns-block__btn" wire:click.stop="duplicateBlock({{ $index }})" title="Gandakan blok">&#128203;</button>
+                                    <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click.stop="removeBlock({{ $index }})" title="Hapus blok">&times;</button>
+                                </div>
+
+                                {{-- Render Tabel --}}
+                                @if ($type === 'table')
+                                    <div class="ns-table-wrap">
+                                        <div class="ns-table-toolbar">
+                                            <span>&#8862; Tabel</span>
+                                            <button type="button" class="ns-block__btn" wire:click.stop="tableInsertRow({{ $index }}, 0)">+ Baris</button>
+                                            <button type="button" class="ns-block__btn" wire:click.stop="tableInsertColumn({{ $index }}, 0)">+ Kolom</button>
+                                            <button type="button" class="ns-block__btn" wire:click.stop="tableToggleHeader({{ $index }})">Header</button>
+                                        </div>
+                                        <table class="ns-table">
+                                            @php
+                                                $rows = (array) ($block['table']['rows'] ?? []);
+                                                $hasHeader = (bool) ($block['table']['header'] ?? true);
+                                            @endphp
+                                            @foreach ($rows as $r => $row)
+                                                <tr>
+                                                    @foreach ((array) $row as $c => $cell)
+                                                        @php $cellTag = ($hasHeader && $r === 0) ? 'th' : 'td'; @endphp
+                                                        <{{ $cellTag }}>
+                                                            <input type="text"
+                                                                   wire:model="blocks.{{ $index }}.table.rows.{{ $r }}.{{ $c }}.text"
+                                                                   wire:change="markDirty"
+                                                                   placeholder="Sel..." />
+                                                        </{{ $cellTag }}>
+                                                    @endforeach
+                                                </tr>
+                                            @endforeach
+                                        </table>
+                                    </div>
+
+                                {{-- Render Gambar --}}
+                                @elseif ($type === 'image')
+                                    <div class="ns-image-wrap align-{{ $align }}">
+                                        @if (!empty($block['image']['src']))
+                                            <img src="{{ $block['image']['src'] }}" alt="{{ $block['image']['alt'] ?? '' }}" style="width:{{ $block['image']['width'] ?? 320 }}px;" />
+                                            @if (!empty($block['image']['alt']))
+                                                <div style="font-size:.72rem; color:var(--rb-ink-muted); margin-top:.3rem; font-style:italic;">{{ $block['image']['alt'] }}</div>
+                                            @endif
+                                        @endif
+                                    </div>
+
+                                {{-- Render Pemisah Halaman --}}
+                                @elseif ($type === 'pagebreak')
+                                    <div class="ns-pagebreak-wrap">
+                                        <span>&#9986; ―――――――――― Pemisah Halaman (Page Break) ――――――――――</span>
+                                    </div>
+
+                                {{-- Render Catatan Kaki --}}
+                                @elseif ($type === 'footnote-ref')
+                                    <div style="border-top:1px solid #cbd5e1; padding-top:.3rem; margin-top:.5rem; font-size:.75rem; color:#475569;">
+                                        <strong style="color:#1e40af;">[Catatan Kaki]</strong> {{ $block['text'] ?? '' }}
+                                    </div>
+
+                                {{-- Render Blok Teks Biasa (Heading, Paragraph, Quote, Bullet, Numbered) --}}
+                                @else
+                                    <div style="display:flex; width:100%;">
+                                        @if ($type === 'numbered')
+                                            <span class="ns-block--numbered__num">{{ $index + 1 }}.</span>
+                                        @endif
+                                        <textarea
+                                            rows="{{ max(1, (int) ceil(mb_strlen((string) ($block['text'] ?? '')) / 76) + 1) }}"
+                                            wire:model="blocks.{{ $index }}.text"
+                                            wire:change="markDirty"
+                                            placeholder="{{ $type === 'heading' ? 'Judul Bagian...' : 'Tulis isi naskah di sini...' }}"
+                                            aria-label="Blok {{ $index + 1 }} {{ $type }}"
+                                        >{{ $block['text'] ?? '' }}</textarea>
+                                    </div>
+                                @endif
                             </div>
-                            <textarea
-                                rows="{{ $rows }}"
-                                wire:model="blocks.{{ $index }}.text"
-                                wire:change="markDirty"
-                                placeholder="{{ $type === 'heading' ? 'Judul bagian…' : 'Tulis isi…' }}"
-                                aria-label="Blok naskah {{ $index + 1 }} ({{ $type }})"
-                            >{{ $block['text'] ?? '' }}</textarea>
-                        </div>
-                    @empty
-                        <p class="rb-mono" style="color:var(--rb-ink-muted); font-size:.8rem;">Naskah masih kosong. Muat dari berkas/proyek atau tambah blok lewat ribbon.</p>
-                    @endforelse
+                        @empty
+                            <p style="font-family:var(--rb-font-mono); color:var(--rb-ink-muted); font-size:.85rem; text-align:center; padding:3rem 0;">
+                                Naskah masih kosong. Muat dari berkas/proyek atau gunakan tombol di ribbon untuk mulai menulis.
+                            </p>
+                        @endforelse
+                    </div>
                 </div>
-            </div>
+            </main>
+
+            {{-- 3. RIGHT SIDEBAR: KOMENTAR & LACAK REVISI --}}
+            @if ($showComments || $showRevisions)
+                <aside class="ns-drawer" aria-label="Panel Komentar dan Revisi">
+                    @if ($showComments)
+                        <div class="ns-drawer__header">
+                            <span>&#128172; Komentar ({{ count($comments) }})</span>
+                            <button type="button" wire:click="$toggle('showComments')" style="background:none; border:none; cursor:pointer;">&times;</button>
+                        </div>
+                        <div class="ns-drawer__body">
+                            {{-- Tambah komentar pada blok aktif --}}
+                            <div style="display:flex; gap:.3rem;">
+                                <input type="text" class="ns-btn" style="flex:1;" placeholder="Komentar untuk blok #{{ $activeBlock + 1 }}..." wire:model="commentDraft" wire:keydown.enter="addComment" />
+                                <button type="button" class="ns-btn ns-btn--primary" wire:click="addComment">+</button>
+                            </div>
+
+                            @forelse ($comments as $cIdx => $c)
+                                <div class="ns-comment-card @if(!empty($c['resolved'])) ns-comment-card--resolved @endif">
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:.2rem;">
+                                        <strong>{{ $c['author'] ?? 'Penulis' }}</strong>
+                                        <span style="font-size:.55rem; color:#64748b;">Blok #{{ ((int)($c['blockIndex'] ?? 0)) + 1 }}</span>
+                                    </div>
+                                    <p style="margin:0 0 .3rem;">{{ $c['body'] ?? '' }}</p>
+                                    <div style="display:flex; justify-content:flex-end; gap:.3rem; font-size:.6rem;">
+                                        <button type="button" class="ns-block__btn" wire:click="resolveComment({{ $cIdx }})">
+                                            {{ !empty($c['resolved']) ? 'Buka Kembali' : 'Selesai' }}
+                                        </button>
+                                        <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click="deleteComment({{ $cIdx }})">Hapus</button>
+                                    </div>
+                                </div>
+                            @empty
+                                <div style="font-family:var(--rb-font-mono); font-size:.6rem; color:var(--rb-ink-muted);">Belum ada komentar.</div>
+                            @endforelse
+                        </div>
+                    @endif
+
+                    @if ($showRevisions)
+                        <div class="ns-drawer__header" style="border-top:1px solid #e2e8f0;">
+                            <span>&#128065; Revisi ({{ $pendingRevisionCount }} pending)</span>
+                            <button type="button" wire:click="$toggle('showRevisions')" style="background:none; border:none; cursor:pointer;">&times;</button>
+                        </div>
+                        <div class="ns-drawer__body">
+                            <div style="display:flex; gap:.3rem; margin-bottom:.3rem;">
+                                <button type="button" class="ns-btn ns-btn--primary" style="flex:1; font-size:.6rem;" wire:click="acceptAllRevisions">Terima Semua</button>
+                                <button type="button" class="ns-btn" style="flex:1; font-size:.6rem;" wire:click="rejectAllRevisions">Tolak Semua</button>
+                            </div>
+
+                            @forelse ($revisions as $rIdx => $rev)
+                                @if (($rev['status'] ?? '') === 'pending')
+                                    <div class="ns-rev-card">
+                                        <div style="font-size:.58rem; color:#64748b; margin-bottom:.2rem;">
+                                            {{ $rev['author'] ?? 'Penulis' }} · Blok #{{ ((int)($rev['blockIndex'] ?? 0)) + 1 }}
+                                        </div>
+                                        <div style="margin-bottom:.3rem;">
+                                            <span class="ns-rev-diff-del">{{ Str::limit((string)($rev['before'] ?? ''), 60) }}</span>
+                                            <span class="ns-rev-diff-ins">{{ Str::limit((string)($rev['after'] ?? ''), 60) }}</span>
+                                        </div>
+                                        <div style="display:flex; justify-content:flex-end; gap:.3rem;">
+                                            <button type="button" class="ns-block__btn" style="color:#16a34a; font-weight:700;" wire:click="acceptRevision({{ $rIdx }})">&#10003; Terima</button>
+                                            <button type="button" class="ns-block__btn" style="color:#dc2626;" wire:click="rejectRevision({{ $rIdx }})">&#10007; Tolak</button>
+                                        </div>
+                                    </div>
+                                @endif
+                            @empty
+                                <div style="font-family:var(--rb-font-mono); font-size:.6rem; color:var(--rb-ink-muted);">Tidak ada revisi pending.</div>
+                            @endforelse
+                        </div>
+                    @endif
+                </aside>
+            @endif
         </div>
 
-        {{-- ================= STATUS BAR ================= --}}
-        <div class="ns-statusbar">
+        {{-- ================= BILAH STATUS (STATUS BAR) ================= --}}
+        <footer class="ns-statusbar">
+            <span>Halaman 1 dari 1</span>
             <span>{{ $blockCount }} blok</span>
             <span>{{ number_format($wordCount) }} kata</span>
             <span>{{ number_format($charCount) }} karakter</span>
-            <span class="ns-statusbar__spacer"></span>
-            <span>Halaman 1 dari 1</span>
-            <span>Sumber: {{ $sourceType === 'project' ? 'Proyek · '.strtoupper((string) $sourceStage) : ($sourceFilename ?? 'Lokal') }}</span>
-            @if ($dirty)
-                <span class="rb-badge rb-badge--alert" style="font-size:.55rem;">&#9679; Belum disimpan</span>
-            @elseif ($lastSavedAt)
-                <span class="rb-badge rb-badge--pass" style="font-size:.55rem;">&#10003; Tersimpan {{ $lastSavedAt }}</span>
+            @if (!empty($statistics['readingTimeMinutes']))
+                <span>&#9201; ~{{ $statistics['readingTimeMinutes'] }} menit baca</span>
             @endif
-            <span>Zoom {{ $zoom }}%</span>
-        </div>
+            @if ($trackChanges)
+                <span style="color:#2563eb; font-weight:700;">● Lacak Perubahan AKTIF</span>
+            @endif
 
-        {{-- ================= XISHIE ASSISTANT (mengapung) ================= --}}
+            <span class="ns-statusbar__spacer"></span>
+
+            <span>Sumber: {{ $sourceType === 'project' ? 'Proyek' : ($sourceFilename ?? 'Lokal') }}</span>
+            <div style="display:flex; align-items:center; gap:.25rem;">
+                <button type="button" class="ns-btn ns-btn--icon" style="padding:.1rem .3rem;" wire:click="zoomOut">-</button>
+                <span>{{ $zoom }}%</span>
+                <button type="button" class="ns-btn ns-btn--icon" style="padding:.1rem .3rem;" wire:click="zoomIn">+</button>
+            </div>
+        </footer>
+
+        {{-- ================= MODAL DIALOGS ================= --}}
+        @if ($dialog !== '')
+            <div class="ns-dialog-backdrop" x-on:click.self="$wire.closeDialog()">
+                <div class="ns-dialog">
+
+                    {{-- Dialog Cari & Ganti --}}
+                    @if ($dialog === 'find')
+                        <div class="ns-dialog__header">
+                            <span>&#128269; Cari dan Ganti Teks</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div>
+                                <label style="display:block; font-weight:600; margin-bottom:.2rem;">Kata / Kalimat yang dicari:</label>
+                                <input type="text" class="ns-btn" style="width:100%;" wire:model="findQuery" placeholder="Cari..." wire:keydown.enter="findText" />
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; margin-bottom:.2rem;">Ganti dengan:</label>
+                                <input type="text" class="ns-btn" style="width:100%;" wire:model="replaceQuery" placeholder="Ganti..." />
+                            </div>
+                            @if ($findResult)
+                                <div style="background:#eff6ff; color:#1e40af; padding:.4rem .6rem; border-radius:3px; font-family:var(--rb-font-mono); font-size:.7rem;">
+                                    {{ $findResult }}
+                                </div>
+                            @endif
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="findText">Cari</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="replaceAll">Ganti Semua</button>
+                        </div>
+
+                    {{-- Dialog Info Statistik & Keterbacaan --}}
+                    @elseif ($dialog === 'stats')
+                        <div class="ns-dialog__header">
+                            <span>&#128202; Statistik Dokumen &amp; Skor Keterbacaan</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:.5rem;">
+                                <div style="border:1px solid #e2e8f0; padding:.5rem; border-radius:4px; background:#f8fafc;">
+                                    <div style="font-size:.65rem; color:#64748b; font-family:var(--rb-font-mono);">JUMLAH KATA</div>
+                                    <div style="font-size:1.3rem; font-weight:800; color:#1e40af;">{{ number_format($statistics['words'] ?? 0) }}</div>
+                                </div>
+                                <div style="border:1px solid #e2e8f0; padding:.5rem; border-radius:4px; background:#f8fafc;">
+                                    <div style="font-size:.65rem; color:#64748b; font-family:var(--rb-font-mono);">KARAKTER (DENGAN SPASI)</div>
+                                    <div style="font-size:1.3rem; font-weight:800; color:#1e40af;">{{ number_format($statistics['characters'] ?? 0) }}</div>
+                                </div>
+                                <div style="border:1px solid #e2e8f0; padding:.5rem; border-radius:4px; background:#f8fafc;">
+                                    <div style="font-size:.65rem; color:#64748b; font-family:var(--rb-font-mono);">FLESCH READING EASE</div>
+                                    <div style="font-size:1.3rem; font-weight:800; color:#16a34a;">{{ $statistics['readingEase'] ?? 0 }} / 100</div>
+                                    <div style="font-size:.6rem; color:#64748b;">(Semakin tinggi semakin mudah dibaca)</div>
+                                </div>
+                                <div style="border:1px solid #e2e8f0; padding:.5rem; border-radius:4px; background:#f8fafc;">
+                                    <div style="font-size:.65rem; color:#64748b; font-family:var(--rb-font-mono);">TINGKAT KELAS (GRADE LEVEL)</div>
+                                    <div style="font-size:1.3rem; font-weight:800; color:#d97706;">Kelas {{ $statistics['gradeLevel'] ?? 0 }}</div>
+                                </div>
+                            </div>
+                            <div style="font-family:var(--rb-font-mono); font-size:.68rem; line-height:1.6; border-top:1px solid #e2e8f0; padding-top:.5rem;">
+                                <div>• Kalimat: {{ $statistics['sentences'] ?? 0 }} kalimat</div>
+                                <div>• Paragraf: {{ $statistics['paragraphs'] ?? 0 }} paragraf</div>
+                                <div>• Suku Kata: ~{{ $statistics['syllables'] ?? 0 }} suku kata</div>
+                                <div>• Estimasi Waktu Baca: ~{{ $statistics['readingTimeMinutes'] ?? 1 }} menit</div>
+                                <div>• Estimasi Waktu Bicara / Presentasi: ~{{ $statistics['speakingTimeMinutes'] ?? 1 }} menit</div>
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="closeDialog">Tutup</button>
+                        </div>
+
+                    {{-- Dialog Tata Letak Kertas (Page Setup) --}}
+                    @elseif ($dialog === 'pagesetup')
+                        <div class="ns-dialog__header">
+                            <span>&#9881; Tata Letak Kertas &amp; Margin</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:.5rem;">
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem;">Margin Atas (mm):</label>
+                                    <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginTop" />
+                                </div>
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem;">Margin Bawah (mm):</label>
+                                    <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginBottom" />
+                                </div>
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem;">Margin Kiri (mm):</label>
+                                    <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginLeft" />
+                                </div>
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem;">Margin Kanan (mm):</label>
+                                    <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginRight" />
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Teks Tanda Air (Watermark):</label>
+                                <input type="text" class="ns-btn" style="width:100%;" wire:model="pageSetup.watermark" placeholder="Mis. DRAF / RAHASIA..." />
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="markDirty; closeDialog()">Terapkan</button>
+                        </div>
+
+                    {{-- Dialog Cek Ejaan (Spelling) --}}
+                    @elseif ($dialog === 'spelling')
+                        <div class="ns-dialog__header">
+                            <span>&#10003; Hasil Pemeriksaan Ejaan</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <p>{{ $spellResult }}</p>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="closeDialog">Tutup</button>
+                        </div>
+
+                    {{-- Dialog Tesaurus --}}
+                    @elseif ($dialog === 'thesaurus')
+                        <div class="ns-dialog__header">
+                            <span>&#128214; Tesaurus Kata Akademik</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div style="display:flex; gap:.3rem;">
+                                <input type="text" class="ns-btn" style="flex:1;" wire:model="thesaurusWord" placeholder="Masukkan kata (mis. penelitian, hasil, masalah)..." wire:keydown.enter="runThesaurus" />
+                                <button type="button" class="ns-btn ns-btn--primary" wire:click="runThesaurus">Cari</button>
+                            </div>
+                            @if ($thesaurusResult)
+                                <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:.5rem; border-radius:4px;">
+                                    {{ $thesaurusResult }}
+                                </div>
+                            @endif
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                        </div>
+
+                    {{-- Dialog Sisipkan Tabel --}}
+                    @elseif ($dialog === 'table')
+                        <div class="ns-dialog__header">
+                            <span>&#8862; Sisipkan Tabel Baru</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:.5rem;">
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem;">Jumlah Baris:</label>
+                                    <input type="number" min="1" max="20" class="ns-btn" style="width:100%;" wire:model="tableRows" />
+                                </div>
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem;">Jumlah Kolom:</label>
+                                    <input type="number" min="1" max="10" class="ns-btn" style="width:100%;" wire:model="tableCols" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertTable">Sisipkan Tabel</button>
+                        </div>
+
+                    {{-- Dialog Sisipkan Gambar --}}
+                    @elseif ($dialog === 'image')
+                        <div class="ns-dialog__header">
+                            <span>&#128444; Sisipkan Gambar</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Pilih Berkas Gambar (PNG, JPG, SVG, WebP):</label>
+                                <input type="file" wire:model="imageUpload" accept="image/*" class="ns-btn" style="width:100%; margin-top:.2rem;" />
+                            </div>
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Teks Keterangan / Alt:</label>
+                                <input type="text" class="ns-btn" style="width:100%;" wire:model="imageAlt" placeholder="Keterangan gambar..." />
+                            </div>
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Lebar Tampilan (piksel):</label>
+                                <input type="number" class="ns-btn" style="width:100%;" wire:model="imageWidth" value="320" />
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                        </div>
+
+                    {{-- Dialog Sisipkan Tautan --}}
+                    @elseif ($dialog === 'link')
+                        <div class="ns-dialog__header">
+                            <span>&#128279; Sisipkan Tautan (Hyperlink)</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">URL Tujuan (https://...):</label>
+                                <input type="url" class="ns-btn" style="width:100%;" wire:model="linkUrl" placeholder="https://example.com" />
+                            </div>
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Teks Tampilan:</label>
+                                <input type="text" class="ns-btn" style="width:100%;" wire:model="linkText" placeholder="Teks yang dapat diklik..." />
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertLink">Sisipkan Tautan</button>
+                        </div>
+
+                    {{-- Dialog Catatan Kaki --}}
+                    @elseif ($dialog === 'footnote')
+                        <div class="ns-dialog__header">
+                            <span>&#128278; Sisipkan Catatan Kaki (Footnote)</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Isi Catatan Kaki:</label>
+                                <textarea class="ns-btn" style="width:100%; height:75px;" wire:model="footnoteText" placeholder="Ketik keterangan catatan kaki..."></textarea>
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertFootnote">Sisipkan</button>
+                        </div>
+
+                    {{-- Dialog Simbol Khusus --}}
+                    @elseif ($dialog === 'symbols')
+                        <div class="ns-dialog__header">
+                            <span>&#937; Simbol &amp; Karakter Khusus</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div style="display:grid; grid-template-columns:repeat(8, 1fr); gap:.35rem;">
+                                @foreach (['©', '®', '™', '§', '¶', '±', '×', '÷', '≠', '≤', '≥', '≈', '∞', '°', 'µ', 'α', 'β', 'γ', 'π', '∑', '√', '—', '–', '•', '€', '£', '¥', '→'] as $sym)
+                                    <button type="button" class="ns-btn" style="font-size:1.1rem; padding:.3rem; justify-content:center;" wire:click="insertSymbol('{{ $sym }}'); closeDialog()">
+                                        {{ $sym }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                        </div>
+
+                    {{-- Dialog Mail Merge --}}
+                    @elseif ($dialog === 'merge')
+                        <div class="ns-dialog__header">
+                            <span>&#128231; Konfigurasi Mail Merge CSV</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Data CSV (baris 1 = header nama kolom):</label>
+                                <textarea class="ns-btn" style="width:100%; height:80px; font-family:var(--rb-font-mono); font-size:.68rem;" wire:model="mergeCsv" placeholder="nama,instansi,kota&#10;Budi,Universitas Indonesia,Jakarta&#10;Siti,ITB,Bandung"></textarea>
+                            </div>
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Template Dokumen (gunakan &#123;&#123;kolom&#125;&#125;):</label>
+                                <textarea class="ns-btn" style="width:100%; height:60px;" wire:model="mergeTemplate" placeholder="Yth. {{nama}} di {{instansi}}..."></textarea>
+                            </div>
+                            @if (!empty($mergePreviews))
+                                <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:.4rem; border-radius:4px; font-size:.7rem;">
+                                    <strong>Pratinjau Rekaman 1:</strong>
+                                    <div>{{ $mergePreviews[0]['text'] ?? '' }}</div>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="previewMerge">Pratinjau</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertMerge">Sisipkan ke Naskah</button>
+                        </div>
+
+                    {{-- Dialog Tambah Komentar --}}
+                    @elseif ($dialog === 'comment')
+                        <div class="ns-dialog__header">
+                            <span>&#128172; Tambah Komentar pada Blok #{{ $activeBlock + 1 }}</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <textarea class="ns-btn" style="width:100%; height:75px;" wire:model="commentDraft" placeholder="Tulis komentar..."></textarea>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="addComment; closeDialog()">Simpan Komentar</button>
+                        </div>
+                    @endif
+
+                </div>
+            </div>
+        @endif
+
+        {{-- ================= XISHIE ASSISTANT (FLOATING PANEL & FAB) ================= --}}
         @if ($assistantOpen)
-            <div class="ns-assistant">
+            <div class="ns-assistant" aria-label="Xishie Assistant Panel">
                 <div class="ns-assistant__titlebar">
-                    <span>&#10024; XISHIE ASSISTANT · TOOLS</span>
-                    <button type="button" style="background:transparent; border:none; color:inherit; cursor:pointer; font-size:.9rem;" wire:click="closeAssistant" aria-label="Tutup asisten">&times;</button>
+                    <span>&#10024; XISHIE ASSISTANT · WORDCRAFT CO-WRITER</span>
+                    <button type="button" style="background:transparent; border:none; color:inherit; cursor:pointer; font-size:1.1rem;" wire:click="closeAssistant" aria-label="Tutup asisten">&times;</button>
                 </div>
                 <div class="ns-assistant__body">
-                    <p class="rb-mono" style="font-size:.58rem; color:var(--rb-ink-muted); margin:0 0 .45rem;">
-                        Pilih tools untuk mengaktifkan, lalu jalankan. {{ count($activeTools) }} tool aktif.
+                    <p style="font-family:var(--rb-font-mono); font-size:.6rem; color:var(--rb-ink-muted); margin:0;">
+                        Pilih perintah slash atau ajukan pertanyaan bebas dengan konteks naskah &amp; proyek.
                     </p>
 
-                    <div class="ns-tools">
+                    <div class="ns-tools-grid">
                         @foreach ($assistantTools as $tool)
                             @php $on = in_array($tool['name'], $activeTools, true); @endphp
                             <button type="button" class="ns-tool-card @if($on) ns-tool-card--on @endif"
                                     wire:click="toggleTool('{{ $tool['name'] }}')"
                                     title="{{ $tool['description'] }}">
-                                <span class="ns-tool-card__check">@if($on)&#10003;@endif</span>
+                                <span style="font-weight:700;">@if($on)&#10003;@else&#9675;@endif</span>
                                 <span>{{ $tool['label'] }}</span>
                             </button>
                         @endforeach
                     </div>
 
                     @if (count($activeTools) > 0)
-                        <div style="display:flex; gap:.3rem; flex-wrap:wrap; margin-top:.45rem;">
+                        <div style="display:flex; gap:.3rem; flex-wrap:wrap;">
                             @foreach ($activeTools as $activeTool)
-                                <button type="button" class="rb-button rb-button--primary" style="font-size:.58rem; padding:.15rem .45rem;"
+                                <button type="button" class="ns-btn ns-btn--primary" style="font-size:.6rem; padding:.2rem .45rem;"
                                         wire:click="runTool('{{ $activeTool }}')" wire:loading.attr="disabled" wire:target="runTool">
                                     &#9889; Jalankan {{ str_replace('-', ' ', ltrim($activeTool, '/')) }}
                                 </button>
@@ -326,40 +1708,33 @@
                         </div>
                     @endif
 
-                    <div style="display:flex; gap:.3rem; margin-top:.55rem;">
-                        <input type="text" class="rb-input" style="flex:1; font-size:.66rem;" placeholder="Tanya Xishie tentang naskah ini…" wire:model="assistantInput" wire:keydown.enter="sendAssistant" />
-                        <button type="button" class="rb-button rb-button--primary" style="font-size:.6rem;" wire:click="sendAssistant" wire:loading.attr="disabled" wire:target="sendAssistant">Kirim</button>
+                    <div style="display:flex; gap:.3rem;">
+                        <input type="text" class="ns-btn" style="flex:1; font-size:.68rem;" placeholder="Tanya Xishie tentang naskah ini..." wire:model="assistantInput" wire:keydown.enter="sendAssistant" />
+                        <button type="button" class="ns-btn ns-btn--primary" wire:click="sendAssistant" wire:loading.attr="disabled" wire:target="sendAssistant">Kirim</button>
                     </div>
 
                     <div class="ns-chatlog">
                         @forelse ($assistantLog as $msg)
                             <div class="ns-msg ns-msg--{{ $msg['role'] === 'user' ? 'user' : 'assistant' }}">
-                                @php
-                                    $cmdBits = explode(' ', $msg['content'], 2);
-                                    $body = trim($cmdBits[1] ?? '');
-                                    $isCommandInput = $msg['role'] === 'user' && str_starts_with((string) $msg['content'], '/');
-                                @endphp
                                 <span class="ns-msg__role">{{ $msg['role'] === 'user' ? 'Anda' : 'Xishie' }}@if(!empty($msg['command'])) · {{ ltrim($msg['command'], '/') }}@endif</span>
-                                @if ($isCommandInput)
-                                    {!! $body !== '' ? e($body) : '<em>dijalankan</em>' !!}
-                                @else
-                                    {{ $msg['content'] }}
-                                @endif
+                                {{ $msg['content'] }}
                             </div>
                         @empty
-                            <p class="rb-mono" style="font-size:.58rem; color:var(--rb-ink-muted); margin:0;">Belum ada percakapan. Pilih tool atau ajukan pertanyaan.</p>
+                            <p style="font-family:var(--rb-font-mono); font-size:.6rem; color:var(--rb-ink-muted); margin:0;">Belum ada percakapan.</p>
                         @endforelse
                         @if ($assistantBusy)
-                            <div class="ns-msg ns-msg--assistant"><span class="ns-msg__role">Xishie</span>Memproses…</div>
+                            <div class="ns-msg ns-msg--assistant"><span class="ns-msg__role">Xishie</span>Sedang memproses…</div>
                         @endif
                     </div>
                 </div>
             </div>
         @endif
 
+        {{-- FAB Floating Assistant Button --}}
         <button type="button" class="ns-fab" wire:click="openAssistant" aria-label="Buka Xishie Assistant">
             <span class="ns-fab__dot"></span>
             <span>&#10024; Xishie Assistant</span>
         </button>
+
     </div>
 </x-filament-panels::page>
