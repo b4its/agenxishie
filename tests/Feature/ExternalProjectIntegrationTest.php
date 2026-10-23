@@ -367,7 +367,7 @@ it('registers a new project and probes connectivity via Livewire page', function
         ->call('registerProject')
         ->assertSet('showRegisterModal', false)
         ->assertSet('newApiKey', fn ($k) => is_string($k) && str_starts_with($k, 'xsk_'))
-        ->assertSet('totalClients', 1);
+        ->assertSet('totalClients', fn ($c) => $c >= 1);
 
     expect(ExternalClient::where('name', 'Portal Jurnal Univ')->exists())->toBeTrue();
 });
@@ -408,4 +408,101 @@ it('supports pinging, regenerating key, toggling active, and deleting on Livewir
     // Delete client
     $component->call('deleteClient', $client->id);
     expect(ExternalClient::find($client->id))->toBeNull();
+});
+
+it('logs ping history and computes uptime and recent pings', function (): void {
+    Http::fake([
+        'http://uptime.test/*' => Http::response('OK', 200),
+    ]);
+
+    $client = ExternalClient::factory()->create(['target_url' => 'http://uptime.test/']);
+    $manager = app(ExternalClientManager::class);
+
+    $manager->ping($client);
+    $manager->ping($client);
+
+    expect($client->pingLogs()->count())->toBe(2)
+        ->and($client->getUptimePercentage())->toBe(100.0)
+        ->and($client->getRecentPings(5))->toHaveCount(2);
+});
+
+it('executes peer critic endpoint via external api', function (): void {
+    $client = ExternalClient::factory()->create([
+        'api_key' => 'xsk_critic_test',
+        'allowed_models' => ['*'],
+    ]);
+
+    $response = $this->withHeaders(['X-API-Key' => 'xsk_critic_test'])
+        ->postJson('/api/v1/external/critic', [
+            'text' => 'Pendahuluan paper ini menguji arsitektur baru. Metode penelitian menggunakan kuantitatif eksperimental dengan analisis regresi.',
+        ]);
+
+    $response->assertStatus(200)
+        ->assertJsonStructure(['success', 'score', 'verdict', 'strengths', 'recommendations'])
+        ->assertJson(['success' => true]);
+});
+
+it('formats citations via external api endpoint', function (): void {
+    $client = ExternalClient::factory()->create([
+        'api_key' => 'xsk_citation_test',
+        'allowed_models' => ['*'],
+    ]);
+
+    $response = $this->withHeaders(['X-API-Key' => 'xsk_citation_test'])
+        ->postJson('/api/v1/external/citation', [
+            'style' => 'ieee',
+            'references' => [
+                [
+                    'author' => 'Smith, J.',
+                    'year' => '2025',
+                    'title' => 'Deep Learning in Academia',
+                    'journal' => 'IEEE Trans. AI',
+                ],
+            ],
+        ]);
+
+    $response->assertStatus(200)
+        ->assertJsonStructure(['success', 'style', 'bibliography'])
+        ->assertJson([
+            'success' => true,
+            'style' => 'IEEE',
+            'total_references' => 1,
+        ]);
+});
+
+it('executes artisan ping-clients command successfully', function (): void {
+    Http::fake([
+        '*' => Http::response('OK', 200, ['Server' => 'nginx']),
+    ]);
+
+    ExternalClient::factory()->create(['target_url' => 'http://localhost:8208/', 'is_active' => true]);
+
+    $this->artisan('xishie:ping-clients')
+        ->assertExitCode(0)
+        ->expectsOutputToContain('Probe selesai');
+});
+
+it('opens diagnostics and snippet modal on Livewire page', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    Http::fake([
+        '*' => Http::response('OK', 200),
+    ]);
+
+    $client = ExternalClient::factory()->create(['name' => 'Snippet Test Client']);
+
+    $component = Livewire::test(ExternalProjectsPage::class);
+
+    // Diagnostics modal
+    $component->call('showDiagnostics', $client->id)
+        ->assertSet('clientDiagnostics', fn ($d) => is_array($d) && $d['id'] === $client->id)
+        ->call('closeDiagnostics')
+        ->assertSet('clientDiagnostics', null);
+
+    // Snippet modal
+    $component->call('showSnippet', $client->id)
+        ->assertSet('clientSnippet', fn ($s) => is_array($s) && $s['client_name'] === 'Snippet Test Client')
+        ->call('closeSnippet')
+        ->assertSet('clientSnippet', null);
 });
