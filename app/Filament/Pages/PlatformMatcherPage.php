@@ -33,6 +33,12 @@ class PlatformMatcherPage extends Page
 
     public ?int $projectId = null;
 
+    public string $filterScope = '';
+
+    public string $sortBy = 'match_score';
+
+    public ?int $previewRecommendationId = null;
+
     public function mount(): void
     {
         $this->projectId = request()->query('project') !== null
@@ -224,10 +230,31 @@ class PlatformMatcherPage extends Page
     protected function getViewData(): array
     {
         $project = $this->getProject();
+        $recommendations = collect();
+
+        if ($project !== null) {
+            $query = $project->recommendations();
+
+            if ($this->filterScope !== '') {
+                $query->where('index_tier', 'like', '%'.$this->filterScope.'%');
+            }
+
+            match ($this->sortBy) {
+                'apc' => $query->reorder('apc_estimate', 'asc'),
+                'journal_name' => $query->reorder('journal_name', 'asc'),
+                default => $query->reorder('match_score', 'desc'),
+            };
+
+            $recommendations = $query->get();
+        }
+
+        $final = $project?->stages()->where('stage_name', ProjectStage::FINAL->value)->first();
+        $adapted = (array) (($final?->hitl_pending_payload ?? [])['adapted_manuscript'] ?? []);
 
         return [
             'project' => $project,
-            'recommendations' => $project?->recommendations()->get() ?? collect(),
+            'recommendations' => $recommendations,
+            'adaptedManuscript' => $adapted !== [] ? $adapted : null,
             'exportFormats' => app(ManuscriptExporter::class)->formats(),
         ];
     }

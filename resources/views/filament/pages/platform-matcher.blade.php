@@ -17,11 +17,42 @@
                         TARGET: <strong>{{ strtoupper($project->target_scope->label()) }}</strong>
                         @if ($project->target_tier) / {{ strtoupper($project->target_tier) }} @endif
                     </div>
-                    <button type="button" class="rb-button rb-button--primary" wire:click="runMatcher">
-                        &#9889; Jalankan Venue Matcher
-                    </button>
+                    <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+                        <select class="rb-select" style="font-size:.68rem; padding:.2rem .4rem;" wire:model.live="filterScope">
+                            <option value="">Semua Peringkat</option>
+                            <option value="SINTA">SINTA (Nasional)</option>
+                            <option value="Q">Scopus (Q1-Q4)</option>
+                            <option value="WoS">Web of Science</option>
+                        </select>
+                        <select class="rb-select" style="font-size:.68rem; padding:.2rem .4rem;" wire:model.live="sortBy">
+                            <option value="match_score">Skor Match (Tertinggi)</option>
+                            <option value="apc">Biaya APC (Terendah)</option>
+                            <option value="journal_name">Nama Jurnal (A-Z)</option>
+                        </select>
+                        <button type="button" class="rb-button rb-button--primary" wire:click="runMatcher">
+                            &#9889; Jalankan Venue Matcher
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            @if ($adaptedManuscript !== null)
+                <div class="rb-notice rb-notice--pass" style="margin-bottom:1rem;" x-data="{ openPreview: false }">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
+                        <span class="rb-mono" style="font-size:.72rem;">
+                            <strong>&#10003; Naskah diformat untuk: {{ $adaptedManuscript['journal_name'] ?? 'Target Venue' }}</strong>
+                            &middot; Gaya: {{ strtoupper($adaptedManuscript['citation_style'] ?? 'APA') }}
+                            &middot; {{ number_format((int) ($adaptedManuscript['word_count'] ?? 0)) }} kata
+                        </span>
+                        <button type="button" class="rb-button" style="font-size:.62rem; padding:.2rem .5rem;" x-on:click="openPreview = ! openPreview">
+                            &#128065; Preview Naskah Terformat
+                        </button>
+                    </div>
+                    <div x-show="openPreview" x-cloak style="width:100%; margin-top:.5rem;">
+                        <pre class="rb-terminal" style="max-height:16rem; font-size:.66rem; white-space:pre-wrap;">{{ $adaptedManuscript['manuscript'] ?? '' }}</pre>
+                    </div>
+                </div>
+            @endif
 
             {{-- Export naskah siap kirim (KPI #15 Manuscript Export Conversion) --}}
             <div class="rb-window" style="margin-bottom:1rem;">
