@@ -17,7 +17,9 @@ use App\Domain\Workspace\StageStateManager;
 use App\Domain\Workspace\UxKpiTelemetryService;
 use App\Filament\Pages\AcademicWorkspacePage;
 use App\Filament\Pages\AiChatPage;
+use App\Filament\Pages\OmnigensiMonitoringPage;
 use App\Filament\Pages\PlatformMatcherPage;
+use App\Filament\Pages\ProjectOnboardingWizard;
 use App\Filament\Pages\ProjectsPage;
 use App\Filament\Pages\SmartRevisionCenterPage;
 use App\Filament\Pages\VenueCatalogPage;
@@ -615,4 +617,71 @@ it('exports journal recommendations to CSV and Markdown from platform matcher', 
     Livewire::test(PlatformMatcherPage::class, ['projectId' => $project->id])
         ->call('exportRecommendations', 'markdown')
         ->assertSuccessful();
+});
+
+it('sorts venues in catalog by APC and review time', function (): void {
+    AcademicVenue::create([
+        'journal_name' => 'Journal Premium Fast',
+        'publisher' => 'Publisher A',
+        'scope_type' => 'scopus',
+        'index_tier' => 'Q1',
+        'aims_and_scope' => 'Fokus kajian premium',
+        'apc_estimate' => 15000000,
+        'review_time_days' => 14,
+        'is_active' => true,
+    ]);
+
+    AcademicVenue::create([
+        'journal_name' => 'Journal Free Slow',
+        'publisher' => 'Publisher B',
+        'scope_type' => 'sinta',
+        'index_tier' => 'Sinta 2',
+        'aims_and_scope' => 'Fokus kajian terbuka',
+        'apc_estimate' => 0,
+        'review_time_days' => 90,
+        'is_active' => true,
+    ]);
+
+    $component = Livewire::test(VenueCatalogPage::class);
+
+    // Sort by APC lowest: Journal Free Slow first.
+    $component->set('sortBy', 'apc_asc');
+    $venuesApc = collect($component->viewData('venues'));
+    expect($venuesApc->first()['journal_name'])->toBe('Journal Free Slow');
+
+    // Sort by Review fastest: Journal Premium Fast first.
+    $component->set('sortBy', 'review_asc');
+    $venuesReview = collect($component->viewData('venues'));
+    expect($venuesReview->first()['journal_name'])->toBe('Journal Premium Fast');
+
+    // Reset.
+    $component->call('resetFilters');
+    expect($component->get('sortBy'))->toBe('name');
+});
+
+it('toggles auto-refresh state in omnigensi monitoring page', function (): void {
+    $component = Livewire::test(OmnigensiMonitoringPage::class)
+        ->assertSuccessful()
+        ->assertSet('autoRefresh', false);
+
+    $component->set('autoRefresh', true)
+        ->assertSet('autoRefresh', true);
+});
+
+it('applies research topic templates in onboarding wizard', function (): void {
+    $component = Livewire::test(ProjectOnboardingWizard::class);
+
+    $component->call('applyTemplate', 'ai_iot')
+        ->assertSuccessful();
+
+    $data = $component->get('data');
+    expect($data['title'])->toContain('IoT')
+        ->and($data['target_tier'])->toBe('Q2');
+
+    $component->call('applyTemplate', 'nlp_health')
+        ->assertSuccessful();
+
+    $data = $component->get('data');
+    expect($data['title'])->toContain('Transformer')
+        ->and($data['target_tier'])->toBe('Q1');
 });
