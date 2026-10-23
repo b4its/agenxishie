@@ -68,6 +68,28 @@ class AcademicWorkspacePage extends Page
      */
     public array $assistantLog = [];
 
+    /**
+     * State editor naskah inline: daftar sub-bab yang sedang disunting.
+     *
+     * @var array<int, array{key: string, heading: string, content: string}>
+     */
+    public array $editorSections = [];
+
+    /**
+     * Penanda ada perubahan yang belum disimpan ke database.
+     */
+    public bool $editorDirty = false;
+
+    /**
+     * Waktu simpan terakhir (untuk umpan balik UI).
+     */
+    public ?string $editorSavedAt = null;
+
+    /**
+     * Apakah state editor sudah disinkronkan dari database pada request ini.
+     */
+    public bool $editorHydrated = false;
+
     public function mount(): void
     {
         $projectParam = request()->query('project');
@@ -75,6 +97,166 @@ class AcademicWorkspacePage extends Page
         $this->projectId = $projectParam !== null
             ? (int) $projectParam
             : XishieProject::query()->latest()->value('id');
+
+        $this->hydrateEditor();
+    }
+
+    /**
+     * Muat ulang state editor dari sub-bab tahap aktif.
+     */
+    public function hydrateEditor(): void
+    {
+        $stage = $this->stage();
+
+        $this->editorSections = $this->normalizeSections((array) ($stage?->sections_content ?? []));
+        $this->editorDirty = false;
+        $this->editorHydrated = true;
+        $this->editorSavedAt = $stage?->updated_at?->diffForHumans();
+    }
+
+    /**
+     * Sinkronkan editor dengan data terbaru saat jumlah sub-bab di DB berubah
+     * (mis. setelah generateFullDraft / regenerate / ganti proyek).
+     */
+    public function syncEditorIfStale(): void
+    {
+        if ($this->editorDirty) {
+            return;
+        }
+
+        $stage = $this->stage();
+        $dbSections = $this->normalizeSections((array) ($stage?->sections_content ?? []));
+
+        if (! $this->editorHydrated || count($dbSections) !== count($this->editorSections)) {
+            $this->hydrateEditor();
+        }
+    }
+
+    /**
+     * Normalisasi sub-bab menjadi struktur {key, heading, content} yang konsisten.
+     *
+     * @param  array<int|string, mixed>  $sections
+     * @return array<int, array{key: string, heading: string, content: string}>
+     */
+    private function normalizeSections(array $sections): array
+    {
+        $normalized = [];
+
+        foreach (array_values($sections) as $index => $section) {
+            if (! is_array($section)) {
+                continue;
+            }
+
+            $heading = trim((string) ($section['heading'] ?? ''));
+            $key = trim((string) ($section['key'] ?? ''));
+
+            if ($key === '') {
+                $key = Str::slug($heading) ?: 'section-'.($index + 1);
+            }
+
+            $normalized[] = [
+                'key' => $key,
+                'heading' => $heading,
+                'content' => (string) ($section['content'] ?? ''),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Tandai editor berubah (dipanggil dari wire:model pengikatan input).
+     */
+    public function markEditorDirty(): void
+    {
+        $this->editorDirty = true;
+    }
+
+    /**
+     * Simpan seluruh sub-bab hasil suntingan inline ke tahap aktif.
+     * Hanya memperbarui isi naskah — status tahap tidak diubah menjadi selesai.
+     */
+    public function saveEditor(): void
+    {
+        $project = $this->getProject();
+        $stage = $this->stage();
+
+        if ($project === null || $stage === null) {
+            Notification::make()->title('Tidak ada tahap aktif untuk disimpan')->warning()->send();
+
+            return;
+        }
+
+        $sections = [];
+        foreach ($this->normalizeSections($this->editorSections) as $section) {
+            $sections[] = [
+                'key' => $section['key'],
+                'heading' => $section['heading'],
+                'content' => $section['content'],
+                'citation_keys' => [],
+            ];
+        }
+
+        $stage->forceFill([
+            'sections_content' => $sections,
+            'compiled_content' => null,
+        ])->save();
+        $stage->recalculateWordCount();
+        $stage->forceFill(['compiled_content' => $stage->compile()])->save();
+
+        $this->hydrateEditor();
+        $this->editorSavedAt = 'baru saja';
+
+        Notification::make()
+            ->title('Naskah tersimpan')
+            ->body($stage->word_count.' kata · '.count($sections).' sub-bab disimpan.')
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Tambah sub-bab kosong baru di akhir naskah.
+     */
+    public function addEditorSection(): void
+    {
+        $this->editorSections[] = [
+            'key' => 'custom_'.(count($this->editorSections) + 1),
+            'heading' => 'Sub-bab Baru',
+            'content' => '',
+        ];
+        $this->editorDirty = true;
+    }
+
+    /**
+     * Hapus satu sub-bab dari naskah berdasarkan indeks.
+     */
+    public function removeEditorSection(int $index): void
+    {
+        if (! isset($this->editorSections[$index])) {
+            return;
+        }
+
+        array_splice($this->editorSections, $index, 1);
+        $this->editorSections = array_values($this->editorSections);
+        $this->editorDirty = true;
+    }
+
+    /**
+     * Geser sub-bab naik/turun untuk mengatur urutan naskah.
+     */
+    public function moveEditorSection(int $index, int $direction): void
+    {
+        $target = $index + $direction;
+
+        if (! isset($this->editorSections[$index], $this->editorSections[$target])) {
+            return;
+        }
+
+        [$this->editorSections[$index], $this->editorSections[$target]] = [
+            $this->editorSections[$target],
+            $this->editorSections[$index],
+        ];
+        $this->editorDirty = true;
     }
 
     /**
@@ -733,6 +915,10 @@ class AcademicWorkspacePage extends Page
     protected function getViewData(): array
     {
         $project = $this->getProject();
+
+        if ($project !== null) {
+            $this->syncEditorIfStale();
+        }
 
         if ($project === null) {
             return [

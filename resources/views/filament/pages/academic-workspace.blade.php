@@ -3,9 +3,34 @@
     <div class="rb-canvas" style="padding:1rem;">
         @if ($project === null)
             <div class="rb-window">
-                <div class="rb-window__titlebar"><span>WORKSPACE</span></div>
-                <div class="rb-window__body">
-                    <p class="rb-mono rb-muted">Belum ada proyek. Jalankan Project Onboarding Wizard terlebih dahulu.</p>
+                <div class="rb-window__titlebar">
+                    <span>[&#9632;] WORKSPACE — EDITOR NASKAH</span>
+                    <span class="rb-window__controls"><span class="rb-window__control">-</span><span class="rb-window__control">&#9633;</span><span class="rb-window__control">&#215;</span></span>
+                </div>
+                <div class="rb-window__body" style="text-align:center; padding:1.75rem 1rem;">
+                    <p class="rb-mono rb-soft" style="font-size:.9rem; margin:0 0 .4rem;">
+                        Belum ada proyek untuk disunting.
+                    </p>
+                    <p class="rb-mono rb-muted" style="font-size:.72rem; margin:0 0 1rem;">
+                        Editor naskah membutuhkan satu proyek aktif. Buat proyek baru lewat wizard, atau pilih proyek yang sudah ada.
+                    </p>
+                    <div style="display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap; margin-bottom:1rem;">
+                        <a href="{{ \App\Filament\Pages\ProjectOnboardingWizard::getUrl() }}" class="rb-button rb-button--primary">&#43; Buat Proyek Baru (Wizard)</a>
+                        <a href="{{ \App\Filament\Pages\ProjectsPage::getUrl() }}" class="rb-button">&#128193; Daftar Proyek</a>
+                    </div>
+
+                    @if (! empty($projects) && count($projects) > 0)
+                        <div style="max-width:420px; margin:0 auto; text-align:left;">
+                            <label class="rb-mono" style="font-size:.68rem; font-weight:700;">ATAU PILIH PROYEK</label>
+                            <div style="display:flex; flex-direction:column; gap:.35rem; margin-top:.35rem;">
+                                @foreach ($projects as $pick)
+                                    <button type="button" class="rb-button" style="justify-content:flex-start; width:100%;" wire:click="switchProject({{ $pick->id }})">
+                                        {{ $pick->title }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
         @else
@@ -404,40 +429,82 @@
                             </div>
                         @endif
 
+                        @php
+                            $editorSectionCount = count($editorSections);
+                        @endphp
+
+                        {{-- Status bar editor: jumlah sub-bab, total kata, status simpan --}}
+                        @if ($editorSectionCount > 0)
+                            <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-bottom:.65rem; font-family:var(--rb-font-mono); font-size:.66rem;">
+                                <span class="rb-badge rb-badge--info" style="font-size:.58rem;">{{ $editorSectionCount }} SUB-BAB</span>
+                                <span class="rb-badge rb-badge--manual" style="font-size:.58rem;">
+                                    {{ number_format((int) collect($editorSections)->sum(fn ($s) => str_word_count(strip_tags((string) ($s['content'] ?? ''))))) }} KATA
+                                </span>
+                                @if ($editorDirty)
+                                    <span class="rb-badge rb-badge--alert" style="font-size:.58rem;">&#9679; BELUM DISIMPAN</span>
+                                @else
+                                    <span class="rb-badge rb-badge--pass" style="font-size:.58rem;">&#10003; TERSIMPAN</span>
+                                @endif
+                                <span class="rb-text-muted" style="margin-left:auto;">Simpan terakhir: {{ $editorSavedAt ?? '—' }}</span>
+                                <button type="button" class="rb-button rb-button--primary" style="padding:.1rem .5rem; font-size:.6rem;" wire:click="saveEditor" wire:loading.attr="disabled" wire:target="saveEditor">
+                                    <span wire:loading.remove wire:target="saveEditor">&#128190; Simpan Naskah</span>
+                                    <span wire:loading wire:target="saveEditor">Menyimpan…</span>
+                                </button>
+                                <button type="button" class="rb-button" style="padding:.1rem .5rem; font-size:.6rem;" wire:click="addEditorSection" title="Tambah sub-bab baru di akhir">&#43; Sub-bab</button>
+                            </div>
+                        @endif
+
                         <div class="rb-editor">
-                            @forelse ($sections as $section)
+                            @forelse ($editorSections as $index => $section)
                                 @php
                                     $flagged = collect($violationSections)->firstWhere('key', $section['key'] ?? null);
+                                    $sectionWords = str_word_count(strip_tags((string) ($section['content'] ?? '')));
                                 @endphp
-                                <h3 class="{{ $flagged ? 'rb-text-alert' : '' }}" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
-                                    <span>
-                                        {{ $section['heading'] ?? '' }}
+                                <div style="border:1px solid #CBD5E1; background:#FFFFFF; padding:.6rem .7rem; margin-bottom:.75rem;">
+                                    <div style="display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; margin-bottom:.4rem;">
+                                        <input
+                                            type="text"
+                                            class="rb-input"
+                                            style="font-family:var(--rb-font-display); font-weight:700; font-size:.85rem; flex:1 1 220px; margin:0;"
+                                            wire:model.defer="editorSections.{{ $index }}.heading"
+                                            placeholder="Judul sub-bab"
+                                            aria-label="Judul sub-bab {{ $index + 1 }}"
+                                        />
                                         @if ($flagged)
-                                            <span class="rb-badge rb-badge--alert" style="font-size:.55rem; vertical-align:middle;">&#9888; MELANGGAR</span>
+                                            <span class="rb-badge rb-badge--alert" style="font-size:.55rem;" title="{{ implode('; ', $flagged['issues']) }}">&#9888; MELANGGAR</span>
                                         @endif
-                                    </span>
-                                    <button
-                                        type="button"
-                                        class="rb-button"
-                                        style="padding:0 .4rem; font-size:.55rem; font-weight:normal;"
-                                        wire:click="regenerateSingleSection('{{ $section['key'] ?? '' }}')"
-                                        wire:loading.attr="disabled"
-                                        title="Tulis ulang sub-bab ini secara spesifik"
-                                    >&#8635; Tulis Ulang</button>
-                                </h3>
-                                <p>{{ $section['content'] ?? '' }}</p>
+                                        <span class="rb-badge rb-badge--manual" style="font-size:.54rem;">{{ $sectionWords }} kata</span>
+                                        <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="moveEditorSection({{ $index }}, -1)" title="Naikkan urutan" @disabled($index === 0)>&#9650;</button>
+                                        <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="moveEditorSection({{ $index }}, 1)" title="Turunkan urutan" @disabled($index === $editorSectionCount - 1)>&#9660;</button>
+                                        @if (! empty($section['key']))
+                                            <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="regenerateSingleSection('{{ $section['key'] }}')" wire:loading.attr="disabled" title="Tulis ulang sub-bab ini dengan agen">&#8635; Tulis Ulang</button>
+                                        @endif
+                                        <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem; color:var(--rb-status-alert);" wire:click="removeEditorSection({{ $index }})" wire:confirm="Hapus sub-bab ini dari naskah?" title="Hapus sub-bab">&#128465;</button>
+                                    </div>
+                                    <textarea
+                                        class="rb-textarea"
+                                        style="width:100%; font-size:.85rem; line-height:1.7; min-height:140px;"
+                                        wire:model.defer="editorSections.{{ $index }}.content"
+                                        wire:change="markEditorDirty"
+                                        placeholder="Tulis isi sub-bab di sini…"
+                                        aria-label="Isi sub-bab {{ $section['heading'] ?? ($index + 1) }}"
+                                    >{{ $section['content'] ?? '' }}</textarea>
+                                </div>
                             @empty
                                 <div style="text-align:center; padding:1.5rem 1rem;">
                                     <p class="rb-mono rb-soft" style="font-size:.82rem; margin:0 0 .35rem;">
                                         Naskah tahap <strong>{{ $stageLabel }}</strong> belum disusun.
                                     </p>
                                     <p class="rb-mono rb-muted" style="font-size:.7rem; margin:0 0 .9rem;">
-                                        Susun seluruh sub-bab secara otomatis dari pedoman &amp; referensi dalam satu klik.
+                                        Susun seluruh sub-bab secara otomatis, atau tulis manual dari sub-bab kosong.
                                     </p>
-                                    <button type="button" class="rb-button rb-button--primary" wire:click="generateFullDraft" wire:loading.attr="disabled" wire:target="generateFullDraft">
-                                        <span wire:loading.remove wire:target="generateFullDraft">&#9889; Susun Draf Lengkap Sekarang</span>
-                                        <span wire:loading wire:target="generateFullDraft">Menyusun naskah… (mohon tunggu)</span>
-                                    </button>
+                                    <div style="display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap;">
+                                        <button type="button" class="rb-button rb-button--primary" wire:click="generateFullDraft" wire:loading.attr="disabled" wire:target="generateFullDraft">
+                                            <span wire:loading.remove wire:target="generateFullDraft">&#9889; Susun Draf Lengkap Sekarang</span>
+                                            <span wire:loading wire:target="generateFullDraft">Menyusun naskah… (mohon tunggu)</span>
+                                        </button>
+                                        <button type="button" class="rb-button" wire:click="addEditorSection">&#43; Tulis Manual</button>
+                                    </div>
                                 </div>
                             @endforelse
                         </div>
