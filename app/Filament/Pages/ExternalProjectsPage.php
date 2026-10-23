@@ -71,9 +71,25 @@ class ExternalProjectsPage extends Page
      */
     public ?array $testResult = null;
 
+    public ?int $selectedClientId = null;
+
+    /**
+     * @var array<string, mixed>|null
+     */
+    public ?array $clientDiagnostics = null;
+
+    /**
+     * @var array<string, mixed>|null
+     */
+    public ?array $clientSnippet = null;
+
     public function mount(): void
     {
-        $this->loadClients();
+        if (ExternalClient::count() === 0) {
+            $this->seedAgenXishie();
+        } else {
+            $this->loadClients();
+        }
     }
 
     /**
@@ -110,6 +126,8 @@ class ExternalProjectsPage extends Page
                 'inbound_requests_count' => $c->inbound_requests_count,
                 'last_inbound_at' => $c->last_inbound_at?->diffForHumans() ?? '—',
                 'last_inbound_endpoint' => $c->last_inbound_endpoint ?? '—',
+                'uptime_percentage' => $c->getUptimePercentage(),
+                'recent_pings' => $c->getRecentPings(8),
                 'is_active' => $c->is_active,
                 'created_at' => $c->created_at?->format('d M Y H:i'),
             ];
@@ -374,6 +392,56 @@ class ExternalProjectsPage extends Page
     public function dismissTestResult(): void
     {
         $this->testResult = null;
+    }
+
+    public function showDiagnostics(int $clientId): void
+    {
+        $client = ExternalClient::with(['pingLogs' => fn ($q) => $q->latest('probed_at')->limit(15)])->find($clientId);
+        if ($client === null) {
+            return;
+        }
+
+        $this->selectedClientId = $clientId;
+        $this->clientDiagnostics = [
+            'id' => $client->id,
+            'name' => $client->name,
+            'target_url' => $client->target_url,
+            'status' => $client->status,
+            'uptime' => $client->getUptimePercentage(),
+            'logs' => $client->pingLogs->map(fn ($l) => [
+                'status' => $l->status,
+                'status_code' => $l->status_code,
+                'latency_ms' => $l->latency_ms,
+                'server' => $l->target_server,
+                'error' => $l->error_message,
+                'time' => $l->probed_at?->format('H:i:s d/m') ?? '—',
+            ])->all(),
+        ];
+    }
+
+    public function closeDiagnostics(): void
+    {
+        $this->clientDiagnostics = null;
+    }
+
+    public function showSnippet(int $clientId): void
+    {
+        $client = ExternalClient::find($clientId);
+        if ($client === null) {
+            return;
+        }
+
+        $this->selectedClientId = $clientId;
+        $this->clientSnippet = [
+            'client_name' => $client->name,
+            'api_key' => $client->api_key,
+            'base_url' => url('/api/v1/external'),
+        ];
+    }
+
+    public function closeSnippet(): void
+    {
+        $this->clientSnippet = null;
     }
 
     /**

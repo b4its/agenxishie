@@ -101,6 +101,108 @@
             </div>
         @endif
 
+        {{-- Modal / Drawer Diagnostik Riwayat Probe --}}
+        @if ($clientDiagnostics)
+            <div class="rb-window" style="margin-bottom:1.25rem; border:2px solid var(--rb-secondary);">
+                <div class="rb-window__titlebar" style="background:var(--rb-secondary);">
+                    <span>[&#128200;] DIAGNOSTIK KONEKSI &amp; RIWAYAT PROBE: {{ $clientDiagnostics['name'] }}</span>
+                    <button type="button" wire:click="closeDiagnostics" style="background:none; border:none; color:#fff; cursor:pointer; font-weight:bold;">&times;</button>
+                </div>
+                <div class="rb-window__body">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.8rem; flex-wrap:wrap; gap:.5rem;">
+                        <div class="rb-mono" style="font-size:.72rem;">
+                            Target: <strong>{{ $clientDiagnostics['target_url'] }}</strong> &middot; Uptime: <strong>{{ $clientDiagnostics['uptime'] }}%</strong>
+                        </div>
+                        <button type="button" class="rb-button rb-button--primary" wire:click="pingClient({{ $clientDiagnostics['id'] }})">
+                            &#128225; Probe Sekarang
+                        </button>
+                    </div>
+
+                    <div style="overflow-x:auto;">
+                        <table class="rb-table" style="width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr>
+                                    <th>WAKTU PROBE</th>
+                                    <th style="text-align:center;">STATUS</th>
+                                    <th style="text-align:center;">HTTP CODE</th>
+                                    <th style="text-align:center;">LATENSI</th>
+                                    <th>SERVER</th>
+                                    <th>CATATAN / ERROR</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($clientDiagnostics['logs'] as $log)
+                                    @php
+                                        $lst = (string) $log['status'];
+                                        $lbadge = match ($lst) {
+                                            'online' => 'rb-badge--pass',
+                                            'timeout', 'degraded' => 'rb-badge--hitl',
+                                            default => 'rb-badge--alert',
+                                        };
+                                    @endphp
+                                    <tr>
+                                        <td class="rb-mono" style="font-size:.65rem;">{{ $log['time'] }}</td>
+                                        <td style="text-align:center;"><span class="rb-badge {{ $lbadge }}" style="font-size:.58rem;">{{ strtoupper($lst) }}</span></td>
+                                        <td style="text-align:center; font-family:var(--rb-font-mono); font-size:.68rem;">{{ $log['status_code'] ?? '—' }}</td>
+                                        <td style="text-align:center; font-family:var(--rb-font-mono); font-size:.68rem;">{{ $log['latency_ms'] !== null ? $log['latency_ms'].'ms' : '—' }}</td>
+                                        <td class="rb-mono" style="font-size:.62rem;">{{ $log['server'] ?? '—' }}</td>
+                                        <td class="rb-mono" style="font-size:.62rem; color:{{ $log['error'] ? 'var(--rb-status-alert)' : 'var(--rb-ink-muted)' }};">
+                                            {{ $log['error'] ?? 'Koneksi normal responsif.' }}
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" style="text-align:center; padding:1rem;" class="rb-mono rb-muted">Belum ada riwayat probe tercatat.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        {{-- Modal / Drawer Integrasi SDK & Cuplikan Kode --}}
+        @if ($clientSnippet)
+            <div class="rb-window" style="margin-bottom:1.25rem; border:2px solid var(--rb-primary);">
+                <div class="rb-window__titlebar" style="background:var(--rb-primary);">
+                    <span>[&#128203;] INTEGRATION SDK &amp; CODE SNIPPETS: {{ $clientSnippet['client_name'] }}</span>
+                    <button type="button" wire:click="closeSnippet" style="background:none; border:none; color:#fff; cursor:pointer; font-weight:bold;">&times;</button>
+                </div>
+                <div class="rb-window__body">
+                    <p class="rb-mono rb-soft" style="font-size:.72rem; margin-bottom:.75rem;">
+                        Salin cuplikan kode berikut ke dalam project Laravel <strong>agen xishie</strong> atau aplikasi eksternal untuk mulai memanggil model:
+                    </p>
+
+                    <div style="background:var(--rb-surface-inset); padding:.75rem; border:var(--rb-border-soft); border-radius:4px; margin-bottom:.8rem;">
+                        <div class="rb-mono" style="font-size:.68rem; font-weight:bold; color:var(--rb-primary); margin-bottom:.3rem;">
+                            1. Cuplikan Laravel (Http Client):
+                        </div>
+                        <pre class="rb-mono" style="font-size:.65rem; margin:0; line-height:1.4; overflow-x:auto;"><code>use Illuminate\Support\Facades\Http;
+
+$response = Http::withHeaders([
+    'X-API-Key' => '{{ $clientSnippet['api_key'] }}',
+])->post('{{ $clientSnippet['base_url'] }}/chat', [
+    'prompt' => 'Tuliskan kajian literatur mengenai model transformer pada klasifikasi teks ilmiah.',
+    'model'  => 'AcademicScribeAgent',
+]);
+
+$data = $response->json();</code></pre>
+                    </div>
+
+                    <div style="background:var(--rb-surface-inset); padding:.75rem; border:var(--rb-border-soft); border-radius:4px;">
+                        <div class="rb-mono" style="font-size:.68rem; font-weight:bold; color:var(--rb-primary); margin-bottom:.3rem;">
+                            2. Cuplikan cURL (Terminal / Bash):
+                        </div>
+                        <pre class="rb-mono" style="font-size:.65rem; margin:0; line-height:1.4; overflow-x:auto;"><code>curl -X POST "{{ $clientSnippet['base_url'] }}/chat" \
+  -H "X-API-Key: {{ $clientSnippet['api_key'] }}" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Uji integrasi", "model": "AcademicScribeAgent"}'</code></pre>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- Drawer / Modal Registrasi Proyek --}}
         @if ($showRegisterModal)
             <div class="rb-window" style="margin-bottom:1.25rem; border:2px solid var(--rb-primary);">
@@ -189,7 +291,8 @@
                                 <tr>
                                     <th>PROYEK</th>
                                     <th>URL TARGET</th>
-                                    <th style="text-align:center;">STATUS</th>
+                                    <th style="text-align:center;">STATUS &amp; RIWAYAT</th>
+                                    <th style="text-align:center;">UPTIME</th>
                                     <th style="text-align:center;">HTTP</th>
                                     <th style="text-align:center;">LATENSI</th>
                                     <th>SERVER</th>
@@ -210,6 +313,7 @@
                                             'offline' => 'rb-badge--alert',
                                             default => 'rb-badge--manual',
                                         };
+                                        $uptime = (float) ($client['uptime_percentage'] ?? 100.0);
                                     @endphp
                                     <tr style="{{ ! $client['is_active'] ? 'opacity:0.55;' : '' }}">
                                         <td>
@@ -237,6 +341,24 @@
                                             <span class="rb-badge {{ $badgeClass }}" style="font-size:.62rem; font-weight:bold;">
                                                 {{ strtoupper($st) }}
                                             </span>
+                                            {{-- Visual Uptime History Dots --}}
+                                            @if (! empty($client['recent_pings']))
+                                                <div style="display:flex; gap:3px; justify-content:center; align-items:center; margin-top:4px;" title="Riwayat probe koneksi terbaru (kiri: terlama, kanan: terbaru)">
+                                                    @foreach ($client['recent_pings'] as $ping)
+                                                        @php
+                                                            $dotBg = match ($ping['status']) {
+                                                                'online' => 'var(--rb-status-pass)',
+                                                                'offline' => 'var(--rb-status-alert)',
+                                                                default => 'var(--rb-status-hitl)',
+                                                            };
+                                                        @endphp
+                                                        <span style="display:inline-block; width:7px; height:7px; border-radius:2px; background:{{ $dotBg }};" title="{{ $ping['probed_at'] }} &middot; {{ $ping['latency_ms'] ?? 0 }}ms &middot; {{ strtoupper($ping['status']) }}"></span>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </td>
+                                        <td style="text-align:center; font-family:var(--rb-font-mono); font-size:.68rem; font-weight:bold; color:{{ $uptime >= 90 ? 'var(--rb-status-pass)' : ($uptime >= 70 ? 'var(--rb-status-hitl)' : 'var(--rb-status-alert)') }};">
+                                            {{ $uptime }}%
                                         </td>
                                         <td style="text-align:center; font-family:var(--rb-font-mono); font-size:.68rem;">
                                             {{ $client['last_status_code'] ?? '—' }}
@@ -275,6 +397,12 @@
                                             <div style="display:inline-flex; gap:.3rem;">
                                                 <button type="button" class="rb-button" style="padding:.15rem .45rem; font-size:.6rem;" wire:click="pingClient({{ $client['id'] }})" wire:loading.attr="disabled" title="Probe status koneksi target sekarang">
                                                     &#128225; Ping
+                                                </button>
+                                                <button type="button" class="rb-button" style="padding:.15rem .45rem; font-size:.6rem;" wire:click="showDiagnostics({{ $client['id'] }})" title="Lihat riwayat probe &amp; log diagnostik">
+                                                    &#128200; Log
+                                                </button>
+                                                <button type="button" class="rb-button" style="padding:.15rem .45rem; font-size:.6rem;" wire:click="showSnippet({{ $client['id'] }})" title="Lihat cuplikan kode SDK &amp; cURL">
+                                                    &#128203; SDK
                                                 </button>
                                                 <button type="button" class="rb-button" style="padding:.15rem .45rem; font-size:.6rem;" wire:click="testInboundChat({{ $client['id'] }})" wire:loading.attr="disabled" title="Uji eksekusi model inbound secara simulasi">
                                                     &#9889; Uji
@@ -352,6 +480,26 @@
                         <code class="rb-mono" style="font-size:.65rem; display:block; margin-bottom:.3rem;">POST /api/v1/external/audit</code>
                         <p class="rb-mono rb-muted" style="font-size:.65rem; margin:0;">
                             Body JSON: <code>{"content": "Teks naskah...", "style": "IEEE"}</code>
+                        </p>
+                    </div>
+
+                    <div style="background:var(--rb-surface-inset); padding:.75rem; border:var(--rb-border-soft); border-radius:4px;">
+                        <div class="rb-mono" style="font-weight:bold; font-size:.72rem; color:var(--rb-primary); margin-bottom:.3rem;">
+                            5. PEER CRITIC &amp; REVIEW SEJAWAT
+                        </div>
+                        <code class="rb-mono" style="font-size:.65rem; display:block; margin-bottom:.3rem;">POST /api/v1/external/critic</code>
+                        <p class="rb-mono rb-muted" style="font-size:.65rem; margin:0;">
+                            Body JSON: <code>{"text": "Draf manuskrip..."}</code>
+                        </p>
+                    </div>
+
+                    <div style="background:var(--rb-surface-inset); padding:.75rem; border:var(--rb-border-soft); border-radius:4px;">
+                        <div class="rb-mono" style="font-weight:bold; font-size:.72rem; color:var(--rb-primary); margin-bottom:.3rem;">
+                            6. FORMAT BIBLIOGRAFI &amp; SITASI
+                        </div>
+                        <code class="rb-mono" style="font-size:.65rem; display:block; margin-bottom:.3rem;">POST /api/v1/external/citation</code>
+                        <p class="rb-mono rb-muted" style="font-size:.65rem; margin:0;">
+                            Body JSON: <code>{"references": [{"title":"...","authors":["..."]}], "style":"ieee"}</code>
                         </p>
                     </div>
                 </div>
