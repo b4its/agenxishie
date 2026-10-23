@@ -265,8 +265,9 @@ class AcademicWorkspacePage extends Page
             }
         }
 
-        // 2) Tulis SEMUA sub-bab (context tanpa single_section => draf penuh).
-        $scribe = app(AcademicScribeAgent::class)->run($project, $stage, ['preserve_existing' => true]);
+        // 2) Tulis SEMUA sub-bab (regenerasi penuh => konten selalu bersih &
+        //    terbaru; tanpa single_section/preserve_existing).
+        $scribe = app(AcademicScribeAgent::class)->run($project, $stage);
 
         // 3) Hitung kepatuhan pedoman & simpan.
         $audit = app(RuleKeeperAgent::class)->run($project, $stage);

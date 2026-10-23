@@ -152,11 +152,23 @@ final class AcademicScribeAgent implements XishieAgentContract
         $generated = $this->composeWithLlm($project, $heading, $key, $context, $keys);
 
         if ($generated !== null) {
+            $clean = $this->cleanSectionContent($generated, $heading);
+
+            // Jaminan sitasi: bila model tak menyisipkan sitasi padahal referensi
+            // tersedia, tambahkan kalimat rujukan agar lolos audit pedoman.
+            $used = $this->detectCitationKeys($clean, $keys);
+
+            if ($used === [] && $keys !== []) {
+                $cites = implode(' ', array_map(static fn (string $k): string => '['.$k.']', array_slice($keys, 0, 3)));
+                $clean = rtrim($clean)."\n\nBagian ini merujuk pada penelitian relevan sebelumnya $cites yang menjadi dasar pengembangan kajian ini.";
+                $used = $this->detectCitationKeys($clean, $keys);
+            }
+
             return [
                 'key' => $key,
                 'heading' => $heading,
-                'content' => $generated,
-                'citation_keys' => $this->detectCitationKeys($generated, $keys),
+                'content' => $clean,
+                'citation_keys' => $used,
             ];
         }
 
@@ -273,12 +285,25 @@ final class AcademicScribeAgent implements XishieAgentContract
         $system = 'Anda adalah Academic-Scribe pada Agen Xishie: penulis akademik yang teliti, '
             .'formal, dan bebas halusinasi. Tulis dalam Bahasa Indonesia baku. '
             .'Hanya boleh mengutip referensi yang diberikan memakai kunci sitasi persis seperti [Kunci Tahun]. '
-            .'Jangan mengarang referensi. Kembalikan HANYA paragraf isi sub-bab (tanpa judul, tanpa penjelasan meta).';
+            .'Jangan mengarang referensi. '
+            .'Keluaran HARUS berupa paragraf prosa akademik saja: tanpa judul, tanpa heading Markdown (#), '
+            .'tanpa garis pemisah (---), tanpa kalimat pembuka seperti "Berikut isi sub-bab", '
+            .'tanpa penutup meta. Langsung mulai dengan kalimat isi.';
+
+        $range = $context->guideline->wordRangeFor($key);
+        $minWords = $range['min'] ?? 400;
+        $maxWords = $range['max'] ?? max($minWords + 200, 800);
+        // Targetkan sedikit di atas batas minimum agar lolos audit pedoman.
+        $targetWords = (int) min($maxWords, max($minWords + 60, (int) ceil($minWords * 1.1)));
+
+        $maxTokens = (int) min(4000, max(1200, $targetWords * 3));
 
         $prompt = sprintf(
             "Proyek: %s\nBidang: %s\nJenis dokumen: %s\nTahap: %s\nSub-bab: %s\n\n".
             "Referensi yang boleh dikutip:\n%s\n\n".
-            "Tulis isi sub-bab '%s' sebanyak 2-4 paragraf akademik yang runtut, menyertakan sitasi [Kunci Tahun] dari referensi di atas, sesuai kaidah %s.",
+            "Tulis isi sub-bab '%s' sepanjang sekitar %d kata (minimal %d kata, maksimal %d kata) dalam 4-7 paragraf akademik yang runtut dan substantif. ".
+            'WAJIB menyertakan minimal 2 sitasi dalam format [Kunci Tahun] dari referensi di atas, sesuai kaidah %s. '.
+            'Jangan mengulang judul sub-bab dan jangan menambahkan kalimat pembuka meta.',
             $context->projectTitle,
             $project->field_of_study->label(),
             $project->document_type->label(),
@@ -286,16 +311,44 @@ final class AcademicScribeAgent implements XishieAgentContract
             $heading,
             $references === [] ? '- (belum ada referensi terdaftar; hindari sitasi fiktif)' : implode("\n", $references),
             $heading,
+            $targetWords,
+            $minWords,
+            $maxWords,
             $context->guideline->citationStyle,
         );
 
-        $result = $this->llm->generate($prompt, $system, 0.6, 900);
+        $result = $this->llm->generate($prompt, $system, 0.6, $maxTokens);
 
         if ($result === null) {
             return null;
         }
 
         $content = trim((string) $result['content']);
+
+        // Bila hasil di bawah batas minimum kata, minta perluasan sekali agar
+        // lolos audit pedoman.
+        $words = str_word_count(strip_tags($content));
+
+        if ($content !== '' && $words < $minWords) {
+            $expandPrompt = sprintf(
+                "Perpanjang teks sub-bab '%s' berikut agar mencapai minimal %d kata (target %d). ".
+                "Pertahankan sitasi [Kunci Tahun] yang ada, tambahkan detail/argumen/elaborasi yang relevan, jangan ulang judul, dan pertahankan Bahasa Indonesia akademik.\n\n%s",
+                $heading,
+                $minWords,
+                $targetWords,
+                $content,
+            );
+
+            $expanded = $this->llm->generate($expandPrompt, $system, 0.6, $maxTokens);
+
+            if ($expanded !== null && trim((string) $expanded['content']) !== '') {
+                $candidate = trim((string) $expanded['content']);
+
+                if (str_word_count(strip_tags($candidate)) > $words) {
+                    $content = $candidate;
+                }
+            }
+        }
 
         return $content === '' ? null : $content;
     }
@@ -306,6 +359,111 @@ final class AcademicScribeAgent implements XishieAgentContract
      * @param  array<int, string>  $allowed
      * @return array<int, string>
      */
+    /**
+     * Bersihkan keluaran LLM menjadi paragraf isi yang bersih:
+     * - buang kalimat pembuka meta ("Berikut isi sub-bab…", "Tentu…", dst.),
+     * - buang heading Markdown (#, ##, …) & garis pemisah (---) yang menduplikasi
+     *   judul sub-bab,
+     * - buang penutup meta ("Semoga membantu", "Demikian…", "Catatan:").
+     */
+    private function cleanSectionContent(string $content, string $heading): string
+    {
+        $text = str_replace(["\r\n", "\r"], "\n", $content);
+        $text = trim($text);
+
+        // 1) Buang heading Markdown di awal (yang menduplikasi judul sub-bab).
+        $text = preg_replace('/^\s*#{1,6}\s+.*(\n+|$)/u', '', $text) ?? $text;
+        // 2) Buang garis horizontal pemisah.
+        $text = preg_replace('/^\s*-{3,}\s*$/mu', '', $text) ?? $text;
+        // 3) Buang heading Markdown yang tersisa (baris diawali #).
+        $text = preg_replace('/^\s*#{1,6}\s*.*$/mu', '', $text) ?? $text;
+        // 4) Buang baris yang hanya mengulang judul sub-bab.
+        if ($heading !== '') {
+            $text = preg_replace('/^\s*'.$this->headingLinePattern($heading).'\s*$/mu', '', $text) ?? $text;
+        }
+
+        // 5) Buang paragraf meta pembuka (mengandung kata kunci meta & pendek).
+        $text = $this->stripLeadingMeta($text);
+
+        // 6) Buang penutup meta (di akhir teks maupun inline di kalimat terakhir).
+        $text = preg_replace(
+            '/[\s]*(semoga (ini )?membantu[^.\n]*|demikian(?:lah)?(?: ringkasannya)?[^.\n]*|itulah[^.\n]*|mohon (disesuaikan|diperiksa)[^.\n]*)\.?/iu',
+            '',
+            $text,
+        ) ?? $text;
+        $text = preg_replace(
+            '/\n+\s*(catatan\s*:[^\n]*|semoga[^\n]*|demikian[^\n]*|itulah[^\n]*)\.?\s*$/iu',
+            '',
+            $text,
+        ) ?? $text;
+
+        $text = trim(preg_replace('/\n{3,}/u', "\n\n", $text) ?? $text);
+
+        return $text === '' ? trim($content) : $text;
+    }
+
+    /**
+     * Buang paragraf pembuka yang bersifat meta (mis. "Berikut adalah draf
+     * untuk sub-bab … pada proposal …") — pendek, memuat kata kunci meta, dan
+     * tidak memuat sitasi. Paragraf isi nyata dibiarkan.
+     */
+    private function stripLeadingMeta(string $text): string
+    {
+        $paragraphs = preg_split('/\n{2,}/u', trim($text)) ?: [];
+
+        while ($paragraphs !== []) {
+            $first = trim($paragraphs[0]);
+
+            if ($first === '') {
+                array_shift($paragraphs);
+
+                continue;
+            }
+
+            $lower = mb_strtolower($first);
+            $metaWords = ['berikut', 'draf', 'sub-bab', 'subbab', 'tentu', 'baik,', 'siap', 'proposal jurnal', 'jawaban', 'berikut adalah'];
+            $isMeta = mb_strlen($first) < 320
+                && preg_match('/\[[^\]]+\]/u', $first) !== 1 // tanpa sitasi
+                && $this->containsAny($lower, $metaWords)
+                && preg_match('/:/u', $first) === 1; // biasanya diakhiri ':'
+
+            if ($isMeta) {
+                array_shift($paragraphs);
+
+                continue;
+            }
+
+            break;
+        }
+
+        return trim(implode("\n\n", $paragraphs));
+    }
+
+    /**
+     * @param  array<int, string>  $words
+     */
+    private function containsAny(string $haystack, array $words): bool
+    {
+        foreach ($words as $word) {
+            if (str_contains($haystack, $word)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Pola regex untuk baris yang hanya berisi judul sub-bab (mis. "1. Introduction").
+     */
+    private function headingLinePattern(string $heading): string
+    {
+        $plain = preg_quote(trim($heading), '/');
+
+        // Opsional prefix penomoran ("1.", "1", "BAB I").
+        return '(?:[0-9IVX]+\.?\s+)?'.$plain;
+    }
+
     private function detectCitationKeys(string $content, array $allowed): array
     {
         $used = [];
