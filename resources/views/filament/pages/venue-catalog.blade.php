@@ -38,6 +38,14 @@
                         @endforeach
                     </select>
                 </div>
+                <div style="width:10.5rem;">
+                    <div class="rb-kpi-card__label" style="margin-bottom:.3rem;">URUTKAN</div>
+                    <select class="rb-select" wire:model.live="sortBy">
+                        <option value="name">Nama Jurnal (A-Z)</option>
+                        <option value="apc_asc">Biaya APC Terendah</option>
+                        <option value="review_asc">Review Tercepat</option>
+                    </select>
+                </div>
                 <button type="button" class="rb-button" wire:click="resetFilters">&#8635; Reset</button>
             </div>
         </div>

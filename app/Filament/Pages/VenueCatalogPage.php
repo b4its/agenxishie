@@ -35,6 +35,8 @@ class VenueCatalogPage extends Page
 
     public string $tier = '';
 
+    public string $sortBy = 'name';
+
     public ?int $projectId = null;
 
     public function mount(): void
@@ -170,6 +172,12 @@ class VenueCatalogPage extends Page
         $query->when($this->scope !== '', fn ($q) => $q->where('scope_type', $this->scope));
         $query->when($this->tier !== '', fn ($q) => $q->where('index_tier', $this->tier));
 
+        match ($this->sortBy) {
+            'apc_asc' => $query->reorder('apc_estimate', 'asc')->orderBy('journal_name'),
+            'review_asc' => $query->reorder('review_time_days', 'asc')->orderBy('journal_name'),
+            default => $query->reorder('journal_name', 'asc'),
+        };
+
         return $query->limit(200)->get()->map(static fn (AcademicVenue $venue): array => [
             'id' => $venue->id,
             'journal_name' => $venue->journal_name,
@@ -192,6 +200,7 @@ class VenueCatalogPage extends Page
         $this->search = '';
         $this->scope = '';
         $this->tier = '';
+        $this->sortBy = 'name';
     }
 
     /**
