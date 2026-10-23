@@ -63,6 +63,53 @@ class PlatformMatcherPage extends Page
             ->body($result->metadata['message'] ?? '')
             ->success()
             ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
+     * Tetapkan sebuah rekomendasi sebagai jurnal target proyek (tunggal).
+     */
+    public function selectTarget(int $recommendationId): void
+    {
+        $project = $this->getProject();
+        $recommendation = $project?->recommendations()->find($recommendationId);
+
+        if ($project === null || $recommendation === null) {
+            return;
+        }
+
+        // Hanya satu target: reset yang lain, set yang ini.
+        $project->recommendations()->update(['is_selected' => false]);
+        $recommendation->forceFill(['is_selected' => true])->save();
+
+        Notification::make()
+            ->title('Jurnal target ditetapkan')
+            ->body($recommendation->journal_name)
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
+     * Hapus satu rekomendasi yang sudah tidak relevan.
+     */
+    public function deleteRecommendation(int $recommendationId): void
+    {
+        $recommendation = $this->getProject()?->recommendations()->find($recommendationId);
+
+        if ($recommendation === null) {
+            Notification::make()->title('Rekomendasi tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $recommendation->delete();
+
+        Notification::make()->title('Rekomendasi dihapus')->success()->send();
+
+        $this->dispatch('$refresh');
     }
 
     public function adaptFormatting(int $recommendationId): void

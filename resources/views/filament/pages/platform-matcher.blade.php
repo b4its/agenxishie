@@ -45,14 +45,22 @@
 
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1rem;">
                 @forelse ($recommendations as $rec)
-                    <div class="rb-window">
+                    <div class="rb-window {{ $rec->is_selected ? 'rb-window--target' : '' }}" wire:key="rec-{{ $rec->id }}">
                         <div class="rb-window__titlebar">
-                            <span>MATCH {{ number_format((float) $rec->match_score, 1) }}%</span>
+                            <span>
+                                MATCH {{ number_format((float) $rec->match_score, 1) }}%
+                                @if ($rec->is_selected) &middot; &#9733; TARGET @endif
+                            </span>
                             <span class="rb-window__controls"><span class="rb-window__control">-</span><span class="rb-window__control">&#9633;</span><span class="rb-window__control">&#215;</span></span>
                         </div>
                         <div class="rb-window__body">
-                            <div style="font-family:var(--rb-font-display); font-weight:800; font-size:.95rem; color:var(--rb-primary);">
-                                {{ $rec->journal_name }}
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+                                <div style="font-family:var(--rb-font-display); font-weight:800; font-size:.95rem; color:var(--rb-primary);">
+                                    {{ $rec->journal_name }}
+                                </div>
+                                @if ($rec->is_selected)
+                                    <span class="rb-badge rb-badge--pass" style="font-size:.52rem;">&#9733; TARGET</span>
+                                @endif
                             </div>
                             <div class="rb-mono rb-muted" style="font-size:.68rem; margin:.3rem 0 .6rem;">
                                 {{ $rec->publisher }} &middot;
@@ -74,9 +82,13 @@
                                 <button type="button" class="rb-button rb-button--primary" wire:click="adaptFormatting({{ $rec->id }})">
                                     Adapt Formatting
                                 </button>
+                                @unless ($rec->is_selected)
+                                    <button type="button" class="rb-button" wire:click="selectTarget({{ $rec->id }})" title="Jadikan jurnal target">&#9733; Jadikan Target</button>
+                                @endunless
                                 @if ($rec->submission_url)
                                     <a href="{{ $rec->submission_url }}" target="_blank" rel="noopener" class="rb-button">&#8599; Submit</a>
                                 @endif
+                                <button type="button" class="rb-button" style="color:var(--rb-status-alert);" wire:click="deleteRecommendation({{ $rec->id }})" wire:confirm="Hapus rekomendasi ini?">&#128465;</button>
                             </div>
                         </div>
                     </div>

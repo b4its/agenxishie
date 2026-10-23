@@ -210,6 +210,12 @@
     color: var(--rb-ink);
 }
 
+/* Kartu jurnal target terpilih — sorot dengan border & glow aksen. */
+.rb-window--target {
+    border-color: var(--rb-status-pass);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--rb-status-pass) 45%, transparent), var(--rb-shadow);
+}
+
 /* -----------------------------------------------------------------------------
    KPI cards
    ----------------------------------------------------------------------------- */

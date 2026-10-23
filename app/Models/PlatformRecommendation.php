@@ -26,6 +26,7 @@ class PlatformRecommendation extends Model
         'scope_reasoning',
         'apc_estimate',
         'submission_url',
+        'is_selected',
     ];
 
     /**
@@ -36,6 +37,7 @@ class PlatformRecommendation extends Model
         return [
             'match_score' => 'decimal:2',
             'apc_estimate' => 'decimal:2',
+            'is_selected' => 'boolean',
         ];
     }
 
