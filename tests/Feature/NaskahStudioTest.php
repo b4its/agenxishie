@@ -328,3 +328,154 @@ it('opens a saved document by id', function (): void {
         ->assertSet('documentId', $document->id)
         ->assertSet('docTitle', 'Dokumen Tersimpan');
 });
+
+it('executes wordcraft id-driven commands and dispatches actions', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    expect($page->instance()->commands())->not->toBeEmpty();
+
+    $page->call('executeCommand', 'insert.paragraph');
+    expect(count($page->get('blocks')))->toBeGreaterThan(2);
+
+    $page->call('executeCommand', 'view.dark_mode');
+    expect($page->get('darkMode'))->toBeTrue();
+
+    $page->call('executeCommand', 'file.properties');
+    expect($page->get('dialog'))->toBe('properties');
+});
+
+it('runs typographical auto-correct across blocks', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Tanda panah -> dan panah kiri <- serta (c) dan (tm) dan 1/2...'],
+        ])
+        ->call('runAutoCorrect');
+
+    $text = $page->get('blocks')[0]['text'];
+    expect($text)->toContain('→')
+        ->and($text)->toContain('←')
+        ->and($text)->toContain('©')
+        ->and($text)->toContain('™')
+        ->and($text)->toContain('½')
+        ->and($text)->toContain('…');
+});
+
+it('performs table column sum and average calculations', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            [
+                'type' => 'table',
+                'table' => [
+                    'header' => true,
+                    'rows' => [
+                        [['text' => 'Item'], ['text' => 'Nilai']],
+                        [['text' => 'Uji 1'], ['text' => '10']],
+                        [['text' => 'Uji 2'], ['text' => '20']],
+                    ],
+                ],
+            ],
+        ]);
+
+    $page->call('tableSumColumn', 0, 1);
+    $rows = $page->get('blocks')[0]['table']['rows'];
+    expect(count($rows))->toBe(4)
+        ->and($rows[3][0]['text'])->toBe('SUM')
+        ->and($rows[3][1]['text'])->toBe('30');
+
+    $page->call('tableAverageColumn', 0, 1);
+    $rowsAfterAvg = $page->get('blocks')[0]['table']['rows'];
+    expect(count($rowsAfterAvg))->toBe(5)
+        ->and($rowsAfterAvg[4][0]['text'])->toBe('AVERAGE');
+});
+
+it('creates, restores and deletes version snapshots', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [['type' => 'paragraph', 'text' => 'Versi Satu']])
+        ->set('snapshotLabel', 'Draft 1')
+        ->call('createSnapshot');
+
+    expect($page->get('snapshots'))->toHaveCount(1)
+        ->and($page->get('snapshots')[0]['label'])->toBe('Draft 1');
+
+    $page->set('blocks', [['type' => 'paragraph', 'text' => 'Versi Dua']])
+        ->call('restoreSnapshot', 0);
+
+    expect($page->get('blocks')[0]['text'])->toBe('Versi Satu');
+
+    $page->call('deleteSnapshot', 0);
+    expect($page->get('snapshots'))->toBeEmpty();
+});
+
+it('supports callout blocks and drop cap toggles', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->call('insertCallout', 'warning');
+
+    $blocks = $page->get('blocks');
+    $last = end($blocks);
+
+    expect($last['type'])->toBe('callout')
+        ->and($last['calloutType'])->toBe('warning');
+
+    $page->call('toggleDropCap', 0);
+    expect($page->get('blocks')[0]['dropCap'])->toBeTrue();
+});
+
+it('executes naskah studio cli command for inspect, stats, export and autocorrect', function (): void {
+    $document = NaskahDocument::factory()->create([
+        'title' => 'CLI Naskah Test',
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Judul CLI'],
+            ['type' => 'paragraph', 'text' => 'Isi naskah CLI dengan tanda panah -> dan (c).'],
+        ],
+        'word_count' => 10,
+    ]);
+
+    $this->artisan('naskah:manage list')
+        ->assertSuccessful();
+
+    $this->artisan('naskah:manage inspect '.$document->id)
+        ->assertSuccessful();
+
+    $this->artisan('naskah:manage stats '.$document->id)
+        ->assertSuccessful();
+
+    $this->artisan('naskah:manage autocorrect '.$document->id)
+        ->assertSuccessful();
+
+    $tmp = tempnam(sys_get_temp_dir(), 'naskah-export-').'.docx';
+    $this->artisan('naskah:manage export '.$document->id.' --format=docx --output='.$tmp)
+        ->assertSuccessful();
+
+    expect(file_exists($tmp))->toBeTrue();
+    @unlink($tmp);
+});
+
+it('serves api endpoints for programmatic document inspection and export', function (): void {
+    $document = NaskahDocument::factory()->create([
+        'title' => 'API Naskah Test',
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Judul API'],
+            ['type' => 'paragraph', 'text' => 'Isi naskah API -> (tm)'],
+        ],
+        'word_count' => 7,
+    ]);
+
+    $this->getJson(route('api.v1.naskah.index'))
+        ->assertOk()
+        ->assertJsonPath('status', 'success');
+
+    $this->getJson(route('api.v1.naskah.show', $document->id))
+        ->assertOk()
+        ->assertJsonPath('data.title', 'API Naskah Test')
+        ->assertJsonStructure(['data' => ['id', 'title', 'blocks', 'outline', 'statistics']]);
+
+    $this->postJson(route('api.v1.naskah.autocorrect', $document->id))
+        ->assertOk()
+        ->assertJsonPath('status', 'success');
+
+    $this->get(route('api.v1.naskah.export', ['id' => $document->id, 'format' => 'docx']))
+        ->assertOk();
+
+    $this->get(route('api.v1.naskah.export', ['id' => $document->id, 'format' => 'odt']))
+        ->assertOk();
+});
