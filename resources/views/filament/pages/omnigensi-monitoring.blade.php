@@ -1,6 +1,6 @@
 {{-- Omnigensi Integration Monitor — status koneksi & proyek terhubung --}}
 <x-filament-panels::page>
-    <div class="rb-canvas" style="padding:1rem;">
+    <div class="rb-canvas" style="padding:1rem;" @if ($autoRefresh) wire:poll.10s="refresh" @endif>
 
         {{-- Status backend + handshake --}}
         <div class="rb-window" style="margin-bottom:1rem;">
@@ -51,7 +51,7 @@
                     </div>
                 @endif
 
-                <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+                <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
                     <button type="button" class="rb-button rb-button--primary" wire:click="refresh" wire:loading.attr="disabled">
                         &#8635; Muat Ulang
                     </button>
@@ -61,6 +61,9 @@
                     <button type="button" class="rb-button" wire:click="seedXishie" wire:loading.attr="disabled">
                         &#127793; Seed Xishie
                     </button>
+                    <label class="rb-mono" style="font-size:.65rem; margin-left:auto; display:flex; align-items:center; gap:.35rem; cursor:pointer;">
+                        <input type="checkbox" wire:model.live="autoRefresh" /> Auto-Refresh (10s)
+                    </label>
                 </div>
                 @if ($status !== '')
                     <div class="rb-mono rb-muted" style="font-size:.68rem; margin-top:.5rem;">{{ $status }}</div>

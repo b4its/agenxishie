@@ -30,6 +30,8 @@ class OmnigensiMonitoringPage extends Page
 
     public bool $backendOnline = true;
 
+    public bool $autoRefresh = false;
+
     public string $status = '';
 
     /**
