@@ -164,3 +164,60 @@ it('streams direct document export files without admin login', function (): void
         $res->assertOk();
     }
 });
+
+it('supports opening and switching dialogs in standalone studio', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class);
+
+    $dialogs = ['find', 'stats', 'pagesetup', 'spelling', 'thesaurus', 'table', 'image', 'link', 'footnote', 'symbols', 'merge', 'comment', 'palette', 'properties', 'snapshots', 'shortcuts'];
+
+    foreach ($dialogs as $dlg) {
+        $page->call('openDialog', $dlg)
+            ->assertSet('dialog', $dlg);
+    }
+
+    $page->call('closeDialog')
+        ->assertSet('dialog', '');
+});
+
+it('supports comments and revisions lifecycle outside admin', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('commentDraft', 'Perbaiki metodologi bab 2')
+        ->call('addComment');
+
+    expect($page->get('comments'))->toHaveCount(1);
+    expect($page->get('comments')[0]['body'])->toBe('Perbaiki metodologi bab 2');
+
+    $page->call('resolveComment', 0);
+    expect($page->get('comments')[0]['resolved'])->toBeTrue();
+
+    $page->call('deleteComment', 0);
+    expect($page->get('comments'))->toHaveCount(0);
+
+    // Revisions
+    $page->set('revisions', [
+        [
+            'author' => 'Reviewer 1',
+            'blockIndex' => 0,
+            'before' => 'Draf lama',
+            'after' => 'Draf baru yang lebih baik',
+            'status' => 'pending',
+            'timestamp' => now()->toIso8601String(),
+        ],
+    ]);
+
+    $page->call('acceptRevision', 0);
+    expect($page->get('revisions')[0]['status'])->toBe('accepted');
+});
+
+it('executes wordcraft in-block actions in standalone studio', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Pernyataan singkat.'],
+        ]);
+
+    $page->call('aiElaborateBlock', 0);
+    expect(mb_strlen($page->get('blocks')[0]['text']))->toBeGreaterThan(15);
+
+    $page->call('aiFixTone', 0, 'akademik');
+    expect($page->get('blocks')[0]['text'])->not->toBeEmpty();
+});
