@@ -4,18 +4,25 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Assistant\XishieAssistantService;
 use App\Domain\Personalization\Enums\DocumentType;
 use App\Domain\Publication\ManuscriptExporter;
+use App\Domain\Research\LiteratureMatrixBuilder;
+use App\Domain\Research\ReferenceImportService;
 use App\Domain\Revision\Enums\RevisionStatus;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Domain\Workspace\Enums\UxKpiMetric;
 use App\Domain\Workspace\UxKpiTelemetryService;
 use App\Filament\Pages\AcademicWorkspacePage;
 use App\Filament\Pages\PlatformMatcherPage;
+use App\Filament\Pages\ProjectsPage;
 use App\Filament\Pages\SmartRevisionCenterPage;
+use App\Filament\Pages\VenueCatalogPage;
+use App\Filament\Pages\XishieAssistantPage;
 use App\Models\AcademicVenue;
 use App\Models\PlatformRecommendation;
 use App\Models\ProjectRevision;
+use App\Models\XishieProject;
 use App\Omnigensi\Agents\AcademicScribeAgent;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
 use Livewire\Livewire;
@@ -259,4 +266,131 @@ it('renders the Retro Blue landing page with 200 OK and branding', function (): 
         ->assertSee('Academic Workspace')
         ->assertSee('Smart Revision Center')
         ->assertSee('Platform Matcher');
+});
+
+it('parses BibTeX strings and imports references into the project', function (): void {
+    $project = makeProject();
+    $importer = app(ReferenceImportService::class);
+
+    $bibtex = <<<'BIB'
+@article{pratama2024iot,
+  title = {Optimasi Jaringan IoT untuk Smart Agriculture Berbasis LoRaWAN},
+  author = {Pratama, Aditya and Santoso, Budi},
+  journal = {Jurnal Rekayasa Sistem},
+  year = {2024},
+  doi = {10.1234/jrs.2024.01},
+  abstract = {Penelitian ini mengevaluasi metode routing LoRaWAN dengan hasil akurasi 94% namun gap pada latency tinggi.}
+}
+@inproceedings{wijaya2023ai,
+  title = {Penerapan Deep Learning untuk Klasifikasi Citra},
+  author = {Wijaya, Hendra},
+  booktitle = {Prosiding Konferensi Nasional},
+  year = {2023},
+  abstract = {Eksperimen menggunakan model CNN dengan hasil evaluasi F1-score 0.88.}
+}
+BIB;
+
+    $parsed = $importer->parseBibtex($bibtex);
+    expect($parsed)->toHaveCount(2)
+        ->and($parsed[0]['citation_key'])->toBe('pratama2024iot')
+        ->and($parsed[0]['year'])->toBe(2024)
+        ->and($parsed[0]['authors'])->toHaveCount(2)
+        ->and($parsed[1]['citation_key'])->toBe('wijaya2023ai');
+
+    $count = $importer->importBibtex($project, $bibtex);
+    expect($count)->toBe(2);
+
+    $ref = $project->references()->where('citation_key', 'pratama2024iot')->first();
+    expect($ref)->not->toBeNull()
+        ->and($ref->is_verified)->toBeTrue()
+        ->and($ref->source)->toBe('bibtex_import');
+});
+
+it('exports literature matrix to CSV format with correct header and rows', function (): void {
+    $project = makeProject();
+    seedReferences($project);
+
+    $builder = app(LiteratureMatrixBuilder::class);
+    $csv = $builder->toCsv($project);
+
+    expect($csv)->toContain('Citation Key')
+        ->and($csv)->toContain('Authors')
+        ->and($csv)->toContain('Verified')
+        ->and($csv)->toContain('Yes');
+
+    // Uji Livewire export handler.
+    Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id])
+        ->call('exportLiteratureMatrix', 'csv')
+        ->assertSuccessful();
+
+    Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id])
+        ->call('exportLiteratureMatrix', 'markdown')
+        ->assertSuccessful();
+});
+
+it('duplicates a project with all stages and references', function (): void {
+    $project = makeProject(['title' => 'Original Master Thesis']);
+    seedReferences($project);
+    app(XishieSupervisor::class)->run($project, ProjectStage::DRAFT);
+
+    $initialCount = XishieProject::count();
+
+    Livewire::test(ProjectsPage::class)
+        ->call('duplicateProject', $project->id)
+        ->assertSuccessful();
+
+    expect(XishieProject::count())->toBe($initialCount + 1);
+
+    $cloned = XishieProject::where('title', 'like', 'Salinan dari Original Master Thesis%')->first();
+    expect($cloned)->not->toBeNull()
+        ->and($cloned->stages()->count())->toBe($project->stages()->count())
+        ->and($cloned->references()->count())->toBe($project->references()->count());
+});
+
+it('sets a journal venue as project target from venue catalog', function (): void {
+    $project = makeProject(['title' => 'Target Selection Project']);
+    $venue = AcademicVenue::create([
+        'journal_name' => 'Jurnal Sains Komputer Terapan',
+        'publisher' => 'Pusat Riset Komputasi',
+        'scope_type' => 'sinta',
+        'index_tier' => 'Sinta 2',
+        'field_of_study' => 'STEM',
+        'aims_and_scope' => 'Jurnal komputasi terapan dan informatika',
+        'apc_estimate' => 500000,
+        'is_active' => true,
+    ]);
+
+    Livewire::test(VenueCatalogPage::class, ['projectId' => $project->id])
+        ->call('setAsProjectTarget', $venue->id)
+        ->assertSuccessful();
+
+    $targetRec = $project->recommendations()->where('is_selected', true)->first();
+    expect($targetRec)->not->toBeNull()
+        ->and($targetRec->academic_venue_id)->toBe($venue->id)
+        ->and($targetRec->journal_name)->toBe($venue->journal_name);
+});
+
+it('executes /ringkas command and exports assistant transcript', function (): void {
+    $project = makeProject(['title' => 'Assistant Executive Summary Project']);
+    seedReferences($project);
+    $stage = app(XishieSupervisor::class)->run($project, ProjectStage::DRAFT);
+
+    $service = app(XishieAssistantService::class);
+    $res = $service->handle($project, '/ringkas');
+
+    expect($res['command'])->toBe('/ringkas')
+        ->and($res['reply'])->toContain('Ringkasan Eksekutif Proyek')
+        ->and($res['reply'])->toContain('Total Kata Naskah')
+        ->and($res['data'])->toHaveKey('total_words');
+
+    // Uji Livewire chat dan ekspor transkrip.
+    $component = Livewire::test(XishieAssistantPage::class, ['projectId' => $project->id])
+        ->set('message', '/ringkas')
+        ->call('send')
+        ->assertSuccessful();
+
+    expect($component->get('log'))->toHaveCount(2);
+
+    $component->call('exportTranscript')
+        ->assertSuccessful();
 });
