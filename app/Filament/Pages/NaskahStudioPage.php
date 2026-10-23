@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Domain\Publication\Concerns\HandlesNaskahStudio;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
 /**
@@ -35,5 +36,20 @@ class NaskahStudioPage extends Page
     protected function getViewData(): array
     {
         return $this->getStudioViewData();
+    }
+
+    protected function notify(string $title, string $body = '', string $type = 'success'): void
+    {
+        $n = Notification::make()->title($title);
+        if ($body !== '') {
+            $n->body($body);
+        }
+        match ($type) {
+            'warning' => $n->warning(),
+            'danger' => $n->danger(),
+            'info' => $n->info(),
+            default => $n->success(),
+        };
+        $n->send();
     }
 }

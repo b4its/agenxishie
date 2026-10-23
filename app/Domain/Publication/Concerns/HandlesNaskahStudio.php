@@ -16,7 +16,6 @@ use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\NaskahDocument;
 use App\Models\OmnigensiAgentLog;
 use App\Models\XishieProject;
-use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -2030,26 +2029,8 @@ trait HandlesNaskahStudio
 
     protected function notify(string $title, string $body = '', string $type = 'success'): void
     {
-        try {
-            $n = Notification::make()->title($title);
-            if ($body !== '') {
-                $n->body($body);
-            }
-
-            match ($type) {
-                'warning' => $n->warning(),
-                'danger' => $n->danger(),
-                'info' => $n->info(),
-                default => $n->success(),
-            };
-
-            $n->send();
-        } catch (\Throwable) {
-            // Abaikan jika Notification Filament tidak aktif dalam konteks standalone
-        }
-
         if (method_exists($this, 'dispatch')) {
-            $this->dispatch('studio-toast', ['title' => $title, 'body' => $body, 'type' => $type]);
+            $this->dispatch('studio-toast', title: $title, body: $body, type: $type);
         }
     }
 
