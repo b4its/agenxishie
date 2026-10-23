@@ -25,7 +25,10 @@
                                 @endforeach
                             </select>
                         </div>
-                        <button type="button" class="rb-button" wire:click="clearLog">&#128465; Bersihkan</button>
+                        <div style="display:flex; gap:.35rem;">
+                            <button type="button" class="rb-button" wire:click="exportTranscript" title="Unduh transkrip sesi sebagai Markdown">&#11015; Unduh Transkrip</button>
+                            <button type="button" class="rb-button" wire:click="clearLog">&#128465; Bersihkan</button>
+                        </div>
                     </div>
 
                     {{-- Palet slash command --}}

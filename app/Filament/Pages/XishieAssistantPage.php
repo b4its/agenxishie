@@ -12,6 +12,7 @@ use App\Models\XishieProject;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use League\CommonMark\GithubFlavoredMarkdownConverter;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * XishieAssistantPage: konsol Xishie Assistant mandiri — chat kontekstual ke
@@ -142,6 +143,48 @@ class XishieAssistantPage extends Page
     public function clearLog(): void
     {
         $this->log = [];
+    }
+
+    /**
+     * Unduh transkrip sesi percakapan sebagai file Markdown.
+     */
+    public function exportTranscript(): ?StreamedResponse
+    {
+        $project = $this->getProject();
+        if (empty($this->log)) {
+            Notification::make()->title('Transkrip masih kosong')->warning()->send();
+
+            return null;
+        }
+
+        $title = $project?->title ?? 'Xishie Assistant';
+        $timestamp = now()->format('Y-m-d_H-i-s');
+        $filename = 'xishie_assistant_transcript_'.$timestamp.'.md';
+
+        $lines = [
+            '# Transkrip Sesi Xishie Assistant',
+            '- **Proyek**: '.$title,
+            '- **Waktu Ekspor**: '.now()->toIso8601String(),
+            '- **Total Pesan**: '.count($this->log),
+            '',
+            '---',
+            '',
+        ];
+
+        foreach ($this->log as $entry) {
+            $sender = $entry['role'] === 'user' ? 'Peneliti' : 'Xishie Assistant';
+            $lines[] = "### [{$sender}]";
+            $lines[] = $entry['content'];
+            $lines[] = '';
+        }
+
+        $content = implode("\n", $lines);
+
+        return response()->streamDownload(static function () use ($content): void {
+            echo $content;
+        }, $filename, [
+            'Content-Type' => 'text/markdown; charset=UTF-8',
+        ]);
     }
 
     /**

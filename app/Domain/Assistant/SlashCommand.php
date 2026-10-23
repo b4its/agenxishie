@@ -16,6 +16,7 @@ enum SlashCommand: string
     case CEK_PEDOMAN = '/cek-pedoman';
     case MATRIKS = '/matriks-literatur';
     case CARI_REFERENSI = '/cari-referensi';
+    case RINGKAS = '/ringkas';
 
     public function description(): string
     {
@@ -26,6 +27,7 @@ enum SlashCommand: string
             self::CEK_PEDOMAN => 'Audit kepatuhan naskah terhadap pedoman aktif.',
             self::MATRIKS => 'Bangun tabel matriks literatur (SOTA).',
             self::CARI_REFERENSI => 'Cari referensi relevan via memori hybrid MySQL.',
+            self::RINGKAS => 'Ringkasan eksekutif progres naskah pada stage aktif.',
         };
     }
 

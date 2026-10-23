@@ -47,6 +47,7 @@ final class XishieAssistantService
             SlashCommand::CEK_PEDOMAN => $this->cekPedoman($project),
             SlashCommand::MATRIKS => $this->matriks($project),
             SlashCommand::CARI_REFERENSI => $this->cariReferensi($project, $argument),
+            SlashCommand::RINGKAS => $this->ringkas($project),
         };
     }
 
@@ -145,6 +146,56 @@ final class XishieAssistantService
             'command' => SlashCommand::CARI_REFERENSI->value,
             'reply' => 'Referensi paling relevan: '.implode(' | ', $titles).'.',
             'data' => ['references' => $relevant],
+        ];
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function ringkas(XishieProject $project): array
+    {
+        $stage = $this->stageRecord($project);
+
+        if ($stage === null || empty($stage->sections_content)) {
+            return [
+                'command' => SlashCommand::RINGKAS->value,
+                'reply' => 'Belum ada draf naskah pada tahap aktif untuk diringkas.',
+                'data' => [],
+            ];
+        }
+
+        $sections = (array) $stage->sections_content;
+        $sectionHeadings = array_column($sections, 'heading');
+        $totalWords = (int) ($stage->word_count ?? 0);
+
+        if ($totalWords === 0) {
+            $totalWords = array_sum(array_map(
+                static fn (array $sec): int => str_word_count(strip_tags((string) ($sec['content'] ?? ''))),
+                $sections
+            ));
+        }
+
+        $citationCount = $project->references()->count();
+        $verifiedCount = $project->references()->where('is_verified', true)->count();
+        $compliance = (float) ($stage->compliance_score ?? 0.0);
+
+        $lines = [
+            sprintf('### Ringkasan Eksekutif Proyek: %s', $project->title),
+            sprintf('- **Tahap Aktif**: %s | **Mode Kontrol**: %s', strtoupper($project->current_stage->value), strtoupper($project->control_mode->value)),
+            sprintf('- **Total Kata Naskah**: %d kata dalam %d bagian (%s)', $totalWords, count($sections), implode(', ', array_slice($sectionHeadings, 0, 5))),
+            sprintf('- **Basis Pustaka**: %d referensi (%d terverifikasi)', $citationCount, $verifiedCount),
+            sprintf('- **Skor Kepatuhan Pedoman**: %.1f%%', $compliance),
+        ];
+
+        return [
+            'command' => SlashCommand::RINGKAS->value,
+            'reply' => implode("\n", $lines),
+            'data' => [
+                'stage' => $project->current_stage->value,
+                'total_words' => $totalWords,
+                'sections' => $sectionHeadings,
+                'compliance_score' => $compliance,
+            ],
         ];
     }
 
