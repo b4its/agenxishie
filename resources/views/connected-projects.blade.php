@@ -198,6 +198,22 @@
         }
         .rb-notice--approve { background: #ECFDF5; border-color: #047857; color: #065F46; }
         .rb-notice--info { background: #EFF6FF; border-color: #2563EB; color: #1E40AF; }
+        .rb-notice--danger { background: #FEF2F2; border-color: #DC2626; color: #991B1B; }
+        .rb-conn {
+            display: inline-flex; align-items: center; gap: .4rem;
+            padding: .2rem .55rem; border: 1px solid var(--rb-ink);
+            font-family: var(--rb-font-mono); font-size: .62rem; font-weight: 700;
+            white-space: nowrap;
+        }
+        .rb-conn__dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .rb-conn--pass { background: #DCFCE7; color: #166534; }
+        .rb-conn--pass .rb-conn__dot { background: #16A34A; box-shadow: 0 0 0 2px rgba(22,163,74,.25); }
+        .rb-conn--hitl { background: #FEF3C7; color: #92400E; }
+        .rb-conn--hitl .rb-conn__dot { background: #D97706; }
+        .rb-conn--alert { background: #FEE2E2; color: #991B1B; }
+        .rb-conn--alert .rb-conn__dot { background: #DC2626; }
+        .rb-conn--manual { background: #F1F5F9; color: #475569; }
+        .rb-conn--manual .rb-conn__dot { background: #94A3B8; }
         .rb-mono { font-family: var(--rb-font-mono); }
         .rb-muted { color: #64748B; }
     </style>
@@ -220,8 +236,16 @@
 
         {{-- Flash Pesan / Alert --}}
         @if (session('status_message'))
-            <div class="rb-notice rb-notice--info">
-                [i] {{ session('status_message') }}
+            @php
+                $tone = session('status_tone');
+                $flashClass = match ($tone) {
+                    'pass' => 'rb-notice--approve',
+                    'alert' => 'rb-notice--danger',
+                    default => 'rb-notice--info',
+                };
+            @endphp
+            <div class="rb-notice {{ $flashClass }}">
+                [i] {!! session('status_message') !!}
             </div>
         @endif
 
@@ -282,11 +306,18 @@
                         <div class="rb-kpi-card__unit">Klien Modular</div>
                     </div>
                     <div class="rb-kpi-card">
-                        <div class="rb-kpi-card__label">STATUS KONEKSI</div>
-                        <div class="rb-kpi-card__val" style="color:{{ $onlineClients > 0 ? 'var(--rb-status-pass)' : 'var(--rb-status-alert)' }};">
-                            {{ $onlineClients }} / {{ $totalClients }}
+                        <div class="rb-kpi-card__label">PROYEK TERHUBUNG</div>
+                        <div class="rb-kpi-card__val" style="color:{{ $connectedClients > 0 ? 'var(--rb-status-pass)' : 'var(--rb-status-alert)' }};">
+                            {{ $connectedClients }} / {{ $totalClients }}
                         </div>
-                        <div class="rb-kpi-card__unit">Proyek ONLINE</div>
+                        <div class="rb-kpi-card__unit">Handshake Terautentikasi</div>
+                    </div>
+                    <div class="rb-kpi-card">
+                        <div class="rb-kpi-card__label">TIDAK TERJANGKAU</div>
+                        <div class="rb-kpi-card__val" style="color:{{ $unreachableClients > 0 ? 'var(--rb-status-alert)' : 'var(--rb-status-pass)' }};">
+                            {{ $unreachableClients }}
+                        </div>
+                        <div class="rb-kpi-card__unit">Target Offline</div>
                     </div>
                     <div class="rb-kpi-card">
                         <div class="rb-kpi-card__label">RATA-RATA LATENSI</div>
@@ -304,15 +335,44 @@
 
                 {{-- Bar Tombol Aksi Cepat --}}
                 <div style="display:flex; gap:.6rem; flex-wrap:wrap; align-items:center;">
+                    <form action="{{ route('connected-projects.handshake-all') }}" method="POST" style="display:inline;">
+                        @csrf
+                        <button type="submit" class="rb-button rb-button--primary">&#128279; Handshake Semua Proyek</button>
+                    </form>
                     <form action="{{ route('connected-projects.ping-all') }}" method="POST" style="display:inline;">
                         @csrf
-                        <button type="submit" class="rb-button rb-button--primary">&#128225; Probe Semua Proyek</button>
+                        <button type="submit" class="rb-button">&#128225; Probe HTTP Saja</button>
                     </form>
                     <a href="{{ route('connected-projects.index') }}" class="rb-button">&#8635; Segarkan Data</a>
                     <button type="button" class="rb-button" onclick="document.getElementById('registerFormWindow').scrollIntoView({behavior:'smooth'});">&#43; Daftarkan Proyek Baru</button>
                     <label class="rb-mono" style="font-size:.68rem; margin-left:auto; display:flex; align-items:center; gap:.4rem; cursor:pointer;">
                         <input type="checkbox" id="autoRefreshCheckbox" onchange="toggleAutoRefresh(this.checked);" /> Auto-Refresh (10s)
                     </label>
+                </div>
+            </div>
+        </div>
+
+        {{-- Legenda Arti Status Koneksi --}}
+        <div class="rb-window">
+            <div class="rb-window__titlebar">
+                <span>[i] ARTI STATUS KONEKSI &amp; LANGKAH PENANGANANNYA</span>
+                <span class="rb-window__controls">
+                    <span class="rb-window__control">-</span>
+                    <span class="rb-window__control">&#9633;</span>
+                    <span class="rb-window__control">&#215;</span>
+                </span>
+            </div>
+            <div class="rb-window__body">
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:.75rem;">
+                    @foreach (\App\Domain\Integration\Enums\ConnectionStatus::cases() as $state)
+                        <div style="border:1px solid #CBD5E1; padding:.6rem; background:#FFFFFF;">
+                            <span class="rb-conn rb-conn--{{ $state->tone() }}" style="margin-bottom:.35rem;">
+                                <span class="rb-conn__dot"></span>{{ $state->shortLabel() }}
+                            </span>
+                            <div class="rb-mono" style="font-size:.68rem; font-weight:700; margin-top:.35rem;">{{ $state->label() }}</div>
+                            <p class="rb-mono rb-muted" style="font-size:.6rem; margin:.2rem 0 0;">{{ $state->description() }}</p>
+                        </div>
+                    @endforeach
                 </div>
             </div>
         </div>
@@ -334,6 +394,7 @@
                             <tr>
                                 <th>PROYEK</th>
                                 <th>URL TARGET</th>
+                                <th style="text-align:center;">STATUS KONEKSI</th>
                                 <th style="text-align:center;">STATUS &amp; RIWAYAT</th>
                                 <th style="text-align:center;">UPTIME</th>
                                 <th style="text-align:center;">HTTP</th>
@@ -377,6 +438,20 @@
                                         @if ($client['last_error_message'])
                                             <div class="rb-mono" style="color:var(--rb-status-alert); font-size:.58rem;" title="{{ $client['last_error_message'] }}">
                                                 Err: {{ \Illuminate\Support\Str::limit($client['last_error_message'], 32) }}
+                                            </div>
+                                        @endif
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <span class="rb-conn rb-conn--{{ $client['connection_tone'] }}" title="{{ $client['connection_description'] }}">
+                                            <span class="rb-conn__dot"></span>{{ $client['connection_short'] }}
+                                        </span>
+                                        <div class="rb-mono rb-muted" style="font-size:.55rem; margin-top:.25rem;">
+                                            {{ $client['last_handshake_at'] }}
+                                        </div>
+                                        @if ($client['target_app_name'] || $client['target_version'])
+                                            <div class="rb-mono" style="font-size:.55rem; margin-top:.15rem; color:var(--rb-primary);" title="Identitas aplikasi target terdeteksi dari handshake">
+                                                {{ $client['target_app_name'] ?? '—' }}
+                                                @if ($client['target_version']) v{{ $client['target_version'] }} @endif
                                             </div>
                                         @endif
                                     </td>
@@ -443,6 +518,24 @@
                                                 <button type="submit" class="rb-button" style="padding:.12rem .4rem; font-size:.58rem;" title="Probe status target sekarang">&#128225; Ping</button>
                                             </form>
 
+                                            {{-- Handshake --}}
+                                            <form action="{{ route('connected-projects.handshake', $client['id']) }}" method="POST">
+                                                @csrf
+                                                <button type="submit" class="rb-button" style="padding:.12rem .4rem; font-size:.58rem;" title="Handshake konektivitas mendalam">&#129309; Handshake</button>
+                                            </form>
+
+                                            {{-- Webhook Test --}}
+                                            <form action="{{ route('connected-projects.test-webhook', $client['id']) }}" method="POST">
+                                                @csrf
+                                                <button type="submit" class="rb-button" style="padding:.12rem .4rem; font-size:.58rem;" title="Uji kirim Webhook">&#128279; Hook</button>
+                                            </form>
+
+                                            {{-- Handshake end-to-end --}}
+                                            <form action="{{ route('connected-projects.handshake', $client['id']) }}" method="POST">
+                                                @csrf
+                                                <button type="submit" class="rb-button rb-button--primary" style="padding:.12rem .4rem; font-size:.58rem;" title="Verifikasi koneksi end-to-end (API key + kontrak respons)">&#128279; Handshake</button>
+                                            </form>
+
                                             {{-- Uji Inbound --}}
                                             <form action="{{ route('connected-projects.test-inbound', $client['id']) }}" method="POST">
                                                 @csrf
@@ -472,7 +565,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="11" style="text-align:center; padding:1.5rem;" class="rb-mono rb-muted">Belum ada proyek target terdaftar.</td>
+                                    <td colspan="12" style="text-align:center; padding:1.5rem;" class="rb-mono rb-muted">Belum ada proyek target terdaftar.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -587,6 +680,17 @@
                         <code class="rb-mono" style="font-size:.65rem; display:block; margin-bottom:.25rem;">POST /api/v1/external/audit</code>
                         <p class="rb-mono rb-muted" style="font-size:.62rem; margin:0;">Audit kepatuhan struktur, kata, dan referensi.</p>
                     </div>
+
+                    <div style="background:#FFFBEB; padding:.75rem; border:1px solid #D97706;">
+                        <div class="rb-mono" style="font-weight:700; font-size:.7rem; color:#92400E; margin-bottom:.25rem;">
+                            5. DAFTAR MANDIRI (SELF-REGISTER)
+                        </div>
+                        <code class="rb-mono" style="font-size:.65rem; display:block; margin-bottom:.25rem;">POST /api/v1/external/register</code>
+                        <p class="rb-mono rb-muted" style="font-size:.62rem; margin:0;">
+                            Proyek lain mendaftarkan diri &amp; menerima API key otomatis. Wajib header
+                            <code>X-Registration-Secret</code>.
+                        </p>
+                    </div>
                 </div>
 
                 <div style="background:#0F172A; color:#38BDF8; padding:.85rem; border:var(--rb-border); font-family:var(--rb-font-mono); font-size:.68rem; line-height:1.5;">
@@ -601,6 +705,20 @@
                     <div>]);</div>
                     <br>
                     <div>$data = $response-&gt;json(); // Kembalian respon ilmiah terstruktur dari Xishie</div>
+                </div>
+
+                <div style="background:#0F172A; color:#38BDF8; padding:.85rem; border:var(--rb-border); font-family:var(--rb-font-mono); font-size:.68rem; line-height:1.5; margin-top:1rem;">
+                    <div style="color:#FBBF24; font-weight:700; margin-bottom:.35rem;">// CONTOH DAFTAR MANDIRI DARI PROYEK LAIN (SELF-REGISTER)</div>
+                    <div>$registration = Http::withHeaders([</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;'X-Registration-Secret' =&gt; env('XISHIE_REGISTRATION_SECRET'),</div>
+                    <div>])-&gt;post('http://localhost:8208/api/v1/external/register', [</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;'name' =&gt; 'Agen Xishie (Laravel)',</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;'target_url' =&gt; config('app.url'),</div>
+                    <div>&nbsp;&nbsp;&nbsp;&nbsp;'allowed_models' =&gt; ['*'],</div>
+                    <div>]);</div>
+                    <br>
+                    <div>// Simpan $registration-&gt;json('client.api_key') ke config proyek Anda,</div>
+                    <div>// lalu status koneksi akan tampil dan terpantau di halaman ini.</div>
                 </div>
             </div>
         </div>

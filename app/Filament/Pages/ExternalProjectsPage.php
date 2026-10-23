@@ -54,6 +54,10 @@ class ExternalProjectsPage extends Page
 
     public string $targetUrl = 'http://localhost:8208/';
 
+    public string $webhookUrl = '';
+
+    public string $webhookSecret = '';
+
     public string $description = '';
 
     /**
@@ -138,6 +142,8 @@ class ExternalProjectsPage extends Page
     {
         $this->name = '';
         $this->targetUrl = 'http://localhost:8208/';
+        $this->webhookUrl = '';
+        $this->webhookSecret = '';
         $this->description = '';
         $this->selectedModels = ['*'];
         $this->showRegisterModal = true;
@@ -198,6 +204,8 @@ class ExternalProjectsPage extends Page
         $this->validate([
             'name' => ['required', 'string', 'min:3', 'max:128'],
             'targetUrl' => ['required', 'string', 'max:255'],
+            'webhookUrl' => ['nullable', 'string', 'max:255'],
+            'webhookSecret' => ['nullable', 'string', 'max:64'],
             'description' => ['nullable', 'string', 'max:500'],
             'selectedModels' => ['required', 'array', 'min:1'],
         ]);
@@ -209,6 +217,8 @@ class ExternalProjectsPage extends Page
             targetUrl: $this->targetUrl,
             allowedModels: $this->selectedModels,
             description: $this->description,
+            webhookUrl: $this->webhookUrl !== '' ? $this->webhookUrl : null,
+            webhookSecret: $this->webhookSecret !== '' ? $this->webhookSecret : null,
         );
 
         $manager->ping($client);
@@ -251,6 +261,36 @@ class ExternalProjectsPage extends Page
             $notif->body("Koneksi timeout setelah 3s ({$result['error']})")->warning();
         } else {
             $notif->body('Target offline atau gagal: '.($result['error'] ?? 'Unreachable'))->danger();
+        }
+
+        $notif->send();
+        $this->loadClients();
+    }
+
+    /**
+     * Handshake konektivitas mendalam dengan target proyek.
+     */
+    public function handshakeClient(int $clientId): void
+    {
+        $client = ExternalClient::find($clientId);
+        if ($client === null) {
+            return;
+        }
+
+        $manager = app(ExternalClientManager::class);
+        $result = $manager->handshake($client);
+
+        $state = $result['state'];
+        $title = "Handshake {$client->name}: {$state->label()}";
+
+        $notif = Notification::make()->title($title);
+
+        if ($state->isHealthy()) {
+            $notif->body("HTTP {$result['status_code']} · Latensi {$result['latency_ms']}ms · {$result['message']}")->success();
+        } elseif ($state->isReachable()) {
+            $notif->body("HTTP {$result['status_code']} · Latensi {$result['latency_ms']}ms · {$result['message']}")->warning();
+        } else {
+            $notif->body($result['message'] ?? 'Target tidak dapat dijangkau')->danger();
         }
 
         $notif->send();
@@ -376,6 +416,45 @@ class ExternalProjectsPage extends Page
             Notification::make()
                 ->title('Uji Inbound Gagal')
                 ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+
+        $this->loadClients();
+    }
+
+    /**
+     * Uji pengiriman webhook callback ke klien.
+     */
+    public function testWebhook(int $clientId): void
+    {
+        $client = ExternalClient::find($clientId);
+        if ($client === null) {
+            return;
+        }
+
+        $manager = app(ExternalClientManager::class);
+        $result = $manager->sendWebhook(
+            client: $client,
+            event: 'ping.test',
+            payload: [
+                'message' => "Uji coba webhook dari Xishie ke {$client->name}.",
+                'triggered_at' => now()->toIso8601String(),
+            ],
+        );
+
+        if ($result['status'] === 'skipped') {
+            Notification::make()->title('Webhook URL Belum Dikonfigurasi')->warning()->send();
+        } elseif ($result['status'] === 'delivered') {
+            Notification::make()
+                ->title('Webhook Terkirim!')
+                ->body("HTTP {$result['status_code']} · Latensi {$result['latency_ms']}ms (Signature SHA256 verified)")
+                ->success()
+                ->send();
+        } else {
+            Notification::make()
+                ->title('Webhook Gagal Terkirim')
+                ->body((string) ($result['error'] ?? 'Target tidak dapat dijangkau'))
                 ->danger()
                 ->send();
         }

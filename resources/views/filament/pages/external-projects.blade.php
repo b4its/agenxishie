@@ -398,6 +398,12 @@ $data = $response->json();</code></pre>
                                                 <button type="button" class="rb-button" style="padding:.15rem .45rem; font-size:.6rem;" wire:click="pingClient({{ $client['id'] }})" wire:loading.attr="disabled" title="Probe status koneksi target sekarang">
                                                     &#128225; Ping
                                                 </button>
+                                                <button type="button" class="rb-button" style="padding:.15rem .45rem; font-size:.6rem;" wire:click="handshakeClient({{ $client['id'] }})" wire:loading.attr="disabled" title="Handshake end-to-end verifikasi koneksi">
+                                                    &#129309; Handshake
+                                                </button>
+                                                <button type="button" class="rb-button" style="padding:.15rem .45rem; font-size:.6rem;" wire:click="testWebhook({{ $client['id'] }})" wire:loading.attr="disabled" title="Uji kirim webhook callback">
+                                                    &#128279; Hook
+                                                </button>
                                                 <button type="button" class="rb-button" style="padding:.15rem .45rem; font-size:.6rem;" wire:click="showDiagnostics({{ $client['id'] }})" title="Lihat riwayat probe &amp; log diagnostik">
                                                     &#128200; Log
                                                 </button>
