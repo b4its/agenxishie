@@ -392,6 +392,108 @@ class ExternalClientManager
     }
 
     /**
+     * Simulasi peer-review dan kritik ilmiah untuk klien eksternal.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function handleCritic(
+        ExternalClient $client,
+        string $text,
+        array $options = [],
+    ): array {
+        if (! $client->isModelAllowed('PeerCriticAgent') && ! $client->isModelAllowed('*')) {
+            throw new AuthorizationException("Klien '{$client->name}' tidak memiliki izin untuk layanan Peer Critic.");
+        }
+
+        $client->recordInboundHit('/api/v1/external/critic');
+
+        $wordCount = str_word_count(strip_tags($text));
+        $hasMethod = (bool) preg_match('/(metode|method|sample|data)/i', $text);
+        $hasAnalysis = (bool) preg_match('/(analisis|analysis|uji|test|statistical)/i', $text);
+
+        $strengths = [
+            'Topik penelitian relevan dengan diskursus ilmiah kontemporer.',
+            'Artikulasi rumusan masalah terstruktur dengan jelas.',
+        ];
+
+        $recommendations = [];
+        if (! $hasMethod) {
+            $recommendations[] = 'Perjelas desain penelitian, instrumen, dan pemilihan sampel.';
+        }
+        if (! $hasAnalysis) {
+            $recommendations[] = 'Tambahkan justification untuk teknik analisis data kuantitatif/kualitatif.';
+        }
+        if ($wordCount < 200) {
+            $recommendations[] = 'Perdalam tinjauan teori dan elaborasi argumentasi kritis.';
+        }
+
+        $score = count($recommendations) === 0 ? 8.8 : (count($recommendations) === 1 ? 7.5 : 6.0);
+        $verdict = match (true) {
+            $score >= 8.5 => 'ACCEPT_WITH_MINOR_REVISION',
+            $score >= 7.0 => 'MAJOR_REVISION',
+            default => 'REVISE_AND_RESUBMIT',
+        };
+
+        return [
+            'success' => true,
+            'client' => $client->name,
+            'score' => $score,
+            'verdict' => $verdict,
+            'strengths' => $strengths,
+            'recommendations' => $recommendations,
+            'word_count' => $wordCount,
+            'reviewed_at' => now()->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Format bibliografi / sitasi untuk klien eksternal.
+     *
+     * @param  array<int, array<string, mixed>>  $references
+     * @return array<string, mixed>
+     */
+    public function handleCitation(
+        ExternalClient $client,
+        array $references,
+        string $style = 'ieee',
+    ): array {
+        if (! $client->isModelAllowed('AcademicScribeAgent') && ! $client->isModelAllowed('GuidelineEngine') && ! $client->isModelAllowed('*')) {
+            throw new AuthorizationException("Klien '{$client->name}' tidak memiliki izin untuk layanan Sitasi.");
+        }
+
+        $client->recordInboundHit('/api/v1/external/citation');
+
+        $formatted = [];
+        $styleNormalized = strtolower($style);
+
+        foreach ($references as $index => $ref) {
+            $authors = is_array($ref['authors'] ?? null) ? implode(', ', $ref['authors']) : (string) ($ref['author'] ?? 'Anonim');
+            $year = (string) ($ref['year'] ?? date('Y'));
+            $title = (string) ($ref['title'] ?? 'Tanpa Judul');
+            $source = (string) ($ref['source'] ?? $ref['journal'] ?? 'Publikasi Ilmiah');
+
+            $num = $index + 1;
+            $formatted[] = match ($styleNormalized) {
+                'ieee' => "[{$num}] {$authors}, \"{$title},\" {$source}, {$year}.",
+                'apa', 'apa7' => "{$authors} ({$year}). {$title}. {$source}.",
+                'harvard' => "{$authors}, {$year}. {$title}. {$source}.",
+                'vancouver' => "{$num}. {$authors}. {$title}. {$source}; {$year}.",
+                default => "[{$num}] {$authors} ({$year}) {$title}. {$source}.",
+            };
+        }
+
+        return [
+            'success' => true,
+            'client' => $client->name,
+            'style' => strtoupper($style),
+            'total_references' => count($formatted),
+            'bibliography' => $formatted,
+            'formatted_at' => now()->toIso8601String(),
+        ];
+    }
+
+    /**
      * Normalisasi URL target dengan memastikan skema http/https.
      */
     private function normalizeUrl(string $url): string

@@ -175,6 +175,70 @@ class ExternalIntegrationApiController extends Controller
     }
 
     /**
+     * Review kritis / simulasi peer-review terhadap naskah.
+     */
+    public function critic(Request $request): JsonResponse
+    {
+        $client = $this->resolveClient($request);
+        if ($client instanceof JsonResponse) {
+            return $client;
+        }
+
+        $validated = $request->validate([
+            'text' => ['required', 'string', 'max:20000'],
+            'options' => ['nullable', 'array'],
+        ]);
+
+        try {
+            $result = $this->clientManager->handleCritic(
+                client: $client,
+                text: $validated['text'],
+                options: $validated['options'] ?? [],
+            );
+
+            return response()->json($result);
+        } catch (AuthorizationException $e) {
+            return response()->json(['error' => $e->getMessage()], 403);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => 'Gagal memproses kritik sejawat: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Format sitasi / bibliografi ke berbagai gaya selingkung.
+     */
+    public function citation(Request $request): JsonResponse
+    {
+        $client = $this->resolveClient($request);
+        if ($client instanceof JsonResponse) {
+            return $client;
+        }
+
+        $validated = $request->validate([
+            'references' => ['required', 'array', 'min:1'],
+            'style' => ['nullable', 'string', 'max:32'],
+        ]);
+
+        try {
+            $result = $this->clientManager->handleCitation(
+                client: $client,
+                references: $validated['references'],
+                style: $validated['style'] ?? 'ieee',
+            );
+
+            return response()->json($result);
+        } catch (AuthorizationException $e) {
+            return response()->json(['error' => $e->getMessage()], 403);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => 'Gagal memformat sitasi: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Ekstrak dan validasi API key dari header request.
      */
     private function resolveClient(Request $request): ExternalClient|JsonResponse
