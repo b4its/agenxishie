@@ -21,6 +21,7 @@ use App\Models\ProjectRevision;
 use App\Models\ProjectStageRecord;
 use App\Models\UxKpiTelemetry;
 use App\Models\XishieProject;
+use App\Omnigensi\Agents\AcademicScribeAgent;
 use App\Omnigensi\Agents\PeerCriticAgent;
 use App\Omnigensi\Agents\RuleKeeperAgent;
 use App\Omnigensi\Agents\ScholarScoutAgent;
@@ -198,12 +199,85 @@ class AcademicWorkspacePage extends Page
         try {
             app(StageStateManager::class)->advance($project);
         } catch (\InvalidArgumentException $exception) {
-            Notification::make()->title('Tidak dapat lanjut').body($exception->getMessage())->warning()->send();
+            Notification::make()->title('Tidak dapat lanjut')->body($exception->getMessage())->warning()->send();
 
             return;
         }
 
-        Notification::make()->title('Tahap berikutnya dibuka')->success()->send();
+        $project->refresh();
+
+        // Otomatis susun draf lengkap untuk tahap baru agar tidak kosong.
+        $generated = $this->buildDraftForCurrentStage($project);
+
+        Notification::make()
+            ->title('Tahap berikutnya dibuka: '.$project->current_stage->label())
+            ->body($generated
+                ? 'Draf awal telah disusun otomatis ('.$generated.' sub-bab).'
+                : 'Klik "Susun Draf Lengkap" untuk menulis naskah tahap ini.')
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
+     * Susun draf LENGKAP untuk tahap aktif dalam satu aksi (tanpa klik manual
+     * per sub-bab). Menyiapkan referensi otomatis bila belum ada, lalu
+     * menulis seluruh sub-bab dan menghitung kepatuhan pedoman.
+     */
+    public function generateFullDraft(): void
+    {
+        $project = $this->getProject();
+
+        if ($project === null) {
+            return;
+        }
+
+        $sections = $this->buildDraftForCurrentStage($project);
+
+        Notification::make()
+            ->title($sections > 0 ? 'Draf lengkap disusun' : 'Belum ada konten yang dihasilkan')
+            ->body($sections > 0
+                ? $sections.' sub-bab ditulis untuk tahap '.$project->current_stage->label().'.'
+                : 'Backend Omnigensi tidak tersedia atau pedoman kosong.')
+            ->when($sections > 0, fn ($n) => $n->success(), fn ($n) => $n->warning())
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
+     * Tulis seluruh sub-bab tahap aktif memakai agen (bukan langkah mikro HITL).
+     *
+     * @return int jumlah sub-bab yang dihasilkan
+     */
+    private function buildDraftForCurrentStage(XishieProject $project): int
+    {
+        $stage = app(XishieSupervisor::class)->ensureStage($project, $project->current_stage);
+
+        // 1) Pastikan ada referensi agar sitasi & matriks literatur terisi.
+        if ($project->references()->count() === 0) {
+            $scout = app(ScholarScoutAgent::class);
+            $candidates = $scout->suggestReferences($project, 4);
+
+            if ($candidates !== []) {
+                $scout->ingestCandidates($project, $candidates);
+            }
+        }
+
+        // 2) Tulis SEMUA sub-bab (context tanpa single_section => draf penuh).
+        $scribe = app(AcademicScribeAgent::class)->run($project, $stage, ['preserve_existing' => true]);
+
+        // 3) Hitung kepatuhan pedoman & simpan.
+        $audit = app(RuleKeeperAgent::class)->run($project, $stage);
+        $stage->forceFill([
+            'compliance_score' => $audit->complianceScore,
+            'compiled_content' => $stage->compile(),
+        ])->save();
+
+        app(UxKpiTelemetryService::class)->recordProjectSnapshot($project->refresh());
+
+        return count((array) ($scribe->outputPayload['sections'] ?? []));
     }
 
     public function approvePendingSection(): void

@@ -216,6 +216,14 @@
                         <span>EDITOR NASKAH — {{ strtoupper($stageLabel) }}</span>
                         <span class="rb-window__controls"><span class="rb-window__control">-</span><span class="rb-window__control">&#9633;</span><span class="rb-window__control">&#215;</span></span>
                     </div>
+                    {{-- Toolbar editor: susun draf lengkap / edit manual --}}
+                    <div style="display:flex; gap:.4rem; flex-wrap:wrap; padding:.5rem .75rem; border-bottom:var(--rb-border-soft);">
+                        <button type="button" class="rb-button rb-button--primary" wire:click="generateFullDraft" wire:loading.attr="disabled" wire:target="generateFullDraft">
+                            <span wire:loading.remove wire:target="generateFullDraft">&#9889; Susun Draf Lengkap</span>
+                            <span wire:loading wire:target="generateFullDraft">Menyusun…</span>
+                        </button>
+                        <button type="button" class="rb-button" x-on:click="$dispatch('open-manual-edit')" wire:loading.attr="disabled">&#9998; Edit Manual</button>
+                    </div>
                     <div class="rb-window__body">
                         @if ($pendingGate !== null)
                             <div class="rb-notice rb-notice--warn" style="margin-bottom:1rem;">
@@ -294,7 +302,18 @@
                                 </h3>
                                 <p>{{ $section['content'] ?? '' }}</p>
                             @empty
-                                <p class="rb-mono rb-muted" style="font-size:.75rem;">Naskah kosong. Mode Manual: tulis langsung, atau jalankan pipeline.</p>
+                                <div style="text-align:center; padding:1.5rem 1rem;">
+                                    <p class="rb-mono rb-soft" style="font-size:.82rem; margin:0 0 .35rem;">
+                                        Naskah tahap <strong>{{ $stageLabel }}</strong> belum disusun.
+                                    </p>
+                                    <p class="rb-mono rb-muted" style="font-size:.7rem; margin:0 0 .9rem;">
+                                        Susun seluruh sub-bab secara otomatis dari pedoman &amp; referensi dalam satu klik.
+                                    </p>
+                                    <button type="button" class="rb-button rb-button--primary" wire:click="generateFullDraft" wire:loading.attr="disabled" wire:target="generateFullDraft">
+                                        <span wire:loading.remove wire:target="generateFullDraft">&#9889; Susun Draf Lengkap Sekarang</span>
+                                        <span wire:loading wire:target="generateFullDraft">Menyusun naskah… (mohon tunggu)</span>
+                                    </button>
+                                </div>
                             @endforelse
                         </div>
                     </div>
