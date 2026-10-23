@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Models\AcademicVenue;
+use App\Models\PlatformRecommendation;
+use App\Models\XishieProject;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
 /**
@@ -31,6 +34,89 @@ class VenueCatalogPage extends Page
     public string $scope = '';
 
     public string $tier = '';
+
+    public ?int $projectId = null;
+
+    public function mount(): void
+    {
+        $this->projectId = request()->query('project') !== null
+            ? (int) request()->query('project')
+            : XishieProject::query()->latest('updated_at')->value('id');
+    }
+
+    /**
+     * Opsi proyek terdaftar.
+     *
+     * @return array<int, string>
+     */
+    public function projectOptions(): array
+    {
+        return XishieProject::query()
+            ->latest('updated_at')
+            ->pluck('title', 'id')
+            ->all();
+    }
+
+    /**
+     * ID venue yang sedang menjadi target terpilih proyek aktif.
+     */
+    public function selectedVenueId(): ?int
+    {
+        if ($this->projectId === null) {
+            return null;
+        }
+
+        return PlatformRecommendation::query()
+            ->where('project_id', $this->projectId)
+            ->where('is_selected', true)
+            ->value('academic_venue_id');
+    }
+
+    /**
+     * Jadikan venue ini sebagai target jurnal proyek aktif.
+     */
+    public function setAsProjectTarget(int $venueId): void
+    {
+        $project = $this->projectId !== null ? XishieProject::find($this->projectId) : null;
+        if ($project === null) {
+            Notification::make()
+                ->title('Pilih proyek terlebih dahulu')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $venue = AcademicVenue::find($venueId);
+        if ($venue === null) {
+            return;
+        }
+
+        $project->recommendations()->update(['is_selected' => false]);
+
+        $rec = PlatformRecommendation::query()->firstOrNew([
+            'project_id' => $project->id,
+            'academic_venue_id' => $venue->id,
+        ]);
+
+        $rec->journal_name = $venue->journal_name;
+        $rec->publisher = $venue->publisher;
+        $rec->index_tier = $venue->index_tier;
+        $rec->match_score = $rec->match_score ?? 85.00;
+        $rec->scope_reasoning = $rec->scope_reasoning ?? 'Dipilih langsung oleh peneliti melalui Venue Catalog.';
+        $rec->apc_estimate = $venue->apc_estimate;
+        $rec->submission_url = $venue->submission_url;
+        $rec->is_selected = true;
+        $rec->save();
+
+        Notification::make()
+            ->title('Target Jurnal Ditetapkan')
+            ->body("Jurnal '{$venue->journal_name}' ditetapkan sebagai target untuk {$project->title}.")
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
 
     /**
      * Opsi cakupan (scope_type) dari data aktual.
@@ -118,6 +204,8 @@ class VenueCatalogPage extends Page
             'scopeOptions' => $this->scopeOptions(),
             'tierOptions' => $this->tierOptions(),
             'totalVenues' => AcademicVenue::query()->where('is_active', true)->count(),
+            'projectOptions' => $this->projectOptions(),
+            'selectedVenueId' => $this->selectedVenueId(),
         ];
     }
 }

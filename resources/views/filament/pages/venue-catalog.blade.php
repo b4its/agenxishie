@@ -7,7 +7,16 @@
                 <span class="rb-window__controls"><span class="rb-window__control">-</span><span class="rb-window__control">&#9633;</span><span class="rb-window__control">&#215;</span></span>
             </div>
             <div class="rb-window__body" style="display:flex; gap:.6rem; flex-wrap:wrap; align-items:flex-end;">
-                <div style="flex:1 1 16rem; min-width:12rem;">
+                <div style="flex:1 1 14rem; min-width:12rem;">
+                    <div class="rb-kpi-card__label" style="margin-bottom:.3rem;">PROYEK TARGET</div>
+                    <select class="rb-select" wire:model.live="projectId">
+                        <option value="">-- Pilih Proyek --</option>
+                        @foreach ($projectOptions as $pId => $pTitle)
+                            <option value="{{ $pId }}">{{ \Illuminate\Support\Str::limit($pTitle, 36) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div style="flex:1 1 14rem; min-width:12rem;">
                     <div class="rb-kpi-card__label" style="margin-bottom:.3rem;">CARI</div>
                     <input type="text" class="rb-input" placeholder="&#128269; Nama jurnal / penerbit / ruang lingkup…" wire:model.live.debounce.300ms="search" />
                 </div>
@@ -81,11 +90,29 @@
                                 </div>
                             </div>
 
-                            @if ($venue['submission_url'])
-                                <a href="{{ $venue['submission_url'] }}" target="_blank" rel="noopener" class="rb-button" style="font-size:.62rem;">
-                                    &#8599; Situs Submission
-                                </a>
-                            @endif
+                            <div style="display:flex; gap:.35rem; align-items:center; flex-wrap:wrap;">
+                                @if ($venue['submission_url'])
+                                    <a href="{{ $venue['submission_url'] }}" target="_blank" rel="noopener" class="rb-button" style="font-size:.62rem;">
+                                        &#8599; Situs Submission
+                                    </a>
+                                @endif
+
+                                @if ($projectId !== null)
+                                    @if ($selectedVenueId === $venue['id'])
+                                        <span class="rb-badge rb-badge--pass" style="font-size:.62rem;">&#10003; TARGET AKTIF</span>
+                                    @else
+                                        <button
+                                            type="button"
+                                            class="rb-button rb-button--primary"
+                                            style="font-size:.62rem; padding:.25rem .5rem;"
+                                            wire:click="setAsProjectTarget({{ $venue['id'] }})"
+                                            title="Tetapkan jurnal ini sebagai target proyek aktif"
+                                        >
+                                            &#9733; Jadikan Target
+                                        </button>
+                                    @endif
+                                @endif
+                            </div>
                         </div>
                     </div>
                 @endforeach
