@@ -10,11 +10,13 @@ use App\Domain\Publication\ManuscriptExporter;
 use App\Domain\Research\LiteratureMatrixBuilder;
 use App\Domain\Research\ReferenceImportService;
 use App\Domain\Revision\Enums\RevisionStatus;
+use App\Domain\Workspace\Enums\ControlMode;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Domain\Workspace\Enums\UxKpiMetric;
 use App\Domain\Workspace\StageStateManager;
 use App\Domain\Workspace\UxKpiTelemetryService;
 use App\Filament\Pages\AcademicWorkspacePage;
+use App\Filament\Pages\AiChatPage;
 use App\Filament\Pages\PlatformMatcherPage;
 use App\Filament\Pages\ProjectsPage;
 use App\Filament\Pages\SmartRevisionCenterPage;
@@ -534,4 +536,83 @@ it('renders live terminal logs with project filtering', function (): void {
     Livewire::test(AgentActivityTerminalWidget::class, ['projectId' => null])
         ->assertSuccessful()
         ->assertSee('Semua Proyek');
+});
+
+it('exports AI chat transcript to Markdown format', function (): void {
+    $component = Livewire::test(AiChatPage::class)
+        ->set('messages', [
+            ['role' => 'user', 'content' => 'Bagaimana metodologi penelitian kuantitatif?'],
+            ['role' => 'assistant', 'content' => 'Metodologi kuantitatif berfokus pada data numerik.', 'model' => 'gpt-4o', 'latency_ms' => 120],
+        ]);
+
+    $component->call('exportChat')
+        ->assertSuccessful();
+});
+
+it('exports project references as BibTeX from academic workspace', function (): void {
+    $project = makeProject();
+    seedReferences($project);
+
+    Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id])
+        ->call('exportReferencesBibtex')
+        ->assertSuccessful();
+});
+
+it('filters projects by control mode and stage in projects page', function (): void {
+    makeProject(['title' => 'Alpha Auto Draft', 'control_mode' => ControlMode::AUTOMATION, 'current_stage' => ProjectStage::DRAFT]);
+    makeProject(['title' => 'Beta HITL Proposal', 'control_mode' => ControlMode::HITL, 'current_stage' => ProjectStage::PROPOSAL]);
+    makeProject(['title' => 'Gamma Manual Final', 'control_mode' => ControlMode::MANUAL, 'current_stage' => ProjectStage::FINAL]);
+
+    $component = Livewire::test(ProjectsPage::class);
+
+    // Filter mode automation.
+    $component->set('filterMode', 'automation');
+    $projects = collect($component->viewData('projects'));
+    expect($projects->every(fn ($p) => str_contains(strtolower($p['control_mode']), 'auto')))->toBeTrue();
+
+    // Filter stage proposal.
+    $component->set('filterMode', '');
+    $component->set('filterStage', 'proposal');
+    $projects = collect($component->viewData('projects'));
+    expect($projects->every(fn ($p) => strtolower($p['stage']) === 'proposal'))->toBeTrue();
+
+    // Reset filters.
+    $component->call('resetFilters');
+    expect($component->get('filterMode'))->toBe('')
+        ->and($component->get('filterStage'))->toBe('');
+});
+
+it('exports journal recommendations to CSV and Markdown from platform matcher', function (): void {
+    $project = makeProject(['title' => 'Recommendation Export Project']);
+    $venue = AcademicVenue::create([
+        'journal_name' => 'Jurnal Ilmiah Komputer',
+        'publisher' => 'Penerbit Riset',
+        'scope_type' => 'sinta',
+        'index_tier' => 'Sinta 1',
+        'field_of_study' => 'STEM',
+        'aims_and_scope' => 'Fokus pada komputasi',
+        'apc_estimate' => 0,
+        'is_active' => true,
+    ]);
+
+    PlatformRecommendation::create([
+        'project_id' => $project->id,
+        'academic_venue_id' => $venue->id,
+        'journal_name' => $venue->journal_name,
+        'publisher' => $venue->publisher,
+        'index_tier' => $venue->index_tier,
+        'match_score' => 92.0,
+        'scope_reasoning' => 'Kesesuaian tinggi',
+        'apc_estimate' => 0,
+        'submission_url' => 'http://example.com',
+        'is_selected' => true,
+    ]);
+
+    Livewire::test(PlatformMatcherPage::class, ['projectId' => $project->id])
+        ->call('exportRecommendations', 'csv')
+        ->assertSuccessful();
+
+    Livewire::test(PlatformMatcherPage::class, ['projectId' => $project->id])
+        ->call('exportRecommendations', 'markdown')
+        ->assertSuccessful();
 });
