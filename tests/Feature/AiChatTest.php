@@ -196,6 +196,20 @@ it('renders assistant replies as safe markdown html', function (): void {
         ->and($html)->toContain('<li>satu</li>');
 });
 
+it('renders GitHub-flavored markdown tables from the model', function (): void {
+    $component = Livewire\Livewire::test(AiChatPage::class);
+
+    $html = $component->instance()->markdownToHtml(
+        "| Hari | Kegiatan |\n|------|----------|\n| 1-2 | Finalisasi |\n| 3-4 | Rumusan masalah |"
+    );
+
+    expect($html)->toContain('<table>')
+        ->and($html)->toContain('<thead>')
+        ->and($html)->toContain('<th>Hari</th>')
+        ->and($html)->toContain('<td>Finalisasi</td>')
+        ->and($html)->toContain('<td>Rumusan masalah</td>');
+});
+
 it('strips raw html from model markdown output', function (): void {
     $component = Livewire\Livewire::test(AiChatPage::class);
 

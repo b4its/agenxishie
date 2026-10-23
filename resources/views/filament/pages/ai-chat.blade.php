@@ -90,12 +90,50 @@
                 >
                     @forelse ($messages as $msg)
                         @if ($msg['role'] === 'user')
-                            <div style="margin-bottom:.9rem;">
-                                <div class="rb-terminal__agent" style="font-weight:700;">&#128100; YOU</div>
-                                <div style="white-space:pre-wrap;">{{ $msg['content'] }}</div>
+                            <div
+                                style="margin-bottom:.9rem;"
+                                x-data="{ copied: false, copyText(el) {
+                                    const sel = document.createRange(); sel.selectNodeContents(el);
+                                    const text = sel.toString();
+                                    const done = () => { copied = true; setTimeout(() => copied = false, 1500); };
+                                    if (navigator.clipboard && window.isSecureContext) {
+                                        navigator.clipboard.writeText(text).then(done).catch(done);
+                                    } else {
+                                        const ta = document.createElement('textarea');
+                                        ta.value = text; document.body.appendChild(ta); ta.select();
+                                        try { document.execCommand('copy'); } catch (e) {}
+                                        document.body.removeChild(ta); done();
+                                    }
+                                } }"
+                            >
+                                <div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+                                    <div class="rb-terminal__agent" style="font-weight:700;">&#128100; YOU</div>
+                                    <button
+                                        type="button"
+                                        class="rb-terminal__time"
+                                        style="border:0; background:transparent; cursor:pointer; font-size:.62rem;"
+                                        title="Salin pesan"
+                                        x-on:click="copyText($refs.usermsg)"
+                                        x-text="copied ? '✓ tersalin' : '⧉ salin'"
+                                    >&#10697; salin</button>
+                                </div>
+                                <div x-ref="usermsg" style="white-space:pre-wrap;">{{ $msg['content'] }}</div>
                             </div>
                         @else
-                            <div style="margin-bottom:.9rem;" x-data="{ copied: false }">
+                            <div
+                                style="margin-bottom:.9rem;"
+                                x-data="{ copied: false, copiedMd: false, copyRaw(text, flag) {
+                                    const done = () => { this[flag] = true; setTimeout(() => this[flag] = false, 1500); };
+                                    if (navigator.clipboard && window.isSecureContext) {
+                                        navigator.clipboard.writeText(text).then(done).catch(done);
+                                    } else {
+                                        const ta = document.createElement('textarea');
+                                        ta.value = text; document.body.appendChild(ta); ta.select();
+                                        try { document.execCommand('copy'); } catch (e) {}
+                                        document.body.removeChild(ta); done();
+                                    }
+                                } }"
+                            >
                                 <div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
                                     <div style="font-weight:700; color:var(--rb-terminal-fg);">
                                         &#129302; {{ $msg['model'] ?? 'ASSISTANT' }}
@@ -104,17 +142,27 @@
                                         @endif
                                     </div>
                                     @unless (str_starts_with($msg['content'], '[Gagal]'))
-                                        <button
-                                            type="button"
-                                            class="rb-terminal__time"
-                                            style="border:0; background:transparent; cursor:pointer; font-size:.62rem;"
-                                            title="Salin jawaban (Markdown)"
-                                            x-on:click="navigator.clipboard.writeText(@js($msg['content'])); copied = true; setTimeout(() => copied = false, 1500);"
-                                            x-text="copied ? '✓ tersalin' : '⧉ salin'"
-                                        >&#10697; salin</button>
+                                        <span style="display:inline-flex; gap:.5rem; align-items:center;">
+                                            <button
+                                                type="button"
+                                                class="rb-terminal__time"
+                                                style="border:0; background:transparent; cursor:pointer; font-size:.62rem;"
+                                                title="Salin teks (tanpa format)"
+                                                x-on:click="copyRaw($refs.body.innerText, 'copied')"
+                                                x-text="copied ? '✓ tersalin' : '⧉ salin teks'"
+                                            >&#10697; salin teks</button>
+                                            <button
+                                                type="button"
+                                                class="rb-terminal__time"
+                                                style="border:0; background:transparent; cursor:pointer; font-size:.62rem;"
+                                                title="Salin Markdown mentah"
+                                                x-on:click="copyRaw(@js($msg['content']), 'copiedMd')"
+                                                x-text="copiedMd ? '✓ .md' : '{ } .md'"
+                                            >{ } .md</button>
+                                        </span>
                                     @endunless
                                 </div>
-                                <div class="rb-chat-md {{ str_starts_with($msg['content'], '[Gagal]') ? 'rb-chat-md--error' : '' }}">
+                                <div x-ref="body" class="rb-chat-md {{ str_starts_with($msg['content'], '[Gagal]') ? 'rb-chat-md--error' : '' }}">
                                     {!! $this->markdownToHtml($msg['content']) !!}
                                 </div>
                             </div>
