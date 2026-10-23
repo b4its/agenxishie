@@ -29,10 +29,10 @@ namespace App\Domain\Publication;
 final class NaskahRichModel
 {
     /** @var array<int, string> */
-    public const TEXT_TYPES = ['heading', 'paragraph', 'quote', 'bullet', 'numbered', 'footnote-ref'];
+    public const TEXT_TYPES = ['heading', 'paragraph', 'quote', 'bullet', 'numbered', 'footnote-ref', 'callout'];
 
     /** @var array<int, string> */
-    public const ALL_TYPES = ['heading', 'paragraph', 'quote', 'bullet', 'numbered', 'table', 'image', 'pagebreak', 'footnote-ref'];
+    public const ALL_TYPES = ['heading', 'paragraph', 'quote', 'bullet', 'numbered', 'table', 'image', 'pagebreak', 'footnote-ref', 'callout'];
 
     /**
      * Normalisasi satu set blok (termasuk migrasi dokumen lama).
@@ -105,6 +105,8 @@ final class NaskahRichModel
             'spacingAfter' => max(0.0, min(72.0, (float) ($block['spacingAfter'] ?? 0))),
             'lineSpacing' => max(0.8, min(3.0, (float) ($block['lineSpacing'] ?? 1.0))),
             'pageBreak' => (bool) ($block['pageBreak'] ?? false),
+            'dropCap' => (bool) ($block['dropCap'] ?? false),
+            'calloutType' => in_array($block['calloutType'] ?? '', ['info', 'warning', 'tip', 'note', 'success'], true) ? $block['calloutType'] : 'info',
         ];
     }
 
@@ -316,6 +318,92 @@ final class NaskahRichModel
         }
 
         return $this->applyInlineFormat($block, 0, mb_strlen($text), $attribute);
+    }
+
+    /**
+     * Terapkan auto-correct tipografi pada teks (LibreOffice AutoCorrect).
+     *
+     * @return array{text: string, count: int}
+     */
+    public function autoCorrect(string $text): array
+    {
+        $replacements = [
+            '/--/' => '—',
+            '/->/' => '→',
+            '/<-/' => '←',
+            '/=>/' => '⇒',
+            '/\([cC]\)/' => '©',
+            '/\([rR]\)/' => '®',
+            '/\([tT][mM]\)/' => '™',
+            '/\b1\/2\b/' => '½',
+            '/\b1\/4\b/' => '¼',
+            '/\b3\/4\b/' => '¾',
+            '/\+\/-/' => '±',
+            '/\.{3}/' => '…',
+        ];
+
+        $count = 0;
+        foreach ($replacements as $pattern => $replacement) {
+            $text = (string) preg_replace($pattern, $replacement, $text, -1, $matches);
+            $count += $matches;
+        }
+
+        return ['text' => $text, 'count' => $count];
+    }
+
+    /**
+     * Hitung formula pada kolom tabel (SUM, AVERAGE, MIN, MAX - LibreOffice Table Calculation).
+     *
+     * @param  array<string, mixed>  $tableBlock
+     * @return array<string, mixed>
+     */
+    public function calculateTableColumn(array $tableBlock, int $colIndex, string $formula = 'sum'): array
+    {
+        $rows = (array) ($tableBlock['table']['rows'] ?? []);
+        if ($rows === []) {
+            return $tableBlock;
+        }
+
+        $values = [];
+        $hasHeader = (bool) ($tableBlock['table']['header'] ?? true);
+        $startRow = $hasHeader ? 1 : 0;
+
+        for ($r = $startRow; $r < count($rows); $r++) {
+            $cellText = trim((string) ($rows[$r][$colIndex]['text'] ?? ''));
+            $cleanNum = str_replace([',', ' '], ['', ''], $cellText);
+            if (is_numeric($cleanNum)) {
+                $values[] = (float) $cleanNum;
+            }
+        }
+
+        if ($values === []) {
+            return $tableBlock;
+        }
+
+        $result = match (strtolower($formula)) {
+            'avg', 'average' => count($values) > 0 ? (array_sum($values) / count($values)) : 0,
+            'min' => min($values),
+            'max' => max($values),
+            default => array_sum($values),
+        };
+
+        $colsCount = count((array) ($rows[0] ?? []));
+        $newRow = [];
+        for ($c = 0; $c < $colsCount; $c++) {
+            if ($c === 0 && $colIndex > 0) {
+                $newRow[] = ['text' => strtoupper($formula), 'runs' => []];
+            } elseif ($c === $colIndex) {
+                $formatted = fmod($result, 1.0) === 0.0 ? (string) (int) $result : number_format($result, 2);
+                $newRow[] = ['text' => $formatted, 'runs' => []];
+            } else {
+                $newRow[] = ['text' => '', 'runs' => []];
+            }
+        }
+
+        $rows[] = $newRow;
+        $tableBlock['table']['rows'] = $rows;
+
+        return $tableBlock;
     }
 
     /**

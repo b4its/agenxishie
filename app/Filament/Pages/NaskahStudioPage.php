@@ -214,6 +214,30 @@ class NaskahStudioPage extends Page
      */
     public array $mergePreviews = [];
 
+    public string $commandSearch = '';
+
+    public string $calloutType = 'info';
+
+    /**
+     * Versi tersimpan / snapshot naskah (LibreOffice File Versions).
+     *
+     * @var array<int, array{id: string, label: string, at: string, count: int, blocks: array<int, array<string, mixed>>}>
+     */
+    public array $snapshots = [];
+
+    public string $snapshotLabel = '';
+
+    /**
+     * Metadata dokumen (Author, Subject, Keywords).
+     *
+     * @var array{author: string, subject: string, keywords: string}
+     */
+    public array $metadata = [
+        'author' => '',
+        'subject' => '',
+        'keywords' => '',
+    ];
+
     // ===== Xishie Assistant =====
     public bool $assistantOpen = false;
 
@@ -358,6 +382,8 @@ class NaskahStudioPage extends Page
         $this->revisions = $document->revisionsList();
         $this->pageSetup = array_merge($this->pageSetup, (array) ($document->page_setup ?? []));
         $this->styleMeta = array_merge($this->styleMeta, (array) ($document->style_meta ?? []));
+        $this->snapshots = (array) ($document->style_meta['snapshots'] ?? []);
+        $this->metadata = array_merge($this->metadata, (array) ($document->style_meta['metadata'] ?? []));
         $this->lastSavedAt = $document->last_saved_at?->diffForHumans();
         $this->dirty = false;
     }
@@ -1470,6 +1496,11 @@ class NaskahStudioPage extends Page
         $blocks = $this->model->normalize($this->blocks);
         $wordCount = $this->model->countWords($blocks);
 
+        $styleMeta = array_merge($this->styleMeta, [
+            'snapshots' => $this->snapshots,
+            'metadata' => $this->metadata,
+        ]);
+
         $data = [
             'title' => trim($this->docTitle) !== '' ? trim($this->docTitle) : 'Dokumen Tanpa Judul',
             'source_type' => in_array($this->sourceType, [NaskahDocument::SOURCE_LOCAL, NaskahDocument::SOURCE_PROJECT], true) ? $this->sourceType : NaskahDocument::SOURCE_LOCAL,
@@ -1480,7 +1511,7 @@ class NaskahStudioPage extends Page
             'comments' => $this->comments,
             'revisions' => $this->revisions,
             'page_setup' => $this->pageSetup,
-            'style_meta' => $this->styleMeta,
+            'style_meta' => $styleMeta,
             'word_count' => $wordCount,
             'last_saved_at' => now(),
             'user_id' => Auth::id(),
@@ -1759,6 +1790,240 @@ class NaskahStudioPage extends Page
             .'Untuk perintah berbasis proyek (/sitasi, /cek-gap, /cek-pedoman), muat dulu naskah dari sebuah proyek.';
     }
 
+    // =====================================================================
+    // Perintah & Wordcraft Command Registry
+    // =====================================================================
+
+    /**
+     * @return array<int, array{id: string, label: string, category: string, icon: string, shortcut?: string}>
+     */
+    public function commands(): array
+    {
+        return [
+            ['id' => 'file.new', 'label' => 'Dokumen Baru', 'category' => 'Berkas', 'icon' => '📄', 'shortcut' => 'Ctrl+N'],
+            ['id' => 'file.save', 'label' => 'Simpan Naskah', 'category' => 'Berkas', 'icon' => '💾', 'shortcut' => 'Ctrl+S'],
+            ['id' => 'file.export.docx', 'label' => 'Ekspor ke Microsoft Word (.docx)', 'category' => 'Ekspor', 'icon' => '📝'],
+            ['id' => 'file.export.odt', 'label' => 'Ekspor ke LibreOffice Writer (.odt)', 'category' => 'Ekspor', 'icon' => '📖'],
+            ['id' => 'file.export.html', 'label' => 'Ekspor ke HTML Cetak', 'category' => 'Ekspor', 'icon' => '🌐'],
+            ['id' => 'file.export.latex', 'label' => 'Ekspor ke LaTeX (.tex)', 'category' => 'Ekspor', 'icon' => '🔣'],
+            ['id' => 'file.export.rtf', 'label' => 'Ekspor ke RTF', 'category' => 'Ekspor', 'icon' => '📄'],
+            ['id' => 'file.export.md', 'label' => 'Ekspor ke Markdown', 'category' => 'Ekspor', 'icon' => '📑'],
+            ['id' => 'file.export.txt', 'label' => 'Ekspor ke Teks Polos', 'category' => 'Ekspor', 'icon' => '📃'],
+            ['id' => 'file.stats', 'label' => 'Statistik & Skor Keterbacaan', 'category' => 'Berkas', 'icon' => '📊'],
+            ['id' => 'file.pagesetup', 'label' => 'Pengaturan Margin & Kertas', 'category' => 'Tata Letak', 'icon' => '⚙️'],
+            ['id' => 'file.properties', 'label' => 'Properti Dokumen & Metadata', 'category' => 'Berkas', 'icon' => 'ℹ️'],
+            ['id' => 'edit.undo', 'label' => 'Urungkan (Undo)', 'category' => 'Sunting', 'icon' => '↩️', 'shortcut' => 'Ctrl+Z'],
+            ['id' => 'edit.redo', 'label' => 'Ulangi (Redo)', 'category' => 'Sunting', 'icon' => '↪️', 'shortcut' => 'Ctrl+Y'],
+            ['id' => 'edit.copy_format', 'label' => 'Sapu Format (Salin Gaya)', 'category' => 'Papan Klip', 'icon' => '🖌️'],
+            ['id' => 'edit.paste_format', 'label' => 'Terapkan Format Tersalin', 'category' => 'Papan Klip', 'icon' => '📋'],
+            ['id' => 'edit.find', 'label' => 'Cari dan Ganti', 'category' => 'Sunting', 'icon' => '🔍', 'shortcut' => 'Ctrl+F'],
+            ['id' => 'edit.autocorrect', 'label' => 'Jalankan Auto-Correct Tipografi', 'category' => 'Sunting', 'icon' => '✨'],
+            ['id' => 'format.bold', 'label' => 'Huruf Tebal (Bold)', 'category' => 'Format', 'icon' => 'B', 'shortcut' => 'Ctrl+B'],
+            ['id' => 'format.italic', 'label' => 'Huruf Miring (Italic)', 'category' => 'Format', 'icon' => 'I', 'shortcut' => 'Ctrl+I'],
+            ['id' => 'format.underline', 'label' => 'Garis Bawah (Underline)', 'category' => 'Format', 'icon' => 'U', 'shortcut' => 'Ctrl+U'],
+            ['id' => 'format.strike', 'label' => 'Coret (Strikethrough)', 'category' => 'Format', 'icon' => 'S'],
+            ['id' => 'format.clear', 'label' => 'Bersihkan Semua Format', 'category' => 'Format', 'icon' => '🧹'],
+            ['id' => 'format.align.left', 'label' => 'Rata Kiri', 'category' => 'Paragraf', 'icon' => '⬅️', 'shortcut' => 'Ctrl+L'],
+            ['id' => 'format.align.center', 'label' => 'Rata Tengah', 'category' => 'Paragraf', 'icon' => '↔️', 'shortcut' => 'Ctrl+E'],
+            ['id' => 'format.align.right', 'label' => 'Rata Kanan', 'category' => 'Paragraf', 'icon' => '➡️', 'shortcut' => 'Ctrl+R'],
+            ['id' => 'format.align.justify', 'label' => 'Rata Kanan-Kiri (Justify)', 'category' => 'Paragraf', 'icon' => '↕️', 'shortcut' => 'Ctrl+J'],
+            ['id' => 'insert.heading', 'label' => 'Sisipkan Judul Bagian', 'category' => 'Sisipkan', 'icon' => 'H'],
+            ['id' => 'insert.paragraph', 'label' => 'Sisipkan Paragraf', 'category' => 'Sisipkan', 'icon' => 'P'],
+            ['id' => 'insert.quote', 'label' => 'Sisipkan Kutipan', 'category' => 'Sisipkan', 'icon' => '“'],
+            ['id' => 'insert.table', 'label' => 'Sisipkan Tabel', 'category' => 'Sisipkan', 'icon' => '⊞'],
+            ['id' => 'insert.image', 'label' => 'Sisipkan Gambar', 'category' => 'Sisipkan', 'icon' => '🖼️'],
+            ['id' => 'insert.link', 'label' => 'Sisipkan Tautan (Link)', 'category' => 'Sisipkan', 'icon' => '🔗', 'shortcut' => 'Ctrl+K'],
+            ['id' => 'insert.footnote', 'label' => 'Sisipkan Catatan Kaki', 'category' => 'Sisipkan', 'icon' => '⚓'],
+            ['id' => 'insert.pagebreak', 'label' => 'Sisipkan Pemisah Halaman', 'category' => 'Sisipkan', 'icon' => '✂️', 'shortcut' => 'Ctrl+Enter'],
+            ['id' => 'insert.callout', 'label' => 'Sisipkan Kotak Sorotan (Callout)', 'category' => 'Sisipkan', 'icon' => '💡'],
+            ['id' => 'insert.toc', 'label' => 'Buat / Perbarui Daftar Isi', 'category' => 'Referensi', 'icon' => '☰'],
+            ['id' => 'insert.bibliography', 'label' => 'Sisipkan Daftar Pustaka Proyek', 'category' => 'Referensi', 'icon' => '📚'],
+            ['id' => 'review.spellcheck', 'label' => 'Pemeriksaan Ejaan Kata', 'category' => 'Peninjauan', 'icon' => '✓'],
+            ['id' => 'review.thesaurus', 'label' => 'Tesaurus Sinonim Akademik', 'category' => 'Peninjauan', 'icon' => '📖'],
+            ['id' => 'review.track_changes', 'label' => 'Toggle Lacak Perubahan (Track Changes)', 'category' => 'Peninjauan', 'icon' => '👁️'],
+            ['id' => 'review.accept_all', 'label' => 'Terima Semua Revisi', 'category' => 'Peninjauan', 'icon' => '✔'],
+            ['id' => 'review.reject_all', 'label' => 'Tolak Semua Revisi', 'category' => 'Peninjauan', 'icon' => '✖'],
+            ['id' => 'ai.elaborate', 'label' => 'Kembangkan Gagasan Teks (AI)', 'category' => 'Wordcraft AI', 'icon' => '⚡'],
+            ['id' => 'ai.shorten', 'label' => 'Padatkan Teks (AI)', 'category' => 'Wordcraft AI', 'icon' => '✂️'],
+            ['id' => 'ai.improve', 'label' => 'Perbaiki Gaya Akademik (AI)', 'category' => 'Wordcraft AI', 'icon' => '✨'],
+            ['id' => 'ai.continue', 'label' => 'Lanjutkan Naskah Otomatis (AI)', 'category' => 'Wordcraft AI', 'icon' => '➕'],
+            ['id' => 'view.dark_mode', 'label' => 'Ganti Mode Gelap / Terang', 'category' => 'Tampilan', 'icon' => '◐'],
+            ['id' => 'view.focus', 'label' => 'Mode Fokus / Bebas Gangguan', 'category' => 'Tampilan', 'icon' => '🎯'],
+            ['id' => 'view.ruler', 'label' => 'Tampilkan / Sembunyikan Penggaris', 'category' => 'Tampilan', 'icon' => '📏'],
+            ['id' => 'view.navigator', 'label' => 'Tampilkan / Sembunyikan Navigator', 'category' => 'Tampilan', 'icon' => '🧭'],
+            ['id' => 'view.shortcuts', 'label' => 'Daftar Tombol Pintas (Shortcuts)', 'category' => 'Bantuan', 'icon' => '⌨️', 'shortcut' => '?'],
+        ];
+    }
+
+    public function executeCommand(string $commandId, array $args = []): void
+    {
+        match ($commandId) {
+            'file.new' => $this->newDocument(),
+            'file.save' => $this->save(),
+            'file.export.docx' => $this->export('docx'),
+            'file.export.odt' => $this->export('odt'),
+            'file.export.html' => $this->export('html'),
+            'file.export.latex' => $this->export('latex'),
+            'file.export.rtf' => $this->export('rtf'),
+            'file.export.md' => $this->export('md'),
+            'file.export.txt' => $this->export('txt'),
+            'file.stats' => $this->openDialog('stats'),
+            'file.pagesetup' => $this->openDialog('pagesetup'),
+            'file.properties' => $this->openDialog('properties'),
+            'edit.undo' => $this->undo(),
+            'edit.redo' => $this->redo(),
+            'edit.copy_format' => $this->copyFormat($this->activeBlock),
+            'edit.paste_format' => $this->pasteFormat($this->activeBlock),
+            'edit.find' => $this->openDialog('find'),
+            'edit.autocorrect' => $this->runAutoCorrect(),
+            'format.bold' => $this->formatInline('bold'),
+            'format.italic' => $this->formatInline('italic'),
+            'format.underline' => $this->formatInline('underline'),
+            'format.strike' => $this->formatInline('strike'),
+            'format.clear' => $this->clearFormatting(),
+            'format.align.left' => $this->formatParagraph('align', 'left'),
+            'format.align.center' => $this->formatParagraph('align', 'center'),
+            'format.align.right' => $this->formatParagraph('align', 'right'),
+            'format.align.justify' => $this->formatParagraph('align', 'justify'),
+            'insert.heading' => $this->addBlock('heading'),
+            'insert.paragraph' => $this->addBlock('paragraph'),
+            'insert.quote' => $this->addBlock('quote'),
+            'insert.table' => $this->openDialog('table'),
+            'insert.image' => $this->openDialog('image'),
+            'insert.link' => $this->openDialog('link'),
+            'insert.footnote' => $this->openDialog('footnote'),
+            'insert.pagebreak' => $this->insertPageBreak(),
+            'insert.callout' => $this->insertCallout((string) ($args['type'] ?? 'info')),
+            'insert.toc' => $this->insertTableOfContents(),
+            'insert.bibliography' => $this->insertBibliography(),
+            'review.spellcheck' => $this->runSpellCheck(),
+            'review.thesaurus' => $this->openDialog('thesaurus'),
+            'review.track_changes' => $this->trackChanges = ! $this->trackChanges,
+            'review.accept_all' => $this->acceptAllRevisions(),
+            'review.reject_all' => $this->rejectAllRevisions(),
+            'ai.elaborate' => $this->aiElaborateBlock($this->activeBlock),
+            'ai.shorten' => $this->aiShortenBlock($this->activeBlock),
+            'ai.improve' => $this->aiImproveBlock($this->activeBlock),
+            'ai.continue' => $this->aiContinueStory($this->activeBlock),
+            'view.dark_mode' => $this->toggleDarkMode(),
+            'view.focus' => $this->setViewMode($this->viewMode === 'read' ? 'print' : 'read'),
+            'view.ruler' => $this->showRuler = ! $this->showRuler,
+            'view.navigator' => $this->showNavigation = ! $this->showNavigation,
+            'view.shortcuts' => $this->openDialog('shortcuts'),
+            default => null,
+        };
+
+        if ($this->dialog === 'palette') {
+            $this->dialog = '';
+        }
+    }
+
+    public function runAutoCorrect(): void
+    {
+        $this->pushUndo();
+        $total = 0;
+
+        foreach ($this->blocks as $i => $block) {
+            $text = (string) ($block['text'] ?? '');
+            if (trim($text) === '') {
+                continue;
+            }
+            $res = $this->model->autoCorrect($text);
+            if ($res['count'] > 0) {
+                $total += $res['count'];
+                $this->blocks[$i]['text'] = $res['text'];
+                $this->blocks[$i]['runs'] = [];
+            }
+        }
+
+        $this->dirty = true;
+        $this->notify('Auto-Correct diterapkan', $total > 0 ? "{$total} tanda tipografi diperbaiki otomatis." : 'Tidak ada tipografi yang perlu diganti.', 'success');
+    }
+
+    public function tableSumColumn(int $index, int $colIndex): void
+    {
+        if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+            return;
+        }
+
+        $this->pushUndo();
+        $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'sum');
+        $this->dirty = true;
+        $this->notify('Kalkulasi Tabel', "Kolom #{$colIndex} dijumlahkan.", 'success');
+    }
+
+    public function tableAverageColumn(int $index, int $colIndex): void
+    {
+        if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+            return;
+        }
+
+        $this->pushUndo();
+        $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'average');
+        $this->dirty = true;
+        $this->notify('Kalkulasi Tabel', "Rata-rata kolom #{$colIndex} dihitung.", 'success');
+    }
+
+    public function createSnapshot(?string $label = null): void
+    {
+        $label = trim((string) ($label ?: $this->snapshotLabel ?: ('Versi '.now()->translatedFormat('d M Y H:i'))));
+        $this->snapshots[] = [
+            'id' => (string) Str::uuid(),
+            'label' => $label,
+            'at' => now()->toIso8601String(),
+            'count' => count($this->blocks),
+            'blocks' => $this->blocks,
+        ];
+        $this->snapshotLabel = '';
+        $this->dirty = true;
+        $this->notify('Snapshot dibuat', "Versi '{$label}' disimpan dalam riwayat naskah.", 'success');
+    }
+
+    public function restoreSnapshot(int $snapshotIndex): void
+    {
+        if (! isset($this->snapshots[$snapshotIndex])) {
+            return;
+        }
+
+        $this->pushUndo();
+        $snapshot = $this->snapshots[$snapshotIndex];
+        $this->blocks = (array) $snapshot['blocks'];
+        $this->dirty = true;
+        $this->notify('Versi dipulihkan', "Naskah dikembalikan ke: {$snapshot['label']}", 'info');
+    }
+
+    public function deleteSnapshot(int $snapshotIndex): void
+    {
+        if (! isset($this->snapshots[$snapshotIndex])) {
+            return;
+        }
+
+        array_splice($this->snapshots, $snapshotIndex, 1);
+        $this->snapshots = array_values($this->snapshots);
+        $this->dirty = true;
+        $this->notify('Snapshot dihapus', '', 'info');
+    }
+
+    public function insertCallout(string $type = 'info'): void
+    {
+        $this->pushUndo();
+        $block = $this->model->newBlock('callout', 'Catatan penting: tulis isi sorotan di sini...');
+        $block['calloutType'] = in_array($type, ['info', 'warning', 'tip', 'note', 'success'], true) ? $type : 'info';
+        $this->blocks[] = $block;
+        $this->activeBlock = count($this->blocks) - 1;
+        $this->dirty = true;
+    }
+
+    public function toggleDropCap(int $index): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $this->blocks[$index]['dropCap'] = ! ($this->blocks[$index]['dropCap'] ?? false);
+        $this->dirty = true;
+    }
+
     public function documentText(): string
     {
         return $this->model->toPlainText($this->model->normalize($this->blocks));
@@ -1835,6 +2100,9 @@ class NaskahStudioPage extends Page
             'resolvedCommentCount' => collect($this->comments)->where('resolved', true)->count(),
             'pageSetup' => $this->pageSetup,
             'styleMeta' => $this->styleMeta,
+            'snapshots' => $this->snapshots,
+            'metadata' => $this->metadata,
+            'commands' => $this->commands(),
             'statistics' => $this->model->computeStatistics($blocks),
             'elements' => [
                 'headings' => count($this->model->outline($blocks)),

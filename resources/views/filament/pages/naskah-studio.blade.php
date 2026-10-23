@@ -376,6 +376,30 @@
         .ns-block--numbered { display: flex; align-items: flex-start; gap: .4rem; }
         .ns-block--numbered__num { font-weight: 700; color: #1e40af; font-size: .85rem; line-height: 1.7; flex: 0 0 1.4rem; }
 
+        .ns-block--dropcap textarea::first-letter {
+            font-size: 3.1rem;
+            float: left;
+            line-height: .8;
+            padding: .15rem .35rem 0 0;
+            font-weight: 800;
+            color: #1e40af;
+            font-family: Georgia, serif;
+        }
+        .ns-callout {
+            border-left: 4px solid #3b82f6;
+            background: #eff6ff;
+            padding: .65rem .85rem;
+            border-radius: 0 4px 4px 0;
+            margin: .4rem 0;
+            display: flex;
+            gap: .5rem;
+        }
+        .ns-callout--warning { border-left-color: #f59e0b; background: #fffbeb; }
+        .ns-callout--tip { border-left-color: #10b981; background: #ecfdf5; }
+        .ns-callout--note { border-left-color: #8b5cf6; background: #f5f3ff; }
+        .ns-callout--success { border-left-color: #22c55e; background: #f0fdf4; }
+        .ns-callout__icon { font-size: 1.1rem; line-height: 1.2; flex: 0 0 auto; }
+
         /* Alignment & typography classes */
         .align-left { text-align: left; }
         .align-center { text-align: center; }
@@ -685,6 +709,9 @@
             </div>
 
             <div class="ns-topbar__actions">
+                <button type="button" class="ns-btn" wire:click="openDialog('palette')" title="Pusat Perintah &amp; Fitur (Wordcraft HUD / Ctrl+K)">&#128269; Perintah (Ctrl+K)</button>
+                <button type="button" class="ns-btn" wire:click="openDialog('properties')" title="Properti Dokumen &amp; Metadata">&#8505; Properti</button>
+                <button type="button" class="ns-btn" wire:click="openDialog('shortcuts')" title="Tombol Pintas Papan Ketik">&#9000; Pintas</button>
                 <button type="button" class="ns-btn @if($viewMode === 'read') ns-btn--active @endif" wire:click="setViewMode('{{ $viewMode === 'read' ? 'print' : 'read' }}')" title="Mode Fokus / Bebas Gangguan">&#128214; Fokus</button>
                 <button type="button" class="ns-btn" wire:click="toggleDarkMode" title="Ganti Mode Gelap / Terang">&#9680; {{ $darkMode ? 'Terang' : 'Gelap' }}</button>
                 <button type="button" class="ns-btn" x-on:click="window.print()" title="Cetak Dokumen">&#128424; Cetak</button>
@@ -726,6 +753,8 @@
                         <span class="ns-group__label">Pengaturan &amp; Cetak</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="openDialog('pagesetup')">&#9881; Tata Kertas</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('properties')">&#8505; Properti</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('snapshots')">&#128193; Versi ({{ count($snapshots) }})</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('stats')">&#128202; Info &amp; Statistik</button>
                             <button type="button" class="ns-btn" x-on:click="window.print()">&#128424; Cetak</button>
                         </div>
@@ -809,6 +838,7 @@
                         <span class="ns-group__label">Sunting</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="openDialog('find')">&#128269; Cari &amp; Ganti</button>
+                            <button type="button" class="ns-btn" wire:click="runAutoCorrect" title="Auto-Correct Tipografi (—, →, ©, ®, ™, ½, …)">&#10024; Auto-Correct</button>
                         </div>
                     </div>
 
@@ -820,6 +850,7 @@
                             <button type="button" class="ns-btn" wire:click="addBlock('heading')">+ Judul</button>
                             <button type="button" class="ns-btn" wire:click="addBlock('paragraph')">+ Paragraf</button>
                             <button type="button" class="ns-btn" wire:click="addBlock('quote')">&ldquo; Kutipan</button>
+                            <button type="button" class="ns-btn" wire:click="insertCallout('info')">&#128161; Catatan</button>
                             <button type="button" class="ns-btn" wire:click="addBlock('bullet')">+ Poin</button>
                             <button type="button" class="ns-btn" wire:click="addBlock('numbered')">+ Nomor</button>
                         </div>
@@ -1047,6 +1078,13 @@
                         </div>
                     </div>
                     <div class="ns-group">
+                        <span class="ns-group__label">Kalkulasi Tabel</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="tableSumColumn({{ $activeBlock }}, 0)" title="Jumlahkan Angka Kolom (LibreOffice Table Formula)">&#8721; Jumlahkan Kolom</button>
+                            <button type="button" class="ns-btn" wire:click="tableAverageColumn({{ $activeBlock }}, 0)" title="Hitung Rata-rata Kolom">x̄ Rata-rata</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
                         <span class="ns-group__label">Struktur Tabel</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="tableToggleHeader({{ $activeBlock }})">Toggle Baris Header</button>
@@ -1137,7 +1175,17 @@
                         @endforelse
 
                         <div style="border-top:1px solid #e2e8f0; margin-top:.5rem; padding-top:.4rem; font-family:var(--rb-font-mono); font-size:.58rem; color:var(--rb-ink-muted);">
-                            <div>&#8862; Tabel: {{ $elements['tables'] ?? 0 }}</div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.25rem;">
+                                <strong style="color:#1e40af;">📁 Versi / Snapshot ({{ count($snapshots) }})</strong>
+                                <button type="button" class="ns-block__btn" wire:click="openDialog('snapshots')">+ Versi</button>
+                            </div>
+                            @foreach (array_slice($snapshots, -3) as $sIdx => $snap)
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.2rem;">
+                                    <span>{{ Str::limit($snap['label'], 16) }}</span>
+                                    <button type="button" class="ns-block__btn" style="padding:0 .25rem;" wire:click="restoreSnapshot({{ $sIdx }})" title="Pulihkan versi ini">&#8630;</button>
+                                </div>
+                            @endforeach
+                            <div style="margin-top:.4rem;">&#8862; Tabel: {{ $elements['tables'] ?? 0 }}</div>
                             <div>&#128444; Gambar: {{ $elements['images'] ?? 0 }}</div>
                             <div>&#128278; Catatan Kaki: {{ $elements['footnotes'] ?? 0 }}</div>
                             <div>&#128172; Komentar: {{ $elements['comments'] ?? 0 }}</div>
@@ -1182,6 +1230,7 @@
                                 $classes = 'ns-block ns-block--'.$type.' align-'.$align;
                                 if ($type === 'heading') { $classes .= ' ns-block--h'.max(1, min(3, $level)); }
                                 if ($activeBlock === $index) { $classes .= ' ns-block--active'; }
+                                if (!empty($block['dropCap'])) { $classes .= ' ns-block--dropcap'; }
 
                                 $blockStyle = "line-height: {$lineSpacing};";
                                 if ($indent > 0) { $blockStyle .= " margin-left: ".($indent * 1.5)."rem;"; }
@@ -1203,6 +1252,7 @@
                                     <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'heading2')" title="Jadikan H2">H2</button>
                                     <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'paragraph')" title="Jadikan Paragraf">P</button>
                                     <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'quote')" title="Jadikan Kutipan">&ldquo;</button>
+                                    <button type="button" class="ns-block__btn" wire:click.stop="toggleDropCap({{ $index }})" title="Toggle Drop Cap (Huruf Awal Membesar)">DropCap</button>
 
                                     {{-- Wordcraft AI Actions --}}
                                     <button type="button" class="ns-block__btn ns-block__btn--ai" wire:click.stop="aiElaborateBlock({{ $index }})" title="Kembangkan gagasan teks ini dengan AI">&#9889; Kembangkan</button>
@@ -1265,6 +1315,23 @@
                                 @elseif ($type === 'footnote-ref')
                                     <div style="border-top:1px solid #cbd5e1; padding-top:.3rem; margin-top:.5rem; font-size:.75rem; color:#475569;">
                                         <strong style="color:#1e40af;">[Catatan Kaki]</strong> {{ $block['text'] ?? '' }}
+                                    </div>
+
+                                {{-- Render Kotak Sorotan (Callout) --}}
+                                @elseif ($type === 'callout')
+                                    @php $cType = $block['calloutType'] ?? 'info'; @endphp
+                                    <div class="ns-callout ns-callout--{{ $cType }}">
+                                        <span class="ns-callout__icon">
+                                            @if($cType === 'warning') ⚠️ @elseif($cType === 'tip') 💡 @elseif($cType === 'success') ✅ @else 📌 @endif
+                                        </span>
+                                        <div style="flex:1;">
+                                            <textarea
+                                                rows="{{ max(1, (int) ceil(mb_strlen((string) ($block['text'] ?? '')) / 70) + 1) }}"
+                                                wire:model="blocks.{{ $index }}.text"
+                                                wire:change="markDirty"
+                                                placeholder="Tulis catatan sorotan di sini..."
+                                            >{{ $block['text'] ?? '' }}</textarea>
+                                        </div>
                                     </div>
 
                                 {{-- Render Blok Teks Biasa (Heading, Paragraph, Quote, Bullet, Numbered) --}}
@@ -1666,6 +1733,139 @@
                         <div class="ns-dialog__footer">
                             <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="addComment; closeDialog()">Simpan Komentar</button>
+                        </div>
+
+                    {{-- Dialog Pusat Perintah (Wordcraft Command Palette / HUD) --}}
+                    @elseif ($dialog === 'palette')
+                        <div class="ns-dialog__header">
+                            <span>&#128269; Pusat Perintah Naskah Studio (Wordcraft HUD)</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <input type="text" class="ns-btn" style="width:100%; font-size:.8rem; padding:.45rem .65rem;"
+                                   placeholder="Ketik perintah (mis. simpan, tabel, ekspor, margin, ai, autocorrect)..."
+                                   wire:model.live="commandSearch" autofocus />
+                            <div style="max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:.25rem; margin-top:.35rem;">
+                                @php
+                                    $q = strtolower(trim($commandSearch));
+                                    $filtered = array_filter($commands, static fn(array $c): bool => $q === '' || str_contains(strtolower($c['label']), $q) || str_contains(strtolower($c['category']), $q) || str_contains(strtolower($c['id']), $q));
+                                @endphp
+                                @forelse ($filtered as $cmd)
+                                    <button type="button" class="ns-nav__item" style="border:1px solid #e2e8f0; border-radius:3px; padding:.35rem .6rem;"
+                                            wire:click="executeCommand('{{ $cmd['id'] }}')">
+                                        <span style="display:flex; align-items:center; gap:.4rem;">
+                                            <span>{{ $cmd['icon'] }}</span>
+                                            <strong>{{ $cmd['label'] }}</strong>
+                                            <span style="font-size:.58rem; color:#64748b; background:#f1f5f9; padding:.1rem .3rem; border-radius:2px;">{{ $cmd['category'] }}</span>
+                                        </span>
+                                        @if (!empty($cmd['shortcut']))
+                                            <span style="font-family:var(--rb-font-mono); font-size:.6rem; color:#64748b; border:1px solid #cbd5e1; padding:.1rem .3rem; border-radius:3px;">{{ $cmd['shortcut'] }}</span>
+                                        @endif
+                                    </button>
+                                @empty
+                                    <div style="font-family:var(--rb-font-mono); font-size:.65rem; color:#64748b; padding:.5rem;">Tidak ada perintah yang cocok.</div>
+                                @endforelse
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                        </div>
+
+                    {{-- Dialog Properti Dokumen & Metadata (LibreOffice File Properties) --}}
+                    @elseif ($dialog === 'properties')
+                        <div class="ns-dialog__header">
+                            <span>&#8505; Properti Dokumen &amp; Metadata</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Judul Dokumen:</label>
+                                <input type="text" class="ns-btn" style="width:100%;" wire:model="docTitle" wire:change="markDirty" />
+                            </div>
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Penulis (Author):</label>
+                                <input type="text" class="ns-btn" style="width:100%;" wire:model="metadata.author" wire:change="markDirty" placeholder="Nama penulis..." />
+                            </div>
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Subjek / Topik:</label>
+                                <input type="text" class="ns-btn" style="width:100%;" wire:model="metadata.subject" wire:change="markDirty" placeholder="Topik bahasan..." />
+                            </div>
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Kata Kunci (Keywords):</label>
+                                <input type="text" class="ns-btn" style="width:100%;" wire:model="metadata.keywords" wire:change="markDirty" placeholder="Kata kunci naskah..." />
+                            </div>
+                            <div style="font-family:var(--rb-font-mono); font-size:.62rem; color:#64748b; border-top:1px solid #e2e8f0; padding-top:.4rem; line-height:1.6;">
+                                <div>• ID Dokumen: #{{ $documentId ?? 'Baru (Belum Disimpan)' }}</div>
+                                <div>• Jumlah Kata: {{ number_format($wordCount) }} kata</div>
+                                <div>• Jumlah Karakter: {{ number_format($charCount) }} karakter</div>
+                                <div>• Total Blok: {{ $blockCount }} blok</div>
+                                <div>• Terakhir Disimpan: {{ $lastSavedAt ?? 'Belum disimpan' }}</div>
+                                <div>• Riwayat Versi: {{ count($snapshots) }} snapshot</div>
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="save; closeDialog()">Simpan Properti</button>
+                        </div>
+
+                    {{-- Dialog Riwayat Versi & Snapshot (LibreOffice Versions) --}}
+                    @elseif ($dialog === 'snapshots')
+                        <div class="ns-dialog__header">
+                            <span>&#128193; Riwayat Versi &amp; Snapshot Naskah</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div style="display:flex; gap:.3rem;">
+                                <input type="text" class="ns-btn" style="flex:1;" placeholder="Label versi baru (mis. Draf Awal, Sebelum Seminar)..." wire:model="snapshotLabel" />
+                                <button type="button" class="ns-btn ns-btn--primary" wire:click="createSnapshot">+ Simpan Versi</button>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:.3rem; margin-top:.4rem; max-height:260px; overflow-y:auto;">
+                                @forelse ($snapshots as $sIdx => $snap)
+                                    <div style="border:1px solid #cbd5e1; background:#f8fafc; padding:.45rem .6rem; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
+                                        <div>
+                                            <strong>{{ $snap['label'] }}</strong>
+                                            <div style="font-size:.58rem; color:#64748b; font-family:var(--rb-font-mono);">
+                                                {{ $snap['at'] }} · {{ $snap['count'] }} blok
+                                            </div>
+                                        </div>
+                                        <div style="display:flex; gap:.3rem;">
+                                            <button type="button" class="ns-block__btn" wire:click="restoreSnapshot({{ $sIdx }})" title="Kembalikan naskah ke versi ini">&#8630; Pulihkan</button>
+                                            <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click="deleteSnapshot({{ $sIdx }})" title="Hapus snapshot ini">&#128465;</button>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <div style="font-family:var(--rb-font-mono); font-size:.65rem; color:#64748b; padding:.5rem;">Belum ada snapshot versi tersimpan.</div>
+                                @endforelse
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                        </div>
+
+                    {{-- Dialog Tombol Pintas Papan Ketik (Keyboard Shortcuts) --}}
+                    @elseif ($dialog === 'shortcuts')
+                        <div class="ns-dialog__header">
+                            <span>&#9000; Tombol Pintas Papan Ketik (Keyboard Shortcuts)</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <table class="ns-table" style="font-size:.7rem;">
+                                <thead><tr><th>Tombol</th><th>Fungsi</th><th>Kategori</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>Ctrl + S</code></td><td>Simpan Naskah</td><td>Berkas</td></tr>
+                                    <tr><td><code>Ctrl + Z</code></td><td>Urungkan Perubahan (Undo)</td><td>Sunting</td></tr>
+                                    <tr><td><code>Ctrl + Y</code></td><td>Ulangi Perubahan (Redo)</td><td>Sunting</td></tr>
+                                    <tr><td><code>Ctrl + B</code></td><td>Cetak Tebal (Bold)</td><td>Format</td></tr>
+                                    <tr><td><code>Ctrl + I</code></td><td>Cetak Miring (Italic)</td><td>Format</td></tr>
+                                    <tr><td><code>Ctrl + U</code></td><td>Garis Bawah (Underline)</td><td>Format</td></tr>
+                                    <tr><td><code>Ctrl + K</code></td><td>Pusat Perintah &amp; Fitur (Command Palette)</td><td>Alat</td></tr>
+                                    <tr><td><code>Ctrl + Enter</code></td><td>Pemisah Halaman (Page Break)</td><td>Sisipkan</td></tr>
+                                    <tr><td><code>Ctrl + F</code></td><td>Cari dan Ganti Teks</td><td>Sunting</td></tr>
+                                    <tr><td><code>Ctrl + P</code></td><td>Cetak Dokumen</td><td>Berkas</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="closeDialog">Tutup</button>
                         </div>
                     @endif
 
