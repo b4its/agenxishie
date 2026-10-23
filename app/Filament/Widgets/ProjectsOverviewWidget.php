@@ -38,6 +38,7 @@ class ProjectsOverviewWidget extends Widget
                 'control_mode' => $project->control_mode->shortLabel(),
                 'compliance' => (float) ($record?->compliance_score ?? 0.0),
                 'references' => $project->references()->count(),
+                'revisions' => $project->revisions()->count(),
                 'updated_at' => $project->updated_at,
                 'url' => '/admin/academic-workspace-page?project='.$project->id,
             ];

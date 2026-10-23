@@ -23,6 +23,7 @@
                             <th style="text-align:center;">MODE</th>
                             <th style="text-align:center;">PATUH</th>
                             <th style="text-align:center;">REF</th>
+                            <th style="text-align:center;">REV</th>
                             <th style="text-align:center;">DIPERBARUI</th>
                             <th style="text-align:center;">AKSI</th>
                         </tr>
@@ -39,6 +40,7 @@
                                     </span>
                                 </td>
                                 <td style="text-align:center;">{{ $row['references'] }}</td>
+                                <td style="text-align:center;">{{ $row['revisions'] }}</td>
                                 <td style="text-align:center;" class="rb-muted">{{ $row['updated_at']?->diffForHumans(short: true) ?? '-' }}</td>
                                 <td style="text-align:center;">
                                     <a href="{{ $row['url'] }}" class="rb-button" style="padding:.1rem .5rem; font-size:.6rem; text-decoration:none;">Buka &#8594;</a>
