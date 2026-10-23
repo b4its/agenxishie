@@ -578,8 +578,35 @@ it('redirects aliases /status, /integrations, /external-projects to /connected-p
     $this->get('/external-projects')->assertRedirect('/connected-projects');
 });
 
-it('shows connected projects link on welcome page', function (): void {
+it('renders connected projects link on home route and welcome on welcome route', function (): void {
+    Http::fake([
+        '*' => Http::response('OK', 200),
+    ]);
+
     $this->get('/')
         ->assertStatus(200)
-        ->assertSee('/connected-projects');
+        ->assertSee('/connected-projects')
+        ->assertSee('http://localhost:8208/');
+
+    $this->get('/welcome')
+        ->assertStatus(200)
+        ->assertSee('AGEN XISHIE');
+});
+
+it('returns client status via external api endpoint', function (): void {
+    $client = ExternalClient::factory()->create([
+        'client_slug' => 'portal-jurnal-kampus',
+        'status' => 'online',
+    ]);
+
+    $this->getJson('/api/v1/external/status/portal-jurnal-kampus')
+        ->assertStatus(200)
+        ->assertJson([
+            'id' => $client->id,
+            'client_slug' => 'portal-jurnal-kampus',
+            'status' => 'online',
+        ]);
+
+    $this->getJson('/api/v1/external/status/non-existent-client')
+        ->assertStatus(404);
 });
