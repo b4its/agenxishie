@@ -12,7 +12,9 @@ use App\Domain\Research\ReferenceImportService;
 use App\Domain\Revision\Enums\RevisionStatus;
 use App\Domain\Workspace\Enums\ControlMode;
 use App\Domain\Workspace\Enums\ProjectStage;
+use App\Domain\Workspace\Enums\StageStatus;
 use App\Domain\Workspace\Enums\UxKpiMetric;
+use App\Domain\Workspace\NextActionService;
 use App\Domain\Workspace\StageStateManager;
 use App\Domain\Workspace\UxKpiTelemetryService;
 use App\Filament\Pages\AcademicWorkspacePage;
@@ -25,6 +27,9 @@ use App\Filament\Pages\SmartRevisionCenterPage;
 use App\Filament\Pages\VenueCatalogPage;
 use App\Filament\Pages\XishieAssistantPage;
 use App\Filament\Widgets\AgentActivityTerminalWidget;
+use App\Filament\Widgets\HeartKpiTelemetryWidget;
+use App\Filament\Widgets\ProjectsOverviewWidget;
+use App\Filament\Widgets\WorkspaceKpiBarWidget;
 use App\Models\AcademicVenue;
 use App\Models\PlatformRecommendation;
 use App\Models\ProjectRevision;
@@ -684,4 +689,73 @@ it('applies research topic templates in onboarding wizard', function (): void {
     $data = $component->get('data');
     expect($data['title'])->toContain('Transformer')
         ->and($data['target_tier'])->toBe('Q1');
+});
+
+it('suggests unresolved revisions and journal extraction in next actions', function (): void {
+    $project = makeProject(['document_type' => DocumentType::SKRIPSI]);
+    $project->forceFill(['current_stage' => ProjectStage::FINAL])->save();
+    seedReferences($project);
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::FINAL);
+    $stage->forceFill([
+        'sections_content' => [['key' => 'bab_1', 'heading' => 'Bab 1', 'content' => 'Teks']],
+        'status' => StageStatus::COMPLETED,
+    ])->save();
+
+    // Buat revisi unresolved.
+    ProjectRevision::create([
+        'project_id' => $project->id,
+        'stage_id' => $stage->id,
+        'reviewer_role' => 'pembimbing_1',
+        'status' => RevisionStatus::PENDING,
+        'raw_feedback' => '1. Perjelas bab 1',
+        'action_items' => [['id' => 1, 'task' => 'Perjelas bab 1', 'status' => 'pending']],
+    ]);
+
+    $actions = app(NextActionService::class)->forProject($project);
+    $actionKeys = array_column($actions, 'key');
+
+    expect($actionKeys)->toContain('revision')
+        ->and($actionKeys)->toContain('journal_extraction');
+});
+
+it('dynamically switches project in workspace KPI bar widget', function (): void {
+    $projectA = makeProject(['title' => 'Project Alpha KPI']);
+    $projectB = makeProject(['title' => 'Project Beta KPI']);
+
+    $component = Livewire::test(WorkspaceKpiBarWidget::class, ['projectId' => $projectA->id]);
+    expect($component->viewData('project')->id)->toBe($projectA->id);
+
+    $component->set('projectId', $projectB->id);
+    expect($component->viewData('project')->id)->toBe($projectB->id);
+});
+
+it('dynamically switches project in HEART and AARRR telemetry widget', function (): void {
+    $projectA = makeProject(['title' => 'Project Alpha Telemetry']);
+    $projectB = makeProject(['title' => 'Project Beta Telemetry']);
+
+    $component = Livewire::test(HeartKpiTelemetryWidget::class, ['projectId' => $projectA->id]);
+    expect($component->viewData('projectOptions'))->toHaveKey($projectA->id);
+
+    $component->set('projectId', $projectB->id);
+    expect($component->get('projectId'))->toBe($projectB->id);
+});
+
+it('displays revisions count in projects overview widget', function (): void {
+    $project = makeProject(['title' => 'Overview Revision Project']);
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+
+    ProjectRevision::create([
+        'project_id' => $project->id,
+        'stage_id' => $stage->id,
+        'reviewer_role' => 'pembimbing_1',
+        'status' => RevisionStatus::PENDING,
+        'raw_feedback' => 'Catatan',
+    ]);
+
+    $component = Livewire::test(ProjectsOverviewWidget::class);
+    $rows = collect($component->viewData('rows'));
+    $matched = $rows->firstWhere('id', $project->id);
+
+    expect($matched)->not->toBeNull()
+        ->and($matched['revisions'])->toBe(1);
 });
