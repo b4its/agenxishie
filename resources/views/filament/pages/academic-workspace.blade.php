@@ -34,8 +34,17 @@
                                     'in_progress' => '&#9679;',
                                     default => '&#9675;',
                                 };
+                                $isCurrent = ($node['stage'] === $project->current_stage->value);
+                                $isClickable = ($node['status'] !== 'locked');
                             @endphp
-                            <span class="rb-stepper__node {{ $class }}">{{ $loop->iteration }}. {{ strtoupper($node['label']) }} {!! $mark !!}</span>
+                            <button
+                                type="button"
+                                class="rb-stepper__node {{ $class }}"
+                                style="border:none; background:transparent; font-family:inherit; {{ $isClickable ? 'cursor:pointer;' : 'cursor:not-allowed;' }} {{ $isCurrent ? 'box-shadow: 0 0 0 2px var(--rb-accent); border-radius:2px;' : '' }}"
+                                @if ($isClickable) wire:click="selectStage('{{ $node['stage'] }}')" title="Beralih ke tahap {{ $node['label'] }}" @else title="Tahap terkunci" disabled @endif
+                            >
+                                {{ $loop->iteration }}. {{ strtoupper($node['label']) }} {!! $mark !!}
+                            </button>
                             @if (! $loop->last)
                                 <span class="rb-stepper__arrow">&#8594;</span>
                             @endif
@@ -176,6 +185,7 @@
                             <span style="display:flex; gap:.25rem;">
                                 <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="exportLiteratureMatrix('csv')" title="Unduh tabel SOTA sebagai CSV">&#11015; CSV</button>
                                 <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="exportLiteratureMatrix('markdown')" title="Unduh tabel SOTA sebagai Markdown">&#11015; MD</button>
+                                <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="exportLiteratureMatrix('json')" title="Unduh tabel SOTA sebagai JSON">&#11015; JSON</button>
                             </span>
                         </div>
                         <div style="max-height:13rem; overflow:auto; margin-top:.4rem;">
@@ -281,6 +291,19 @@
                             >
                                 <span wire:loading.remove wire:target="extractJournalManuscript">&#9889; Ekstrak Naskah Jurnal (IMRaD)</span>
                                 <span wire:loading wire:target="extractJournalManuscript">Mengekstrak…</span>
+                            </button>
+                        @endif
+
+                        @if ($sections !== [])
+                            <button
+                                type="button"
+                                class="rb-button"
+                                style="color:var(--rb-status-alert); margin-left:auto; font-size:.65rem;"
+                                wire:click="resetStageContent"
+                                wire:confirm="Yakin ingin mengosongkan draf naskah tahap ini untuk disusun ulang dari awal?"
+                                title="Kosongkan draf tahap aktif untuk susun ulang"
+                            >
+                                &#128465; Bersihkan Draf
                             </button>
                         @endif
 

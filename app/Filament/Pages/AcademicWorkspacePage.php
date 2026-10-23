@@ -221,6 +221,71 @@ class AcademicWorkspacePage extends Page
     }
 
     /**
+     * Berpindah tampilan ke tahap yang telah terbuka (Draft / Proposal / Final).
+     */
+    public function selectStage(string $stageName): void
+    {
+        $project = $this->getProject();
+        if ($project === null) {
+            return;
+        }
+
+        $target = ProjectStage::tryFrom($stageName);
+        if ($target === null) {
+            return;
+        }
+
+        $stageRecord = $project->stages()->where('stage_name', $target->value)->first();
+        if ($stageRecord === null || $stageRecord->status === StageStatus::LOCKED) {
+            Notification::make()
+                ->title('Tahap terkunci')
+                ->body('Selesaikan tahap sebelumnya terlebih dahulu sebelum beralih ke tahap ini.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $project->forceFill(['current_stage' => $target])->save();
+
+        Notification::make()
+            ->title('Beralih ke tahap: '.$target->label())
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
+     * Reset / bersihkan draf naskah pada tahap aktif untuk disusun ulang.
+     */
+    public function resetStageContent(): void
+    {
+        $project = $this->getProject();
+        $stage = $this->stage();
+
+        if ($project === null || $stage === null) {
+            return;
+        }
+
+        $stage->forceFill([
+            'sections_content' => null,
+            'compiled_content' => null,
+            'word_count' => 0,
+            'compliance_score' => 0.0,
+            'hitl_pending_payload' => null,
+        ])->save();
+
+        Notification::make()
+            ->title('Draf tahap dibersihkan')
+            ->body('Naskah tahap '.$project->current_stage->label().' telah dikosongkan. Klik "Susun Draf Lengkap" untuk menyusun ulang.')
+            ->info()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
      * Susun draf LENGKAP untuk tahap aktif dalam satu aksi (tanpa klik manual
      * per sub-bab). Menyiapkan referensi otomatis bila belum ada, lalu
      * menulis seluruh sub-bab dan menghitung kepatuhan pedoman.
@@ -1078,6 +1143,10 @@ class AcademicWorkspacePage extends Page
             $content = "# Matriks Literatur (SOTA) — {$project->title}\n\n".$builder->toMarkdown($project);
             $filename = $base.'-literature-matrix.md';
             $mime = 'text/markdown';
+        } elseif ($format === 'json') {
+            $content = $builder->toJson($project);
+            $filename = $base.'-literature-matrix.json';
+            $mime = 'application/json';
         } else {
             $content = $builder->toCsv($project);
             $filename = $base.'-literature-matrix.csv';
