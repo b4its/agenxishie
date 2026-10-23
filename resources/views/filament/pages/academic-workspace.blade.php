@@ -145,16 +145,40 @@
                                             <th>PENULIS</th>
                                             <th style="text-align:center;">THN</th>
                                             <th>METODE</th>
-                                            <th>GAP</th>
+                                            <th style="text-align:center;">STATUS</th>
+                                            <th style="text-align:center;">AKSI</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach ($literatureMatrix as $row)
-                                            <tr>
-                                                <td>{{ \Illuminate\Support\Str::limit((string) $row['authors'], 22) }}</td>
+                                            <tr wire:key="ref-{{ $row['id'] }}">
+                                                <td title="{{ $row['citation_key'] }}">{{ \Illuminate\Support\Str::limit((string) $row['authors'], 20) }}</td>
                                                 <td style="text-align:center;">{{ $row['year'] ?? '-' }}</td>
-                                                <td>{{ \Illuminate\Support\Str::limit((string) ($row['method'] ?? '-'), 20) }}</td>
-                                                <td>{{ \Illuminate\Support\Str::limit((string) ($row['gap'] ?? '-'), 24) }}</td>
+                                                <td>{{ \Illuminate\Support\Str::limit((string) ($row['method'] ?? '-'), 16) }}</td>
+                                                <td style="text-align:center;">
+                                                    @if (! empty($row['is_verified']))
+                                                        <span class="rb-badge rb-badge--pass" style="font-size:.5rem;">&#10003;</span>
+                                                    @else
+                                                        <span class="rb-badge rb-badge--manual" style="font-size:.5rem;">?</span>
+                                                    @endif
+                                                </td>
+                                                <td style="text-align:center; white-space:nowrap;">
+                                                    <button
+                                                        type="button"
+                                                        class="rb-button"
+                                                        style="padding:0 .35rem; font-size:.55rem;"
+                                                        title="{{ ! empty($row['is_verified']) ? 'Batalkan verifikasi' : 'Verifikasi referensi' }}"
+                                                        wire:click="toggleReferenceVerified({{ $row['id'] }})"
+                                                    >{{ ! empty($row['is_verified']) ? 'unverify' : 'verify' }}</button>
+                                                    <button
+                                                        type="button"
+                                                        class="rb-button"
+                                                        style="padding:0 .35rem; font-size:.55rem; color:var(--rb-status-alert);"
+                                                        title="Hapus referensi"
+                                                        wire:click="deleteReference({{ $row['id'] }})"
+                                                        wire:confirm="Hapus referensi ini?"
+                                                    >&#10005;</button>
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>

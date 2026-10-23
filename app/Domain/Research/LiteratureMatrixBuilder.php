@@ -32,9 +32,11 @@ final class LiteratureMatrixBuilder
                 $matrix = (array) ($reference->matrix_extraction ?? []);
 
                 return [
+                    'id' => $reference->id,
                     'citation_key' => (string) $reference->citation_key,
                     'authors' => implode(', ', (array) ($reference->authors ?? [])),
                     'year' => $reference->year,
+                    'is_verified' => (bool) $reference->is_verified,
                     'method' => $matrix['method'] ?? null,
                     'result' => $matrix['result'] ?? null,
                     'gap' => $matrix['gap'] ?? null,
