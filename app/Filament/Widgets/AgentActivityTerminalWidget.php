@@ -24,30 +24,41 @@ class AgentActivityTerminalWidget extends Widget
     public ?int $projectId = null;
 
     /**
+     * @return array<int, string>
+     */
+    public function projectOptions(): array
+    {
+        return XishieProject::query()
+            ->latest('updated_at')
+            ->pluck('title', 'id')
+            ->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function getViewData(): array
     {
-        $project = $this->projectId !== null
-            ? XishieProject::find($this->projectId)
-            : XishieProject::query()->latest()->first();
+        $query = OmnigensiAgentLog::query()->latest('id')->limit(40);
 
-        $logs = $project === null
-            ? collect()
-            : OmnigensiAgentLog::query()
-                ->where('project_id', $project->id)
-                ->latest('id')
-                ->limit(30)
-                ->get()
-                ->reverse();
+        if ($this->projectId !== null) {
+            $query->where('project_id', $this->projectId);
+        }
+
+        $logs = $query->with('project')->get()->reverse();
 
         $lines = $logs->map(static fn (OmnigensiAgentLog $log): array => [
             'time' => $log->created_at?->format('H:i:s') ?? '--:--:--',
             'agent' => $log->agent_name,
             'action' => (string) ($log->action ?? $log->status->value),
             'ttft' => $log->ttft_ms,
+            'project_title' => $log->project?->title,
         ])->all();
 
-        return ['lines' => $lines];
+        return [
+            'lines' => $lines,
+            'projectOptions' => $this->projectOptions(),
+            'totalLogs' => OmnigensiAgentLog::count(),
+        ];
     }
 }
