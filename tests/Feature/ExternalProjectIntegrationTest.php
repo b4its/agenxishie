@@ -506,3 +506,80 @@ it('opens diagnostics and snippet modal on Livewire page', function (): void {
         ->call('closeSnippet')
         ->assertSet('clientSnippet', null);
 });
+
+// ==========================================
+// TEST STANDALONE PUBLIC WEB ROUTE (/connected-projects)
+// ==========================================
+
+it('renders public connected projects web page without authentication', function (): void {
+    Http::fake([
+        '*' => Http::response('OK', 200),
+    ]);
+
+    $response = $this->get('/connected-projects');
+
+    $response->assertStatus(200)
+        ->assertSee('HUB PROYEK TERHUBUNG')
+        ->assertSee('http://localhost:8208/');
+});
+
+it('supports web actions: store, ping, ping-all, regen, toggle, test, destroy', function (): void {
+    Http::fake([
+        '*/health' => Http::response('down', 503),
+        '*' => Http::response('OK', 200),
+    ]);
+
+    // Store
+    $this->post('/connected-projects', [
+        'name' => 'Web Registered Target',
+        'target_url' => 'http://target-web.test/',
+        'selected_models' => ['AcademicScribeAgent'],
+        'description' => 'Uji form web',
+    ])->assertRedirect(route('connected-projects.index'))
+        ->assertSessionHas('new_api_key');
+
+    $client = ExternalClient::where('name', 'Web Registered Target')->first();
+    expect($client)->not->toBeNull();
+
+    // Ping single
+    $this->post("/connected-projects/{$client->id}/ping")
+        ->assertRedirect(route('connected-projects.index'));
+
+    // Ping all
+    $this->post('/connected-projects/ping-all')
+        ->assertRedirect(route('connected-projects.index'));
+
+    // Regen key
+    $oldKey = $client->api_key;
+    $this->post("/connected-projects/{$client->id}/regenerate-key")
+        ->assertRedirect(route('connected-projects.index'))
+        ->assertSessionHas('new_api_key');
+    expect($client->fresh()->api_key)->not->toBe($oldKey);
+
+    // Toggle active
+    $this->post("/connected-projects/{$client->id}/toggle")
+        ->assertRedirect(route('connected-projects.index'));
+    expect($client->fresh()->is_active)->toBeFalse();
+
+    // Test Inbound
+    $this->post("/connected-projects/{$client->id}/test-inbound")
+        ->assertRedirect(route('connected-projects.index'))
+        ->assertSessionHas('test_result');
+
+    // Destroy
+    $this->delete("/connected-projects/{$client->id}")
+        ->assertRedirect(route('connected-projects.index'));
+    expect(ExternalClient::find($client->id))->toBeNull();
+});
+
+it('redirects aliases /status, /integrations, /external-projects to /connected-projects', function (): void {
+    $this->get('/status')->assertRedirect('/connected-projects');
+    $this->get('/integrations')->assertRedirect('/connected-projects');
+    $this->get('/external-projects')->assertRedirect('/connected-projects');
+});
+
+it('shows connected projects link on welcome page', function (): void {
+    $this->get('/')
+        ->assertStatus(200)
+        ->assertSee('/connected-projects');
+});
