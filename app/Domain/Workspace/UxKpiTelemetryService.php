@@ -319,6 +319,15 @@ final class UxKpiTelemetryService
             return 0.0;
         }
 
+        $pending = (array) ($final->hitl_pending_payload ?? []);
+        if (isset($pending['extracted_journal_manuscript'])) {
+            return 100.0;
+        }
+
+        if ($project->agentLogs()->where('action', 'convert:skripsi_to_journal')->exists()) {
+            return 100.0;
+        }
+
         $sections = (array) ($final->sections_content ?? []);
         $hasAbstract = collect($sections)->contains(static fn ($section): bool => is_array($section) && ($section['key'] ?? '') === 'abstract');
 

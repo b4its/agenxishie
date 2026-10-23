@@ -110,8 +110,30 @@
                         </ul>
 
                         <div class="rb-kpi-card__label">FITUR RISET</div>
-                        <div style="display:flex; flex-direction:column; gap:.4rem; margin-top:.4rem;">
+                        <div style="display:flex; flex-direction:column; gap:.4rem; margin-top:.4rem;" x-data="{ openManualRef: false, refTitle: '', refAuthors: '', refYear: {{ now()->year }}, refDoi: '', refJournal: '' }">
                             <button type="button" class="rb-button" wire:click="fetchReferences">+ Cari Paper (SINTA/DOI)</button>
+
+                            <button type="button" class="rb-button" x-on:click="openManualRef = ! openManualRef">+ Input Referensi Manual</button>
+
+                            <div x-show="openManualRef" x-cloak style="border:var(--rb-border-soft); padding:.5rem; background:var(--rb-blueprint); margin:.3rem 0;">
+                                <div class="rb-mono" style="font-size:.65rem; font-weight:bold; margin-bottom:.3rem;">INPUT REFERENSI MANUAL</div>
+                                <input type="text" x-model="refTitle" placeholder="Judul Paper" class="rb-input" style="width:100%; font-size:.65rem; margin-bottom:.3rem;" />
+                                <input type="text" x-model="refAuthors" placeholder="Penulis (pisahkan koma)" class="rb-input" style="width:100%; font-size:.65rem; margin-bottom:.3rem;" />
+                                <div style="display:flex; gap:.3rem; margin-bottom:.3rem;">
+                                    <input type="number" x-model="refYear" placeholder="Tahun" class="rb-input" style="width:4.5rem; font-size:.65rem;" />
+                                    <input type="text" x-model="refJournal" placeholder="Jurnal / Konferensi" class="rb-input" style="flex:1; font-size:.65rem;" />
+                                </div>
+                                <input type="text" x-model="refDoi" placeholder="DOI (opsional, misal 10.1109/...)" class="rb-input" style="width:100%; font-size:.65rem; margin-bottom:.4rem;" />
+                                <div style="display:flex; gap:.3rem; justify-content:flex-end;">
+                                    <button type="button" class="rb-button" style="font-size:.6rem; padding:.15rem .4rem;" x-on:click="openManualRef = false">Batal</button>
+                                    <button
+                                        type="button"
+                                        class="rb-button rb-button--primary"
+                                        style="font-size:.6rem; padding:.15rem .4rem;"
+                                        x-on:click="$wire.addManualReference(refTitle, refAuthors, parseInt(refYear) || {{ now()->year }}, refJournal, refDoi); openManualRef = false; refTitle = ''; refAuthors = '';"
+                                    >Simpan</button>
+                                </div>
+                            </div>
 
                             <label class="rb-button" style="cursor:pointer;">
                                 &#8679; Upload PDF Referensi
@@ -216,13 +238,41 @@
                         <span>EDITOR NASKAH — {{ strtoupper($stageLabel) }}</span>
                         <span class="rb-window__controls"><span class="rb-window__control">-</span><span class="rb-window__control">&#9633;</span><span class="rb-window__control">&#215;</span></span>
                     </div>
-                    {{-- Toolbar editor: susun draf lengkap / edit manual --}}
-                    <div style="display:flex; gap:.4rem; flex-wrap:wrap; padding:.5rem .75rem; border-bottom:var(--rb-border-soft);">
+                    {{-- Toolbar editor: susun draf lengkap / edit manual / ekstrak jurnal --}}
+                    <div style="display:flex; gap:.4rem; flex-wrap:wrap; padding:.5rem .75rem; border-bottom:var(--rb-border-soft); align-items:center;">
                         <button type="button" class="rb-button rb-button--primary" wire:click="generateFullDraft" wire:loading.attr="disabled" wire:target="generateFullDraft">
                             <span wire:loading.remove wire:target="generateFullDraft">&#9889; Susun Draf Lengkap</span>
                             <span wire:loading wire:target="generateFullDraft">Menyusun…</span>
                         </button>
                         <button type="button" class="rb-button" x-on:click="$dispatch('open-manual-edit')" wire:loading.attr="disabled">&#9998; Edit Manual</button>
+
+                        @if ($project->document_type->isThesisFamily())
+                            <button
+                                type="button"
+                                class="rb-button"
+                                style="border-color:var(--rb-primary); color:var(--rb-primary);"
+                                wire:click="extractJournalManuscript"
+                                wire:loading.attr="disabled"
+                                wire:target="extractJournalManuscript"
+                                title="Ekstrak naskah jurnal IMRaD dari bab skripsi/tesis (PRD KPI #16)"
+                            >
+                                <span wire:loading.remove wire:target="extractJournalManuscript">&#9889; Ekstrak Naskah Jurnal (IMRaD)</span>
+                                <span wire:loading wire:target="extractJournalManuscript">Mengekstrak…</span>
+                            </button>
+                        @endif
+
+                        @if ($extractedJournalManuscript !== null)
+                            <div class="rb-notice rb-notice--pass" style="width:100%; margin-top:.35rem; padding:.35rem .6rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem;">
+                                <span class="rb-mono" style="font-size:.66rem;">
+                                    <strong>&#10003; Naskah Jurnal IMRaD Tersedia</strong> ({{ number_format((int) ($extractedJournalManuscript['word_count'] ?? 0)) }} kata)
+                                </span>
+                                <span style="display:flex; gap:.3rem;">
+                                    <button type="button" class="rb-button rb-button--primary" style="padding:.1rem .4rem; font-size:.58rem;" wire:click="exportJournalManuscript('docx')">DOCX</button>
+                                    <button type="button" class="rb-button" style="padding:.1rem .4rem; font-size:.58rem;" wire:click="exportJournalManuscript('markdown')">MD</button>
+                                    <button type="button" class="rb-button" style="padding:.1rem .4rem; font-size:.58rem;" wire:click="exportJournalManuscript('latex')">LaTeX</button>
+                                </span>
+                            </div>
+                        @endif
                     </div>
                     <div class="rb-window__body">
                         @if ($pendingGate !== null)
@@ -280,9 +330,19 @@
                                 <div class="rb-notice__title">[&#9888;] LIVE GUIDELINE AUDITOR — {{ count($violationSections) }} SUB-BAB BERMASALAH</div>
                                 <ul class="rb-mono" style="font-size:.66rem; line-height:1.7; margin:.4rem 0 0 .8rem;">
                                     @foreach ($violationSections as $flagged)
-                                        <li>
-                                            <strong>{{ $flagged['heading'] }}</strong> —
-                                            {{ implode('; ', $flagged['issues']) }}
+                                        <li style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.25rem;">
+                                            <span>
+                                                <strong>{{ $flagged['heading'] }}</strong> —
+                                                {{ implode('; ', $flagged['issues']) }}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                class="rb-button rb-button--primary"
+                                                style="padding:0 .4rem; font-size:.55rem; white-space:nowrap;"
+                                                wire:click="regenerateSingleSection('{{ $flagged['key'] }}')"
+                                                wire:loading.attr="disabled"
+                                                title="Tulis ulang sub-bab ini secara spesifik agar memenuhi pedoman"
+                                            >&#9889; Tulis Ulang</button>
                                         </li>
                                     @endforeach
                                 </ul>
@@ -294,11 +354,21 @@
                                 @php
                                     $flagged = collect($violationSections)->firstWhere('key', $section['key'] ?? null);
                                 @endphp
-                                <h3 class="{{ $flagged ? 'rb-text-alert' : '' }}">
-                                    {{ $section['heading'] ?? '' }}
-                                    @if ($flagged)
-                                        <span class="rb-badge rb-badge--alert" style="font-size:.55rem; vertical-align:middle;">&#9888; MELANGGAR</span>
-                                    @endif
+                                <h3 class="{{ $flagged ? 'rb-text-alert' : '' }}" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+                                    <span>
+                                        {{ $section['heading'] ?? '' }}
+                                        @if ($flagged)
+                                            <span class="rb-badge rb-badge--alert" style="font-size:.55rem; vertical-align:middle;">&#9888; MELANGGAR</span>
+                                        @endif
+                                    </span>
+                                    <button
+                                        type="button"
+                                        class="rb-button"
+                                        style="padding:0 .4rem; font-size:.55rem; font-weight:normal;"
+                                        wire:click="regenerateSingleSection('{{ $section['key'] ?? '' }}')"
+                                        wire:loading.attr="disabled"
+                                        title="Tulis ulang sub-bab ini secara spesifik"
+                                    >&#8635; Tulis Ulang</button>
                                 </h3>
                                 <p>{{ $section['content'] ?? '' }}</p>
                             @empty

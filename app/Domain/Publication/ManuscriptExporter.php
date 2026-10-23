@@ -115,10 +115,14 @@ final class ManuscriptExporter
         $sections = $this->sectionsFrom($record);
         $abstract = $this->abstractFrom($sections);
 
-        // Bila ada naskah hasil adaptasi venue, pakai isinya sebagai sumber
-        // (sudah diformat untuk jurnal target).
-        if (is_array($adapted) && isset($adapted['manuscript']) && is_string($adapted['manuscript']) && trim($adapted['manuscript']) !== '') {
-            $sections = $this->sectionsFromCompiled((string) $adapted['manuscript']);
+        // Bila ada naskah hasil adaptasi venue atau ekstraksi naskah jurnal,
+        // pakai isinya sebagai sumber.
+        if (is_array($adapted)) {
+            $compiledText = $adapted['manuscript'] ?? $adapted['compiled'] ?? null;
+            if (is_string($compiledText) && trim($compiledText) !== '') {
+                $sections = $this->sectionsFromCompiled($compiledText);
+                $abstract = $this->abstractFrom($sections);
+            }
         }
 
         return [

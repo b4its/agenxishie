@@ -674,6 +674,8 @@ class AcademicWorkspacePage extends Page
         }
 
         $stage = $project->stages()->where('stage_name', $project->current_stage->value)->first();
+        $finalRecord = $project->stages()->where('stage_name', ProjectStage::FINAL->value)->first();
+        $extractedJournal = (array) (($finalRecord?->hitl_pending_payload ?? [])['extracted_journal_manuscript'] ?? []);
         $metrics = app(UxKpiTelemetryService::class)->computeProjectMetrics($project);
 
         $pending = null;
@@ -699,6 +701,7 @@ class AcademicWorkspacePage extends Page
             'pendingGate' => $pending,
             'agentLogs' => $project->agentLogs()->latest('id')->limit(15)->get(),
             'exportFormats' => app(ManuscriptExporter::class)->formats(),
+            'extractedJournalManuscript' => $extractedJournal !== [] ? $extractedJournal : null,
             'projects' => XishieProject::query()->latest()->get(['id', 'title']),
         ];
     }
@@ -836,6 +839,185 @@ class AcademicWorkspacePage extends Page
             $filename,
             ['Content-Type' => $meta['mime']],
         );
+    }
+
+    /**
+     * Tulis ulang (regenerasi) satu sub-bab spesifik pada stage aktif (PRD 3.4 & Live Auditor).
+     */
+    public function regenerateSingleSection(string $sectionKey): void
+    {
+        $project = $this->getProject();
+        $stage = $this->stage();
+
+        if ($project === null || $stage === null) {
+            Notification::make()->title('Tidak ada stage aktif')->warning()->send();
+
+            return;
+        }
+
+        $result = app(AcademicScribeAgent::class)->regenerateSection($project, $stage, $sectionKey);
+
+        Notification::make()
+            ->title('Sub-bab ditulis ulang')
+            ->body(sprintf('"%s" diperbarui. Kepatuhan pedoman: %.1f%%.', $result['section']['heading'], $result['compliance_score']))
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
+     * Ekstrak naskah jurnal ilmiah (IMRaD) dari Skripsi / Tesis / Disertasi (PRD FASE 3 & KPI #16).
+     */
+    public function extractJournalManuscript(): void
+    {
+        $project = $this->getProject();
+
+        if ($project === null) {
+            Notification::make()->title('Tidak ada proyek aktif')->warning()->send();
+
+            return;
+        }
+
+        if (! $project->document_type->isThesisFamily()) {
+            Notification::make()
+                ->title('Fitur ini khusus untuk Skripsi, Tesis, dan Disertasi')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $result = app(AcademicScribeAgent::class)->convertToJournalManuscript($project);
+
+        Notification::make()
+            ->title('Naskah jurnal (IMRaD) berhasil diekstrak')
+            ->body(sprintf('Tersusun 5 bagian standar IMRaD (%s kata) dengan sitasi terikat.', number_format($result['word_count'])))
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
+     * Unduh naskah jurnal yang diekstrak dari skripsi/tesis (KPI #15 & #16).
+     */
+    public function exportJournalManuscript(string $format): ?StreamedResponse
+    {
+        $project = $this->getProject();
+
+        if ($project === null) {
+            Notification::make()->title('Tidak ada proyek aktif')->warning()->send();
+
+            return null;
+        }
+
+        $final = $project->stages()->where('stage_name', ProjectStage::FINAL->value)->first();
+        $extracted = (array) (($final?->hitl_pending_payload ?? [])['extracted_journal_manuscript'] ?? []);
+
+        if ($extracted === []) {
+            Notification::make()
+                ->title('Naskah jurnal belum diekstrak')
+                ->body('Klik "Ekstrak Naskah Jurnal" terlebih dahulu.')
+                ->warning()
+                ->send();
+
+            return null;
+        }
+
+        $exporter = app(ManuscriptExporter::class);
+        if (! $exporter->isSupported($format)) {
+            Notification::make()->title('Format tidak didukung')->danger()->send();
+
+            return null;
+        }
+
+        $content = $exporter->render($project, $format, ProjectStage::FINAL, $extracted);
+        $meta = $exporter->formats()[$format];
+        $base = Str::slug((string) $project->title) ?: 'naskah';
+        $filename = $base.'-journal.'.$meta['extension'];
+
+        OmnigensiAgentLog::create([
+            'project_id' => $project->id,
+            'stage_id' => $final?->id,
+            'agent_name' => 'Xishie-Exporter',
+            'action' => 'export:journal:'.$format,
+            'control_mode' => $project->control_mode->value,
+            'ttft_ms' => 0,
+            'execution_time_ms' => 0,
+            'token_usage' => 0,
+            'hallucination_rejected_count' => 0,
+            'status' => 'success',
+            'payload' => [
+                'format' => $format,
+                'type' => 'skripsi_to_journal',
+                'filename' => $filename,
+            ],
+        ]);
+
+        return response()->streamDownload(
+            static fn () => print $content,
+            $filename,
+            ['Content-Type' => $meta['mime']],
+        );
+    }
+
+    /**
+     * Tambahkan referensi ilmiah secara manual ke dalam proyek.
+     */
+    public function addManualReference(
+        string $title,
+        string $authors,
+        int $year,
+        ?string $journal = null,
+        ?string $doi = null,
+        ?string $abstract = null,
+        ?string $method = null,
+        ?string $result = null,
+        ?string $gap = null,
+    ): void {
+        $project = $this->getProject();
+
+        if ($project === null) {
+            Notification::make()->title('Tidak ada proyek aktif')->warning()->send();
+
+            return;
+        }
+
+        $title = trim($title);
+        if ($title === '') {
+            Notification::make()->title('Judul referensi wajib diisi')->danger()->send();
+
+            return;
+        }
+
+        $parsedAuthors = array_values(array_filter(array_map('trim', explode(',', $authors))));
+        if ($parsedAuthors === []) {
+            $parsedAuthors = ['Anonim'];
+        }
+
+        $candidate = [
+            'title' => $title,
+            'authors' => $parsedAuthors,
+            'year' => $year,
+            'journal_name' => $journal !== null && trim($journal) !== '' ? trim($journal) : null,
+            'doi' => $doi !== null && trim($doi) !== '' ? trim($doi) : null,
+            'abstract' => $abstract !== null && trim($abstract) !== '' ? trim($abstract) : "Kajian tentang {$title}",
+            'method' => $method !== null && trim($method) !== '' ? trim($method) : 'empiris',
+            'result' => $result !== null && trim($result) !== '' ? trim($result) : 'kontribusi kajian',
+            'gap' => $gap !== null && trim($gap) !== '' ? trim($gap) : null,
+            'source' => 'manual-entry',
+        ];
+
+        $count = app(ScholarScoutAgent::class)->ingestCandidates($project, [$candidate]);
+
+        Notification::make()
+            ->title('Referensi ditambahkan')
+            ->body('"'.$title.'" berhasil dicatat ke matriks literatur.')
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
     }
 
     /**

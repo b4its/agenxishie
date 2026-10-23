@@ -115,4 +115,15 @@ final readonly class GuidelineDefinition
 
         return null;
     }
+
+    public function headingForKey(string $sectionKey): ?string
+    {
+        foreach ($this->sections as $section) {
+            if ($section['key'] === $sectionKey) {
+                return $section['heading'];
+            }
+        }
+
+        return null;
+    }
 }
