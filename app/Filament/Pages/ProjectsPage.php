@@ -88,6 +88,44 @@ class ProjectsPage extends Page
     }
 
     /**
+     * Duplikasi proyek riset (menyalin metadata, stages, dan pustaka referensi).
+     */
+    public function duplicateProject(int $projectId): void
+    {
+        $project = XishieProject::find($projectId);
+
+        if ($project === null) {
+            Notification::make()->title('Proyek tidak ditemukan')->danger()->send();
+
+            return;
+        }
+
+        $clone = $project->replicate(['id', 'created_at', 'updated_at']);
+        $clone->title = 'Salinan dari '.$project->title;
+        $clone->save();
+
+        foreach ($project->stages as $stage) {
+            $stageClone = $stage->replicate(['id', 'created_at', 'updated_at']);
+            $stageClone->project_id = $clone->id;
+            $stageClone->save();
+        }
+
+        foreach ($project->references as $ref) {
+            $refClone = $ref->replicate(['id', 'created_at', 'updated_at']);
+            $refClone->project_id = $clone->id;
+            $refClone->save();
+        }
+
+        Notification::make()
+            ->title('Proyek diduplikasi')
+            ->body('Berhasil membuat salinan: "'.$clone->title.'".')
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
      * Hapus proyek beserta seluruh turunannya (stage, referensi, revisi, dsb).
      */
     public function deleteProject(int $projectId): void

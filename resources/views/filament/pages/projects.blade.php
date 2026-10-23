@@ -74,6 +74,10 @@
                                     &#9654; Buka Workspace
                                 </button>
 
+                                <button type="button" class="rb-button" wire:click="duplicateProject({{ $project['id'] }})" title="Duplikasi Proyek">
+                                    &#10697; Duplikasi
+                                </button>
+
                                 <template x-if="! confirmDelete">
                                     <button type="button" class="rb-button" style="color:var(--rb-status-alert);" x-on:click="confirmDelete = true">
                                         &#128465; Hapus
