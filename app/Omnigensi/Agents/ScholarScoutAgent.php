@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Omnigensi\Agents;
 
+use App\Domain\Assistant\OmnigensiChatClient;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\ProjectReference;
 use App\Models\ProjectStageRecord;
@@ -26,6 +27,7 @@ final class ScholarScoutAgent implements XishieAgentContract
     public function __construct(
         private readonly HybridVectorMatcherService $matcher,
         private readonly SharedProjectMemory $memory,
+        private readonly OmnigensiChatClient $llm,
     ) {}
 
     public function name(): string
@@ -36,6 +38,86 @@ final class ScholarScoutAgent implements XishieAgentContract
     public function execute(XishieProject $project, ProjectStage $stage, array $context = []): AgentExecutionResultData
     {
         return $this->run($project, $this->stageRecord($project, $stage), $context);
+    }
+
+    /**
+     * Sarankan referensi relevan memakai LLM Omnigensi (JSON). Kembalikan
+     * array kandidat; kosong bila LLM tidak tersedia (offline/agents disabled).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function suggestReferences(XishieProject $project, int $limit = 4, ?string $focus = null): array
+    {
+        if (! config('omnigensi.agents_enabled', true)) {
+            return [];
+        }
+
+        $system = 'Anda asisten riset (Scholar-Scout). Usulkan referensi akademik yang relevan '
+            .'dan realistis untuk topik pengguna. Kembalikan JSON array saja tanpa teks lain.';
+
+        $prompt = sprintf(
+            "Topik: %s\nBidang: %s\nFokus: %s\n\n".
+            'Usulkan %d referensi akademik. Format tiap objek: '.
+            '{"title":string,"authors":[string],"year":int,"journal_name":string,"abstract":string,"method":string,"result":string,"gap":string,"doi":string|null}.'.
+            ' Gunakan referensi yang benar-benar ada jika diketahui; jika ragu isi "doi":null.',
+            $project->title,
+            $project->field_of_study->label(),
+            $focus ?? $project->title,
+            $limit,
+        );
+
+        $result = $this->llm->generate($prompt, $system, 0.4, 1200);
+
+        if ($result === null) {
+            return [];
+        }
+
+        return $this->parseReferenceJson((string) $result['content'], $limit);
+    }
+
+    /**
+     * Ekstrak array JSON referensi dari keluaran LLM (menerima ```json fenced```).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function parseReferenceJson(string $content, int $limit): array
+    {
+        if (preg_match('/\[.*\]/s', $content, $m) !== 1) {
+            return [];
+        }
+
+        $decoded = json_decode($m[0], true);
+
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        $candidates = [];
+
+        foreach ($decoded as $item) {
+            if (! is_array($item) || ! isset($item['title'])) {
+                continue;
+            }
+
+            $candidates[] = [
+                'title' => (string) $item['title'],
+                'abstract' => (string) ($item['abstract'] ?? ''),
+                'authors' => array_values(array_map('strval', (array) ($item['authors'] ?? []))),
+                'year' => isset($item['year']) ? (int) $item['year'] : null,
+                'journal_name' => (string) ($item['journal_name'] ?? ''),
+                'doi' => isset($item['doi']) && is_string($item['doi']) ? $item['doi'] : null,
+                'method' => (string) ($item['method'] ?? ''),
+                'result' => (string) ($item['result'] ?? ''),
+                'gap' => (string) ($item['gap'] ?? ''),
+                'source' => 'omnigensi-llm',
+            ];
+
+            if (count($candidates) >= $limit) {
+                break;
+            }
+        }
+
+        return $candidates;
     }
 
     /**

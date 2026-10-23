@@ -42,18 +42,122 @@ final class OmnigensiChatClient
     }
 
     /**
+     * Hasilkan teks dari LLM Omnigensi dengan satu prompt sistem+user.
+     *
+     * Memakai jalur integrasi (API Key) bila tersedia, jika tidak jalur
+     * operator. Model default dipilih otomatis. Mengembalikan null bila
+     * backend tidak tersedia / gagal — pemanggil dapat memakai fallback.
+     *
+     * @return array{content: string, model_id: string, latency_ms: int}|null
+     */
+    public function generate(string $prompt, ?string $system = null, float $temperature = 0.7, int $maxTokens = 1024, ?string $modelId = null): ?array
+    {
+        try {
+            if (! $this->isAvailable()) {
+                return null;
+            }
+
+            $messages = [];
+
+            if ($system !== null && $system !== '') {
+                $messages[] = ['role' => 'system', 'content' => $system];
+            }
+
+            $messages[] = ['role' => 'user', 'content' => $prompt];
+
+            if ($this->hasIntegrationKey()) {
+                $model = $modelId ?? $this->defaultModel();
+
+                if ($model === null) {
+                    return null;
+                }
+
+                return $this->integrationComplete($model, $messages, $temperature, $maxTokens);
+            }
+
+            $option = $this->defaultModelOption();
+
+            if ($option === null) {
+                return null;
+            }
+
+            return $this->complete($option['provider_id'], $option['model_id'], $messages, $temperature, $maxTokens);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Model default untuk jalur integrasi (model_id saja).
+     */
+    public function defaultModel(): ?string
+    {
+        $option = $this->defaultModelOption();
+
+        return $option['model_id'] ?? null;
+    }
+
+    /**
+     * Opsi model default (provider + model) dari registry.
+     *
+     * @return array{provider_id: string, model_id: string}|null
+     */
+    public function defaultModelOption(): ?array
+    {
+        try {
+            $models = $this->hasIntegrationKey() ? $this->integrationModels() : $this->models();
+
+            if ($models === []) {
+                return null;
+            }
+
+            foreach ($models as $model) {
+                if (($model['is_default'] ?? false) && $model['model_id'] !== '') {
+                    return ['provider_id' => $model['provider_id'], 'model_id' => $model['model_id']];
+                }
+            }
+
+            $first = $models[0];
+
+            return ['provider_id' => $first['provider_id'], 'model_id' => $first['model_id']];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * Apakah backend Omnigensi dapat dijangkau (dipakai UI untuk degradasi
      * anggun saat backend mati).
      */
     public function isAvailable(): bool
     {
-        try {
-            $this->http()->get('/health')->throw();
+        // Cache hasil probe singkat (default store) agar pipeline agen tidak
+        // berulang-kali menunggu DNS/timeout ketika backend mati. Di lingkungan
+        // test CACHE_STORE=array sehingga tidak bocor antar-test.
+        $cacheKey = 'omnigensi:available:'.md5($this->baseUrl);
+        $cached = Cache::get($cacheKey);
 
-            return true;
-        } catch (\Throwable) {
-            return false;
+        if (is_bool($cached)) {
+            return $cached;
         }
+
+        // Probe cepat: jangan blokir pipeline agen saat backend mati. Timeout
+        // pendek (maks 3s) agar fallback ke template berjalan mulus.
+        try {
+            $this->http()
+                ->timeout(min(3, max(1, $this->connectTimeout)))
+                ->connectTimeout(min(3, max(1, $this->connectTimeout)))
+                ->get('/health')
+                ->throw();
+
+            $available = true;
+        } catch (\Throwable) {
+            $available = false;
+        }
+
+        Cache::put($cacheKey, $available, now()->addSeconds($available ? 30 : 10));
+
+        return $available;
     }
 
     /**

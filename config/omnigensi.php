@@ -34,6 +34,13 @@ return [
     'api_key' => env('OMNIGENSI_API_KEY', ''),
 
     /*
+    | Apakah agen (Academic-Scribe, dll.) memakai LLM Omnigensi untuk menulis.
+    | Bila false, agen memakai template deterministik (berguna untuk test yang
+    | harus deterministik/offline). Default true: terintegrasi dengan omnigensi.
+    */
+    'agents_enabled' => (bool) env('OMNIGENSI_AGENTS_ENABLED', true),
+
+    /*
     | Batas waktu permintaan (detik). Model LLM dapat lambat, jadi beri ruang
     | cukup untuk respons panjang.
     */

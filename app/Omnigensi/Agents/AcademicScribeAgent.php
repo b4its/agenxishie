@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Omnigensi\Agents;
 
+use App\Domain\Assistant\OmnigensiChatClient;
 use App\Domain\GuidelineEngine\Data\GuidelineDefinition;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\ProjectStageRecord;
@@ -32,6 +33,7 @@ final class AcademicScribeAgent implements XishieAgentContract
     public function __construct(
         private readonly SharedProjectMemory $memory,
         private readonly ScholarScoutAgent $scholarScout,
+        private readonly OmnigensiChatClient $llm,
     ) {}
 
     public function name(): string
@@ -144,6 +146,20 @@ final class AcademicScribeAgent implements XishieAgentContract
     ): array {
         $citations = $context->citations;
         $keys = array_map(static fn (array $citation): string => $citation['citation_key'], $citations);
+
+        // Tulis via LLM Omnigensi (terintegrasi). Bila backend tidak tersedia,
+        // jatuh ke template deterministik di bawah (offline-safe).
+        $generated = $this->composeWithLlm($project, $heading, $key, $context, $keys);
+
+        if ($generated !== null) {
+            return [
+                'key' => $key,
+                'heading' => $heading,
+                'content' => $generated,
+                'citation_keys' => $this->detectCitationKeys($generated, $keys),
+            ];
+        }
+
         $field = $project->field_of_study->label();
         $tone = $project->field_of_study->academicTone();
         $methodology = $project->field_of_study->defaultMethodology();
@@ -234,6 +250,73 @@ final class AcademicScribeAgent implements XishieAgentContract
             'content' => $body,
             'citation_keys' => $keys,
         ];
+    }
+
+    /**
+     * Tulis satu section memakai LLM Omnigensi. Kembalikan null bila gagal/
+     * offline agar pemanggil memakai template fallback.
+     *
+     * @param  array<int, string>  $keys
+     */
+    private function composeWithLlm(XishieProject $project, string $heading, string $key, SharedContextData $context, array $keys): ?string
+    {
+        // Nonaktifkan LLM pada environment/test yang tidak menghendakinya.
+        if (! config('omnigensi.agents_enabled', true)) {
+            return null;
+        }
+
+        $references = array_map(
+            static fn (array $c): string => sprintf('%s (%s) - %s', $c['citation_key'], $c['year'] ?? 'n.d.', $c['title']),
+            array_slice($context->citations, 0, 6),
+        );
+
+        $system = 'Anda adalah Academic-Scribe pada Agen Xishie: penulis akademik yang teliti, '
+            .'formal, dan bebas halusinasi. Tulis dalam Bahasa Indonesia baku. '
+            .'Hanya boleh mengutip referensi yang diberikan memakai kunci sitasi persis seperti [Kunci Tahun]. '
+            .'Jangan mengarang referensi. Kembalikan HANYA paragraf isi sub-bab (tanpa judul, tanpa penjelasan meta).';
+
+        $prompt = sprintf(
+            "Proyek: %s\nBidang: %s\nJenis dokumen: %s\nTahap: %s\nSub-bab: %s\n\n".
+            "Referensi yang boleh dikutip:\n%s\n\n".
+            "Tulis isi sub-bab '%s' sebanyak 2-4 paragraf akademik yang runtut, menyertakan sitasi [Kunci Tahun] dari referensi di atas, sesuai kaidah %s.",
+            $context->projectTitle,
+            $project->field_of_study->label(),
+            $project->document_type->label(),
+            $context->stage,
+            $heading,
+            $references === [] ? '- (belum ada referensi terdaftar; hindari sitasi fiktif)' : implode("\n", $references),
+            $heading,
+            $context->guideline->citationStyle,
+        );
+
+        $result = $this->llm->generate($prompt, $system, 0.6, 900);
+
+        if ($result === null) {
+            return null;
+        }
+
+        $content = trim((string) $result['content']);
+
+        return $content === '' ? null : $content;
+    }
+
+    /**
+     * Deteksi kunci sitasi valid yang benar-benar dipakai dalam teks LLM.
+     *
+     * @param  array<int, string>  $allowed
+     * @return array<int, string>
+     */
+    private function detectCitationKeys(string $content, array $allowed): array
+    {
+        $used = [];
+
+        foreach ($allowed as $key) {
+            if ($key !== '' && preg_match('/\['.preg_quote($key, '/').'[\]\s,;]/u', $content) === 1) {
+                $used[] = $key;
+            }
+        }
+
+        return $used;
     }
 
     private function keyForHeading(GuidelineDefinition $guideline, string $heading): string

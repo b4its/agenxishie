@@ -42,9 +42,12 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <!-- Uji deterministik: default tanpa API key integrasi agar test base
-             memakai jalur operator; test integrasi menyetel key eksplisit. -->
+             memakai jalur operator; test integrasi menyetel key eksplisit.
+             Base URL diarahkan ke port tertutup (127.0.0.1:1) agar probe
+             isAvailable() gagal instan (bukan DNS-hang) saat tidak di-fake. -->
         <env name="OMNIGENSI_API_KEY" value="" force="true"/>
-        <env name="OMNIGENSI_BASE_URL" value="http://omnigensi.test" force="true"/>
+        <env name="OMNIGENSI_BASE_URL" value="http://127.0.0.1:1" force="true"/>
+        <env name="OMNIGENSI_AGENTS_ENABLED" value="false" force="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

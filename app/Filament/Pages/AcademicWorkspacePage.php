@@ -374,6 +374,24 @@ class AcademicWorkspacePage extends Page
 
         $scout = app(ScholarScoutAgent::class);
 
+        // Cari referensi nyata via LLM Omnigensi (terintegrasi).
+        $candidates = $scout->suggestReferences($project, 4);
+
+        if ($candidates !== []) {
+            $added = $scout->ingestCandidates($project, $candidates);
+
+            Notification::make()
+                ->title($added.' referensi ditambahkan dari Omnigensi')
+                ->body('Dihasilkan model AI Omnigensi.')
+                ->success()
+                ->send();
+
+            $this->dispatch('$refresh');
+
+            return;
+        }
+
+        // Fallback offline: satu referensi sintetis agar pipeline tetap jalan.
         $scout->ingestCandidates($project, [
             [
                 'title' => 'A Systematic Review of '.$project->title,
@@ -383,11 +401,17 @@ class AcademicWorkspacePage extends Page
                 'method' => 'systematic review',
                 'result' => 'Sintesis temuan utama',
                 'gap' => 'Validasi empiris terbatas',
-                'source' => 'openalex',
+                'source' => 'offline-fallback',
             ],
         ]);
 
-        Notification::make()->title('Referensi ditambahkan')->success()->send();
+        Notification::make()
+            ->title('Referensi ditambahkan (fallback offline)')
+            ->body('Backend Omnigensi tidak tersedia; memakai referensi sintetis.')
+            ->warning()
+            ->send();
+
+        $this->dispatch('$refresh');
     }
 
     public function matchVenues(): void
