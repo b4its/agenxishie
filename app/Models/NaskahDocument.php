@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Domain\Publication\NaskahRichModel;
 use Database\Factories\NaskahDocumentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -39,6 +40,10 @@ class NaskahDocument extends Model
         'source_stage',
         'source_filename',
         'blocks',
+        'comments',
+        'revisions',
+        'page_setup',
+        'style_meta',
         'word_count',
         'last_saved_at',
     ];
@@ -50,6 +55,10 @@ class NaskahDocument extends Model
     {
         return [
             'blocks' => 'array',
+            'comments' => 'array',
+            'revisions' => 'array',
+            'page_setup' => 'array',
+            'style_meta' => 'array',
             'word_count' => 'integer',
             'last_saved_at' => 'datetime',
         ];
@@ -72,49 +81,41 @@ class NaskahDocument extends Model
     }
 
     /**
-     * Naskah sebagai dokumen polos (judul + isi blok).
+     * Naskah sebagai teks polos (judul + isi blok).
      */
     public function toPlainText(): string
     {
-        $parts = [];
-
-        foreach ($this->blocks as $block) {
-            $text = trim((string) ($block['text'] ?? ''));
-
-            if ($text === '') {
-                continue;
-            }
-
-            $type = (string) ($block['type'] ?? 'paragraph');
-
-            if ($type === 'heading') {
-                $level = (int) ($block['level'] ?? 1);
-                $parts[] = str_repeat('#', max(1, min(3, $level))).' '.$text;
-            } elseif ($type === 'bullet') {
-                $parts[] = '- '.$text;
-            } elseif ($type === 'numbered') {
-                $parts[] = '1. '.$text;
-            } elseif ($type === 'quote') {
-                $parts[] = '> '.$text;
-            } else {
-                $parts[] = $text;
-            }
-        }
-
-        return implode("\n\n", $parts);
+        return app(NaskahRichModel::class)
+            ->toPlainText(app(NaskahRichModel::class)->normalize((array) $this->blocks));
     }
 
     /**
-     * Hitung jumlah kata dari seluruh blok.
+     * Hitung jumlah kata dari seluruh blok (termasuk sel tabel).
      */
     public function computeWordCount(): int
     {
-        $total = 0;
+        $model = app(NaskahRichModel::class);
 
-        foreach ($this->blocks as $block) {
-            $total += str_word_count(strip_tags((string) ($block['text'] ?? '')));
-        }
+        return $model->countWords($model->normalize((array) $this->blocks));
+    }
 
-        return $total;
+    /**
+     * Komentar dokumen (default array kosong).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function commentsList(): array
+    {
+        return (array) ($this->comments ?? []);
+    }
+
+    /**
+     * Revisi/track changes (default array kosong).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function revisionsList(): array
+    {
+        return (array) ($this->revisions ?? []);
     }
 }
