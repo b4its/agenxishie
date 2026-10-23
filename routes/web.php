@@ -18,10 +18,14 @@ Route::get('/', function () {
 
 Route::get('/welcome', fn () => view('welcome'))->name('welcome');
 
-// Naskah Studio Standalone (Akses Publik / Langsung di Luar Panel Admin)
+// Naskah Studio Standalone (Akses Publik / Langsung di Luar Panel Admin, Tanpa Filament)
 Route::get('/studio/{document?}', [NaskahStudioWebController::class, 'index'])->name('studio.index');
 Route::get('/naskah-studio/{document?}', fn (?int $document = null) => redirect()->route('studio.index', ['document' => $document]))->name('naskah.studio.alias');
 Route::get('/studio/export/{document}/{format}', [NaskahStudioWebController::class, 'exportDirect'])->name('studio.export.direct');
+
+// Dashboard 18 UX KPIs & Product Telemetry (Akses Publik / Standalone di Luar Admin Panel)
+Route::get('/analytics', [NaskahStudioWebController::class, 'analytics'])->name('studio.analytics');
+Route::get('/ux-analytics', fn () => redirect()->route('studio.analytics'))->name('studio.ux-analytics.alias');
 
 // Halaman Manajemen & Monitoring Proyek Terhubung (Akses Publik / Langsung)
 Route::get('/connected-projects', [ExternalProjectsWebController::class, 'index'])->name('connected-projects.index');

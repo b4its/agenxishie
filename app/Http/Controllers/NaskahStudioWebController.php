@@ -7,7 +7,11 @@ namespace App\Http\Controllers;
 use App\Domain\Publication\NaskahDocxExporter;
 use App\Domain\Publication\NaskahOdtExporter;
 use App\Domain\Publication\NaskahRichModel;
+use App\Domain\Workspace\UxKpiTelemetryService;
 use App\Models\NaskahDocument;
+use App\Models\UxKpiTelemetry;
+use App\Models\XishieProject;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -16,8 +20,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * NaskahStudioWebController: Controller Web Publik untuk Naskah Studio Standalone.
  *
- * Mengakomodasi akses penuh ke word processor di luar admin panel (`/studio`),
- * lengkap dengan unduhan ekspor multi-format langsung (ODT, DOCX, LaTeX, RTF, MD, TXT).
+ * Mengakomodasi akses penuh ke word processor di luar admin panel (`/studio`)
+ * dan dashboard 18 UX KPIs (`/analytics`), bebas dari dependensi Filament.
  */
 class NaskahStudioWebController extends Controller
 {
@@ -34,6 +38,41 @@ class NaskahStudioWebController extends Controller
     {
         return view('studio.index', [
             'documentId' => $document,
+        ]);
+    }
+
+    /**
+     * Tampilkan Dashboard 18 UX KPIs & Product Telemetry (Standalone di Luar Admin Panel).
+     */
+    public function analytics(Request $request): View
+    {
+        $projectId = $request->query('project') ? (int) $request->query('project') : null;
+        $project = $projectId ? XishieProject::find($projectId) : XishieProject::query()->latest()->first();
+
+        $service = app(UxKpiTelemetryService::class);
+        $summary = $project ? $service->dashboardSummary($project) : [
+            'all' => [],
+            'ux' => [],
+            'heart' => [],
+            'aarrr' => [],
+        ];
+
+        $allMetrics = $summary['all'] ?? [];
+        $healthyCount = count(array_filter($allMetrics, static fn (array $m): bool => (bool) ($m['healthy'] ?? false)));
+        $totalCount = count($allMetrics);
+        $healthScore = $totalCount > 0 ? round(($healthyCount / $totalCount) * 100, 1) : 100.0;
+
+        $projects = XishieProject::query()->orderByDesc('updated_at')->get(['id', 'title', 'document_type', 'control_mode']);
+        $recentTelemetries = UxKpiTelemetry::query()->latest('recorded_at')->limit(12)->get();
+
+        return view('studio.analytics', [
+            'project' => $project,
+            'projects' => $projects,
+            'summary' => $summary,
+            'healthyCount' => $healthyCount,
+            'totalCount' => $totalCount,
+            'healthScore' => $healthScore,
+            'recentTelemetries' => $recentTelemetries,
         ]);
     }
 

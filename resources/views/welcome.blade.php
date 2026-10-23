@@ -240,6 +240,7 @@
                         </p>
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                             <a href="{{ route('studio.index') }}" class="rb-button rb-button--primary" style="background:#1d4ed8;">&#9997; Buka Naskah Studio (Word Processor)</a>
+                            <a href="{{ route('studio.analytics') }}" class="rb-button rb-button--primary" style="background:#4338ca;">&#128202; Dasbor 18 UX KPIs</a>
                             <a href="/connected-projects" class="rb-button rb-button--primary" style="background:#047857;">&#128225; Hub Proyek Terhubung (:8208)</a>
                             <a href="/admin" class="rb-button rb-button--primary">&#9889; Masuk ke Admin Panel</a>
                             <a href="/admin/project-onboarding-wizard" class="rb-button rb-button--secondary">+ Mulai Proyek Baru (Wizard)</a>
