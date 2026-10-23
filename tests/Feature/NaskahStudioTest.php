@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domain\Publication\NaskahBlockParser;
+use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Filament\Pages\NaskahStudioPage;
 use App\Models\NaskahDocument;
@@ -152,14 +153,167 @@ it('answers a freeform assistant question using document context without a proje
         ->and($log[array_key_last($log)]['role'])->toBe('assistant');
 });
 
-it('exports the manuscript as markdown, text and html', function (): void {
-    foreach (['md', 'txt', 'html'] as $format) {
+it('exports the manuscript as docx, odt, rtf, latex, markdown, text and html', function (): void {
+    foreach (['docx', 'odt', 'rtf', 'latex', 'md', 'txt', 'html'] as $format) {
         Livewire::test(NaskahStudioPage::class)
-            ->set('docTitle', 'Ekspor Uji')
-            ->set('blocks', [['type' => 'heading', 'level' => 1, 'text' => 'Judul'], ['type' => 'paragraph', 'text' => 'Isi.']])
+            ->set('docTitle', 'Ekspor Lengkap')
+            ->set('blocks', [
+                ['type' => 'heading', 'level' => 1, 'text' => 'Judul Ekspor'],
+                ['type' => 'paragraph', 'text' => 'Ini adalah naskah uji coba ekspor multifromat.'],
+                ['type' => 'quote', 'text' => 'Kutipan penting.'],
+                ['type' => 'bullet', 'text' => 'Poin pertama'],
+                ['type' => 'table', 'table' => ['rows' => [[['text' => 'H1'], ['text' => 'H2']], [['text' => 'A'], ['text' => 'B']]], 'header' => true]],
+            ])
             ->call('export', $format)
             ->assertFileDownloaded();
     }
+});
+
+it('computes detailed readability and document statistics', function (): void {
+    $model = app(NaskahRichModel::class);
+    $blocks = [
+        ['type' => 'heading', 'level' => 1, 'text' => 'Analisis Metode Penelitian'],
+        ['type' => 'paragraph', 'text' => 'Penelitian ini bertujuan untuk menganalisis efektivitas implementasi sistem informasi pada perguruan tinggi. Hasil menunjukkan peningkatan signifikan.'],
+    ];
+
+    $stats = $model->computeStatistics($blocks);
+
+    expect($stats['words'])->toBeGreaterThan(10)
+        ->and($stats['characters'])->toBeGreaterThan(50)
+        ->and($stats['sentences'])->toBeGreaterThan(0)
+        ->and($stats['readingEase'])->toBeGreaterThanOrEqual(0.0)
+        ->and($stats['gradeLevel'])->toBeGreaterThanOrEqual(1.0)
+        ->and($stats['readingTimeMinutes'])->toBeGreaterThanOrEqual(1);
+});
+
+it('supports table blocks and table operations', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('tableRows', 2)
+        ->set('tableCols', 2)
+        ->call('insertTable');
+
+    $blocks = $page->get('blocks');
+    $tableIndex = count($blocks) - 1;
+
+    expect($blocks[$tableIndex]['type'])->toBe('table')
+        ->and($blocks[$tableIndex]['table']['rows'])->toHaveCount(2)
+        ->and($blocks[$tableIndex]['table']['rows'][0])->toHaveCount(2);
+
+    $page->call('tableInsertRow', $tableIndex, 0);
+    expect($page->get('blocks')[$tableIndex]['table']['rows'])->toHaveCount(3);
+
+    $page->call('tableDeleteRow', $tableIndex, 1);
+    expect($page->get('blocks')[$tableIndex]['table']['rows'])->toHaveCount(2);
+
+    $page->call('tableInsertColumn', $tableIndex, 0);
+    expect($page->get('blocks')[$tableIndex]['table']['rows'][0])->toHaveCount(3);
+
+    $page->call('tableDeleteColumn', $tableIndex, 1);
+    expect($page->get('blocks')[$tableIndex]['table']['rows'][0])->toHaveCount(2);
+
+    $page->call('tableToggleHeader', $tableIndex);
+    expect($page->get('blocks')[$tableIndex]['table']['header'])->toBeFalse();
+});
+
+it('supports comments lifecycle with resolve and reply', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('activeBlock', 0)
+        ->set('commentDraft', 'Perlu ditambahkan sitasi.')
+        ->call('addComment');
+
+    expect($page->get('comments'))->toHaveCount(1)
+        ->and($page->get('comments')[0]['body'])->toBe('Perlu ditambahkan sitasi.')
+        ->and($page->get('comments')[0]['resolved'])->toBeFalse();
+
+    $page->call('replyComment', 0, 'Baik, akan segera ditambahkan.');
+    expect($page->get('comments')[0]['replies'])->toHaveCount(1);
+
+    $page->call('resolveComment', 0);
+    expect($page->get('comments')[0]['resolved'])->toBeTrue();
+
+    $page->call('deleteComment', 0);
+    expect($page->get('comments'))->toBeEmpty();
+});
+
+it('supports track changes and revisions acceptance and rejection', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Teks awal.'],
+        ])
+        ->call('recordRevision', 0, 'Teks awal.', 'Teks hasil revisi.')
+        ->assertSet('dirty', true);
+
+    expect($page->get('revisions'))->toHaveCount(1)
+        ->and($page->get('revisions')[0]['status'])->toBe('pending');
+
+    $page->call('acceptRevision', 0);
+    expect($page->get('revisions')[0]['status'])->toBe('accepted')
+        ->and($page->get('blocks')[0]['text'])->toBe('Teks hasil revisi.');
+
+    $page->call('recordRevision', 0, 'Teks hasil revisi.', 'Teks yang ditolak.')
+        ->call('rejectRevision', 1);
+
+    expect($page->get('revisions')[1]['status'])->toBe('rejected')
+        ->and($page->get('blocks')[0]['text'])->toBe('Teks hasil revisi.');
+});
+
+it('supports undo and redo stack and format painter', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'align' => 'center', 'indent' => 2, 'lineSpacing' => 1.7, 'text' => 'A'],
+            ['type' => 'paragraph', 'align' => 'left', 'indent' => 0, 'lineSpacing' => 1.0, 'text' => 'B'],
+        ]);
+
+    $page->call('copyFormat', 0);
+    expect($page->get('copiedFormat'))->toMatchArray(['align' => 'center', 'indent' => 2]);
+
+    $page->call('pasteFormat', 1);
+    expect($page->get('blocks')[1]['align'])->toBe('center')
+        ->and($page->get('blocks')[1]['indent'])->toBe(2);
+
+    $page->call('undo');
+    expect($page->get('blocks')[1]['align'])->toBe('left');
+
+    $page->call('redo');
+    expect($page->get('blocks')[1]['align'])->toBe('center');
+});
+
+it('supports mail merge with csv parsing and document generation', function (): void {
+    $csv = "nama,instansi\nBudi,UI\nSiti,ITB";
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('mergeCsv', $csv)
+        ->set('mergeTemplate', 'Yth. {{nama}} dari {{instansi}}.')
+        ->call('previewMerge');
+
+    expect($page->get('mergePreviews'))->toHaveCount(2)
+        ->and($page->get('mergePreviews')[0]['text'])->toBe('Yth. Budi dari UI.')
+        ->and($page->get('mergePreviews')[1]['text'])->toBe('Yth. Siti dari ITB.');
+
+    $initialBlockCount = count($page->get('blocks'));
+    $page->call('insertMerge');
+    expect(count($page->get('blocks')))->toBe($initialBlockCount + 2);
+});
+
+it('supports page setup, themes and watermark customization', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->call('applyTheme', 'modern')
+        ->assertSet('styleMeta.theme', 'modern')
+        ->call('updatePageSetup', 'watermark', 'RAHASIA')
+        ->assertSet('pageSetup.watermark', 'RAHASIA')
+        ->call('updatePageSetup', 'columns', 2)
+        ->assertSet('pageSetup.columns', 2)
+        ->call('toggleDarkMode')
+        ->assertSet('darkMode', true);
+});
+
+it('supports wordcraft in-block ai actions', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Penelitian ini menganalisis efektivitas pembelajaran digital.'],
+        ])
+        ->call('aiElaborateBlock', 0);
+
+    expect($page->get('blocks')[0]['text'])->not->toBeEmpty();
 });
 
 it('opens a saved document by id', function (): void {
