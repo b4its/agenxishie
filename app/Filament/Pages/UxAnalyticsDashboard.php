@@ -7,6 +7,8 @@ namespace App\Filament\Pages;
 use App\Filament\Widgets\AarrrFunnelWidget;
 use App\Filament\Widgets\AgentActivityTerminalWidget;
 use App\Filament\Widgets\HeartKpiTelemetryWidget;
+use App\Filament\Widgets\NextActionsWidget;
+use App\Filament\Widgets\ProjectsOverviewWidget;
 use App\Filament\Widgets\WorkspaceKpiBarWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 
@@ -36,6 +38,8 @@ class UxAnalyticsDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            ProjectsOverviewWidget::class,
+            NextActionsWidget::class,
             WorkspaceKpiBarWidget::class,
             HeartKpiTelemetryWidget::class,
             AarrrFunnelWidget::class,
