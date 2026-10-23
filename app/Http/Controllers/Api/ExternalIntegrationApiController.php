@@ -45,6 +45,36 @@ class ExternalIntegrationApiController extends Controller
     }
 
     /**
+     * Dapatkan status dan metadata proyek berdasarkan slug atau ID.
+     */
+    public function clientStatus(Request $request, string $slug): JsonResponse
+    {
+        $client = ExternalClient::query()
+            ->where('client_slug', $slug)
+            ->orWhere('id', is_numeric($slug) ? (int) $slug : 0)
+            ->first();
+
+        if ($client === null) {
+            return response()->json(['error' => 'Klien tidak ditemukan.'], 404);
+        }
+
+        return response()->json([
+            'id' => $client->id,
+            'name' => $client->name,
+            'client_slug' => $client->client_slug,
+            'target_url' => $client->target_url,
+            'status' => $client->status,
+            'uptime_percentage' => $client->getUptimePercentage(),
+            'last_status_code' => $client->last_status_code,
+            'last_latency_ms' => $client->last_latency_ms,
+            'last_ping_at' => $client->last_ping_at?->toIso8601String(),
+            'inbound_requests_count' => $client->inbound_requests_count,
+            'allowed_models' => $client->allowed_models ?? ['*'],
+            'is_active' => $client->is_active,
+        ]);
+    }
+
+    /**
      * Daftar model dan agen yang dapat dikonsumsi oleh klien eksternal.
      */
     public function models(Request $request): JsonResponse

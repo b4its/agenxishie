@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/external')->group(function (): void {
     Route::get('/ping', [ExternalIntegrationApiController::class, 'ping'])->name('api.v1.external.ping');
+    Route::get('/status/{slug}', [ExternalIntegrationApiController::class, 'clientStatus'])->name('api.v1.external.client-status');
     Route::get('/models', [ExternalIntegrationApiController::class, 'models'])->name('api.v1.external.models');
     Route::post('/chat', [ExternalIntegrationApiController::class, 'chat'])->name('api.v1.external.chat');
     Route::post('/audit', [ExternalIntegrationApiController::class, 'audit'])->name('api.v1.external.audit');

@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
-});
+})->name('home');
+
+Route::get('/welcome', fn () => view('welcome'))->name('welcome');
 
 // Halaman Manajemen & Monitoring Proyek Terhubung (Akses Publik / Langsung)
 Route::get('/connected-projects', [ExternalProjectsWebController::class, 'index'])->name('connected-projects.index');

@@ -79,65 +79,82 @@ class ExternalClientManager
         $targetUrl = $this->normalizeUrl($client->target_url);
         $start = microtime(true);
 
+        $response = null;
+
         try {
             $response = Http::timeout($timeoutSeconds)
                 ->withoutVerifying()
                 ->get($targetUrl);
-
-            $latency = (int) round((microtime(true) - $start) * 1000);
-            $statusCode = $response->status();
-            $server = $response->header('Server') ?: $response->header('X-Powered-By');
-
-            $status = match (true) {
-                $statusCode >= 200 && $statusCode < 400 => 'online',
-                $statusCode >= 400 && $statusCode < 500 => 'online', // Server aktif merespon meski auth/404
-                $statusCode >= 500 => 'degraded',
-                default => 'unknown',
-            };
-
-            $client->recordPingResult(
-                status: $status,
-                statusCode: $statusCode,
-                latencyMs: $latency,
-                server: $server,
-                errorMessage: null,
-            );
-
-            return [
-                'client_id' => $client->id,
-                'name' => $client->name,
-                'target_url' => $targetUrl,
-                'status' => $status,
-                'status_code' => $statusCode,
-                'latency_ms' => $latency,
-                'server' => $server,
-                'error' => null,
-            ];
         } catch (\Throwable $exception) {
-            $latency = (int) round((microtime(true) - $start) * 1000);
-            $errorMsg = Str::limit($exception->getMessage(), 250);
+            // Jika target adalah localhost/127.0.0.1 dan gagal di dalam container Docker,
+            // coba fallback ke host.docker.internal agar dapat menjangkau host gateway.
+            if (Str::contains($targetUrl, ['localhost', '127.0.0.1'])) {
+                $hostUrl = str_replace(['localhost', '127.0.0.1'], 'host.docker.internal', $targetUrl);
+                try {
+                    $response = Http::timeout($timeoutSeconds)
+                        ->withoutVerifying()
+                        ->get($hostUrl);
+                } catch (\Throwable) {
+                    $response = null;
+                }
+            }
 
-            $status = Str::contains(strtolower($errorMsg), 'timed out') ? 'timeout' : 'offline';
+            if ($response === null) {
+                $latency = (int) round((microtime(true) - $start) * 1000);
+                $errorMsg = Str::limit($exception->getMessage(), 250);
 
-            $client->recordPingResult(
-                status: $status,
-                statusCode: null,
-                latencyMs: $latency,
-                server: null,
-                errorMessage: $errorMsg,
-            );
+                $status = Str::contains(strtolower($errorMsg), 'timed out') ? 'timeout' : 'offline';
 
-            return [
-                'client_id' => $client->id,
-                'name' => $client->name,
-                'target_url' => $targetUrl,
-                'status' => $status,
-                'status_code' => null,
-                'latency_ms' => $latency,
-                'server' => null,
-                'error' => $errorMsg,
-            ];
+                $client->recordPingResult(
+                    status: $status,
+                    statusCode: null,
+                    latencyMs: $latency,
+                    server: null,
+                    errorMessage: $errorMsg,
+                );
+
+                return [
+                    'client_id' => $client->id,
+                    'name' => $client->name,
+                    'target_url' => $targetUrl,
+                    'status' => $status,
+                    'status_code' => null,
+                    'latency_ms' => $latency,
+                    'server' => null,
+                    'error' => $errorMsg,
+                ];
+            }
         }
+
+        $latency = (int) round((microtime(true) - $start) * 1000);
+        $statusCode = $response->status();
+        $server = $response->header('Server') ?: $response->header('X-Powered-By');
+
+        $status = match (true) {
+            $statusCode >= 200 && $statusCode < 400 => 'online',
+            $statusCode >= 400 && $statusCode < 500 => 'online', // Server aktif merespon meski auth/404
+            $statusCode >= 500 => 'degraded',
+            default => 'unknown',
+        };
+
+        $client->recordPingResult(
+            status: $status,
+            statusCode: $statusCode,
+            latencyMs: $latency,
+            server: $server,
+            errorMessage: null,
+        );
+
+        return [
+            'client_id' => $client->id,
+            'name' => $client->name,
+            'target_url' => $targetUrl,
+            'status' => $status,
+            'status_code' => $statusCode,
+            'latency_ms' => $latency,
+            'server' => $server,
+            'error' => null,
+        ];
     }
 
     /**
