@@ -239,6 +239,7 @@
                             untuk target <strong>Nasional (SINTA 1-6)</strong> maupun <strong>Internasional (Scopus Q1-Q4 / WoS)</strong>.
                         </p>
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <a href="/connected-projects" class="rb-button rb-button--primary" style="background:#047857;">&#128225; Hub Proyek Terhubung (:8208)</a>
                             <a href="/admin" class="rb-button rb-button--primary">&#9889; Masuk ke Admin Panel</a>
                             <a href="/admin/project-onboarding-wizard" class="rb-button rb-button--secondary">+ Mulai Proyek Baru (Wizard)</a>
                             <a href="/admin/projects" class="rb-button">Daftar Proyek</a>
@@ -254,6 +255,29 @@
                         <div>&gt; [Venue-Matcher] :: Hybrid Vector Cosine (SINTA/Scopus)</div>
                         <div style="margin-top: 0.6rem; color: #FCD34D;">// CONTROL MODES: AUTO | HITL | MANUAL</div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Connected Projects / Integration Hub Status Window --}}
+        <div class="rb-window" style="background:#F8FAFC; border:2px solid var(--rb-primary);">
+            <div class="rb-window__titlebar" style="background:#0F172A; display:flex; justify-content:space-between; align-items:center;">
+                <span>[&#128225;] INTEGRASI MODULAR &amp; STATUS PROYEK TERHUBUNG // TARGET: http://localhost:8208/</span>
+                <span class="rb-badge rb-badge--pass" style="font-size:0.6rem;">ENDPOINT READY</span>
+            </div>
+            <div class="rb-window__body" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+                <div>
+                    <div style="font-size:0.95rem; font-weight:800; color:var(--rb-primary); margin-bottom:0.25rem;">
+                        Target Agen Xishie &amp; Klien Modular
+                    </div>
+                    <p class="rb-mono" style="font-size:0.75rem; color:#475569; margin:0;">
+                        Target <code>http://localhost:8208/</code> terhubung. Proyek atau website lain dapat mendaftar untuk mengonsumsi model AI, endpoint chat, audit naskah, dan verifikasi sitasi.
+                    </p>
+                </div>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <a href="/connected-projects" class="rb-button rb-button--primary" style="font-size:0.75rem;">
+                        &#128202; Buka Monitoring &amp; Registrasi Proyek &rarr;
+                    </a>
                 </div>
             </div>
         </div>
