@@ -521,19 +521,13 @@
                                             {{-- Handshake --}}
                                             <form action="{{ route('connected-projects.handshake', $client['id']) }}" method="POST">
                                                 @csrf
-                                                <button type="submit" class="rb-button" style="padding:.12rem .4rem; font-size:.58rem;" title="Handshake konektivitas mendalam">&#129309; Handshake</button>
+                                                <button type="submit" class="rb-button rb-button--primary" style="padding:.12rem .4rem; font-size:.58rem;" title="Verifikasi end-to-end: server hidup + API key diterima target">&#129309; Handshake</button>
                                             </form>
 
                                             {{-- Webhook Test --}}
                                             <form action="{{ route('connected-projects.test-webhook', $client['id']) }}" method="POST">
                                                 @csrf
                                                 <button type="submit" class="rb-button" style="padding:.12rem .4rem; font-size:.58rem;" title="Uji kirim Webhook">&#128279; Hook</button>
-                                            </form>
-
-                                            {{-- Handshake end-to-end --}}
-                                            <form action="{{ route('connected-projects.handshake', $client['id']) }}" method="POST">
-                                                @csrf
-                                                <button type="submit" class="rb-button rb-button--primary" style="padding:.12rem .4rem; font-size:.58rem;" title="Verifikasi koneksi end-to-end (API key + kontrak respons)">&#128279; Handshake</button>
                                             </form>
 
                                             {{-- Uji Inbound --}}
