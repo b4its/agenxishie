@@ -61,7 +61,7 @@
                     <span class="rb-window__controls"><span class="rb-window__control">-</span><span class="rb-window__control">&#9633;</span><span class="rb-window__control">&#215;</span></span>
                 </div>
                 <div class="rb-window__body" style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
-                    <span class="rb-mono rb-muted" style="font-size:.7rem;">Unduh:</span>
+                    <span class="rb-mono rb-muted" style="font-size:.7rem;">Naskah:</span>
                     @foreach ($exportFormats as $key => $meta)
                         <button
                             type="button"
@@ -71,6 +71,10 @@
                             wire:target="exportManuscript('{{ $key }}')"
                         >{{ $meta['label'] }}</button>
                     @endforeach
+
+                    <span class="rb-mono rb-muted" style="font-size:.7rem; margin-left:auto;">Daftar Rekomendasi Jurnal:</span>
+                    <button type="button" class="rb-button" wire:click="exportRecommendations('csv')" title="Unduh daftar rekomendasi sebagai CSV">&#11015; CSV</button>
+                    <button type="button" class="rb-button" wire:click="exportRecommendations('markdown')" title="Unduh daftar rekomendasi sebagai Markdown">&#11015; MD</button>
                 </div>
             </div>
 

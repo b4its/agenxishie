@@ -13,6 +13,7 @@ use App\Omnigensi\Agents\VenueMatcherAgent;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -197,6 +198,88 @@ class PlatformMatcherPage extends Page
             static fn () => print $content,
             $filename,
             ['Content-Type' => $meta['mime']],
+        );
+    }
+
+    /**
+     * Unduh daftar rekomendasi jurnal hasil analisis VenueMatcherAgent (CSV / Markdown).
+     */
+    public function exportRecommendations(string $format = 'csv'): ?StreamedResponse
+    {
+        $project = $this->getProject();
+        if ($project === null) {
+            return null;
+        }
+
+        $recs = $project->recommendations()->get();
+        if ($recs->isEmpty()) {
+            Notification::make()->title('Belum ada rekomendasi jurnal untuk proyek ini')->warning()->send();
+
+            return null;
+        }
+
+        $base = Str::slug((string) $project->title) ?: 'venue-recommendations';
+
+        if ($format === 'markdown' || $format === 'md') {
+            $filename = $base.'-journal-recommendations.md';
+            $lines = [
+                '# Rekomendasi Jurnal Target — '.$project->title,
+                '- **Bidang**: '.$project->field_of_study->label(),
+                '- **Target Scope**: '.$project->target_scope->label(),
+                '- **Total Rekomendasi**: '.$recs->count(),
+                '',
+                '| No | Nama Jurnal | Penerbit | Tier | Match Score | Estimasi APC | Target Terpilih |',
+                '| --- | --- | --- | --- | --- | --- | --- |',
+            ];
+
+            foreach ($recs as $idx => $r) {
+                $apc = $r->apc_estimate !== null && (float) $r->apc_estimate > 0
+                    ? 'Rp '.number_format((float) $r->apc_estimate, 0, ',', '.')
+                    : 'Gratis';
+
+                $lines[] = sprintf(
+                    '| %d | %s | %s | %s | %.1f%% | %s | %s |',
+                    $idx + 1,
+                    str_replace('|', '\\|', (string) $r->journal_name),
+                    str_replace('|', '\\|', (string) ($r->publisher ?? '-')),
+                    (string) $r->index_tier,
+                    (float) $r->match_score,
+                    $apc,
+                    $r->is_selected ? 'Ya' : 'Tidak',
+                );
+            }
+
+            $content = implode("\n", $lines);
+            $mime = 'text/markdown';
+        } else {
+            $filename = $base.'-journal-recommendations.csv';
+            $handle = fopen('php://temp', 'r+');
+            fputcsv($handle, ['No', 'Nama Jurnal', 'Penerbit', 'Tier', 'Match Score', 'Estimasi APC', 'Target Terpilih', 'Aims and Scope', 'Submission URL']);
+
+            foreach ($recs as $idx => $r) {
+                fputcsv($handle, [
+                    $idx + 1,
+                    $r->journal_name,
+                    $r->publisher ?? '-',
+                    $r->index_tier,
+                    (float) $r->match_score,
+                    $r->apc_estimate !== null && (float) $r->apc_estimate > 0 ? (float) $r->apc_estimate : 0,
+                    $r->is_selected ? 'Ya' : 'Tidak',
+                    $r->scope_reasoning ?? '',
+                    $r->submission_url ?? '',
+                ]);
+            }
+
+            rewind($handle);
+            $content = stream_get_contents($handle) ?: '';
+            fclose($handle);
+            $mime = 'text/csv';
+        }
+
+        return response()->streamDownload(
+            static fn () => print $content,
+            $filename,
+            ['Content-Type' => $mime],
         );
     }
 
