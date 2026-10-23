@@ -20,6 +20,8 @@ class ProjectsPage extends Page
 
     protected static ?string $navigationLabel = 'Projects';
 
+    protected static ?string $slug = 'projects';
+
     protected static ?string $title = 'Projects';
 
     protected static ?int $navigationSort = 1;

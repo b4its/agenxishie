@@ -42,7 +42,9 @@ class AcademicWorkspacePage extends Page
 
     protected static ?string $navigationLabel = 'Academic Workspace';
 
-    protected static ?string $title = 'Academic Workspace';
+    protected static ?string $slug = 'academic-workspace';
+
+    protected static ?string $title = 'Academic Workspace & Editor Naskah';
 
     protected static ?int $navigationSort = 3;
 
