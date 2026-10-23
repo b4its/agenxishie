@@ -106,6 +106,22 @@ final class LiteratureMatrixBuilder
         return $csv !== false ? $csv : '';
     }
 
+    /**
+     * Render matriks sebagai string JSON terstruktur.
+     */
+    public function toJson(XishieProject $project): string
+    {
+        $rows = $this->build($project);
+
+        return (string) json_encode([
+            'project_id' => $project->id,
+            'project_title' => $project->title,
+            'generated_at' => now()->toIso8601String(),
+            'total_references' => count($rows),
+            'matrix' => $rows,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
     private function escape(string $value): string
     {
         return str_replace('|', '\\|', $value);
