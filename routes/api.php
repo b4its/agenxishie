@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\ExternalIntegrationApiController;
+use App\Http\Controllers\Api\NaskahStudioApiController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -29,4 +30,11 @@ Route::prefix('v1/external')->group(function (): void {
     Route::post('/references/parse-bibtex', [ExternalIntegrationApiController::class, 'parseBibtex'])->name('api.v1.external.references.parse-bibtex');
     Route::post('/webhook/test', [ExternalIntegrationApiController::class, 'webhookTest'])->name('api.v1.external.webhook.test');
     Route::post('/match-venue', [ExternalIntegrationApiController::class, 'matchVenue'])->name('api.v1.external.match-venue');
+});
+
+Route::prefix('v1/naskah')->group(function (): void {
+    Route::get('/documents', [NaskahStudioApiController::class, 'index'])->name('api.v1.naskah.index');
+    Route::get('/documents/{id}', [NaskahStudioApiController::class, 'show'])->name('api.v1.naskah.show');
+    Route::post('/documents/{id}/autocorrect', [NaskahStudioApiController::class, 'autoCorrect'])->name('api.v1.naskah.autocorrect');
+    Route::get('/documents/{id}/export', [NaskahStudioApiController::class, 'export'])->name('api.v1.naskah.export');
 });
