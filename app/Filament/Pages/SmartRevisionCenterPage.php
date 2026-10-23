@@ -214,6 +214,99 @@ class SmartRevisionCenterPage extends Page implements HasForms
     }
 
     /**
+     * Terapkan usulan perbaikan dari side-by-side diff langsung ke naskah stage (PRD 3.5).
+     */
+    public function applyRevisionDiff(int $revisionId, string $sectionKey): void
+    {
+        $project = $this->getProject();
+        $revision = $project?->revisions()->find($revisionId);
+
+        if ($project === null || $revision === null) {
+            Notification::make()->title('Revisi tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $diffs = (array) ($revision->diff_payload ?? []);
+        $targetDiff = null;
+
+        foreach ($diffs as $d) {
+            if (is_array($d) && ($d['section_key'] ?? '') === $sectionKey) {
+                $targetDiff = $d;
+                break;
+            }
+        }
+
+        if ($targetDiff === null || ! isset($targetDiff['after'])) {
+            Notification::make()->title('Diff tidak ditemukan untuk sub-bab ini')->warning()->send();
+
+            return;
+        }
+
+        $stage = $project->stages()->find($revision->stage_id)
+            ?? $project->stages()->where('stage_name', $project->current_stage->value)->first();
+
+        if ($stage === null) {
+            Notification::make()->title('Stage naskah tidak ditemukan')->danger()->send();
+
+            return;
+        }
+
+        $sections = (array) ($stage->sections_content ?? []);
+        $found = false;
+
+        foreach ($sections as $idx => $sec) {
+            if (is_array($sec) && ($sec['key'] ?? '') === $sectionKey) {
+                $sections[$idx]['content'] = (string) $targetDiff['after'];
+                $found = true;
+                break;
+            }
+        }
+
+        if (! $found) {
+            $sections[] = [
+                'key' => $sectionKey,
+                'heading' => Str::title(str_replace('_', ' ', $sectionKey)),
+                'content' => (string) $targetDiff['after'],
+            ];
+        }
+
+        $stage->forceFill([
+            'sections_content' => $sections,
+            'compiled_content' => $stage->compile(),
+        ])->save();
+        $stage->recalculateWordCount();
+
+        $items = (array) ($revision->action_items ?? []);
+        foreach ($items as $idx => $item) {
+            if (($item['section_key'] ?? '') === $sectionKey) {
+                $items[$idx]['status'] = RevisionStatus::RESOLVED->value;
+            }
+        }
+
+        $revision->forceFill([
+            'action_items' => $items,
+            'response_matrix_doc' => app(PeerCriticAgent::class)->renderResponseMatrix(
+                $revision->fresh() ?? $revision,
+            ),
+        ])->save();
+
+        if ($revision->resolutionPercentage() >= 100.0) {
+            $revision->forceFill(['status' => RevisionStatus::RESOLVED])->save();
+        } else {
+            $revision->forceFill(['status' => RevisionStatus::IN_PROGRESS])->save();
+        }
+
+        Notification::make()
+            ->title('Perbaikan diterapkan ke naskah')
+            ->body('Sub-bab "'.$sectionKey.'" diperbarui dan butir revisi ditandai selesai.')
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    /**
      * Analisis ulang catatan mentah sebuah revisi (memperbarui action items &
      * matriks Response to Reviewers).
      */

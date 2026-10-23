@@ -92,7 +92,17 @@
                                     {{ $diff['before'] ?: '(kosong)' }}
                                 </div>
                                 <div class="rb-diff__pane rb-diff__pane--after">
-                                    <div class="rb-diff__header">AFTER — {{ $diff['section_key'] ?? '-' }}</div>
+                                    <div class="rb-diff__header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span>AFTER — {{ $diff['section_key'] ?? '-' }}</span>
+                                        <button
+                                            type="button"
+                                            class="rb-button rb-button--primary"
+                                            style="padding:.1rem .45rem; font-size:.58rem;"
+                                            wire:click="applyRevisionDiff({{ $revision->id }}, '{{ $diff['section_key'] ?? '' }}')"
+                                            wire:loading.attr="disabled"
+                                            title="Terapkan perbaikan ini langsung ke naskah"
+                                        >&#10003; Terapkan Perbaikan</button>
+                                    </div>
                                     {{ $diff['after'] ?? '' }}
                                 </div>
                             </div>
