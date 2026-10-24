@@ -1224,3 +1224,41 @@ it('renders studio web page cleanly without leaking raw javascript code or attri
         ->and($html)->toContain('js/word-studio.js')
         ->and($html)->toContain('wordStudioApp({');
 });
+
+it('binds Word and LibreOffice dynamic active formatting indicators, live counts, and saving state', function (): void {
+    $response = $this->get(route('studio.index'));
+    $response->assertOk();
+
+    $html = $response->getContent();
+
+    // Pastikan indikator format aktif pada Ribbon & Mini-toolbar terikat secara reaktif
+    expect($html)->toContain(":class=\"{ 'active': currentFormat.bold }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.italic }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.underline }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.align === 'left' }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.align === 'center' }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.align === 'right' }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.align === 'justify' }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.isBullet }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.isNumbered }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.style === 'normal' }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.style === 'heading1' }\"")
+        ->and($html)->toContain(":class=\"{ 'active': currentFormat.style === 'title' }\"");
+
+    // Pastikan status penyimpanan dan hitungan kata live terikat reaktif
+    expect($html)->toContain("savingState === 'saving'")
+        ->and($html)->toContain("savingState === 'saved'")
+        ->and($html)->toContain('liveWordCount');
+
+    // Pastikan file word-studio.js memuat alur alami Word/LibreOffice (peleburan Backspace/Delete, soft break, Smart Typography)
+    $script = file_get_contents(public_path('js/word-studio.js'));
+    expect($script)->toContain('updateCurrentFormat')
+        ->and($script)->toContain('updateCounts')
+        ->and($script)->toContain('copyCurrentFormat')
+        ->and($script)->toContain('pasteCurrentFormat')
+        ->and($script)->toContain('insertLineBreak')
+        ->and(strtolower($script))->toContain('smart typography')
+        ->and($script)->toContain('— ')
+        ->and($script)->toContain('… ')
+        ->and($script)->toContain('± ');
+});
