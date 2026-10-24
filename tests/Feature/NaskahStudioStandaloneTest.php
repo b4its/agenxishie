@@ -341,3 +341,48 @@ it('renders all six ux guide resource links in the telemetry drawer', function (
         ->assertSee('lnkd.in/dSNEHVRx')
         ->assertSee('lnkd.in/dsMA7AFH');
 });
+
+it('supports enter to insert paragraph and backspace to delete empty blocks', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class);
+
+    $initialCount = count($page->get('blocks'));
+    $page->call('insertParagraphAfter', 0);
+
+    expect(count($page->get('blocks')))->toBe($initialCount + 1)
+        ->and($page->get('activeBlock'))->toBe(1)
+        ->and($page->get('blocks')[1]['type'])->toBe('paragraph')
+        ->and($page->get('blocks')[1]['text'])->toBe('');
+
+    $page->call('removeBlockAndFocusPrev', 1);
+
+    expect(count($page->get('blocks')))->toBe($initialCount)
+        ->and($page->get('activeBlock'))->toBe(0);
+});
+
+it('loads authentic microsoft word sample handbook with complete sections on both pages', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    $blocks = $page->get('blocks');
+
+    // Pastikan tidak ada heading kosong yang berdiri sendiri seperti to-do
+    foreach ($blocks as $i => $block) {
+        if ($block['type'] === 'heading') {
+            // Heading harus memiliki teks
+            expect($block['text'])->not->toBeEmpty();
+            // Blok berikutnya (jika bukan heading terakhir) tidak boleh heading kosong
+            if (isset($blocks[$i + 1]) && $blocks[$i + 1]['type'] !== 'pagebreak') {
+                expect($blocks[$i + 1]['text'])->not->toBeEmpty();
+            }
+        }
+    }
+
+    $outline = $page->instance()->outline();
+    $outlineTexts = array_column($outline, 'text');
+
+    expect($outlineTexts)->toContain('Why share a studio?')
+        ->and($outlineTexts)->toContain('What we agree on')
+        ->and($outlineTexts)->toContain('Shared equipment')
+        ->and($outlineTexts)->toContain('Opening the studio')
+        ->and($outlineTexts)->toContain('Membership');
+});

@@ -265,22 +265,37 @@ trait HandlesNaskahStudio
         }
 
         if (empty($this->blocks)) {
-            $this->blocks = [
-                $this->model->newBlock('title', 'The Open Studio Handbook'),
-                $this->model->newBlock('subtitle', 'How a small community of makers shares space, tools and time'),
-                $this->model->newBlock('paragraph', 'Every Thursday evening the old print shop on Alder Street fills with people who make things. Painters set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio: the routines that keep it pleasant, the tools we pool, and the small agreements that let thirty strangers become a crew.'),
-                $this->model->newBlock('heading', 'Why share a studio?', 1),
-                $this->model->newBlock('paragraph', "Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A ceramicist explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point."),
-                $this->model->newBlock('quote', 'A studio is a place where unfinished things are welcome.'),
-                $this->model->newBlock('heading', 'What we agree on', 2),
-                $this->model->newBlock('bullet', 'Clean as you go. Leave a table the way you would like to find it.'),
-                $this->model->newBlock('bullet', 'Label what is yours. Unlabelled supplies on the commons shelf are fair game.'),
-                $this->model->newBlock('bullet', 'Ask before you borrow. Even from the shelf, a quick note helps everyone keep track.'),
-                $this->model->newBlock('heading', 'Shared equipment', 2),
-                $this->model->newBlock('heading', 'Opening the studio', 2),
-                $this->model->newBlock('heading', 'Membership', 1),
-            ];
+            $this->loadSampleHandbook();
         }
+    }
+
+    /**
+     * Muat dokumen The Open Studio Handbook dengan susunan Microsoft Word autentik.
+     */
+    public function loadSampleHandbook(): void
+    {
+        $this->docTitle = 'The Open Studio Handbook';
+        $this->blocks = [
+            $this->model->newBlock('title', 'The Open Studio Handbook'),
+            $this->model->newBlock('subtitle', 'How a small community of makers shares space, tools and time'),
+            $this->model->newBlock('paragraph', 'Every Thursday evening the old print shop on Alder Street fills with people who make things. Painters set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio: the routines that keep it pleasant, the tools we pool, and the small agreements that let thirty strangers become a crew.'),
+            $this->model->newBlock('heading', 'Why share a studio?', 1),
+            $this->model->newBlock('paragraph', "Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A ceramicist explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point."),
+            $this->model->newBlock('quote', 'A studio is a place where unfinished things are welcome.'),
+            $this->model->newBlock('heading', 'What we agree on', 2),
+            $this->model->newBlock('bullet', 'Clean as you go. Leave a table the way you would like to find it.'),
+            $this->model->newBlock('bullet', 'Label what is yours. Unlabelled supplies on the commons shelf are fair game.'),
+            $this->model->newBlock('bullet', 'Ask before you borrow. Even from the shelf, a quick note helps everyone keep track.'),
+            $this->model->newBlock('pagebreak', ''),
+            $this->model->newBlock('heading', 'Shared equipment', 1),
+            $this->model->newBlock('paragraph', 'All heavy machinery requires an initial safety orientation with a studio steward before independent use. Clean ink rollers immediately with mineral spirits, never leave paper cutters unlatched, and report any dull blades or frayed electrical cords on the maintenance clipboard by the sink.'),
+            $this->model->newBlock('heading', 'Opening the studio', 1),
+            $this->model->newBlock('paragraph', 'Keyholders may open the space at 8:00 AM on weekdays and 10:00 AM on weekends. The last artisan to leave is responsible for locking the alley fire door, switching off the ventilation blowers, unplugging irons and hot plates, and setting the security alarm chime.'),
+            $this->model->newBlock('heading', 'Membership', 1),
+            $this->model->newBlock('paragraph', 'Membership contributions are thirty dollars per month, which directly fund community tea, shop rags, solvents, and municipal recycling fees. We host a community potluck and open critique on the first Tuesday evening of every month where prospective members are welcome to present their work.'),
+        ];
+        $this->activeBlock = 0;
+        $this->dirty = false;
     }
 
     // =====================================================================
@@ -707,6 +722,23 @@ trait HandlesNaskahStudio
         $this->selection = $end > $start ? ['start' => $start, 'end' => $end] : null;
     }
 
+    public function insertParagraphAfter(int $index): void
+    {
+        $newBlock = $this->model->newBlock('paragraph', '');
+        array_splice($this->blocks, $index + 1, 0, [$newBlock]);
+        $this->activeBlock = $index + 1;
+        $this->markDirty();
+    }
+
+    public function removeBlockAndFocusPrev(int $index): void
+    {
+        if (count($this->blocks) > 1 && isset($this->blocks[$index])) {
+            array_splice($this->blocks, $index, 1);
+            $this->activeBlock = max(0, $index - 1);
+            $this->markDirty();
+        }
+    }
+
     public function applyStyle(int $index, string $style): void
     {
         if (! isset($this->blocks[$index])) {
@@ -714,7 +746,9 @@ trait HandlesNaskahStudio
         }
 
         [$type, $level] = match ($style) {
-            'title', 'heading1' => ['heading', 1],
+            'title' => ['title', 0],
+            'subtitle' => ['subtitle', 0],
+            'heading1' => ['heading', 1],
             'heading2' => ['heading', 2],
             'heading3' => ['heading', 3],
             'quote' => ['quote', 0],
@@ -725,7 +759,7 @@ trait HandlesNaskahStudio
 
         $this->blocks[$index]['type'] = $type;
         $this->blocks[$index]['level'] = $level;
-        $this->dirty = true;
+        $this->markDirty();
     }
 
     // =====================================================================

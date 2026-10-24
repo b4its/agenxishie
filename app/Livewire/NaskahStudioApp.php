@@ -129,10 +129,16 @@ class NaskahStudioApp extends Component
             $this->model->newBlock('bullet', 'Clean as you go. Leave a table the way you would like to find it.'),
             $this->model->newBlock('bullet', 'Label what is yours. Unlabelled supplies on the commons shelf are fair game.'),
             $this->model->newBlock('bullet', 'Ask before you borrow. Even from the shelf, a quick note helps everyone keep track.'),
-            $this->model->newBlock('heading', 'Shared equipment', 2),
-            $this->model->newBlock('heading', 'Opening the studio', 2),
+            $this->model->newBlock('pagebreak', ''),
+            $this->model->newBlock('heading', 'Shared equipment', 1),
+            $this->model->newBlock('paragraph', 'All heavy machinery requires an initial safety orientation with a studio steward before independent use. Clean ink rollers immediately with mineral spirits, never leave paper cutters unlatched, and report any dull blades or frayed electrical cords on the maintenance clipboard by the sink.'),
+            $this->model->newBlock('heading', 'Opening the studio', 1),
+            $this->model->newBlock('paragraph', 'Keyholders may open the space at 8:00 AM on weekdays and 10:00 AM on weekends. The last artisan to leave is responsible for locking the alley fire door, switching off the ventilation blowers, unplugging irons and hot plates, and setting the security alarm chime.'),
             $this->model->newBlock('heading', 'Membership', 1),
+            $this->model->newBlock('paragraph', 'Membership contributions are thirty dollars per month, which directly fund community tea, shop rags, solvents, and municipal recycling fees. We host a community potluck and open critique on the first Tuesday evening of every month where prospective members are welcome to present their work.'),
         ];
+        $this->activeBlock = 0;
+        $this->dirty = false;
     }
 
     /**

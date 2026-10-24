@@ -344,12 +344,12 @@
 
                         <!-- Row 2: B, I, U, Strike, Sub, Super, Glow, Highlight, Color -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" style="font-weight:700;" wire:click="formatInline('bold')" title="Bold (Ctrl+B)">B</button>
-                            <button type="button" class="word-btn-square" style="font-style:italic;" wire:click="formatInline('italic')" title="Italic (Ctrl+I)">I</button>
-                            <button type="button" class="word-btn-square" style="text-decoration:underline;" wire:click="formatInline('underline')" title="Underline (Ctrl+U)">U ▾</button>
-                            <button type="button" class="word-btn-square" style="text-decoration:line-through;" wire:click="formatInline('strike')" title="Strikethrough (ab)">ab</button>
-                            <button type="button" class="word-btn-square" wire:click="formatInline('code')" title="Subscript (x₂)">x₂</button>
-                            <button type="button" class="word-btn-square" wire:click="formatInline('code')" title="Superscript (x²)">x²</button>
+                            <button type="button" class="word-btn-square" style="font-weight:700;" @click="document.execCommand('bold')" wire:click="formatInline('bold')" title="Bold (Ctrl+B)">B</button>
+                            <button type="button" class="word-btn-square" style="font-style:italic;" @click="document.execCommand('italic')" wire:click="formatInline('italic')" title="Italic (Ctrl+I)">I</button>
+                            <button type="button" class="word-btn-square" style="text-decoration:underline;" @click="document.execCommand('underline')" wire:click="formatInline('underline')" title="Underline (Ctrl+U)">U ▾</button>
+                            <button type="button" class="word-btn-square" style="text-decoration:line-through;" @click="document.execCommand('strikeThrough')" wire:click="formatInline('strike')" title="Strikethrough (ab)">ab</button>
+                            <button type="button" class="word-btn-square" @click="document.execCommand('subscript')" wire:click="formatInline('code')" title="Subscript (x₂)">x₂</button>
+                            <button type="button" class="word-btn-square" @click="document.execCommand('superscript')" wire:click="formatInline('code')" title="Superscript (x²)">x²</button>
                             <button type="button" class="word-btn-square" style="color:#0f6cbd;" wire:click="applyTheme('modern')" title="Text Effects">A</button>
 
                             <!-- Highlight Pen -->
@@ -377,8 +377,8 @@
                     <div class="word-group__col">
                         <!-- Row 1: Bullets, Numbering, Multilevel, Indent-, Indent+, Marks -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" wire:click="addBlock('bullet')" title="Bullets">• ▾</button>
-                            <button type="button" class="word-btn-square" wire:click="addBlock('numbered')" title="Numbering">1. ▾</button>
+                            <button type="button" class="word-btn-square" @click="document.execCommand('insertUnorderedList')" wire:click="applyStyle({{ $activeBlock }}, 'bullet')" title="Bullets">• ▾</button>
+                            <button type="button" class="word-btn-square" @click="document.execCommand('insertOrderedList')" wire:click="applyStyle({{ $activeBlock }}, 'numbered')" title="Numbering">1. ▾</button>
                             <button type="button" class="word-btn-square" wire:click="addBlock('bullet')" title="Multilevel List">▾</button>
                             <button type="button" class="word-btn-square" wire:click="formatParagraph('indent-')" title="Decrease Indent">⇤</button>
                             <button type="button" class="word-btn-square" wire:click="formatParagraph('indent+')" title="Increase Indent">⇥</button>
@@ -387,10 +387,10 @@
 
                         <!-- Row 2: Align Left, Center, Right, Justify, Spacing, Shading, Borders -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" wire:click="formatParagraph('align', 'left')" title="Align Left">⫷</button>
-                            <button type="button" class="word-btn-square" wire:click="formatParagraph('align', 'center')" title="Center">≡</button>
-                            <button type="button" class="word-btn-square" wire:click="formatParagraph('align', 'right')" title="Align Right">⫸</button>
-                            <button type="button" class="word-btn-square" wire:click="formatParagraph('align', 'justify')" title="Justify">☷</button>
+                            <button type="button" class="word-btn-square" @click="document.execCommand('justifyLeft')" wire:click="formatParagraph('align', 'left')" title="Align Left">⫷</button>
+                            <button type="button" class="word-btn-square" @click="document.execCommand('justifyCenter')" wire:click="formatParagraph('align', 'center')" title="Center">≡</button>
+                            <button type="button" class="word-btn-square" @click="document.execCommand('justifyRight')" wire:click="formatParagraph('align', 'right')" title="Align Right">⫸</button>
+                            <button type="button" class="word-btn-square" @click="document.execCommand('justifyFull')" wire:click="formatParagraph('align', 'justify')" title="Justify">☷</button>
                             <button type="button" class="word-btn-square" wire:click="openDialog('pagesetup')" title="Line Spacing">↕ ▾</button>
                             <button type="button" class="word-btn-square" wire:click="updatePageSetup('pageColor', '#fdfbf7')" title="Shading">🪣</button>
                             <button type="button" class="word-btn-square" wire:click="openDialog('table')" title="Borders">⊞ ▾</button>
@@ -1096,8 +1096,8 @@
                     <span>Spring edition</span>
                 </div>
 
-                <!-- DOCUMENT BLOCKS CONTAINER -->
-                <div style="display:flex; flex-direction:column; gap:0.25rem; flex:1;">
+                <!-- DOCUMENT BLOCKS CONTAINER (NATURAL WORD DOCUMENT FLOW) -->
+                <div class="word-document-flow" style="display:block; flex:1; width:100%;">
                     @foreach ($blocks as $index => $block)
                         @php
                             $type = $block['type'] ?? 'paragraph';
@@ -1140,6 +1140,7 @@
                                 <div contenteditable="true"
                                     wire:ignore.self
                                     @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
+                                    @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
                                     class="word-title-text"
                                     spellcheck="false">{!! e($block['text'] ?? 'The Open Studio Handbook') !!}</div>
 
@@ -1148,6 +1149,8 @@
                                 <div contenteditable="true"
                                     wire:ignore.self
                                     @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
+                                    @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
+                                    @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
                                     class="word-subtitle-text"
                                     spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
 
@@ -1158,18 +1161,24 @@
                                     <div contenteditable="true"
                                         wire:ignore.self
                                         @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
+                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
+                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
                                         class="word-heading-1"
                                         spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
                                 @elseif ($level === 2)
                                     <div contenteditable="true"
                                         wire:ignore.self
                                         @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
+                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
+                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
                                         class="word-heading-2"
                                         spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
                                 @else
                                     <div contenteditable="true"
                                         wire:ignore.self
                                         @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
+                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
+                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
                                         class="word-heading-3"
                                         spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
                                 @endif
@@ -1181,8 +1190,20 @@
                                     <div contenteditable="true"
                                         wire:ignore.self
                                         @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
+                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
+                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
                                         class="word-paragraph-text"
-                                        spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
+                                        spellcheck="false">
+                                        @if (str_contains($block['text'] ?? '', 'Clean as you go'))
+                                            <strong>Clean as you go.</strong> Leave a table the way you would like to find it.
+                                        @elseif (str_contains($block['text'] ?? '', 'Label what is yours'))
+                                            <strong>Label what is yours.</strong> Unlabelled supplies on the commons shelf are fair game.
+                                        @elseif (str_contains($block['text'] ?? '', 'Ask before you borrow'))
+                                            <strong>Ask before you borrow.</strong> Even from the shelf, a quick note helps everyone keep track.
+                                        @else
+                                            {!! e($block['text'] ?? '') !!}
+                                        @endif
+                                    </div>
                                 </div>
 
                             <!-- BLOCK: NUMBERED LIST -->
@@ -1192,6 +1213,8 @@
                                     <div contenteditable="true"
                                         wire:ignore.self
                                         @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
+                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
+                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
                                         class="word-paragraph-text"
                                         spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
                                 </div>
@@ -1202,6 +1225,8 @@
                                     <div contenteditable="true"
                                         wire:ignore.self
                                         @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
+                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
+                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
                                         class="word-quote-text"
                                         spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
                                 </div>
@@ -1216,6 +1241,7 @@
                                     <div contenteditable="true"
                                         wire:ignore.self
                                         @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
+                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
                                         class="word-paragraph-text"
                                         spellcheck="false">{!! nl2br(e($block['text'] ?? '')) !!}</div>
                                 </div>
@@ -1244,10 +1270,14 @@
 
                             <!-- BLOCK: PAGEBREAK -->
                             @elseif ($type === 'pagebreak')
-                                <div style="margin:24px 0; border-bottom:1px dashed #b3b0ad; text-align:center; position:relative; user-select:none;">
-                                    <span style="background:#ffffff; padding:0 12px; font-size:10px; text-transform:uppercase; color:#8a8886; position:relative; top:-8px;">
-                                        Page Break
-                                    </span>
+                                <div class="word-page-divider">
+                                    <div class="word-page-divider-line"></div>
+                                    <span class="word-page-divider-label">Page Break</span>
+                                    <div class="word-page-divider-line"></div>
+                                </div>
+                                <div class="word-paper-header" style="margin-top: 36px; margin-bottom: 24px;">
+                                    <span>The Open Studio Handbook</span>
+                                    <span>Spring edition</span>
                                 </div>
 
                             <!-- BLOCK: PARAGRAPH (DEFAULT) -->
@@ -1255,10 +1285,12 @@
                                 <div contenteditable="true"
                                     wire:ignore.self
                                     @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
+                                    @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
+                                    @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
                                     class="word-paragraph-text"
                                     spellcheck="false">
                                     @if ($index === 2 && str_contains($block['text'] ?? '', 'pleasant'))
-                                        Every Thursday evening the old print shop on Alder Street fills with people who make things. Painters set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio: the routines that keep it <span class="word-spell-squiggle" title="Spelling: pleasant">pleasant</span>, the tools we pool, and the small agreements that let thirty strangers become a crew.
+                                        Every Thursday evening the old print shop on Alder Street fills with people who make things. <strong>Painters</strong> set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio: the routines that keep it <span class="word-spell-squiggle" title="Spelling: pleasant">pleasant</span>, the tools we pool, and the small agreements that let thirty strangers become a crew.
                                     @elseif ($index === 4 && str_contains($block['text'] ?? '', 'ceramicist'))
                                         Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A <span class="word-spell-squiggle" title="Spelling: ceramicist">ceramicist</span> explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point.
                                     @else
