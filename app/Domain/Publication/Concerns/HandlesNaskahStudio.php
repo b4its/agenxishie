@@ -1277,6 +1277,32 @@ trait HandlesNaskahStudio
                 .'<text x="360" y="95" fill="#107c41" font-family="sans-serif" font-size="12" font-weight="700" text-anchor="middle">Metode B</text>'
                 .'<text x="270" y="95" fill="#1e293b" font-family="sans-serif" font-size="12" font-weight="800" text-anchor="middle">Sintesis</text>'
                 .'</svg>',
+            'piechart' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 180" width="540" height="180">'
+                .'<rect width="540" height="180" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<circle cx="160" cy="90" r="60" fill="#0f6cbd"/>'
+                .'<path d="M160 90 L160 30 A60 60 0 0 1 218 108 Z" fill="#107c41"/>'
+                .'<path d="M160 90 L218 108 A60 60 0 0 1 125 139 Z" fill="#f59e0b"/>'
+                .'<circle cx="160" cy="90" r="28" fill="#f8fafc"/>'
+                .'<text x="160" y="94" font-family="sans-serif" font-size="10" font-weight="700" fill="#334155" text-anchor="middle">100%</text>'
+                .'<rect x="280" y="45" width="14" height="14" fill="#0f6cbd" rx="2"/><text x="305" y="57" font-family="sans-serif" font-size="12" fill="#334155">Kelompok Kontrol (48%)</text>'
+                .'<rect x="280" y="75" width="14" height="14" fill="#107c41" rx="2"/><text x="305" y="87" font-family="sans-serif" font-size="12" fill="#334155">Kelompok Eksperimen (32%)</text>'
+                .'<rect x="280" y="105" width="14" height="14" fill="#f59e0b" rx="2"/><text x="305" y="117" font-family="sans-serif" font-size="12" fill="#334155">Kelompok Validasi (20%)</text>'
+                .'</svg>',
+            'architecture' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 160" width="580" height="160">'
+                .'<rect width="580" height="160" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<rect x="20" y="45" width="110" height="70" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>'
+                .'<text x="75" y="75" font-family="sans-serif" font-size="11" font-weight="700" fill="#0369a1" text-anchor="middle">Input Layer</text>'
+                .'<text x="75" y="95" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Data Token</text>'
+                .'<path d="M130 80 L165 80" stroke="#0284c7" stroke-width="2"/>'
+                .'<rect x="165" y="35" width="160" height="90" rx="6" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>'
+                .'<text x="245" y="65" font-family="sans-serif" font-size="11" font-weight="700" fill="#6d28d9" text-anchor="middle">Deep Model</text>'
+                .'<text x="245" y="85" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Multi-Head Attn</text>'
+                .'<text x="245" y="105" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Feed-Forward</text>'
+                .'<path d="M325 80 L360 80" stroke="#7c3aed" stroke-width="2"/>'
+                .'<rect x="360" y="45" width="110" height="70" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>'
+                .'<text x="415" y="75" font-family="sans-serif" font-size="11" font-weight="700" fill="#15803d" text-anchor="middle">Output Layer</text>'
+                .'<text x="415" y="95" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Hasil Prediksi</text>'
+                .'</svg>',
             default => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 160" width="540" height="160">'
                 .'<rect width="540" height="160" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
                 .'<circle cx="270" cy="80" r="45" fill="#0f6cbd"/>'
@@ -1296,6 +1322,8 @@ trait HandlesNaskahStudio
             'barchart' => 'Gambar 2: Perbandingan Akurasi Model terhadap Baseline',
             'venn' => 'Gambar 3: Diagram Irisan Kerangka Sintesis Riset',
             'timeline' => 'Gambar 4: Jadwal & Milestone Riset Ilmiah',
+            'piechart' => 'Gambar 5: Komposisi Distribusi Sampel Penelitian',
+            'architecture' => 'Gambar 6: Arsitektur Pipeline Model Komputasi',
             default => 'Gambar: Kerangka Konseptual Naskah',
         };
 
@@ -2023,8 +2051,11 @@ trait HandlesNaskahStudio
                 }
                 $blocks[] = $this->model->newBlock('quote', $text);
             } elseif (str_contains($class, 'word-callout-box')) {
-                $clean = trim(str_replace('📌', '', $text));
-                $blocks[] = $this->model->newBlock('callout', $clean);
+                $clean = trim(preg_replace('/^[📌⚠️💡📐ℹ️\s]+/u', '', $node->textContent) ?? $node->textContent);
+                $cType = $node instanceof \DOMElement && $node->hasAttribute('data-callout-type') ? $node->getAttribute('data-callout-type') : 'info';
+                $block = $this->model->newBlock('callout', $clean);
+                $block['calloutType'] = $cType;
+                $blocks[] = $block;
             } elseif (str_contains($class, 'word-footnote-block')) {
                 $clean = trim(preg_replace('/^⚓\s*Catatan Kaki:\s*/u', '', $node->textContent));
                 $blocks[] = $this->model->newBlock('footnote-ref', $clean);
@@ -3405,14 +3436,29 @@ trait HandlesNaskahStudio
         $this->notify('Snapshot dihapus', '', 'info');
     }
 
-    public function insertCallout(string $type = 'info'): void
+    public function insertCallout(string $type = 'info', ?string $text = null): void
     {
         $this->pushUndo();
-        $block = $this->model->newBlock('callout', 'Catatan penting: tulis isi sorotan di sini...');
-        $block['calloutType'] = in_array($type, ['info', 'warning', 'tip', 'note', 'success'], true) ? $type : 'info';
-        $this->blocks[] = $block;
-        $this->activeBlock = count($this->blocks) - 1;
+        $sampleText = match ($type) {
+            'warning' => 'Peringatan: perhatikan batasan atau risiko pada bagian ini...',
+            'tip' => 'Tips: gunakan metode ini untuk mempercepat komputasi...',
+            'note' => 'Catatan: penjelasan tambahan untuk memperjelas konteks pembahasan...',
+            'theorem' => 'Teorema / Definisi: untuk setiap x dalam ruang domain...',
+            default => 'Catatan Penting: sorotan utama hasil analisis atau temuan riset...',
+        };
+
+        $block = $this->model->newBlock('callout', $text ?? $sampleText);
+        $block['calloutType'] = in_array($type, ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true) ? $type : 'info';
+
+        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+            ? $this->activeBlock + 1
+            : count($this->blocks);
+        array_splice($this->blocks, $insertAt, 0, [$block]);
+
+        $this->activeBlock = $insertAt;
         $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Kotak Catatan disisipkan', '', 'success');
     }
 
     public function toggleDropCap(int $index): void

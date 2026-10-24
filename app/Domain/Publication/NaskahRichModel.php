@@ -125,7 +125,7 @@ final class NaskahRichModel
             'lineSpacing' => max(0.8, min(3.0, (float) ($block['lineSpacing'] ?? 1.0))),
             'pageBreak' => (bool) ($block['pageBreak'] ?? false),
             'dropCap' => (bool) ($block['dropCap'] ?? false),
-            'calloutType' => in_array($block['calloutType'] ?? '', ['info', 'warning', 'tip', 'note', 'success'], true) ? $block['calloutType'] : 'info',
+            'calloutType' => in_array($block['calloutType'] ?? '', ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true) ? $block['calloutType'] : 'info',
         ];
     }
 
@@ -547,6 +547,13 @@ final class NaskahRichModel
                 continue;
             }
 
+            if ($type === 'callout') {
+                $cType = (string) ($block['calloutType'] ?? 'info');
+                $body .= '<div class="callout-box" style="border-left:4px solid #0f6cbd; background:#f0f9ff; padding:10px 14px; margin:14px 0; border-radius:0 4px 4px 0;"><strong>['.strtoupper($cType).']</strong> '.$escape((string) ($block['text'] ?? '')).'</div>';
+
+                continue;
+            }
+
             $lineNo++;
             $attrs = $this->blockAttributes($block, $lineNo, $options);
             $inner = $this->runsToHtml($block, $escape);
@@ -784,6 +791,7 @@ final class NaskahRichModel
             $out[] = match ($type) {
                 'heading' => str_repeat('#', (int) ($block['level'] ?? 1)).' '.$text,
                 'quote' => '> '.$text,
+                'callout' => '> **['.strtoupper((string) ($block['calloutType'] ?? 'catatan')).']** '.$text,
                 'bullet' => '- '.$text,
                 'numbered' => '1. '.$text,
                 default => $text,
@@ -1078,6 +1086,8 @@ final class NaskahRichModel
                 $out .= $cmd.'{'.$esc($text)."}\n\n";
             } elseif ($type === 'quote') {
                 $out .= "\\begin{quote}\n".$esc($text)."\n\\end{quote}\n\n";
+            } elseif ($type === 'callout') {
+                $out .= "\\begin{quote}\n\\textbf{[".strtoupper((string) ($block['calloutType'] ?? 'Catatan')).']} '.$esc($text)."\n\\end{quote}\n\n";
             } elseif ($type === 'bullet') {
                 $out .= "\\begin{itemize}\n\\item ".$esc($text)."\n\\end{itemize}\n\n";
             } elseif ($type === 'numbered') {

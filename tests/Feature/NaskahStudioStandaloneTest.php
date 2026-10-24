@@ -953,3 +953,67 @@ it('supports editing existing images, updating properties, expanded presets, and
     $block0After = $page->get('blocks')[0];
     expect($block0After['text'])->toContain('Gambar 1');
 });
+
+it('supports academic pie chart and architecture diagrams, callout blocks with types, and enriched statistics', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    // 1. Insert pie chart and architecture diagrams
+    $page->call('insertSampleDiagram', 'piechart');
+    $page->call('insertSampleDiagram', 'architecture');
+
+    $blocks = $page->get('blocks');
+    $pieFound = false;
+    $archFound = false;
+    foreach ($blocks as $b) {
+        if (($b['type'] ?? '') === 'image') {
+            $cap = (string) ($b['image']['caption'] ?? '');
+            if (str_contains($cap, 'Komposisi Distribusi Sampel')) {
+                $pieFound = true;
+            }
+            if (str_contains($cap, 'Arsitektur Pipeline Model')) {
+                $archFound = true;
+            }
+        }
+    }
+    expect($pieFound)->toBeTrue()
+        ->and($archFound)->toBeTrue();
+
+    // 2. Insert callout blocks with types (warning, theorem)
+    $page->call('selectBlock', 1);
+    $page->call('insertCallout', 'warning', 'Perhatikan batasan sampel dalam studi ini.');
+    $page->call('insertCallout', 'theorem', 'Definisi Konvergensi Stokastik.');
+
+    $updatedBlocks = $page->get('blocks');
+    $callout1 = $updatedBlocks[2];
+    $callout2 = $updatedBlocks[3];
+
+    expect($callout1['type'])->toBe('callout')
+        ->and($callout1['calloutType'])->toBe('warning')
+        ->and($callout1['text'])->toBe('Perhatikan batasan sampel dalam studi ini.')
+        ->and($callout2['type'])->toBe('callout')
+        ->and($callout2['calloutType'])->toBe('theorem')
+        ->and($callout2['text'])->toBe('Definisi Konvergensi Stokastik.');
+
+    // 3. Test DOCX export of callout block
+    $docxExporter = app(NaskahDocxExporter::class);
+    $docxBinary = $docxExporter->toDocx([$callout1, $callout2], 'Naskah dengan Callout');
+    $zip = new \ZipArchive;
+    $tempFile = tempnam(sys_get_temp_dir(), 'docx_callout_test');
+    file_put_contents($tempFile, $docxBinary);
+    expect($zip->open($tempFile))->toBeTrue();
+    $docXml = $zip->getFromName('word/document.xml');
+    expect($docXml)->toContain('[Peringatan]')
+        ->and($docXml)->toContain('Perhatikan batasan sampel dalam studi ini.')
+        ->and($docXml)->toContain('[Teorema]')
+        ->and($docXml)->toContain('Definisi Konvergensi Stokastik.');
+    $zip->close();
+    @unlink($tempFile);
+
+    // 4. Test opening enriched stats dialog
+    $page->call('openDialog', 'statistics')
+        ->assertSee('Word Count', false)
+        ->assertSee('Readability Statistics', false)
+        ->assertSee('Rumus Matematika', false)
+        ->assertSee('Tabel Data', false);
+});

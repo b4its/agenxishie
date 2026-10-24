@@ -842,8 +842,8 @@
                     </button>
                     <div class="word-group__col">
                         <button type="button" class="word-tool-btn" wire:click="insertSampleDiagram('flowchart')" title="Sisipkan Diagram Alur Metodologi">📊 Flowchart</button>
-                        <button type="button" class="word-tool-btn" wire:click="insertSampleDiagram('barchart')" title="Sisipkan Grafik Statistik Riset">📈 Chart</button>
-                        <button type="button" class="word-tool-btn" wire:click="insertCallout('info')" title="Sisipkan Kotak Catatan Khusus">📌 Note</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertSampleDiagram('piechart')" title="Sisipkan Diagram Lingkaran">🥧 Pie Chart</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertCallout('info')" title="Sisipkan Kotak Catatan Khusus">📌 Callout Note</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Illustrations</span></div>
@@ -1602,8 +1602,39 @@
                                                 </div>
                                             </div>
                                         @elseif ($type === 'callout')
-                                            <div class="word-callout-box" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                                📌 {!! nl2br(e($text)) !!}
+                                            @php
+                                                $cType = $block['calloutType'] ?? 'info';
+                                                $cIcon = match ($cType) {
+                                                    'warning' => '⚠️',
+                                                    'tip' => '💡',
+                                                    'theorem' => '📐',
+                                                    'note' => 'ℹ️',
+                                                    default => '📌',
+                                                };
+                                                $cBorder = match ($cType) {
+                                                    'warning' => '#d97706',
+                                                    'tip' => '#16a34a',
+                                                    'theorem' => '#9333ea',
+                                                    'note' => '#0284c7',
+                                                    default => '#0f6cbd',
+                                                };
+                                                $cBg = match ($cType) {
+                                                    'warning' => 'rgba(217, 119, 6, 0.05)',
+                                                    'tip' => 'rgba(22, 163, 74, 0.05)',
+                                                    'theorem' => 'rgba(147, 51, 234, 0.05)',
+                                                    'note' => 'rgba(2, 132, 199, 0.05)',
+                                                    default => 'rgba(15, 108, 189, 0.05)',
+                                                };
+                                            @endphp
+                                            <div class="word-callout-box"
+                                                id="word-block-{{ $index }}"
+                                                data-block-index="{{ $index }}"
+                                                data-callout-type="{{ $cType }}"
+                                                style="border-left: 4px solid {{ $cBorder }}; background: {{ $cBg }}; padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 11pt; line-height: 1.5; position: relative;">
+                                                <div style="display:flex; align-items:flex-start; gap:8px;">
+                                                    <span style="font-size: 14pt; line-height: 1; user-select: none;">{{ $cIcon }}</span>
+                                                    <div style="flex:1;">{!! nl2br(e($text)) !!}</div>
+                                                </div>
                                             </div>
                                         @elseif ($type === 'table')
                                             <div style="overflow-x:auto; margin:14px 0; border:1px solid #d1d1d1; border-radius:2px; position:relative;" class="word-table-wrapper" contenteditable="true" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
@@ -1647,6 +1678,9 @@
                                                 <div class="word-equation-actions" style="position: absolute; right: 8px; top: 8px; display: flex; gap: 4px;">
                                                     <button type="button" class="word-tool-btn" style="padding: 2px 8px; font-size: 11px; height: 22px; background: #ffffff; border: 1px solid #d1d1d1; border-radius: 3px; cursor: pointer;" wire:click="editEquation({{ $index }})" title="Edit Rumus LaTeX">
                                                         ✏️ Edit Rumus
+                                                    </button>
+                                                    <button type="button" class="word-tool-btn" style="padding: 2px 6px; font-size: 11px; height: 22px; background: #ffffff; border: 1px solid #d1d1d1; border-radius: 3px; cursor: pointer;" @click.stop="navigator.clipboard?.writeText('{{ addslashes($latex) }}'); $wire.notify('LaTeX Disalin', 'Sintaks rumus disalin.', 'info')" title="Salin Sintaks LaTeX">
+                                                        📋 Salin
                                                     </button>
                                                     <button type="button" class="word-tool-btn" style="padding: 2px 6px; font-size: 11px; height: 22px; background: #ffffff; border: 1px solid #d1d1d1; border-radius: 3px; cursor: pointer; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Rumus">
                                                         🗑️
@@ -2232,7 +2266,7 @@
                     </div>
 
                 {{-- DOCUMENT STATS --}}
-                @elseif ($dialog === 'stats')
+                @elseif (in_array($dialog, ['stats', 'statistics', 'wordcount'], true))
                     <div class="word-dialog__header">
                         <span>Word Count &amp; Readability Statistics</span>
                         <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
@@ -2256,7 +2290,25 @@
                                 <strong style="font-size:20px; color:#d83b01;">~{{ $statistics['readingTimeMinutes'] ?? 1 }} min</strong>
                             </div>
                         </div>
-                        <div style="font-size:12px; color:#616161; line-height:1.6; padding-top:6px; border-top:1px solid #edebe9;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                            <div style="padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; font-size:11px;">
+                                <div style="color:#64748b;">Rumus Matematika:</div>
+                                <strong style="font-size:14px; color:#0f6cbd;">{{ count(array_filter($blocks, static fn ($b) => ($b['type'] ?? '') === 'equation')) }}</strong>
+                            </div>
+                            <div style="padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; font-size:11px;">
+                                <div style="color:#64748b;">Gambar &amp; Diagram:</div>
+                                <strong style="font-size:14px; color:#107c41;">{{ count(array_filter($blocks, static fn ($b) => ($b['type'] ?? '') === 'image')) }}</strong>
+                            </div>
+                            <div style="padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; font-size:11px;">
+                                <div style="color:#64748b;">Tabel Data:</div>
+                                <strong style="font-size:14px; color:#7c3aed;">{{ count(array_filter($blocks, static fn ($b) => ($b['type'] ?? '') === 'table')) }}</strong>
+                            </div>
+                            <div style="padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; font-size:11px;">
+                                <div style="color:#64748b;">Catatan Kaki:</div>
+                                <strong style="font-size:14px; color:#d97706;">{{ count(array_filter($blocks, static fn ($b) => ($b['type'] ?? '') === 'footnote-ref')) }}</strong>
+                            </div>
+                        </div>
+                        <div style="font-size:12px; color:#616161; line-height:1.6; padding-top:6px; margin-top:8px; border-top:1px solid #edebe9;">
                             <div>• Sentences: <strong>{{ $statistics['sentences'] ?? 0 }}</strong></div>
                             <div>• Paragraphs: <strong>{{ $statistics['paragraphs'] ?? 0 }}</strong></div>
                             <div>• Speaking Time: <strong>~{{ $statistics['speakingTimeMinutes'] ?? 1 }} min</strong></div>
@@ -2446,10 +2498,13 @@
                             <span style="font-size:10px; color:var(--ms-text-muted); margin-top:2px; display:block;">Dukungan penuh sintaks LaTeX: pecahan (\frac), integral (\int), akar (\sqrt), matriks, huruf Yunani (\alpha, \beta, \pi).</span>
                         </div>
 
-                        <!-- Palet Simbol Matematika Cepat -->
-                        <div>
-                            <label style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--ms-text-secondary);">Karakter &amp; Operator Cepat (Klik untuk Sisipkan):</label>
-                            <div style="display:flex; flex-wrap:wrap; gap:4px; background:#faf9f8; padding:6px; border:1px solid #e1dfdd; border-radius:3px;">
+                        <!-- Palet Simbol Matematika Cepat Berdasarkan Kategori -->
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            <label style="display:block; font-weight:600; font-size:11px; color:var(--ms-text-secondary);">Karakter &amp; Operator Cepat (Klik untuk Sisipkan):</label>
+
+                            <!-- Baris 1: Operator & Relasi Dasar -->
+                            <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; background:#faf9f8; padding:5px; border:1px solid #e1dfdd; border-radius:3px;">
+                                <span style="font-size:10px; font-weight:700; color:#64748b; margin-right:4px;">OPERATOR:</span>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\pm')">±</button>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\times')">×</button>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\div')">÷</button>
@@ -2458,10 +2513,27 @@
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\le')">≤</button>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\ge')">≥</button>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\infty')">∞</button>
-                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\sqrt{x}')">√x</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\propto')">∝</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\cdot')">·</button>
+                            </div>
+
+                            <!-- Baris 2: Struktur & Kalkulus -->
+                            <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; background:#faf9f8; padding:5px; border:1px solid #e1dfdd; border-radius:3px;">
+                                <span style="font-size:10px; font-weight:700; color:#64748b; margin-right:4px;">KALKULUS:</span>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\frac{a}{b}')">a/b</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\sqrt{x}')">√x</button>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\int')">∫</button>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\sum')">∑</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\prod')">∏</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\lim_{x \\to 0}')">lim</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\partial')">∂</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\nabla')">∇</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\to')">→</button>
+                            </div>
+
+                            <!-- Baris 3: Huruf Yunani & Matriks -->
+                            <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; background:#faf9f8; padding:5px; border:1px solid #e1dfdd; border-radius:3px;">
+                                <span style="font-size:10px; font-weight:700; color:#64748b; margin-right:4px;">YUNANI/MATRIKS:</span>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\alpha')">α</button>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\beta')">β</button>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\theta')">θ</button>
@@ -2470,7 +2542,8 @@
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\pi')">π</button>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\sigma')">σ</button>
                                 <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\Delta')">Δ</button>
-                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\partial')">∂</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}')">[Matrix]</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\vec{v}')">v⃗</button>
                             </div>
                         </div>
 
@@ -2562,6 +2635,12 @@
                                 </button>
                                 <button type="button" class="word-tool-btn" style="padding:4px 8px; font-size:11px;" wire:click="insertSampleDiagram('timeline')">
                                     ⏱️ Timeline Riset
+                                </button>
+                                <button type="button" class="word-tool-btn" style="padding:4px 8px; font-size:11px;" wire:click="insertSampleDiagram('piechart')">
+                                    🥧 Pie Chart Demografi
+                                </button>
+                                <button type="button" class="word-tool-btn" style="padding:4px 8px; font-size:11px;" wire:click="insertSampleDiagram('architecture')">
+                                    🏛️ Arsitektur Pipeline
                                 </button>
                             </div>
                         </div>
