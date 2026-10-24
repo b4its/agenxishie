@@ -240,7 +240,7 @@
                         </p>
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                             <a href="{{ route('studio.index') }}" class="rb-button rb-button--primary" style="background:#1d4ed8;">&#9997; Buka Naskah Studio (Word Processor)</a>
-                            <a href="{{ route('studio.analytics') }}" class="rb-button rb-button--primary" style="background:#4338ca;">&#128202; Dasbor 18 UX KPIs</a>
+                            <a href="/admin/xishie-assistant" class="rb-button rb-button--primary" style="background:#4338ca;">&#10024; Xishie Assistant</a>
                             <a href="/connected-projects" class="rb-button rb-button--primary" style="background:#047857;">&#128225; Hub Proyek Terhubung (:8208)</a>
                             <a href="/admin" class="rb-button rb-button--primary">&#9889; Masuk ke Admin Panel</a>
                             <a href="/admin/project-onboarding-wizard" class="rb-button rb-button--secondary">+ Mulai Proyek Baru (Wizard)</a>
@@ -360,10 +360,10 @@
                         </div>
                     </div>
                     <div class="rb-card">
-                        <div class="rb-card__title">6. Telemetri 18 UX KPIs</div>
+                        <div class="rb-card__title">6. Xishie Assistant &amp; AI Copilot</div>
                         <div class="rb-card__body">
-                            Dashboard pemantau kesehatan proses penulisan berbasis Google HEART &amp; AARRR
-                            Frameworks, log eksekusi agen terperinci, dan rating kepuasan CSAT 1-5.
+                            Asisten cerdas telaah naskah interaktif, poles gaya bahasa akademik,
+                            parafrase anti-plagiasi, penelusuran research gap, dan rekomendasi sitasi bereputasi.
                         </div>
                     </div>
                 </div>

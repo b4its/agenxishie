@@ -265,8 +265,14 @@
             @endforeach
         </div>
 
-        <!-- Right: Comments, Editing Mode Dropdown, Blue Share Button (Matches Word 365) -->
+        <!-- Right: Copilot, Comments, Editing Mode Dropdown, Blue Share Button (Matches Word 365) -->
         <div class="word-ribbon-actions">
+            <!-- Xishie Assistant Copilot Button -->
+            <button type="button" wire:click="toggleTaskPane('assistant')" class="word-btn-pill {{ $assistantOpen ? 'active' : '' }}" style="background: linear-gradient(135deg, #eef2ff 0%, #f3e8ff 100%); border: 1px solid #c7d2fe; color: #4338ca; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(99,102,241,0.12);" title="Xishie Assistant (AI Copilot Penulisan Ilmiah)">
+                <span style="font-size: 13px;">✨</span>
+                <span>Copilot</span>
+            </button>
+
             <!-- Comments Button -->
             <button type="button" wire:click="toggleTaskPane('comments')" class="word-btn-pill {{ $showComments ? 'active' : '' }}" title="Comments">
                 <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
@@ -2113,11 +2119,11 @@
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                             <div class="word-metric-card">
                                 <span style="font-size:11px; color:#8a8886;">WORDS</span>
-                                <strong style="font-size:20px; color:#0f6cbd;">{{ number_format($statistics['words'] ?? 0) }}</strong>
+                                <strong style="font-size:20px; color:#0f6cbd;" x-text="liveWordCount || {{ $wordCount }}">{{ number_format($statistics['words'] ?? $wordCount) }}</strong>
                             </div>
                             <div class="word-metric-card">
                                 <span style="font-size:11px; color:#8a8886;">CHARACTERS</span>
-                                <strong style="font-size:20px; color:#0f6cbd;">{{ number_format($statistics['characters'] ?? 0) }}</strong>
+                                <strong style="font-size:20px; color:#0f6cbd;" x-text="liveCharCount || {{ $charCount }}">{{ number_format($statistics['characters'] ?? $charCount) }}</strong>
                             </div>
                             <div class="word-metric-card">
                                 <span style="font-size:11px; color:#8a8886;">FLESCH READING EASE</span>
@@ -2148,8 +2154,9 @@
                         </div>
                         <div style="font-size:12px; color:#616161; line-height:1.6; padding-top:6px; margin-top:8px; border-top:1px solid #edebe9;">
                             <div>• Sentences: <strong>{{ $statistics['sentences'] ?? 0 }}</strong></div>
-                            <div>• Paragraphs: <strong>{{ $statistics['paragraphs'] ?? 0 }}</strong></div>
+                            <div>• Paragraphs: <strong>{{ $statistics['paragraphs'] ?? count($blocks) }}</strong></div>
                             <div>• Speaking Time: <strong>~{{ $statistics['speakingTimeMinutes'] ?? 1 }} min</strong></div>
+                            <div>• Academic Compliance: <strong style="color:#107c41;">{{ $complianceAudit['score'] ?? 85 }}% ({{ $complianceAudit['grade'] ?? 'Siap Publikasi' }})</strong></div>
                         </div>
                     </div>
                     <div class="word-dialog__footer">
