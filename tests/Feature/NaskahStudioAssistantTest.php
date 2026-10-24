@@ -223,3 +223,27 @@ it('provides rich academic writing guidance for freeform questions', function ()
         ->and(end($log)['content'])->toContain('Latar Belakang')
         ->and(end($log)['content'])->toContain('Metodologi');
 });
+
+it('supports /rumus and /gambar slash commands with academic recommendations', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class);
+
+    // 1. Uji /rumus regresi
+    $page->call('runTool', '/rumus regresi');
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Saran Rumus LaTeX')
+        ->and(end($log)['content'])->toContain('y = \\beta_0')
+        ->and($page->get('equationLatex'))->toContain('y = \\beta_0');
+
+    // 2. Uji /rumus kuadrat
+    $page->call('runTool', '/rumus kuadrat');
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Rumus Kuadrat (ABC)')
+        ->and($page->get('equationLatex'))->toContain('\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}');
+
+    // 3. Uji /gambar
+    $page->call('runTool', '/gambar');
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Panduan & Generator Diagram Ilmiah Naskah')
+        ->and(end($log)['content'])->toContain('Flowchart')
+        ->and(end($log)['content'])->toContain('Chart');
+});

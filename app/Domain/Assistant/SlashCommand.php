@@ -18,6 +18,8 @@ enum SlashCommand: string
     case CARI_REFERENSI = '/cari-referensi';
     case RINGKAS = '/ringkas';
     case POLES = '/poles';
+    case RUMUS = '/rumus';
+    case GAMBAR = '/gambar';
 
     public function description(): string
     {
@@ -30,6 +32,8 @@ enum SlashCommand: string
             self::CARI_REFERENSI => 'Cari referensi relevan via memori hybrid MySQL.',
             self::RINGKAS => 'Ringkasan eksekutif progres naskah pada stage aktif.',
             self::POLES => 'Poles kalimat dengan tata bahasa akademik baku dan kohesif.',
+            self::RUMUS => 'Rekomendasikan atau siapkan rumus matematika dalam format LaTeX.',
+            self::GAMBAR => 'Panduan dan generator diagram ilmiah serta penyisipan gambar.',
         };
     }
 

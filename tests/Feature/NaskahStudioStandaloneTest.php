@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Publication\NaskahDocxExporter;
+use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Workspace\Enums\UxKpiCategory;
 use App\Domain\Workspace\Enums\UxKpiMetric;
 use App\Livewire\NaskahStudioApp;
@@ -625,4 +627,184 @@ it('supports share dialog, academic margin presets, and dynamic line spacing', f
     // 4. Uji Font Family typography
     $page->set('fontFamily', 'times');
     expect($page->get('fontFamily'))->toBe('times');
+});
+
+it('supports inserting, editing and rendering LaTeX equations with presets and shortcuts', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    // 1. Uji pembukaan dialog equation
+    $page->call('openDialog', 'equation')
+        ->assertSee('Insert Equation (Rumus Matematika / LaTeX)', false)
+        ->assertSee('Pilih Templat Cepat (Presets)', false)
+        ->assertSee('Rumus ABC', false)
+        ->assertSee('Pythagoras', false)
+        ->assertSee('Distribusi Normal', false);
+
+    // 2. Uji pemilihan preset rumus (misal: Pythagoras)
+    $page->call('setEquationPreset', 'pythagoras');
+    expect($page->get('equationLatex'))->toBe('a^2 + b^2 = c^2')
+        ->and($page->get('equationCaption'))->toBe('(1)');
+
+    // 3. Uji penyisipan rumus ke dalam dokumen
+    $page->call('insertEquation');
+    $blocks = $page->get('blocks');
+    $foundEquation = false;
+    $eqIndex = null;
+    foreach ($blocks as $idx => $b) {
+        if (($b['type'] ?? '') === 'equation') {
+            $foundEquation = true;
+            $eqIndex = $idx;
+            expect($b['equation']['latex'])->toBe('a^2 + b^2 = c^2')
+                ->and($b['equation']['caption'])->toBe('(1)');
+            break;
+        }
+    }
+    expect($foundEquation)->toBeTrue()
+        ->and($eqIndex)->not->toBeNull();
+
+    // Pastikan equation dirender di kanvas HTML
+    $page->assertSee('word-equation-block', false)
+        ->assertSee('data-latex="a^2 + b^2 = c^2"', false)
+        ->assertSee('(1)', false);
+
+    // 4. Uji edit rumus yang sudah ada
+    $page->call('editEquation', $eqIndex);
+    expect($page->get('dialog'))->toBe('equation')
+        ->and($page->get('editingEquationIndex'))->toBe($eqIndex)
+        ->and($page->get('equationLatex'))->toBe('a^2 + b^2 = c^2');
+
+    // Ubah rumusnya (misal: Teorema Kalkulus)
+    $page->call('setEquationPreset', 'integral')
+        ->set('equationCaption', '(2)')
+        ->call('insertEquation');
+
+    $updatedBlocks = $page->get('blocks');
+    expect($updatedBlocks[$eqIndex]['equation']['latex'])->toContain('\\int_{a}^{b}')
+        ->and($updatedBlocks[$eqIndex]['equation']['caption'])->toBe('(2)');
+
+    // 5. Uji eksekusi shortcut / command palette insert.equation
+    $page->call('executeCommand', 'insert.equation');
+    expect($page->get('dialog'))->toBe('equation');
+});
+
+it('supports inserting images via URL, upload, and academic SVG diagrams with captions and alignment', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    // 1. Uji dialog picture & academic diagram
+    $page->call('openDialog', 'image')
+        ->assertSee('Insert Picture', false)
+        ->assertSee('Academic Diagram', false)
+        ->assertSee('Unggah dari Komputer', false)
+        ->assertSee('Gambar dari Tautan URL', false)
+        ->assertSee('Diagram Akademik Cepat', false);
+
+    // 2. Uji penyisipan gambar via URL
+    $page->call('insertImageUrl', 'https://images.unsplash.com/photo-sample.jpg', 'Gambar 1: Sampel Ilustrasi Studio', 480, 'center');
+    $blocks = $page->get('blocks');
+    $foundImage = false;
+    foreach ($blocks as $b) {
+        if (($b['type'] ?? '') === 'image' && ($b['image']['src'] ?? '') === 'https://images.unsplash.com/photo-sample.jpg') {
+            $foundImage = true;
+            expect($b['image']['caption'])->toBe('Gambar 1: Sampel Ilustrasi Studio')
+                ->and((int) $b['image']['width'])->toBe(480)
+                ->and($b['align'])->toBe('center');
+            break;
+        }
+    }
+    expect($foundImage)->toBeTrue();
+
+    // 3. Uji penyisipan Diagram Akademik (Flowchart & Bar Chart)
+    $page->call('insertSampleDiagram', 'flowchart');
+    $page->call('insertSampleDiagram', 'barchart');
+
+    $diagramBlocks = array_values(array_filter($page->get('blocks'), static fn (array $b): bool => ($b['type'] ?? '') === 'image' && str_starts_with((string) ($b['image']['src'] ?? ''), 'data:image/svg+xml;base64,')));
+    expect(count($diagramBlocks))->toBeGreaterThanOrEqual(2);
+
+    // Pastikan elemen <figure class="word-image-figure"> ter-render di kanvas HTML
+    $page->assertSee('word-image-figure', false)
+        ->assertSee('Gambar 1: Alur Metodologi Penelitian', false)
+        ->assertSee('Gambar 2: Perbandingan Akurasi Model terhadap Baseline', false);
+});
+
+it('parses equation and image HTML blocks without loss during syncManuscriptPages', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class);
+
+    $html = '<h1 class="word-title-text">Dokumen Eksperimen LaTeX & Diagram</h1>'
+        .'<p class="word-paragraph-text">Berikut adalah persamaan matematika terpusat:</p>'
+        .'<div class="word-equation-block" data-latex="E = mc^2" data-caption="(1)" data-display="block">'
+        .'<div class="word-equation-render"><span class="latex-math-render">E = mc^2</span></div>'
+        .'</div>'
+        .'<figure class="word-image-figure" data-caption="Gambar 1: Diagram Sistem" data-width="480" data-align="center">'
+        .'<img src="https://example.com/system.png" alt="Diagram Sistem" width="480">'
+        .'<figcaption>Gambar 1: Diagram Sistem</figcaption>'
+        .'</figure>'
+        .'<p class="word-paragraph-text">Paragraf penutup setelah diagram.</p>';
+
+    $page->call('syncManuscriptPages', [$html]);
+
+    $blocks = $page->get('blocks');
+    expect(count($blocks))->toBe(5)
+        ->and($blocks[0]['type'])->toBe('title')
+        ->and($blocks[1]['type'])->toBe('paragraph')
+        ->and($blocks[2]['type'])->toBe('equation')
+        ->and($blocks[2]['equation']['latex'])->toBe('E = mc^2')
+        ->and($blocks[2]['equation']['caption'])->toBe('(1)')
+        ->and($blocks[3]['type'])->toBe('image')
+        ->and($blocks[3]['image']['src'])->toBe('https://example.com/system.png')
+        ->and($blocks[3]['image']['caption'])->toBe('Gambar 1: Diagram Sistem')
+        ->and((int) $blocks[3]['image']['width'])->toBe(480)
+        ->and($blocks[4]['type'])->toBe('paragraph');
+});
+
+it('exports equations and images correctly to DOCX, HTML, Markdown and LaTeX', function (): void {
+    $model = app(NaskahRichModel::class);
+    $docxExporter = app(NaskahDocxExporter::class);
+
+    $blocks = [
+        $model->newBlock('title', 'Dokumen Uji Rumus & Gambar'),
+        $model->newBlock('paragraph', 'Paragraf pengantar dokumen ilmiah.'),
+        $model->newEquationBlock('f(x) = x^2 + 2x + 1', 'Persamaan 1'),
+        $model->newImageBlock('https://example.com/test.png', 'Grafik Sampel', 480, 'center', 'Gambar 1: Kurva Fungsi'),
+    ];
+
+    // 1. Ekspor ke HTML
+    $html = $model->toHtml($blocks, 'Dokumen Uji Rumus & Gambar');
+    expect($html)->toContain('class="equation-block"')
+        ->and($html)->toContain('f(x) = x^2 + 2x + 1')
+        ->and($html)->toContain('Persamaan 1')
+        ->and($html)->toContain('<figure')
+        ->and($html)->toContain('src="https://example.com/test.png"');
+
+    // 2. Ekspor ke Markdown
+    $md = $model->toMarkdown($blocks, 'Dokumen Uji Rumus & Gambar');
+    expect($md)->toContain('$$')
+        ->and($md)->toContain('f(x) = x^2 + 2x + 1')
+        ->and($md)->toContain('*(Persamaan 1)*')
+        ->and($md)->toContain('![Gambar 1: Kurva Fungsi](https://example.com/test.png)');
+
+    // 3. Ekspor ke LaTeX
+    $latex = $model->toLatex($blocks, 'Dokumen Uji Rumus & Gambar');
+    expect($latex)->toContain('\\begin{equation}')
+        ->and($latex)->toContain('f(x) = x^2 + 2x + 1')
+        ->and($latex)->toContain('\\end{equation}')
+        ->and($latex)->toContain('\\begin{figure}')
+        ->and($latex)->toContain('\\caption{Gambar 1: Kurva Fungsi}');
+
+    // 4. Ekspor ke DOCX
+    $docxBinary = $docxExporter->toDocx($blocks, 'Dokumen Uji Rumus & Gambar');
+    expect(strlen($docxBinary))->toBeGreaterThan(500);
+
+    // Cek bahwa ZIP valid berisi w:document dengan Cambria Math font
+    $zip = new \ZipArchive;
+    $tempFile = tempnam(sys_get_temp_dir(), 'docx_test');
+    file_put_contents($tempFile, $docxBinary);
+    expect($zip->open($tempFile))->toBeTrue();
+    $docXml = $zip->getFromName('word/document.xml');
+    expect($docXml)->toContain('Cambria Math')
+        ->and($docXml)->toContain('f(x) = x^2 + 2x + 1')
+        ->and($docXml)->toContain('Persamaan 1');
+    $zip->close();
+    @unlink($tempFile);
 });

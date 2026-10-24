@@ -49,6 +49,8 @@ final class XishieAssistantService
             SlashCommand::CARI_REFERENSI => $this->cariReferensi($project, $argument),
             SlashCommand::RINGKAS => $this->ringkas($project),
             SlashCommand::POLES => $this->poles($project, $argument),
+            SlashCommand::RUMUS => $this->rumus($project, $argument),
+            SlashCommand::GAMBAR => $this->gambar($project, $argument),
         };
     }
 
@@ -297,6 +299,68 @@ final class XishieAssistantService
         $content = trim((string) $result['content']);
 
         return $content === '' ? null : $content;
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function rumus(XishieProject $project, string $argument): array
+    {
+        $arg = trim($argument);
+        $recommendation = match (strtolower($arg)) {
+            'kuadrat', 'abc' => [
+                'name' => 'Rumus Kuadrat (ABC)',
+                'latex' => 'x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}',
+                'caption' => '1',
+            ],
+            'pythagoras' => [
+                'name' => 'Teorema Pythagoras',
+                'latex' => 'a^2 + b^2 = c^2',
+                'caption' => '2',
+            ],
+            'integral', 'kalkulus' => [
+                'name' => 'Teorema Kalkulus (Integral)',
+                'latex' => '\int_{a}^{b} f(x) \, dx = F(b) - F(a)',
+                'caption' => '3',
+            ],
+            'matrix', 'matriks' => [
+                'name' => 'Matriks Transformasi 2x2',
+                'latex' => '\begin{bmatrix} a & b \\ c & d \end{bmatrix}',
+                'caption' => '4',
+            ],
+            default => [
+                'name' => 'Model Regresi Linear Empiris',
+                'latex' => 'y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \varepsilon',
+                'caption' => '1',
+            ],
+        };
+
+        $reply = "### Rekomendasi Rumus LaTeX: {$recommendation['name']}\n"
+            ."```latex\n{$recommendation['latex']}\n```\n"
+            .'Gunakan tombol **π Equation** pada menu *Insert* untuk menyisipkan rumus ini langsung ke naskah.';
+
+        return [
+            'command' => SlashCommand::RUMUS->value,
+            'reply' => $reply,
+            'data' => $recommendation,
+        ];
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function gambar(XishieProject $project, string $argument): array
+    {
+        $reply = "### Panduan & Penyisipan Gambar/Diagram Ilmiah\n"
+            ."- Klik menu **Insert > Pictures** untuk mengunggah berkas gambar atau tautan URL.\n"
+            ."- Anda juga dapat menyisipkan diagram cepat: **📊 Flowchart** (Alur Riset) atau **📈 Chart** (Statistik).\n"
+            .'- Setiap gambar otomatis dilengkapi dengan keterangan (*caption*) dan perataan dokumen baku.';
+
+        return [
+            'command' => SlashCommand::GAMBAR->value,
+            'reply' => $reply,
+            'data' => ['argument' => $argument],
+        ];
     }
 
     private function stageRecord(XishieProject $project): ?ProjectStageRecord

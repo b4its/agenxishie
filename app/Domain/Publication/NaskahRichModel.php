@@ -32,7 +32,7 @@ final class NaskahRichModel
     public const TEXT_TYPES = ['title', 'subtitle', 'heading', 'paragraph', 'quote', 'bullet', 'numbered', 'footnote-ref', 'callout', 'toc'];
 
     /** @var array<int, string> */
-    public const ALL_TYPES = ['title', 'subtitle', 'heading', 'paragraph', 'quote', 'bullet', 'numbered', 'table', 'image', 'pagebreak', 'footnote-ref', 'callout', 'toc'];
+    public const ALL_TYPES = ['title', 'subtitle', 'heading', 'paragraph', 'quote', 'bullet', 'numbered', 'table', 'image', 'pagebreak', 'footnote-ref', 'callout', 'toc', 'equation'];
 
     /**
      * Normalisasi satu set blok (termasuk migrasi dokumen lama).
@@ -71,6 +71,24 @@ final class NaskahRichModel
             return $this->normalizeTableBlock($block);
         }
 
+        if ($type === 'equation') {
+            $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? 'E = mc^2');
+            $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
+            $display = (string) ($block['equation']['display'] ?? $block['display'] ?? 'block');
+
+            return [
+                'type' => 'equation',
+                'text' => $latex,
+                'runs' => [],
+                'equation' => [
+                    'latex' => $latex,
+                    'caption' => $caption,
+                    'display' => $display,
+                ],
+                'align' => $this->align($block['align'] ?? 'center'),
+            ];
+        }
+
         if ($type === 'image') {
             return [
                 'type' => 'image',
@@ -79,9 +97,10 @@ final class NaskahRichModel
                 'image' => [
                     'src' => (string) ($block['image']['src'] ?? $block['src'] ?? ''),
                     'alt' => (string) ($block['image']['alt'] ?? $block['alt'] ?? ''),
-                    'width' => (int) ($block['image']['width'] ?? $block['width'] ?? 0),
+                    'caption' => (string) ($block['image']['caption'] ?? $block['caption'] ?? $block['image']['alt'] ?? ''),
+                    'width' => (int) ($block['image']['width'] ?? $block['width'] ?? 480),
                 ],
-                'align' => $this->align($block['align'] ?? 'left'),
+                'align' => $this->align($block['align'] ?? 'center'),
             ];
         }
 
@@ -503,15 +522,26 @@ final class NaskahRichModel
             if ($type === 'image') {
                 $src = $this->safeUrl($block['image']['src'] ?? null) ?? '';
                 $alt = $escape((string) ($block['image']['alt'] ?? ''));
+                $caption = $escape((string) ($block['image']['caption'] ?? ''));
                 $width = (int) ($block['image']['width'] ?? 0);
                 $style = $width > 0 ? ' style="width:'.$width.'px"' : ' style="max-width:100%"';
-                $body .= '<p class="img align-'.($block['align'] ?? 'left').'"><img src="'.$escape($src).'" alt="'.$alt.'"'.$style.'></p>';
+                $captionHtml = $caption !== '' ? '<figcaption style="font-size:0.9em; font-style:italic; color:#64748b; margin-top:4px;">'.$caption.'</figcaption>' : '';
+                $body .= '<figure class="img-figure align-'.($block['align'] ?? 'center').'" style="margin:16px 0; text-align:'.($block['align'] ?? 'center').';"><img src="'.$escape($src).'" alt="'.$alt.'"'.$style.'>'.$captionHtml.'</figure>';
 
                 continue;
             }
 
             if ($type === 'table') {
                 $body .= $this->tableToHtml($block);
+
+                continue;
+            }
+
+            if ($type === 'equation') {
+                $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
+                $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
+                $captionHtml = $caption !== '' ? '<span class="eq-caption" style="float:right; font-weight:600; color:#616161;">('.$escape($caption).')</span>' : '';
+                $body .= '<div class="equation-block" style="margin:16px 0; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; text-align:center; font-family:\'Cambria Math\', serif; font-size:1.15em;">'.$captionHtml.'<span class="latex-math">'.$escape($latex).'</span></div>';
 
                 continue;
             }
@@ -729,13 +759,22 @@ final class NaskahRichModel
             }
 
             if ($type === 'image') {
-                $out[] = '!['.($block['image']['alt'] ?? '').']('.($block['image']['src'] ?? '').')';
+                $alt = (string) (($block['image']['caption'] ?? '') ?: ($block['image']['alt'] ?? ''));
+                $out[] = '!['.$alt.']('.($block['image']['src'] ?? '').')';
 
                 continue;
             }
 
             if ($type === 'table') {
                 $out[] = $this->tableToMarkdown($block);
+
+                continue;
+            }
+
+            if ($type === 'equation') {
+                $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
+                $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
+                $out[] = "$$\n".$latex."\n$$".($caption !== '' ? "\n*(".$caption.')*' : '');
 
                 continue;
             }
@@ -904,6 +943,43 @@ final class NaskahRichModel
     }
 
     /**
+     * Buat blok rumus LaTeX baru.
+     *
+     * @return array<string, mixed>
+     */
+    public function newEquationBlock(string $latex, string $caption = '', string $display = 'block'): array
+    {
+        return $this->normalizeBlock([
+            'type' => 'equation',
+            'equation' => [
+                'latex' => $latex,
+                'caption' => $caption,
+                'display' => $display,
+            ],
+            'align' => 'center',
+        ]);
+    }
+
+    /**
+     * Buat blok gambar baru.
+     *
+     * @return array<string, mixed>
+     */
+    public function newImageBlock(string $src, string $alt = '', int $width = 480, string $align = 'center', string $caption = ''): array
+    {
+        return $this->normalizeBlock([
+            'type' => 'image',
+            'image' => [
+                'src' => $src,
+                'alt' => $alt,
+                'caption' => $caption ?: $alt,
+                'width' => $width,
+            ],
+            'align' => $align,
+        ]);
+    }
+
+    /**
      * Hitung statistik mendalam dan skor keterbacaan (LibreOffice / Word style).
      *
      * @param  array<int, array<string, mixed>>  $blocks
@@ -1007,6 +1083,16 @@ final class NaskahRichModel
                 $out .= "\\begin{enumerate}\n\\item ".$esc($text)."\n\\end{enumerate}\n\n";
             } elseif ($type === 'pagebreak') {
                 $out .= "\\newpage\n\n";
+            } elseif ($type === 'equation') {
+                $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
+                $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
+                $out .= "\\begin{equation}\n".$latex."\n"
+                    .($caption !== '' ? '\\label{eq:'.preg_replace('/[^a-zA-Z0-9]/', '', $caption)."}\n" : '')
+                    ."\\end{equation}\n\n";
+            } elseif ($type === 'image') {
+                $src = (string) ($block['image']['src'] ?? '');
+                $caption = (string) ($block['image']['caption'] ?? $block['image']['alt'] ?? 'Gambar Naskah');
+                $out .= "\\begin{figure}[h]\n\\centering\n% \\includegraphics[width=0.8\\textwidth]{".$esc($src)."}\n\\caption{".$esc($caption)."}\n\\end{figure}\n\n";
             } elseif ($type === 'table') {
                 $rows = (array) ($block['table']['rows'] ?? []);
                 $cols = count((array) ($rows[0] ?? []));

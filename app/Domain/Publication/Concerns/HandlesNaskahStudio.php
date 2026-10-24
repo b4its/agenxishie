@@ -192,7 +192,21 @@ trait HandlesNaskahStudio
 
     public string $imageAlt = '';
 
-    public string $imageWidth = '320';
+    public string $imageUrl = '';
+
+    public string $imageCaption = '';
+
+    public string $imageAlign = 'center';
+
+    public string $imageWidth = '480';
+
+    public string $equationLatex = 'E = mc^2';
+
+    public string $equationCaption = '';
+
+    public string $equationDisplay = 'block';
+
+    public ?int $editingEquationIndex = null;
 
     public string $footnoteText = '';
 
@@ -1089,20 +1103,191 @@ trait HandlesNaskahStudio
             }
 
             $dataUrl = 'data:'.$mime.';base64,'.base64_encode($binary);
-            $width = max(80, min(900, (int) ($this->imageWidth ?: 320)));
+            $width = max(80, min(900, (int) ($this->imageWidth ?: 480)));
+            $caption = $this->imageCaption ?: ($this->imageAlt ?: pathinfo((string) $this->imageUpload->getClientOriginalName(), PATHINFO_FILENAME));
 
-            $this->blocks[] = $this->model->normalizeBlock([
-                'type' => 'image',
-                'image' => ['src' => $dataUrl, 'alt' => $this->imageAlt ?: pathinfo((string) $this->imageUpload->getClientOriginalName(), PATHINFO_FILENAME), 'width' => $width],
-            ]);
+            $newBlock = $this->model->newImageBlock($dataUrl, $this->imageAlt ?: $caption, $width, $this->imageAlign ?: 'center', $caption);
 
-            $this->activeBlock = count($this->blocks) - 1;
+            $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+                ? $this->activeBlock + 1
+                : count($this->blocks);
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+
+            $this->activeBlock = $insertAt;
+            $this->editorRevision++;
             $this->dirty = true;
             $this->dialog = '';
             $this->imageAlt = '';
+            $this->imageCaption = '';
+            $this->imageUpload = null;
             $this->notify('Gambar disisipkan', '', 'success');
         } catch (\Throwable $exception) {
             $this->notify('Gagal menyisipkan gambar', Str::limit($exception->getMessage(), 140), 'danger');
+        }
+    }
+
+    public function insertImageUrl(?string $url = null, ?string $caption = null, int $width = 480, string $align = 'center'): void
+    {
+        $src = trim($url ?? $this->imageUrl);
+        if ($src === '') {
+            $this->notify('URL gambar tidak boleh kosong', '', 'warning');
+
+            return;
+        }
+
+        $captionText = trim($caption ?? $this->imageCaption);
+        $w = max(80, min(900, $width ?: (int) ($this->imageWidth ?: 480)));
+        $al = in_array($align, ['left', 'center', 'right'], true) ? $align : ($this->imageAlign ?: 'center');
+
+        $newBlock = $this->model->newImageBlock($src, $this->imageAlt ?: $captionText, $w, $al, $captionText);
+
+        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+            ? $this->activeBlock + 1
+            : count($this->blocks);
+        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+
+        $this->activeBlock = $insertAt;
+        $this->editorRevision++;
+        $this->dirty = true;
+        $this->dialog = '';
+        $this->imageUrl = '';
+        $this->imageCaption = '';
+        $this->imageAlt = '';
+        $this->notify('Gambar berhasil disisipkan', '', 'success');
+    }
+
+    public function insertSampleDiagram(string $diagramType = 'flowchart'): void
+    {
+        $svg = match ($diagramType) {
+            'flowchart' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 160" width="600" height="160">'
+                .'<rect width="600" height="160" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<rect x="30" y="50" width="140" height="60" rx="6" fill="#0f6cbd" stroke="#004e8c" stroke-width="1.5"/>'
+                .'<text x="100" y="85" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">1. Pengumpulan Data</text>'
+                .'<polygon points="220,80 212,75 212,85" fill="#0f6cbd"/>'
+                .'<path d="M170 80 L220 80" stroke="#0f6cbd" stroke-width="2"/>'
+                .'<rect x="230" y="50" width="140" height="60" rx="6" fill="#107c41" stroke="#0b552c" stroke-width="1.5"/>'
+                .'<text x="300" y="85" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">2. Pra-pemrosesan</text>'
+                .'<polygon points="420,80 412,75 412,85" fill="#107c41"/>'
+                .'<path d="M370 80 L420 80" stroke="#107c41" stroke-width="2"/>'
+                .'<rect x="430" y="50" width="140" height="60" rx="6" fill="#8764b8" stroke="#5c3b89" stroke-width="1.5"/>'
+                .'<text x="500" y="85" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">3. Evaluasi &amp; Validasi</text>'
+                .'</svg>',
+            'barchart' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 200" width="540" height="200">'
+                .'<rect width="540" height="200" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<line x1="60" y1="30" x2="60" y2="160" stroke="#64748b" stroke-width="2"/>'
+                .'<line x1="60" y1="160" x2="500" y2="160" stroke="#64748b" stroke-width="2"/>'
+                .'<rect x="90" y="90" width="60" height="70" fill="#94a3b8" rx="3"/>'
+                .'<text x="120" y="80" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="600" fill="#475569">68%</text>'
+                .'<text x="120" y="180" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#334155">Baseline</text>'
+                .'<rect x="190" y="60" width="60" height="100" fill="#38bdf8" rx="3"/>'
+                .'<text x="220" y="50" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="600" fill="#0284c7">82%</text>'
+                .'<text x="220" y="180" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#334155">Model A</text>'
+                .'<rect x="290" y="40" width="60" height="120" fill="#0f6cbd" rx="3"/>'
+                .'<text x="320" y="30" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="600" fill="#0f6cbd">94.5%</text>'
+                .'<text x="320" y="180" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="700" fill="#0f6cbd">Xishie Model</text>'
+                .'</svg>',
+            default => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 160" width="540" height="160">'
+                .'<rect width="540" height="160" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<circle cx="270" cy="80" r="45" fill="#0f6cbd"/>'
+                .'<text x="270" y="85" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Fokus Utama</text>'
+                .'<rect x="40" y="60" width="110" height="40" rx="6" fill="#e0e7ff" stroke="#6366f1"/>'
+                .'<text x="95" y="85" fill="#312e81" font-family="sans-serif" font-size="11" text-anchor="middle">Input Data</text>'
+                .'<line x1="150" y1="80" x2="225" y2="80" stroke="#6366f1" stroke-width="2" stroke-dasharray="4"/>'
+                .'<rect x="390" y="60" width="110" height="40" rx="6" fill="#dcfce7" stroke="#22c55e"/>'
+                .'<text x="445" y="85" fill="#14532d" font-family="sans-serif" font-size="11" text-anchor="middle">Hasil Analisis</text>'
+                .'<line x1="315" y1="80" x2="390" y2="80" stroke="#22c55e" stroke-width="2" stroke-dasharray="4"/>'
+                .'</svg>',
+        };
+
+        $dataUri = 'data:image/svg+xml;base64,'.base64_encode($svg);
+        $caption = match ($diagramType) {
+            'flowchart' => 'Gambar 1: Alur Metodologi Penelitian',
+            'barchart' => 'Gambar 2: Perbandingan Akurasi Model terhadap Baseline',
+            default => 'Gambar: Kerangka Konseptual Naskah',
+        };
+
+        $newBlock = $this->model->newImageBlock($dataUri, $caption, 540, 'center', $caption);
+
+        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+            ? $this->activeBlock + 1
+            : count($this->blocks);
+        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+
+        $this->activeBlock = $insertAt;
+        $this->editorRevision++;
+        $this->dirty = true;
+        $this->dialog = '';
+        $this->notify('Diagram disisipkan ke naskah', '', 'success');
+    }
+
+    public function insertEquation(?string $latex = null, ?string $caption = null, string $display = 'block'): void
+    {
+        $formula = trim($latex ?? $this->equationLatex);
+        if ($formula === '') {
+            $formula = 'E = mc^2';
+        }
+
+        $captionText = trim($caption ?? $this->equationCaption);
+
+        $newBlock = $this->model->newEquationBlock($formula, $captionText, $display);
+
+        if ($this->editingEquationIndex !== null && isset($this->blocks[$this->editingEquationIndex])) {
+            $this->blocks[$this->editingEquationIndex] = $newBlock;
+            $this->activeBlock = $this->editingEquationIndex;
+            $this->editingEquationIndex = null;
+            $this->notify('Rumus LaTeX berhasil diperbarui', '', 'success');
+        } else {
+            $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+                ? $this->activeBlock + 1
+                : count($this->blocks);
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->activeBlock = $insertAt;
+            $this->notify('Rumus LaTeX berhasil disisipkan', '', 'success');
+        }
+
+        $this->editorRevision++;
+        $this->dirty = true;
+        $this->dialog = '';
+        $this->equationLatex = 'E = mc^2';
+        $this->equationCaption = '';
+    }
+
+    public function editEquation(int $blockIndex): void
+    {
+        if (! isset($this->blocks[$blockIndex])) {
+            return;
+        }
+
+        $b = $this->blocks[$blockIndex];
+        if (($b['type'] ?? '') !== 'equation') {
+            return;
+        }
+
+        $this->editingEquationIndex = $blockIndex;
+        $this->activeBlock = $blockIndex;
+        $this->equationLatex = (string) ($b['equation']['latex'] ?? $b['text'] ?? 'E = mc^2');
+        $this->equationCaption = (string) ($b['equation']['caption'] ?? '');
+        $this->equationDisplay = (string) ($b['equation']['display'] ?? 'block');
+        $this->dialog = 'equation';
+    }
+
+    public function setEquationPreset(string $preset): void
+    {
+        $this->equationLatex = match ($preset) {
+            'quadratic' => 'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}',
+            'pythagoras' => 'a^2 + b^2 = c^2',
+            'gaussian' => 'f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} e^{-\\frac{1}{2}\\left(\\frac{x-\\mu}{\\sigma}\\right)^2}',
+            'integral' => '\\int_{a}^{b} f(x) \\, dx = F(b) - F(a)',
+            'matrix' => '\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}',
+            'einstein' => 'E = mc^2',
+            'limit' => '\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1',
+            'summation' => '\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}',
+            'schrodinger' => 'i\\hbar \\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r},t) = \\hat{H}\\Psi(\\mathbf{r},t)',
+            'fourier' => '\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} \\, dx',
+            default => 'E = mc^2',
+        };
+        if ($this->equationCaption === '') {
+            $this->equationCaption = '(1)';
         }
     }
 
@@ -1491,6 +1676,43 @@ trait HandlesNaskahStudio
                 }
 
                 continue;
+            }
+
+            if (str_contains($class, 'word-equation-block') || ($node instanceof \DOMElement && $node->hasAttribute('data-latex'))) {
+                $latex = $node instanceof \DOMElement ? $node->getAttribute('data-latex') : '';
+                if ($latex === '') {
+                    $latex = trim($node->textContent);
+                }
+                $caption = $node instanceof \DOMElement ? $node->getAttribute('data-caption') : '';
+                $display = $node instanceof \DOMElement ? ($node->getAttribute('data-display') ?: 'block') : 'block';
+                $blocks[] = $this->model->newEquationBlock($latex, $caption, $display);
+
+                continue;
+            }
+
+            if (str_contains($class, 'word-image-figure') || $tag === 'figure' || $tag === 'img' || ($node instanceof \DOMElement && $node->getElementsByTagName('img')->length > 0)) {
+                $imgNode = $tag === 'img' ? $node : ($node instanceof \DOMElement ? $node->getElementsByTagName('img')->item(0) : null);
+                if ($imgNode instanceof \DOMElement) {
+                    $src = $imgNode->getAttribute('src');
+                    $alt = $imgNode->getAttribute('alt');
+                    $figCap = $node instanceof \DOMElement && $node->getElementsByTagName('figcaption')->length > 0
+                        ? $node->getElementsByTagName('figcaption')->item(0)?->textContent
+                        : null;
+                    $caption = $node instanceof \DOMElement && $node->hasAttribute('data-caption')
+                        ? $node->getAttribute('data-caption')
+                        : ($figCap ?: $alt);
+                    $widthAttr = $node instanceof \DOMElement && $node->hasAttribute('data-width')
+                        ? $node->getAttribute('data-width')
+                        : $imgNode->getAttribute('width');
+                    $width = is_numeric($widthAttr) && (int) $widthAttr > 0 ? (int) $widthAttr : 480;
+                    $align = $node instanceof \DOMElement && $node->hasAttribute('data-align')
+                        ? $node->getAttribute('data-align')
+                        : 'center';
+
+                    $blocks[] = $this->model->newImageBlock($src, $alt, $width, $align, trim((string) $caption));
+
+                    continue;
+                }
             }
 
             // Ambil inner HTML atau teks anak elemen dengan menjaga format tebal/miring/tanda
@@ -2565,6 +2787,62 @@ trait HandlesNaskahStudio
                 .'- **Kesimpulan & Implikasi (1 kalimat)**: Kontribusi teoretis maupun praktis riset.';
         }
 
+        if (str_starts_with($input, '/rumus') || str_starts_with($input, '/latex') || str_starts_with($input, '/equation')) {
+            $arg = trim((string) preg_replace('/^\/(rumus|latex|equation)\s*/i', '', $input));
+            if ($arg === '') {
+                $arg = 'regresi';
+            }
+
+            $recommendation = match (strtolower($arg)) {
+                'kuadrat', 'abc', 'akar' => [
+                    'title' => 'Rumus Kuadrat (ABC)',
+                    'latex' => 'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}',
+                    'caption' => '1',
+                ],
+                'pythagoras' => [
+                    'title' => 'Teorema Pythagoras',
+                    'latex' => 'a^2 + b^2 = c^2',
+                    'caption' => '2',
+                ],
+                'integral', 'kalkulus' => [
+                    'title' => 'Teorema Dasar Kalkulus (Integral Tentu)',
+                    'latex' => '\\int_{a}^{b} f(x) \\, dx = F(b) - F(a)',
+                    'caption' => '3',
+                ],
+                'matriks', 'matrix' => [
+                    'title' => 'Matriks Transformasi',
+                    'latex' => '\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}',
+                    'caption' => '4',
+                ],
+                'normal', 'gauss', 'gaussian' => [
+                    'title' => 'Distribusi Normal Gaussian',
+                    'latex' => 'f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} e^{-\\frac{1}{2}\\left(\\frac{x-\\mu}{\\sigma}\\right)^2}',
+                    'caption' => '5',
+                ],
+                default => [
+                    'title' => 'Model Regresi Linear Empiris',
+                    'latex' => 'y = \\beta_0 + \\beta_1 x_1 + \\beta_2 x_2 + \\varepsilon',
+                    'caption' => '1',
+                ],
+            };
+
+            $this->equationLatex = $recommendation['latex'];
+            $this->equationCaption = '('.$recommendation['caption'].')';
+
+            return "### Saran Rumus LaTeX: {$recommendation['title']}\n"
+                ."Kode LaTeX siap pakai:\n```latex\n{$recommendation['latex']}\n```\n"
+                ."- Format tampilan: Blok terpusat dengan penomoran persamaan `({$recommendation['caption']})`.\n"
+                .'- Klik tombol **π Equation** pada pita menu (Insert > Symbols) atau tekan **Alt+=** untuk menyisipkannya langsung ke kanvas naskah.';
+        }
+
+        if (str_starts_with($input, '/gambar') || str_starts_with($input, '/diagram')) {
+            return "### Panduan & Generator Diagram Ilmiah Naskah\n"
+                ."- **Diagram Alur (Flowchart)**: Gunakan pita menu *Insert > Pictures > 📊 Flowchart* untuk menyisipkan alur metodologi penelitian.\n"
+                ."- **Diagram Batang (Chart)**: Pilih *Insert > Pictures > 📈 Chart* untuk visualisasi komparasi performa model vs baseline.\n"
+                ."- **Unggah Gambar Sendiri**: Klik tombol *Pictures* untuk mengunggah berkas JPG/PNG atau memasukkan tautan (URL) gambar publik.\n"
+                .'- Gambar otomatis diformat dengan keterangan gambar (*caption*), perataan terpusat, dan kompatibel ekspor Microsoft Word (.docx).';
+        }
+
         if (str_contains($lowerInput, 'metode') || str_contains($lowerInput, 'method')) {
             return "### Rekomendasi Struktur Bagian Metode Riset\n"
                 ."- **Desain Penelitian**: Paparkan pendekatan kualitatif, kuantitatif, atau mixed-method yang digunakan.\n"
@@ -2620,6 +2898,7 @@ trait HandlesNaskahStudio
             ['id' => 'insert.quote', 'label' => 'Sisipkan Kutipan', 'category' => 'Sisipkan', 'icon' => '“'],
             ['id' => 'insert.table', 'label' => 'Sisipkan Tabel', 'category' => 'Sisipkan', 'icon' => '⊞'],
             ['id' => 'insert.image', 'label' => 'Sisipkan Gambar', 'category' => 'Sisipkan', 'icon' => '🖼️'],
+            ['id' => 'insert.equation', 'label' => 'Sisipkan Rumus (LaTeX Equation)', 'category' => 'Sisipkan', 'icon' => 'π', 'shortcut' => 'Alt+='],
             ['id' => 'insert.link', 'label' => 'Sisipkan Tautan (Link)', 'category' => 'Sisipkan', 'icon' => '🔗', 'shortcut' => 'Ctrl+K'],
             ['id' => 'insert.footnote', 'label' => 'Sisipkan Catatan Kaki', 'category' => 'Sisipkan', 'icon' => '⚓'],
             ['id' => 'insert.pagebreak', 'label' => 'Sisipkan Pemisah Halaman', 'category' => 'Sisipkan', 'icon' => '✂️', 'shortcut' => 'Ctrl+Enter'],
@@ -2679,6 +2958,7 @@ trait HandlesNaskahStudio
             'insert.quote' => $this->addBlock('quote'),
             'insert.table' => $this->openDialog('table'),
             'insert.image' => $this->openDialog('image'),
+            'insert.equation' => $this->openDialog('equation'),
             'insert.link' => $this->openDialog('link'),
             'insert.footnote' => $this->openDialog('footnote'),
             'insert.pagebreak' => $this->insertPageBreak(),

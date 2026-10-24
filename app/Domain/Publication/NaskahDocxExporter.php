@@ -65,6 +65,17 @@ final class NaskahDocxExporter
     }
 
     /**
+     * Alias to build().
+     *
+     * @param  array<int, array<string, mixed>>  $blocks
+     * @param  array<string, mixed>  $options
+     */
+    public function toDocx(array $blocks, string $title = '', array $options = []): string
+    {
+        return $this->build($blocks, $title, $options);
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $blocks
      * @param  array<int, string>  $media
      * @param  array<string, mixed>  $options
@@ -94,14 +105,28 @@ final class NaskahDocxExporter
                 continue;
             }
 
+            if ($type === 'equation') {
+                $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
+                $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
+                $body .= $this->equationBlockXml($latex, $caption);
+
+                continue;
+            }
+
             if ($type === 'image') {
                 $src = (string) ($block['image']['src'] ?? '');
+                $caption = (string) ($block['image']['caption'] ?? $block['image']['alt'] ?? '');
                 $binary = $this->decodeDataUrl($src);
 
                 if ($binary !== null) {
                     $media[] = $binary;
                     $relId = 'rId'.(100 + count($media));
                     $body .= $this->imageParagraphXml($relId, (int) ($block['image']['width'] ?? 320));
+                    if ($caption !== '') {
+                        $body .= '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="180"/></w:pPr>'
+                            .'<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:i/><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr>'
+                            .'<w:t xml:space="preserve">'.$this->esc($caption).'</w:t></w:r></w:p>';
+                    }
                 }
 
                 continue;
@@ -349,15 +374,31 @@ final class NaskahDocxExporter
             .'</w:styles>';
     }
 
+    private function equationBlockXml(string $latex, string $caption = ''): string
+    {
+        $capText = $caption !== '' ? '   ('.$this->esc($caption).')' : '';
+
+        return '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="240"/></w:pPr>'
+            .'<w:r><w:rPr><w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/><w:i/><w:sz w:val="24"/></w:rPr>'
+            .'<w:t xml:space="preserve">'.$this->esc($latex).$capText.'</w:t></w:r></w:p>';
+    }
+
     private function decodeDataUrl(string $src): ?string
     {
-        if (preg_match('/^data:image\/[a-z+]+;base64,(.+)$/i', $src, $m) !== 1) {
-            return null;
+        if (preg_match('/^data:image\/[a-z0-9+]+;base64,(.+)$/is', $src, $m) === 1) {
+            $binary = base64_decode($m[1], true);
+
+            return $binary === false ? null : $binary;
         }
 
-        $binary = base64_decode($m[1], true);
+        if (str_starts_with($src, '/storage/')) {
+            $path = public_path(ltrim($src, '/'));
+            if (is_file($path) && is_readable($path)) {
+                return file_get_contents($path) ?: null;
+            }
+        }
 
-        return $binary === false ? null : $binary;
+        return null;
     }
 
     private function hex(string $color): ?string

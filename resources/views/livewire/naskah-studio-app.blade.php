@@ -115,6 +115,10 @@
                     e.preventDefault();
                     $wire.openDialog('find');
                 }
+                if (e.altKey && (e.key === '=' || e.key === '+')) {
+                    e.preventDefault();
+                    $wire.openDialog('equation');
+                }
             });
 
             document.addEventListener('selectionchange', () => {
@@ -799,14 +803,14 @@
 
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="openDialog('image')" title="Insert Picture">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('image')" title="Insert Picture (Upload or URL)">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                         <span>Pictures</span>
                     </button>
                     <div class="word-group__col">
-                        <button type="button" class="word-tool-btn" wire:click="insertCallout('info')">📌 Note (Info)</button>
-                        <button type="button" class="word-tool-btn" wire:click="insertCallout('warning')">⚠️ Note (Warning)</button>
-                        <button type="button" class="word-tool-btn" wire:click="insertCallout('success')">✅ Note (Success)</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertSampleDiagram('flowchart')" title="Sisipkan Diagram Alur Metodologi">📊 Flowchart</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertSampleDiagram('barchart')" title="Sisipkan Grafik Statistik Riset">📈 Chart</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertCallout('info')" title="Sisipkan Kotak Catatan Khusus">📌 Note</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Illustrations</span></div>
@@ -836,6 +840,10 @@
 
             <div class="word-group">
                 <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('equation')" title="Insert LaTeX Equation (Alt+=)">
+                        <span style="font-size:20px; font-weight:700; line-height:1; font-family:'Cambria Math', serif;">π</span>
+                        <span>Equation</span>
+                    </button>
                     <button type="button" class="word-btn-large" wire:click="openDialog('symbols')" title="Insert Special Character">
                         <span style="font-size:20px; font-weight:700; line-height:1;">Ω</span>
                         <span>Symbol</span>
@@ -1567,6 +1575,78 @@
                                                     @endforeach
                                                 </table>
                                             </div>
+                                        @elseif ($type === 'equation')
+                                            @php
+                                                $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? 'E = mc^2');
+                                                $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
+                                                $display = (string) ($block['equation']['display'] ?? 'block');
+                                            @endphp
+                                            <div class="word-equation-block"
+                                                id="word-block-{{ $index }}"
+                                                data-block-index="{{ $index }}"
+                                                data-latex="{{ $latex }}"
+                                                data-caption="{{ $caption }}"
+                                                data-display="{{ $display }}"
+                                                contenteditable="false"
+                                                style="user-select:none; margin: 16px 0; padding: 12px 18px; background: #fbfcfe; border: 1px solid #e1dfdd; border-radius: 4px; display: flex; align-items: center; justify-content: center; position: relative;">
+                                                <div class="word-equation-actions" style="position: absolute; right: 8px; top: 8px; display: flex; gap: 4px;">
+                                                    <button type="button" class="word-tool-btn" style="padding: 2px 8px; font-size: 11px; height: 22px; background: #ffffff; border: 1px solid #d1d1d1; border-radius: 3px; cursor: pointer;" wire:click="editEquation({{ $index }})" title="Edit Rumus LaTeX">
+                                                        ✏️ Edit Rumus
+                                                    </button>
+                                                    <button type="button" class="word-tool-btn" style="padding: 2px 6px; font-size: 11px; height: 22px; background: #ffffff; border: 1px solid #d1d1d1; border-radius: 3px; cursor: pointer; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Rumus">
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                                <div class="word-equation-render" style="font-family: 'Cambria Math', 'KaTeX_Math', 'Times New Roman', serif; font-size: 1.18rem; text-align: center; color: #242424; margin: auto; padding: 4px 50px 4px 10px; overflow-x: auto;">
+                                                    <span class="latex-math-render" data-latex="{{ $latex }}">{{ $latex }}</span>
+                                                </div>
+                                                @if ($caption !== '')
+                                                    <div class="word-equation-caption" style="position: absolute; right: 16px; font-size: 11pt; font-weight: 600; color: #616161;">
+                                                        ({{ $caption }})
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @elseif ($type === 'image')
+                                            @php
+                                                $src = (string) ($block['image']['src'] ?? $block['src'] ?? '');
+                                                $alt = (string) ($block['image']['alt'] ?? $block['alt'] ?? 'Gambar naskah');
+                                                $caption = (string) ($block['image']['caption'] ?? $block['caption'] ?? $alt);
+                                                $width = (int) ($block['image']['width'] ?? 480);
+                                                $align = (string) ($block['align'] ?? 'center');
+                                            @endphp
+                                            <figure class="word-image-figure"
+                                                id="word-block-{{ $index }}"
+                                                data-block-index="{{ $index }}"
+                                                data-caption="{{ $caption }}"
+                                                data-width="{{ $width }}"
+                                                data-align="{{ $align }}"
+                                                contenteditable="false"
+                                                style="margin: 18px 0; display: flex; flex-direction: column; align-items: {{ $align === 'left' ? 'flex-start' : ($align === 'right' ? 'flex-end' : 'center') }}; text-align: {{ $align }}; position: relative;">
+                                                <div style="position: relative; display: inline-block; max-width: 100%;">
+                                                    <div class="word-image-actions" style="position: absolute; right: 6px; top: 6px; display: flex; gap: 4px; background: rgba(255,255,255,0.92); padding: 2px 4px; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.15);">
+                                                        <button type="button" class="word-tool-btn" style="padding: 2px 6px; font-size: 11px; height: 22px; cursor: pointer;" wire:click="openDialog('image')" title="Ganti / Sisipkan Gambar">
+                                                            🖼️ Ubah
+                                                        </button>
+                                                        <button type="button" class="word-tool-btn" style="padding: 2px 6px; font-size: 11px; height: 22px; cursor: pointer; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Gambar">
+                                                            🗑️
+                                                        </button>
+                                                    </div>
+                                                    @if ($src !== '')
+                                                        <img src="{{ $src }}"
+                                                            alt="{{ $alt }}"
+                                                            style="max-width: 100%; width: {{ $width }}px; height: auto; border: 1px solid #edebe9; border-radius: 3px; display: block; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
+                                                    @else
+                                                        <div style="width: {{ $width }}px; height: 160px; background: #f3f2f1; border: 2px dashed #c8c6c4; display: flex; align-items: center; justify-content: center; color: #605e5c; font-size: 13px;">
+                                                            📷 Gambar Belum Dipilih
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                                @if ($caption !== '')
+                                                    <figcaption style="margin-top: 6px; font-size: 10pt; font-style: italic; color: #616161; max-width: {{ $width }}px;">
+                                                        {{ $caption }}
+                                                    </figcaption>
+                                                @endif
+                                            </figure>
                                         @else
                                             @if ($inBibliographySection)
                                                 <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
@@ -1669,6 +1749,12 @@
                         </button>
                         <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/cari-referensi')" title="Cari rekomendasi referensi akademik relevan">
                             🔍 /cari-referensi
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/rumus')" title="Rekomendasi rumus matematika &amp; LaTeX">
+                            π /rumus
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/gambar')" title="Panduan diagram alur &amp; penyisipan gambar">
+                            🖼️ /gambar
                         </button>
                     </div>
 
@@ -2258,24 +2344,124 @@
                         <button type="button" class="word-btn-pill word-btn-share" wire:click="insertTable">OK</button>
                     </div>
 
-                {{-- INSERT IMAGE --}}
-                @elseif ($dialog === 'image')
+                {{-- INSERT / EDIT EQUATION (LATEX) --}}
+                @elseif ($dialog === 'equation')
                     <div class="word-dialog__header">
-                        <span>Insert Picture</span>
+                        <span style="display:flex; align-items:center; gap:6px;">
+                            <span style="font-family:'Cambria Math', serif; font-size:16px; font-weight:700;">π</span>
+                            <span>{{ $editingEquationIndex !== null ? 'Edit Rumus LaTeX' : 'Insert Equation (Rumus Matematika / LaTeX)' }}</span>
+                        </span>
                         <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="word-dialog__body">
+                    <div class="word-dialog__body" style="display:flex; flex-direction:column; gap:12px;">
                         <div>
-                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Choose Image File:</label>
-                            <input type="file" wire:model="imageUpload" accept="image/*" class="word-select" style="width:100%; height:34px; padding:3px;">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:6px; color:var(--ms-text-primary);">Pilih Templat Cepat (Presets):</label>
+                            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('quadratic')">Rumus ABC</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('pythagoras')">Pythagoras</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('gaussian')">Distribusi Normal</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('integral')">Integral Tentu</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('matrix')">Matriks 2x2</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('einstein')">Massa-Energi (E=mc²)</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('limit')">Limit</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('summation')">Sigma Deret</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('fourier')">Transformasi Fourier</button>
+                            </div>
                         </div>
+
                         <div>
-                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Alt Description:</label>
-                            <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="imageAlt" placeholder="Caption...">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px; color:var(--ms-text-primary);">Sintaks Rumus LaTeX:</label>
+                            <textarea rows="3" class="word-select" style="width:100%; height:auto; font-family:'JetBrains Mono', monospace; font-size:12px; line-height:1.4;" wire:model.live.debounce.300ms="equationLatex" placeholder="Contoh: x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}"></textarea>
+                            <span style="font-size:10px; color:var(--ms-text-muted); margin-top:2px; display:block;">Dukungan penuh sintaks LaTeX: pecahan (\frac), integral (\int), akar (\sqrt), matriks, huruf Yunani (\alpha, \beta, \pi).</span>
+                        </div>
+
+                        <!-- Live Preview Box -->
+                        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; padding:12px; text-align:center;">
+                            <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Pratinjau Rumus</div>
+                            <div style="font-family:'Cambria Math', 'KaTeX_Math', 'Times New Roman', serif; font-size:1.25rem; color:#0f172a; min-height:36px; display:flex; align-items:center; justify-content:center;">
+                                <span class="latex-math-render" data-latex="{{ $equationLatex }}">{{ $equationLatex ?: 'E = mc^2' }}</span>
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px; color:var(--ms-text-primary);">Nomor / Keterangan Persamaan:</label>
+                                <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="equationCaption" placeholder="Misal: (1) atau Eq. 2.4">
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px; color:var(--ms-text-primary);">Tipe Tampilan:</label>
+                                <select class="word-select" style="width:100%; height:32px;" wire:model="equationDisplay">
+                                    <option value="block">Blok Mandiri (Tengah)</option>
+                                    <option value="inline">Inline (Sejajar Teks)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <div class="word-dialog__footer">
-                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Close</button>
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Batal</button>
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertEquation">
+                            {{ $editingEquationIndex !== null ? 'Perbarui Rumus' : 'Sisipkan Rumus ke Naskah' }}
+                        </button>
+                    </div>
+
+                {{-- INSERT IMAGE --}}
+                @elseif ($dialog === 'image')
+                    <div class="word-dialog__header">
+                        <span>Insert Picture &amp; Academic Diagram</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
+                    </div>
+                    <div class="word-dialog__body" style="display:flex; flex-direction:column; gap:14px;">
+                        <!-- Opsi 1: Unggah Berkas -->
+                        <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:4px; background:#faf9f8;">
+                            <label style="display:block; font-weight:700; font-size:12px; margin-bottom:4px; color:#0f6cbd;">1. Unggah dari Komputer:</label>
+                            <input type="file" wire:model="imageUpload" accept="image/*" class="word-select" style="width:100%; height:34px; padding:3px; background:#fff;">
+                            <span style="font-size:10px; color:#616161; margin-top:3px; display:block;">Mendukung berkas JPG, PNG, WebP, GIF, SVG.</span>
+                        </div>
+
+                        <!-- Opsi 2: Sisipkan via URL -->
+                        <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:4px; background:#faf9f8;">
+                            <label style="display:block; font-weight:700; font-size:12px; margin-bottom:4px; color:#0f6cbd;">2. Gambar dari Tautan URL:</label>
+                            <div style="display:flex; gap:6px;">
+                                <input type="url" class="word-select" style="flex:1; height:32px; background:#fff;" wire:model="imageUrl" placeholder="https://contoh.com/gambar-grafik.png">
+                                <button type="button" class="word-btn-pill word-btn-share" style="height:32px; font-size:11px;" wire:click="insertImageUrl">Sisipkan URL</button>
+                            </div>
+                        </div>
+
+                        <!-- Opsi 3: Diagram Cepat Siap Pakai -->
+                        <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:4px; background:#faf9f8;">
+                            <label style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:#0f6cbd;">3. Diagram Akademik Cepat (1-Klik):</label>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="word-tool-btn" style="padding:4px 8px; font-size:11px;" wire:click="insertSampleDiagram('flowchart')">
+                                    📊 Flowchart Metodologi
+                                </button>
+                                <button type="button" class="word-tool-btn" style="padding:4px 8px; font-size:11px;" wire:click="insertSampleDiagram('barchart')">
+                                    📈 Grafik Komparasi Model
+                                </button>
+                                <button type="button" class="word-tool-btn" style="padding:4px 8px; font-size:11px;" wire:click="insertSampleDiagram('mindmap')">
+                                    🧠 Kerangka Konseptual
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Pengaturan Ukuran & Keterangan Gambar -->
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Keterangan Gambar (Caption):</label>
+                                <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="imageCaption" placeholder="Gambar 1: Deskripsi gambar...">
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Lebar Tampilan:</label>
+                                <select class="word-select" style="width:100%; height:32px;" wire:model="imageWidth">
+                                    <option value="320">Kecil (320 px)</option>
+                                    <option value="480">Sedang (480 px - Standar)</option>
+                                    <option value="600">Lebar (600 px)</option>
+                                    <option value="720">Penuh (720 px)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Tutup</button>
                     </div>
 
                 {{-- INSERT LINK --}}
