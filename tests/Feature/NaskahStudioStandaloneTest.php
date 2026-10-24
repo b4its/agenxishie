@@ -1022,3 +1022,58 @@ it('supports academic pie chart and architecture diagrams, callout blocks with t
         ->assertSee('Rumus Matematika', false)
         ->assertSee('Tabel Data', false);
 });
+
+it('supports deleteBlock, title synchronization, and mutually exclusive taskpane switching', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('blocks', [
+            ['type' => 'title', 'text' => 'Judul Awal Dokumen'],
+            ['type' => 'paragraph', 'text' => 'Paragraf pertama.'],
+            ['type' => 'paragraph', 'text' => 'Paragraf kedua untuk dihapus.'],
+        ])
+        ->set('activeBlock', 1);
+
+    // 1. Uji deleteBlock
+    expect(count($page->get('blocks')))->toBe(3);
+    $page->call('deleteBlock', 2);
+    expect(count($page->get('blocks')))->toBe(2);
+
+    // 2. Uji updatedDocTitle
+    $page->set('docTitle', 'Judul Baru Yang Diselaraskan');
+    $blocks = $page->get('blocks');
+    expect($blocks[0]['text'])->toBe('Judul Baru Yang Diselaraskan');
+
+    // 3. Uji toggleTaskPane
+    expect($page->get('assistantOpen'))->toBeFalse()
+        ->and($page->get('showComments'))->toBeFalse();
+
+    $page->call('toggleTaskPane', 'comments');
+    expect($page->get('showComments'))->toBeTrue()
+        ->and($page->get('assistantOpen'))->toBeFalse();
+
+    $page->call('toggleTaskPane', 'assistant');
+    expect($page->get('assistantOpen'))->toBeTrue()
+        ->and($page->get('showComments'))->toBeFalse();
+
+    $page->call('toggleTaskPane', 'revisions');
+    expect($page->get('showRevisions'))->toBeTrue()
+        ->and($page->get('assistantOpen'))->toBeFalse();
+
+    $page->call('closeTaskPane');
+    expect($page->get('showRevisions'))->toBeFalse()
+        ->and($page->get('assistantOpen'))->toBeFalse()
+        ->and($page->get('showComments'))->toBeFalse();
+});
+
+it('cleans rendered KaTeX HTML spans back to clean math formulas during parseHtmlToBlocks', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class);
+
+    $dirtyHtml = '<p class="word-paragraph-text">Model persamaan energi <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>E</mi><mo>=</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">E=mc^2</annotation></semantics></math></span><span class="katex-html"><span class="base">E=mc^2</span></span></span> terbukti valid.</p>';
+
+    $blocks = $page->instance()->parseHtmlToBlocks($dirtyHtml);
+
+    expect($blocks)->toHaveCount(1)
+        ->and($blocks[0]['type'])->toBe('paragraph')
+        ->and($blocks[0]['text'])->toBe('Model persamaan energi $E=mc^2$ terbukti valid.')
+        ->and($blocks[0]['text'])->not->toContain('katex')
+        ->and($blocks[0]['text'])->not->toContain('<math>');
+});

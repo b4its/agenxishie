@@ -331,3 +331,59 @@ it('inserts assistant markdown tables and callouts into manuscript as first-clas
     }
     expect($hasCallout)->toBeTrue();
 });
+
+it('supports enriched academic commands (/abstrak, /metodologi, /tabel-analisis, /terjemahkan) and follow-up inquiry', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('docTitle', 'Penerapan Algoritma Genetika Pada Optimasi Jaringan')
+        ->set('blocks', [
+            ['type' => 'title', 'text' => 'Penerapan Algoritma Genetika Pada Optimasi Jaringan'],
+            ['type' => 'paragraph', 'text' => 'Data empiris menunjukkan peningkatan efisiensi secara konsisten.'],
+        ])
+        ->set('activeBlock', 1);
+
+    // 1. Uji /abstrak
+    $page->call('runTool', '/abstrak');
+    $log = $page->get('assistantLog');
+    $lastMsg = end($log);
+    expect($lastMsg['content'])->toContain('Draf Abstrak Akademik Terstruktur (IMRAD)')
+        ->and($lastMsg['content'])->toContain('Latar Belakang')
+        ->and($lastMsg['content'])->toContain('Metodologi')
+        ->and($lastMsg['content'])->toContain('Hasil Utama');
+
+    // 2. Uji /metodologi
+    $page->call('runTool', '/metodologi');
+    $log2 = $page->get('assistantLog');
+    expect(end($log2)['content'])->toContain('Rancangan Struktur Bab Metodologi Penelitian')
+        ->and(end($log2)['content'])->toContain('Desain Riset')
+        ->and(end($log2)['content'])->toContain('Populasi & Sampel');
+
+    // 3. Uji /tabel-analisis
+    $page->call('runTool', '/tabel-analisis');
+    $log3 = $page->get('assistantLog');
+    $tabelIdx = count($log3) - 1;
+    expect($log3[$tabelIdx]['content'])->toContain('Matriks Evaluasi & Analisis Komparasi Kinerja')
+        ->and($log3[$tabelIdx]['content'])->toContain('Rasio Kepatuhan Pedoman');
+
+    // Sisipkan tabel analisis ke dalam naskah
+    $page->call('insertAssistantResponse', $tabelIdx);
+    $blocks = $page->get('blocks');
+    $hasNewTable = false;
+    foreach ($blocks as $b) {
+        if (($b['type'] ?? '') === 'table') {
+            $hasNewTable = true;
+            break;
+        }
+    }
+    expect($hasNewTable)->toBeTrue();
+
+    // 4. Uji /terjemahkan
+    $page->call('runTool', '/terjemahkan');
+    $log4 = $page->get('assistantLog');
+    expect(end($log4)['content'])->toContain('Konversi Terjemahan Akademik Baku')
+        ->and(end($log4)['content'])->toContain('Consequently');
+
+    // 5. Uji sendAssistantWithText (follow-up quick inquiry)
+    $page->call('sendAssistantWithText', 'Jelaskan rekomendasi ini secara lebih mendalam dengan rincian operasional.');
+    $log5 = $page->get('assistantLog');
+    expect(count($log5))->toBeGreaterThan(count($log4));
+});
