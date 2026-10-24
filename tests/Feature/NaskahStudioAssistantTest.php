@@ -406,3 +406,68 @@ it('supports /puebi and /kembangkan slash commands', function (): void {
     $log2 = $page->get('assistantLog');
     expect(end($log2)['content'])->toContain('Elaborasi Pengembangan Teks Akademik');
 });
+
+it('executes rich academic slash commands when connected to an active project', function (): void {
+    $project = XishieProject::factory()->create([
+        'title' => 'Studi Komparasi Model Pembelajaran Mesin',
+    ]);
+
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('sourceProjectId', $project->id)
+        ->set('blocks', [
+            ['type' => 'title', 'text' => 'Studi Komparasi Model Pembelajaran Mesin'],
+            ['type' => 'paragraph', 'text' => 'Implementasi algoritma ini menghasilkan akurasi tinggi pada dataset uji.'],
+        ])
+        ->set('activeBlock', 1);
+
+    // 1. /abstrak with project
+    $page->call('runTool', '/abstrak');
+    $logAbstrak = $page->get('assistantLog');
+    expect(end($logAbstrak)['content'])->toContain('Draf Abstrak Akademik Terstruktur (IMRAD)')
+        ->and(end($logAbstrak)['content'])->toContain('Studi Komparasi Model Pembelajaran Mesin');
+
+    // 2. /metodologi with project
+    $page->call('runTool', '/metodologi');
+    $logMetode = $page->get('assistantLog');
+    expect(end($logMetode)['content'])->toContain('Rancangan Struktur Bab Metodologi Penelitian');
+
+    // 3. /tabel-analisis with project
+    $page->call('runTool', '/tabel-analisis');
+    $logTabel = $page->get('assistantLog');
+    expect(end($logTabel)['content'])->toContain('Matriks Evaluasi & Analisis Komparasi Kinerja');
+
+    // 4. /terjemahkan with project
+    $page->call('runTool', '/terjemahkan');
+    $logTr = $page->get('assistantLog');
+    expect(end($logTr)['content'])->toContain('Konversi Terjemahan Akademik Baku');
+});
+
+it('automatically captures active block text for /poles and /puebi when project is connected', function (): void {
+    $project = XishieProject::factory()->create([
+        'title' => 'Riset Evaluasi Kebijakan Publik',
+    ]);
+
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('sourceProjectId', $project->id)
+        ->set('blocks', [
+            ['type' => 'title', 'text' => 'Riset Evaluasi Kebijakan Publik'],
+            ['type' => 'paragraph', 'text' => 'kebijakan ini berdampak langsung thdp efisiensi anggaran daerah'],
+        ])
+        ->set('activeBlock', 1);
+
+    // 1. /poles without explicit arguments captures active block
+    $page->call('runTool', '/poles');
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('kebijakan ini berdampak langsung thdp efisiensi anggaran daerah')
+        ->and(end($log)['content'])->not->toContain('Sertakan kalimat atau pilih blok');
+
+    // 2. /puebi without explicit arguments captures active block
+    $page->call('runTool', '/puebi');
+    $logPuebi = $page->get('assistantLog');
+    expect(end($logPuebi)['content'])->toContain('Hasil Audit Ejaan & PUEBI Baku')
+        ->and(end($logPuebi)['content'])->toContain('kebijakan ini berdampak langsung thdp efisiensi anggaran daerah');
+
+    // 3. /rumus primes the equationLatex property
+    $page->call('runTool', '/rumus kuadrat');
+    expect($page->get('equationLatex'))->toContain('\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}');
+});

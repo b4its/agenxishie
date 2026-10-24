@@ -500,3 +500,58 @@ it('supports assistant response insertion and replacement in filament naskah stu
     $page->call('insertAssistantResponse', 0);
     expect(count($page->get('blocks')))->toBe(3);
 });
+
+it('renders equation block and opens equation dialog with presets in filament studio', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'title', 'text' => 'Model Fisika Relativitas'],
+            [
+                'type' => 'equation',
+                'equation' => [
+                    'latex' => 'E = mc^2',
+                    'caption' => '(1)',
+                    'display' => 'block',
+                ],
+            ],
+        ])
+        ->set('activeBlock', 1);
+
+    $page->assertSeeHtml('latex-math-render')
+        ->assertSeeHtml('E = mc^2');
+
+    // Open equation dialog
+    $page->call('openDialog', 'equation');
+    $page->assertSet('dialog', 'equation')
+        ->assertSeeHtml('Sisipkan Rumus Matematika')
+        ->assertSeeHtml('Rumus ABC')
+        ->assertSeeHtml('Pythagoras');
+
+    // Choose preset and submit
+    $page->call('setEquationPreset', 'pythagoras');
+    expect($page->get('equationLatex'))->toBe('a^2 + b^2 = c^2');
+
+    $page->call('insertEquation');
+    $blocks = $page->get('blocks');
+    expect(count($blocks))->toBeGreaterThanOrEqual(2)
+        ->and($page->get('dialog'))->toBe('');
+});
+
+it('preserves table of contents block during manuscript page synchronization in studio', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'title', 'text' => 'Buku Panduan Terbuka'],
+            ['type' => 'toc', 'text' => 'Daftar Isi Otomatis'],
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+            ['type' => 'paragraph', 'text' => 'Latar belakang penelitian komprehensif.'],
+        ]);
+
+    $html = '<h1 class="word-title-text">Buku Panduan Terbuka</h1>'
+        .'<div class="word-toc-block">Daftar Isi Otomatis</div>'
+        .'<h2 class="word-heading-1">Bab I Pendahuluan</h2>'
+        .'<p class="word-paragraph-text">Latar belakang penelitian komprehensif yang telah diperbarui.</p>';
+
+    $page->call('syncManuscriptPages', [$html]);
+
+    $types = array_column($page->get('blocks'), 'type');
+    expect($types)->toContain('title', 'toc', 'heading', 'paragraph');
+});
