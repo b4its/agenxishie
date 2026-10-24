@@ -192,8 +192,8 @@
                     </form>
                 </div>
                 <div style="font-family:var(--rb-font-mono); font-size:.72rem;">
-                    <div>Mode Kerja: <strong>{{ strtoupper($project->control_mode instanceof \BackedEnum ? $project->control_mode->value : (string) ($project->control_mode ?? 'hitl')) }}</strong></div>
-                    <div style="color:#64748b;">Target Venue: {{ $project->target_venue ?? 'SINTA / SCOPUS' }}</div>
+                    <div>Mode Kerja: <strong>{{ strtoupper($project?->control_mode instanceof \BackedEnum ? $project->control_mode->value : (string) ($project?->control_mode ?? 'hitl')) }}</strong></div>
+                    <div style="color:#64748b;">Target Venue: {{ $project?->target_venue ?? 'SINTA / SCOPUS' }}</div>
                 </div>
             </div>
         </div>

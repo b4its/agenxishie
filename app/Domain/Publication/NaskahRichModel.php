@@ -970,6 +970,38 @@ final class NaskahRichModel
     }
 
     /**
+     * Buat blok callout ilmiah baru.
+     *
+     * @return array<string, mixed>
+     */
+    public function newCalloutBlock(string $type = 'info', string $text = ''): array
+    {
+        return $this->normalizeBlock([
+            'type' => 'callout',
+            'calloutType' => in_array($type, ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true) ? $type : 'info',
+            'text' => $text,
+            'runs' => [],
+        ]);
+    }
+
+    /**
+     * Buat blok tabel baru.
+     *
+     * @param  array<int, array<int, array<string, mixed>|string>>  $rows
+     * @return array<string, mixed>
+     */
+    public function newTableBlock(array $rows = [], bool $hasHeader = true): array
+    {
+        return $this->normalizeBlock([
+            'type' => 'table',
+            'table' => [
+                'header' => $hasHeader,
+                'rows' => $rows,
+            ],
+        ]);
+    }
+
+    /**
      * Buat blok gambar baru.
      *
      * @return array<string, mixed>

@@ -281,3 +281,53 @@ it('inserts or replaces manuscript blocks with rich equation blocks from assista
     expect($blocksAfterReplace[2]['type'])->toBe('equation')
         ->and($blocksAfterReplace[2]['equation']['latex'])->toContain('\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}');
 });
+
+it('inserts assistant markdown tables and callouts into manuscript as first-class blocks', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Teks awal.'],
+        ])
+        ->set('activeBlock', 0);
+
+    // 1. Uji /matriks-literatur -> Insert response as table block
+    $page->call('runTool', '/matriks-literatur');
+    $log = $page->get('assistantLog');
+    $lastIdx = count($log) - 1;
+
+    $page->call('insertAssistantResponse', $lastIdx);
+    $blocks = $page->get('blocks');
+
+    // Harusnya terbentuk blok tabel terstruktur
+    expect(count($blocks))->toBeGreaterThan(1);
+    $hasTableBlock = false;
+    foreach ($blocks as $b) {
+        if (($b['type'] ?? '') === 'table') {
+            $hasTableBlock = true;
+            expect($b['table']['rows'])->not->toBeEmpty();
+            break;
+        }
+    }
+    expect($hasTableBlock)->toBeTrue();
+
+    // 2. Uji callout ilmiah
+    $page->set('assistantLog', [
+        [
+            'role' => 'assistant',
+            'content' => "> [!WARNING] Perhatikan limitasi sampel dan bias representasi pada metodologi survei.\n\nParagraf penjelasan tambahan.",
+        ],
+    ]);
+    $page->set('activeBlock', count($blocks) - 1);
+    $page->call('insertAssistantResponse', 0);
+
+    $updatedBlocks = $page->get('blocks');
+    $hasCallout = false;
+    foreach ($updatedBlocks as $b) {
+        if (($b['type'] ?? '') === 'callout') {
+            $hasCallout = true;
+            expect($b['calloutType'])->toBe('warning')
+                ->and($b['text'])->toContain('Perhatikan limitasi sampel');
+            break;
+        }
+    }
+    expect($hasCallout)->toBeTrue();
+});

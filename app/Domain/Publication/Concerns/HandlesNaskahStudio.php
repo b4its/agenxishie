@@ -2748,59 +2748,15 @@ trait HandlesNaskahStudio
             return;
         }
 
-        // 2. Check if assistant response contains a ```latex code block
-        if (preg_match('/```latex\s*\n(.*?)\n```/is', $content, $m) === 1) {
-            $formula = trim($m[1]);
-            if ($formula !== '') {
-                $this->insertEquation($formula);
-
-                return;
-            }
-        }
-
-        $lines = explode("\n", $content);
-        $paragraphs = [];
-        $currentGroup = [];
-
-        foreach ($lines as $line) {
-            $trimmed = trim($line);
-            if ($trimmed === '') {
-                if (! empty($currentGroup)) {
-                    $paragraphs[] = implode(' ', $currentGroup);
-                    $currentGroup = [];
-                }
-            } else {
-                $currentGroup[] = $trimmed;
-            }
-        }
-        if (! empty($currentGroup)) {
-            $paragraphs[] = implode(' ', $currentGroup);
-        }
-
-        if (empty($paragraphs)) {
-            $paragraphs = [$content];
+        $newBlocks = $this->parseMarkdownToBlocks($content);
+        if (empty($newBlocks)) {
+            return;
         }
 
         $insertAt = $this->activeBlock + 1;
-        foreach ($paragraphs as $pText) {
-            $clean = trim($pText);
-            if ($clean === '') {
-                continue;
-            }
-            if (str_starts_with($clean, '### ')) {
-                $block = $this->model->newBlock('heading', trim(substr($clean, 4)), 2);
-            } elseif (str_starts_with($clean, '## ')) {
-                $block = $this->model->newBlock('heading', trim(substr($clean, 3)), 1);
-            } elseif (str_starts_with($clean, '- ') || str_starts_with($clean, '* ')) {
-                $block = $this->model->newBlock('bullet', trim(substr($clean, 2)));
-            } else {
-                $block = $this->model->newBlock('paragraph', $clean);
-            }
-            array_splice($this->blocks, $insertAt, 0, [$block]);
-            $insertAt++;
-        }
+        array_splice($this->blocks, $insertAt, 0, $newBlocks);
 
-        $this->activeBlock = min(count($this->blocks) - 1, $insertAt - 1);
+        $this->activeBlock = min(count($this->blocks) - 1, $insertAt + count($newBlocks) - 1);
         $this->dirty = true;
         $this->editorRevision++;
         $this->statistics = $this->model->computeStatistics($this->blocks);
@@ -2835,34 +2791,146 @@ trait HandlesNaskahStudio
             return;
         }
 
-        // 2. If contains ```latex code block
-        if (preg_match('/```latex\s*\n(.*?)\n```/is', $content, $m) === 1) {
-            $formula = trim($m[1]);
-            if ($formula !== '') {
-                $newBlock = $this->model->newEquationBlock($formula);
-                $this->blocks[$this->activeBlock] = $newBlock;
-                $this->dirty = true;
-                $this->editorRevision++;
-                $this->statistics = $this->model->computeStatistics($this->blocks);
-                $this->notify('Blok Diganti dengan Rumus LaTeX', '', 'success');
+        $newBlocks = $this->parseMarkdownToBlocks($content);
+        if (! empty($newBlocks) && count($newBlocks) === 1 && in_array($newBlocks[0]['type'] ?? '', ['equation', 'table', 'callout', 'heading', 'title'], true)) {
+            $this->blocks[$this->activeBlock] = $newBlocks[0];
+        } else {
+            $oldText = (string) ($this->blocks[$this->activeBlock]['text'] ?? '');
+            $cleanText = preg_replace('/^[-*#\s]+/u', '', $content) ?? $content;
+            $this->recordRevision($this->activeBlock, $oldText, $cleanText);
 
-                return;
+            $this->blocks[$this->activeBlock]['text'] = $cleanText;
+            if (isset($this->blocks[$this->activeBlock]['runs'][0])) {
+                $this->blocks[$this->activeBlock]['runs'][0]['text'] = $cleanText;
             }
-        }
-
-        $oldText = (string) ($this->blocks[$this->activeBlock]['text'] ?? '');
-        $cleanText = preg_replace('/^[-*#\s]+/u', '', $content) ?? $content;
-        $this->recordRevision($this->activeBlock, $oldText, $cleanText);
-
-        $this->blocks[$this->activeBlock]['text'] = $cleanText;
-        if (isset($this->blocks[$this->activeBlock]['runs'][0])) {
-            $this->blocks[$this->activeBlock]['runs'][0]['text'] = $cleanText;
         }
 
         $this->dirty = true;
         $this->editorRevision++;
         $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Blok Diperbarui', 'Blok aktif #'.($this->activeBlock + 1).' berhasil diperbarui.', 'success');
+    }
+
+    /**
+     * Parse teks Markdown respons Xishie Assistant menjadi array blok dokumen berstruktur.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function parseMarkdownToBlocks(string $content): array
+    {
+        $content = trim($content);
+        if ($content === '') {
+            return [];
+        }
+
+        // 1. Rumus LaTeX dalam code block atau $$ ... $$
+        if (preg_match('/```latex\s*\n(.*?)\n```/is', $content, $m) === 1) {
+            $formula = trim($m[1]);
+            if ($formula !== '') {
+                $caption = '';
+                if (preg_match('/penomoran persamaan\s*`\(?([^\)`]+)\)?`/i', $content, $capMatch) === 1) {
+                    $caption = '('.$capMatch[1].')';
+                } elseif (! empty($this->equationCaption)) {
+                    $caption = $this->equationCaption;
+                }
+
+                return [$this->model->newEquationBlock($formula, $caption)];
+            }
+        }
+        if (preg_match('/^\$\$\s*\n(.*?)\n\$\$$/is', $content, $m) === 1) {
+            $formula = trim($m[1]);
+            if ($formula !== '') {
+                $caption = ! empty($this->equationCaption) ? $this->equationCaption : '';
+
+                return [$this->model->newEquationBlock($formula, $caption)];
+            }
+        }
+
+        // 2. Markdown Table
+        $lines = explode("\n", $content);
+        $tableLines = [];
+        foreach ($lines as $line) {
+            $tLine = trim($line);
+            if (str_starts_with($tLine, '|') && str_ends_with($tLine, '|')) {
+                $tableLines[] = $tLine;
+            } elseif ($tableLines !== [] && $tLine === '') {
+                break;
+            }
+        }
+
+        if (count($tableLines) >= 2 && str_contains($tableLines[1], '---')) {
+            $tableRows = [];
+            foreach ($tableLines as $idx => $tRow) {
+                if ($idx === 1) {
+                    continue; // Skip baris pembatas ---
+                }
+                $rawCells = explode('|', $tRow);
+                // Buang elemen pertama dan terakhir yang kosong akibat split pada leading/trailing pipe
+                if (count($rawCells) > 2) {
+                    array_shift($rawCells);
+                    array_pop($rawCells);
+                }
+                $cells = array_map('trim', $rawCells);
+                $tableRows[] = array_map(static fn ($c) => ['text' => $c, 'runs' => []], $cells);
+            }
+            if (! empty($tableRows)) {
+                return [$this->model->newTableBlock($tableRows, true)];
+            }
+        }
+
+        // 3. Callout Ilmiah (> [!NOTE] atau > [!WARNING])
+        if (preg_match('/^>\s*\[!(NOTE|WARNING|TIP|THEOREM|INFO|SUCCESS)\]\s*(.*)$/is', $content, $cm) === 1) {
+            $cType = strtolower($cm[1]);
+            $cBody = trim($cm[2]);
+
+            return [$this->model->newCalloutBlock($cType, $cBody)];
+        }
+
+        // 4. Baris-baris teks, heading, dan bullet
+        $blocks = [];
+        $paragraphs = [];
+        $currentGroup = [];
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '') {
+                if (! empty($currentGroup)) {
+                    $paragraphs[] = implode(' ', $currentGroup);
+                    $currentGroup = [];
+                }
+            } else {
+                $currentGroup[] = $trimmed;
+            }
+        }
+        if (! empty($currentGroup)) {
+            $paragraphs[] = implode(' ', $currentGroup);
+        }
+
+        if (empty($paragraphs)) {
+            $paragraphs = [$content];
+        }
+
+        foreach ($paragraphs as $pText) {
+            $clean = trim($pText);
+            if ($clean === '') {
+                continue;
+            }
+            if (str_starts_with($clean, '### ')) {
+                $blocks[] = $this->model->newBlock('heading', trim(substr($clean, 4)), 2);
+            } elseif (str_starts_with($clean, '## ')) {
+                $blocks[] = $this->model->newBlock('heading', trim(substr($clean, 3)), 1);
+            } elseif (str_starts_with($clean, '# ')) {
+                $blocks[] = $this->model->newBlock('title', trim(substr($clean, 2)));
+            } elseif (str_starts_with($clean, '- ') || str_starts_with($clean, '* ')) {
+                $blocks[] = $this->model->newBlock('bullet', trim(substr($clean, 2)));
+            } elseif (preg_match('/^\d+\.\s+(.*)$/u', $clean, $numMatch) === 1) {
+                $blocks[] = $this->model->newBlock('numbered', trim($numMatch[1]));
+            } else {
+                $blocks[] = $this->model->newBlock('paragraph', $clean);
+            }
+        }
+
+        return $blocks;
     }
 
     public function runTool(string $tool, ?string $selectedText = null): void
@@ -3450,12 +3518,15 @@ trait HandlesNaskahStudio
         $block = $this->model->newBlock('callout', $text ?? $sampleText);
         $block['calloutType'] = in_array($type, ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true) ? $type : 'info';
 
-        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
-            ? $this->activeBlock + 1
-            : count($this->blocks);
-        array_splice($this->blocks, $insertAt, 0, [$block]);
+        if ($this->activeBlock > 0 && $this->activeBlock < count($this->blocks) - 1) {
+            $insertAt = $this->activeBlock + 1;
+            array_splice($this->blocks, $insertAt, 0, [$block]);
+            $this->activeBlock = $insertAt;
+        } else {
+            $this->blocks[] = $block;
+            $this->activeBlock = count($this->blocks) - 1;
+        }
 
-        $this->activeBlock = $insertAt;
         $this->dirty = true;
         $this->editorRevision++;
         $this->notify('Kotak Catatan disisipkan', '', 'success');

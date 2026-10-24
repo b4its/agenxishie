@@ -15,6 +15,9 @@
         toolbarLeft: 0,
         selectedText: '',
         copilotMenuOpen: false,
+        showBlockCopilot: false,
+        blockCopilotTop: 0,
+        blockCopilotLeft: 0,
         syncAllPages() {
             const pageEls = document.querySelectorAll('.word-sheet-content');
             const pageHtmls = [];
@@ -36,7 +39,22 @@
                     this.activeBlock = idx;
                     $wire.selectBlock(idx);
                 }
+                try {
+                    const rect = blockEl.getBoundingClientRect();
+                    const rootRect = $el.getBoundingClientRect();
+                    this.blockCopilotTop = Math.max(10, (rect.top - rootRect.top) - 10);
+                    this.blockCopilotLeft = Math.max(10, (rect.right - rootRect.left) - 96);
+                    this.showBlockCopilot = true;
+                } catch (e) {
+                    this.showBlockCopilot = false;
+                }
+            } else {
+                this.showBlockCopilot = false;
             }
+        },
+        runBlockAi(tool) {
+            this.showBlockCopilot = false;
+            $wire.runTool(tool);
         },
         checkSelection() {
             const sel = window.getSelection();
@@ -249,6 +267,21 @@
                 </button>
             </div>
         </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- FLOATING IN-CANVAS COPILOT BUBBLE (MICROSOFT WORD 365 COPILOT INLINE) -->
+    <!-- ===================================================================== -->
+    <div x-cloak
+        x-show="showBlockCopilot && !showMiniToolbar"
+        @click.outside="showBlockCopilot = false"
+        class="word-in-canvas-copilot"
+        :style="`top: ${blockCopilotTop}px; left: ${blockCopilotLeft}px;`"
+        title="Poles kalimat blok aktif ini dengan Xishie Assistant">
+        <button type="button" class="word-block-copilot-btn" @click="runBlockAi('/poles')">
+            <span style="font-size:11px;">✨</span>
+            <span>Poles Blok</span>
+        </button>
     </div>
 
     <!-- ===================================================================== -->
@@ -1789,9 +1822,9 @@
         </main>
 
         <!-- ================================================================= -->
-        <!-- RIGHT TASK PANE: XISHIE ASSISTANT, COMMENTS, REVISIONS, TELEMETRY  -->
+        <!-- RIGHT TASK PANE: XISHIE ASSISTANT, COMMENTS & REVISIONS            -->
         <!-- ================================================================= -->
-        @if ($assistantOpen || $showComments || $showRevisions || $kpiDrawerOpen)
+        @if ($assistantOpen || $showComments || $showRevisions)
             <aside class="word-taskpane">
 
                 <!-- 1. XISHIE ASSISTANT TASK PANE (PRIMARY AI COPILOT) -->
@@ -1863,7 +1896,7 @@
                     <!-- Conversation Stream -->
                     <div class="word-assistant-chat">
                         @if (empty($assistantLog))
-                            <!-- Empty State with Interactive Prompts -->
+                            <!-- Empty State with Interactive Prompts (Word 365 Copilot Style Grid) -->
                             <div class="word-assistant-empty">
                                 <div style="width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg, #eef2ff 0%, #ede9fe 100%); display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow:0 2px 8px rgba(99,102,241,0.15);">
                                     ✨
@@ -1875,62 +1908,62 @@
                                     Asisten cerdas Anda untuk menelaah naskah, memoles gaya bahasa akademik, parafrase anti-plagiasi, menyusun matriks literatur, dan memastikan kepatuhan pedoman jurnal.
                                 </p>
 
-                                <div style="display:flex; flex-direction:column; gap:8px; width:100%; margin-top:8px;">
-                                    <div class="word-assistant-prompt-card" wire:click="runTool('/poles')">
-                                        <span style="font-size:15px;">🪄</span>
-                                        <div style="flex:1;">
-                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Poles Gaya Akademik</strong>
-                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Sempurnakan kalimat blok aktif agar lebih ilmiah &amp; formal.</span>
+                                <div class="word-assistant-grid">
+                                    <div class="word-assistant-card" wire:click="runTool('/poles')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">🪄</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Poles Teks</strong>
                                         </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Sempurnakan gaya bahasa akademik</span>
                                     </div>
-                                    <div class="word-assistant-prompt-card" wire:click="runTool('/parafrase')">
-                                        <span style="font-size:15px;">🔄</span>
-                                        <div style="flex:1;">
-                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Parafrase Paragraf</strong>
-                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Restrukturisasi kalimat untuk menekan tingkat plagiasi.</span>
+                                    <div class="word-assistant-card" wire:click="runTool('/parafrase')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">🔄</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Parafrase</strong>
                                         </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Tulis ulang kalimat bebas plagiasi</span>
                                     </div>
-                                    <div class="word-assistant-prompt-card" wire:click="runTool('/cek-pedoman')">
-                                        <span style="font-size:15px;">🎯</span>
-                                        <div style="flex:1;">
-                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Audit Pedoman &amp; IMRAD</strong>
-                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Periksa kelengkapan struktur naskah dan kaidah jurnal.</span>
+                                    <div class="word-assistant-card" wire:click="runTool('/cek-pedoman')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">🎯</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Cek Pedoman</strong>
                                         </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Audit struktur IMRAD &amp; kaidah</span>
                                     </div>
-                                    <div class="word-assistant-prompt-card" wire:click="runTool('/matriks-literatur')">
-                                        <span style="font-size:15px;">📊</span>
-                                        <div style="flex:1;">
-                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Matriks Sintesis Literatur (SOTA)</strong>
-                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Bangun tabel perbandingan temuan dan penelitian terdahulu.</span>
+                                    <div class="word-assistant-card" wire:click="runTool('/sitasi')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">📚</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Cari Sitasi</strong>
                                         </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Rekomendasi rujukan ilmiah valid</span>
                                     </div>
-                                    <div class="word-assistant-prompt-card" wire:click="runTool('/sitasi')">
-                                        <span style="font-size:15px;">📚</span>
-                                        <div style="flex:1;">
-                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Cari Sitasi Rujukan</strong>
-                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Dapatkan saran rujukan sitasi untuk klaim pada naskah.</span>
+                                    <div class="word-assistant-card" wire:click="runTool('/matriks-literatur')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">📊</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Matriks SOTA</strong>
                                         </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Tabel sintesis literatur komparatif</span>
                                     </div>
-                                    <div class="word-assistant-prompt-card" wire:click="runTool('/kembangkan')">
-                                        <span style="font-size:15px;">✍️</span>
-                                        <div style="flex:1;">
-                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Elaborasi &amp; Kembangkan Draf</strong>
-                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Ubah poin naskah atau argumen ringkas menjadi paragraf ilmiah utuh.</span>
+                                    <div class="word-assistant-card" wire:click="runTool('/cek-gap')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">🔬</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Cek Gap</strong>
                                         </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Uji kebaruan &amp; rumusan masalah</span>
                                     </div>
-                                    <div class="word-assistant-prompt-card" wire:click="runTool('/perbaiki-ejaan')">
-                                        <span style="font-size:15px;">🔤</span>
-                                        <div style="flex:1;">
-                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Audit Ejaan &amp; Tata Bahasa</strong>
-                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Periksa saltik, spasi, tanda baca, dan kosakata baku PUEBI/KBBI.</span>
+                                    <div class="word-assistant-card" wire:click="runTool('/rumus')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">π</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Rumus LaTeX</strong>
                                         </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Model matematika &amp; persamaan</span>
                                     </div>
-                                    <div class="word-assistant-prompt-card" wire:click="runTool('/ringkas')">
-                                        <span style="font-size:15px;">📝</span>
-                                        <div style="flex:1;">
-                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Ringkas Naskah</strong>
-                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Buat ringkasan eksekutif progres dan statistik dokumen.</span>
+                                    <div class="word-assistant-card" wire:click="runTool('/kembangkan')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">✍️</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Kembangkan</strong>
                                         </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Elaborasi poin jadi paragraf utuh</span>
                                     </div>
                                 </div>
                             </div>
@@ -1980,9 +2013,9 @@
                         @endif
 
                         <!-- Loading Indicator (Hidden until active request) -->
-                        <div wire:loading.flex wire:target="sendAssistant,runTool" class="word-assistant-loading">
+                        <div wire:loading.flex wire:target="sendAssistant,runTool" class="word-assistant-loading" style="display: none;">
                             <span class="word-assistant-spinner"></span>
-                            <span>Xishie Assistant sedang menelaah naskah Anda...</span>
+                            <span style="font-weight: 500;">Xishie Assistant sedang menelaah naskah Anda...</span>
                         </div>
                     </div>
 
@@ -2056,115 +2089,6 @@
                         @empty
                             <div style="text-align:center; color:#8a8886; font-size:12px; padding:24px 0;">No pending revisions.</div>
                         @endforelse
-                    </div>
-
-                <!-- 4. INTERNAL TELEMETRY & 18 UX KPIS DRAWER (DEVELOPER INSPECTION) -->
-                @elseif ($kpiDrawerOpen)
-                    <div class="word-taskpane-header">
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <div style="width:20px; height:20px; background:#0f6cbd; border-radius:3px; display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:11px;">📊</div>
-                            <span class="word-taskpane-title">18 UX KPIs &amp; Telemetry</span>
-                        </div>
-                        <button type="button" class="word-icon-btn" wire:click="toggleKpiDrawer">&times;</button>
-                    </div>
-
-                    <div class="word-nav-subtabs" style="padding:8px 12px; background:var(--ms-bg-subtle, #f9f9fb);">
-                        <button type="button" wire:click="setKpiFramework('HEART')" class="word-nav-pill {{ $kpiActiveFramework === 'HEART' ? 'active' : '' }}">
-                            ❤️ HEART
-                        </button>
-                        <button type="button" wire:click="setKpiFramework('AARRR')" class="word-nav-pill {{ $kpiActiveFramework === 'AARRR' ? 'active' : '' }}">
-                            🏴‍☠️ AARRR
-                        </button>
-                        <button type="button" wire:click="setKpiFramework('UX')" class="word-nav-pill {{ $kpiActiveFramework === 'UX' ? 'active' : '' }}">
-                            🎯 18 KPIs
-                        </button>
-                        <button type="button" wire:click="setKpiFramework('RESOURCES')" class="word-nav-pill {{ $kpiActiveFramework === 'RESOURCES' ? 'active' : '' }}">
-                            📖 Guides
-                        </button>
-                    </div>
-
-                    <div class="word-taskpane-body">
-                        <div style="padding:12px; border-radius:6px; background:#ebf3fc; border:1px solid #cfe4fa; display:flex; flex-direction:column; gap:6px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <strong style="color:#0f6cbd; font-size:13px;">Editor &amp; UX Health Score</strong>
-                                <span style="font-weight:700; color:#107c41; font-size:13px;">{{ $complianceAudit['score'] }}% ({{ $complianceAudit['grade'] }})</span>
-                            </div>
-                            <div style="font-size:11px; color:#424242; line-height:1.4;">
-                                ⏱️ Time on Task: <strong>{{ floor($sessionSeconds / 60) }}m {{ $sessionSeconds % 60 }}s</strong> • Sitasi: <strong>{{ round((($statistics['words'] ?? 0) > 0 ? (($elements['footnotes'] ?? 0) / max(1, $statistics['words'])) * 1000 : 0), 1) }}/1k</strong>
-                            </div>
-                        </div>
-
-                        <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:6px; background:#ffffff;">
-                            <div style="font-size:12px; font-weight:600; margin-bottom:4px; display:flex; justify-content:space-between;">
-                                <span>Bagikan Kepuasan UX (CSAT)</span>
-                                <span style="color:#b74700; font-weight:700;">{{ $csatScore }}.0 / 5.0</span>
-                            </div>
-                            <div style="display:flex; gap:4px; margin-bottom:6px;">
-                                @for ($s = 1; $s <= 5; $s++)
-                                    <button type="button" wire:click="rateCsat({{ $s }})" style="background:none; border:none; font-size:18px; cursor:pointer; color: {{ $csatScore >= $s ? '#d97706' : '#d1d1d1' }};">
-                                        ★
-                                    </button>
-                                @endfor
-                            </div>
-                            @if ($csatSubmitted)
-                                <div style="font-size:11px; color:#107c41; font-weight:600;">✓ Rating kepuasan telah dicatat ke telemetri HEART.</div>
-                            @endif
-                        </div>
-
-                        @if ($kpiActiveFramework === 'RESOURCES')
-                            <div style="display:flex; flex-direction:column; gap:8px;">
-                                <div style="font-size:12px; font-weight:600; color:#242424;">18 KPIs &amp; UX Behavioral Resources:</div>
-
-                                <a href="https://lnkd.in/dWGVK2Tp" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
-                                    <strong style="color:#0f6cbd; font-size:12px;">1. Understanding Metrics (Guide) ↗</strong>
-                                    <span style="font-size:11px; color:#616161;">Panduan taksonomi metrik kuantitatif &amp; kualitatif untuk mengukur perilaku pengguna.</span>
-                                </a>
-
-                                <a href="https://lnkd.in/dfbfSg8T" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
-                                    <strong style="color:#0f6cbd; font-size:12px;">2. Ultimate Guide to Product Metrics (57 Metrics) ↗</strong>
-                                    <span style="font-size:11px; color:#616161;">Katalog 57 metrik produk digital untuk efisiensi, retensi, dan keberhasilan tugas.</span>
-                                </a>
-
-                                <a href="https://lnkd.in/dAS5bdx5" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
-                                    <strong style="color:#0f6cbd; font-size:12px;">3. Product Metrics That Matter ↗</strong>
-                                    <span style="font-size:11px; color:#616161;">Membedakan sinyal perilaku nyata dari vanity metrics dalam antarmuka naskah.</span>
-                                </a>
-
-                                <a href="https://lnkd.in/dvA_si5X" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
-                                    <strong style="color:#0f6cbd; font-size:12px;">4. AARRR Pirate Framework ↗</strong>
-                                    <span style="font-size:11px; color:#616161;">Acquisition, Activation, Retention, Referral, dan Revenue funnel.</span>
-                                </a>
-
-                                <a href="https://lnkd.in/dSNEHVRx" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
-                                    <strong style="color:#0f6cbd; font-size:12px;">5. Google HEART Framework ↗</strong>
-                                    <span style="font-size:11px; color:#616161;">Happiness, Engagement, Adoption, Retention, and Task Success.</span>
-                                </a>
-
-                                <a href="https://lnkd.in/dsMA7AFH" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
-                                    <strong style="color:#0f6cbd; font-size:12px;">6. UX Specific KPIs ↗</strong>
-                                    <span style="font-size:11px; color:#616161;">Task Completion Rate, Time on Task, User Error Rate, dan SEQ/CSAT.</span>
-                                </a>
-                            </div>
-                        @else
-                            @php
-                                $filteredKpis = array_filter($uxKpis, fn($m) => $kpiActiveFramework === 'UX' ? ($m['framework'] === 'UX') : ($m['framework'] === $kpiActiveFramework));
-                            @endphp
-                            @foreach ($filteredKpis as $kpiKey => $kpi)
-                                <div class="word-metric-card">
-                                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                                        <strong style="font-size:12px; color:var(--ms-text-primary);">{{ $kpi['label'] }}</strong>
-                                        <span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:3px; background:{{ $kpi['healthy'] ? '#d1fae5; color:#065f46;' : '#fef3c7; color:#92400e;' }}">
-                                            {{ $kpi['healthy'] ? 'OPTIMAL' : 'ATTENTION' }}
-                                        </span>
-                                    </div>
-                                    <p style="font-size:11px; color:var(--ms-text-secondary); line-height:1.4;">{{ $kpi['description'] }}</p>
-                                    <div style="display:flex; justify-content:space-between; font-size:11px; padding-top:4px; border-top:1px solid #edebe9;">
-                                        <span>Current: <strong>{{ $kpi['value'] }} {{ $kpi['unit'] }}</strong></span>
-                                        <span style="color:var(--ms-text-muted);">Target: {{ $kpi['target'] }} {{ $kpi['unit'] }}</span>
-                                    </div>
-                                </div>
-                            @endforeach
-                        @endif
                     </div>
                 @endif
 

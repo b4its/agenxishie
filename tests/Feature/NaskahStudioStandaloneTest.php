@@ -332,11 +332,16 @@ it('handles live inline block updates and table cell editing', function (): void
     expect($page->get('blocks')[1]['table']['rows'][1][1]['text'])->toBe('Nilai Sel Baru');
 });
 
-it('renders all six ux guide resource links in the telemetry drawer', function (): void {
-    $page = Livewire::test(NaskahStudioApp::class)
-        ->call('toggleKpiDrawer', 'RESOURCES');
+it('renders all six ux guide resource links on the standalone analytics dashboard', function (): void {
+    XishieProject::factory()->create([
+        'title' => 'Studi Komparasi UX Telemetry',
+        'document_type' => 'journal',
+    ]);
 
-    $page->assertSee('lnkd.in/dWGVK2Tp')
+    $response = $this->get('/analytics');
+
+    $response->assertOk()
+        ->assertSee('lnkd.in/dWGVK2Tp')
         ->assertSee('lnkd.in/dfbfSg8T')
         ->assertSee('lnkd.in/dAS5bdx5')
         ->assertSee('lnkd.in/dvA_si5X')
