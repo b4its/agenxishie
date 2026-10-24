@@ -555,3 +555,48 @@ it('preserves table of contents block during manuscript page synchronization in 
     $types = array_column($page->get('blocks'), 'type');
     expect($types)->toContain('title', 'toc', 'heading', 'paragraph');
 });
+
+it('renders table of contents block properly in filament naskah studio page', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+            ['type' => 'paragraph', 'text' => 'Isi bab pendahuluan.'],
+        ])
+        ->call('insertTableOfContents');
+
+    $blocks = $page->get('blocks');
+    $tocBlock = collect($blocks)->firstWhere('type', 'toc');
+    expect($tocBlock)->not->toBeNull()
+        ->and($tocBlock['table']['rows'])->not->toBeEmpty();
+
+    $page->assertSeeHtml('ns-toc-block')
+        ->assertSeeHtml('Daftar Isi Otomatis')
+        ->assertSeeHtml('Bab I Pendahuluan');
+});
+
+it('closes dialog and updates editor revision on table manipulations and citation insertion', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            [
+                'type' => 'table',
+                'table' => [
+                    'rows' => [
+                        [['text' => 'H1', 'runs' => []], ['text' => 'H2', 'runs' => []]],
+                        [['text' => 'D1', 'runs' => []], ['text' => 'D2', 'runs' => []]],
+                    ],
+                    'header' => true,
+                ],
+            ],
+        ]);
+
+    $revBefore = $page->get('editorRevision');
+    $page->call('tableInsertRow', 0, 1);
+    expect($page->get('editorRevision'))->toBeGreaterThan($revBefore)
+        ->and(count($page->get('blocks')[0]['table']['rows']))->toBe(3);
+
+    $page->call('openDialog', 'sources');
+    expect($page->get('dialog'))->toBe('sources');
+
+    $page->call('insertCitation', '(Smith, 2024)');
+    expect($page->get('dialog'))->toBe('');
+});
