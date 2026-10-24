@@ -930,10 +930,110 @@ dialog#livewire-error {
 .word-canvas-area {
     flex: 1;
     overflow-y: auto;
-    padding: 20px 20px 60px 20px;
+    overflow-x: hidden;
+    padding: 24px 20px 80px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: var(--ms-bg-canvas, #f3f3f3);
+    min-height: 100%;
+}
+
+/* Individual Paper Sheet (Page by Page: Word & PDF Concept) */
+.word-paper-sheet {
+    background: #ffffff;
+    color: #242424;
+    width: 816px;
+    max-width: 816px;
+    min-height: 1056px;
+    padding: 48px 76px 60px 76px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.18);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    margin: 0 auto 32px auto;
+    border-radius: 2px;
+}
+
+.dark .word-paper-sheet {
+    background: #252526;
+    color: #f3f3f3;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Page Header: Document Title & Edition or Page Number (Top Right on BAB Selanjutnya) */
+.word-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 24px;
+    margin-bottom: 24px;
+    font-size: 10pt;
+    color: #797775;
+    user-select: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    padding-bottom: 6px;
+}
+
+.dark .word-sheet-header {
+    color: #a19f9d;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.word-sheet-title {
+    font-weight: 500;
+}
+
+.word-sheet-edition {
+    font-weight: 400;
+    color: #8a8886;
+}
+
+/* Nomor Halaman di Kanan Atas untuk BAB Selanjutnya (Sesuai Gambar 1 Microsoft Word) */
+.word-sheet-page-top {
+    font-weight: 600;
+    color: #242424;
+    font-size: 11pt;
+}
+
+.dark .word-sheet-page-top {
+    color: #f3f3f3;
+}
+
+/* Page Content Body (Continuous Natural Flow Inside Page) */
+.word-sheet-content {
+    flex: 1;
+    width: 100%;
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    line-height: 1.5;
+    cursor: text;
+}
+
+/* Page Footer: Nomor Halaman di Bawah Tengah untuk Awal BAB (Sesuai Gambar 1 Microsoft Word) */
+.word-sheet-footer {
     display: flex;
     justify-content: center;
-    background-color: var(--ms-bg-canvas);
+    align-items: center;
+    height: 24px;
+    margin-top: 24px;
+    font-size: 10.5pt;
+    color: #242424;
+    user-select: none;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding-top: 6px;
+}
+
+.dark .word-sheet-footer {
+    color: #f3f3f3;
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.word-sheet-page-bottom {
+    font-weight: 600;
 }
 
 .word-paper {

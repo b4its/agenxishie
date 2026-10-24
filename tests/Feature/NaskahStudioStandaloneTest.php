@@ -396,3 +396,27 @@ it('loads authentic microsoft word sample handbook with complete sections on bot
     $currentBlocks = $page->get('blocks');
     expect($currentBlocks[2]['text'])->toContain('[1]');
 });
+
+it('paginates manuscript into separate physical sheets with authentic academic page numbers like Word and PDF viewer', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    $paginated = $page->instance()->getPaginatedBlocks();
+
+    // Pastikan terpecah menjadi minimal 2 lembar halaman terpisah (tidak meluap keluar layout)
+    expect(count($paginated))->toBeGreaterThanOrEqual(2);
+
+    // Halaman 1 (Awal BAB): nomor halaman 1, isFirstPage true
+    expect($paginated[0]['pageNumber'])->toBe(1)
+        ->and($paginated[0]['isFirstPage'])->toBeTrue();
+
+    // Halaman 2 (BAB Selanjutnya): nomor halaman 2, isFirstPage false
+    expect($paginated[1]['pageNumber'])->toBe(2)
+        ->and($paginated[1]['isFirstPage'])->toBeFalse();
+
+    // Periksa bahwa tampilan merender lembar halaman terpisah dengan ID word-page-1 dan word-page-2
+    $page->assertSee('id="word-page-1"', false)
+        ->assertSee('id="word-page-2"', false)
+        ->assertSee('class="word-sheet-page-bottom"', false)
+        ->assertSee('class="word-sheet-page-top"', false);
+});

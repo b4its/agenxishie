@@ -1250,12 +1250,85 @@ trait HandlesNaskahStudio
     }
 
     /**
-     * Sinkronisasi dokumen utuh dari editor HTML (single continuous surface).
+     * Membagi blok naskah ke dalam lembar halaman terpisah (konsep Microsoft Word & PDF viewer).
+     *
+     * @return array<int, array{pageNumber: int, isFirstPage: bool, blocks: array<int, array{index: int, block: array<string, mixed>>}}>
      */
-    public function syncManuscriptHtml(string $html): void
+    public function getPaginatedBlocks(): array
+    {
+        $pages = [];
+        $currentPageBlocks = [];
+        $currentEstimatedHeight = 0;
+        // Kapasitas tinggi perkiraan per lembar halaman A4 (dalam poin/pixel standar)
+        $pageCapacity = 780;
+
+        foreach ($this->blocks as $index => $block) {
+            $type = $block['type'] ?? 'paragraph';
+
+            if ($type === 'pagebreak') {
+                if (! empty($currentPageBlocks)) {
+                    $pages[] = $currentPageBlocks;
+                    $currentPageBlocks = [];
+                    $currentEstimatedHeight = 0;
+                }
+
+                continue;
+            }
+
+            $text = (string) ($block['text'] ?? '');
+            $textLength = mb_strlen(strip_tags($text));
+
+            // Estimasi tinggi elemen naskah
+            $blockHeight = match ($type) {
+                'title' => 70,
+                'subtitle' => 45,
+                'heading' => ($block['level'] ?? 1) === 1 ? 55 : 42,
+                'quote' => 60,
+                'bullet', 'numbered' => 32,
+                'table' => 120,
+                'toc' => 160,
+                default => max(28, (int) (ceil($textLength / 85) * 22)),
+            };
+
+            // Jika konten melebihi kapasitas lembar halaman dan sudah ada konten, pecah ke lembar berikutnya
+            if ($currentEstimatedHeight + $blockHeight > $pageCapacity && count($currentPageBlocks) >= 3) {
+                $pages[] = $currentPageBlocks;
+                $currentPageBlocks = [];
+                $currentEstimatedHeight = 0;
+            }
+
+            $currentPageBlocks[] = [
+                'index' => $index,
+                'block' => $block,
+            ];
+            $currentEstimatedHeight += $blockHeight;
+        }
+
+        if (! empty($currentPageBlocks) || empty($pages)) {
+            $pages[] = $currentPageBlocks;
+        }
+
+        $formattedPages = [];
+        foreach ($pages as $pIdx => $pBlocks) {
+            $formattedPages[] = [
+                'pageNumber' => $pIdx + 1,
+                'isFirstPage' => $pIdx === 0,
+                'blocks' => $pBlocks,
+            ];
+        }
+
+        return $formattedPages;
+    }
+
+    /**
+     * Parse HTML menjadi kumpulan blok terstruktur tanpa memungut header/footer visual lembar.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function parseHtmlToBlocks(string $html): array
     {
         if (trim($html) === '') {
-            return;
+            return [];
         }
 
         $dom = new \DOMDocument;
@@ -1265,10 +1338,10 @@ trait HandlesNaskahStudio
 
         $root = $dom->getElementsByTagName('div')->item(0);
         if ($root === null) {
-            return;
+            return [];
         }
 
-        $newBlocks = [];
+        $blocks = [];
         foreach ($root->childNodes as $node) {
             if ($node->nodeType !== XML_ELEMENT_NODE) {
                 continue;
@@ -1278,29 +1351,38 @@ trait HandlesNaskahStudio
             $text = trim($node->textContent);
             $class = (string) ($node instanceof \DOMElement ? $node->getAttribute('class') : '');
 
-            // Abaikan divider visual UI halaman
-            if (str_contains($class, 'word-page-divider') || str_contains($class, 'word-paper-header')) {
-                $newBlocks[] = $this->model->newBlock('pagebreak', '');
+            // Abaikan header, footer, atau pembungkus sheet visual
+            if (str_contains($class, 'word-sheet-header') || str_contains($class, 'word-sheet-footer') || str_contains($class, 'word-paper-header')) {
+                continue;
+            }
+
+            if (str_contains($class, 'word-page-break-marker') || str_contains($class, 'word-page-divider')) {
+                $blocks[] = $this->model->newBlock('pagebreak', '');
 
                 continue;
             }
 
-            if ($tag === 'h1') {
-                $newBlocks[] = $this->model->newBlock('title', $text);
-            } elseif ($tag === 'h2') {
-                $newBlocks[] = $this->model->newBlock('heading', $text, 1);
-            } elseif ($tag === 'h3') {
-                $newBlocks[] = $this->model->newBlock('heading', $text, 2);
-            } elseif (in_array($tag, ['h4', 'h5', 'h6'], true)) {
-                $newBlocks[] = $this->model->newBlock('heading', $text, 3);
-            } elseif ($tag === 'blockquote') {
-                $newBlocks[] = $this->model->newBlock('quote', $text);
+            if (str_contains($class, 'word-subtitle-text')) {
+                $blocks[] = $this->model->newBlock('subtitle', $text);
+            } elseif ($tag === 'h1' || str_contains($class, 'word-title-text')) {
+                $blocks[] = $this->model->newBlock('title', $text);
+            } elseif ($tag === 'h2' || str_contains($class, 'word-heading-1')) {
+                $blocks[] = $this->model->newBlock('heading', $text, 1);
+            } elseif ($tag === 'h3' || str_contains($class, 'word-heading-2')) {
+                $blocks[] = $this->model->newBlock('heading', $text, 2);
+            } elseif (in_array($tag, ['h4', 'h5', 'h6'], true) || str_contains($class, 'word-heading-3')) {
+                $blocks[] = $this->model->newBlock('heading', $text, 3);
+            } elseif ($tag === 'blockquote' || str_contains($class, 'word-quote-block')) {
+                $blocks[] = $this->model->newBlock('quote', $text);
+            } elseif (str_contains($class, 'word-callout-box')) {
+                $clean = trim(str_replace('📌', '', $text));
+                $blocks[] = $this->model->newBlock('callout', $clean);
             } elseif ($tag === 'ul') {
                 foreach ($node->childNodes as $li) {
                     if ($li->nodeType === XML_ELEMENT_NODE && strtolower($li->nodeName) === 'li') {
                         $liText = trim($li->textContent);
                         if ($liText !== '') {
-                            $newBlocks[] = $this->model->newBlock('bullet', $liText);
+                            $blocks[] = $this->model->newBlock('bullet', $liText);
                         }
                     }
                 }
@@ -1309,15 +1391,49 @@ trait HandlesNaskahStudio
                     if ($li->nodeType === XML_ELEMENT_NODE && strtolower($li->nodeName) === 'li') {
                         $liText = trim($li->textContent);
                         if ($liText !== '') {
-                            $newBlocks[] = $this->model->newBlock('numbered', $liText);
+                            $blocks[] = $this->model->newBlock('numbered', $liText);
                         }
                     }
                 }
-            } elseif ($text !== '') {
-                $newBlocks[] = $this->model->newBlock('paragraph', $text);
+            } else {
+                $blocks[] = $this->model->newBlock('paragraph', $text);
             }
         }
 
+        return $blocks;
+    }
+
+    /**
+     * Sinkronisasi dokumen utuh per lembar halaman terpisah.
+     *
+     * @param  array<int, string>  $pageHtmlList
+     */
+    public function syncManuscriptPages(array $pageHtmlList): void
+    {
+        $allBlocks = [];
+        foreach ($pageHtmlList as $pIdx => $pageHtml) {
+            if ($pIdx > 0) {
+                $allBlocks[] = $this->model->newBlock('pagebreak', '');
+            }
+            $pageBlocks = $this->parseHtmlToBlocks((string) $pageHtml);
+            foreach ($pageBlocks as $b) {
+                $allBlocks[] = $b;
+            }
+        }
+
+        if (! empty($allBlocks)) {
+            $this->blocks = $allBlocks;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->markDirty();
+        }
+    }
+
+    /**
+     * Sinkronisasi dokumen utuh dari string HTML.
+     */
+    public function syncManuscriptHtml(string $html): void
+    {
+        $newBlocks = $this->parseHtmlToBlocks($html);
         if (! empty($newBlocks)) {
             $this->blocks = $newBlocks;
             $this->statistics = $this->model->computeStatistics($this->blocks);
@@ -2248,9 +2364,12 @@ trait HandlesNaskahStudio
     public function getStudioViewData(): array
     {
         $blocks = $this->model->normalize($this->blocks);
+        $paginatedPages = $this->getPaginatedBlocks();
 
         return [
             'renderBlocks' => $blocks,
+            'paginatedPages' => $paginatedPages,
+            'pageCount' => max(1, count($paginatedPages)),
             'outline' => $this->model->outline($blocks),
             'wordCount' => $this->model->countWords($blocks),
             'charCount' => mb_strlen($this->model->toPlainText($blocks)),

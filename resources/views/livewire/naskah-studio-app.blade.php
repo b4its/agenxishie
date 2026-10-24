@@ -1057,17 +1057,32 @@
                     @endforelse
                 </div>
 
-            <!-- TAB 2: PAGES -->
+            <!-- TAB 2: PAGES (THUMBNAIL PDF VIEWER & MICROSOFT WORD MULTI-PAGE) -->
             @elseif ($navigationTab === 'pages')
-                <div style="padding:12px; display:flex; flex-direction:column; gap:8px;">
-                    <div @click="window.scrollTo({ top: 0, behavior: 'smooth' })"
-                        style="border:1px solid var(--ms-blue); border-radius:3px; padding:6px; background:#ffffff; box-shadow:var(--ms-shadow-card); cursor:pointer;">
-                        <div style="font-size:10px; color:#8a8886; margin-bottom:2px;">Page 1</div>
-                        <div style="font-size:9.5px; line-height:1.25; color:#616161; overflow:hidden; height:50px;">
-                            <strong>{{ $docTitle }}</strong><br>
-                            How a small community of makers shares space...
+                <div style="padding:12px; display:flex; flex-direction:column; gap:12px;">
+                    @foreach ($paginatedPages as $p)
+                        <div @click="document.getElementById('word-page-{{ $p['pageNumber'] }}')?.scrollIntoView({ behavior: 'smooth', block: 'start' })"
+                            class="word-page-thumb"
+                            style="border: 1px solid #d1d1d1; border-radius: 4px; padding: 10px 12px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: pointer; transition: all 0.15s ease;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <span style="font-size:11px; font-weight:700; color:#0f6cbd;">Halaman {{ $p['pageNumber'] }}</span>
+                                <span style="font-size:10px; color:#8a8886;">{{ count($p['blocks']) }} elemen</span>
+                            </div>
+                            <div style="font-size:10px; line-height:1.35; color:#616161; overflow:hidden; max-height:48px; border-left:2px solid #0f6cbd; padding-left:6px;">
+                                @php
+                                    $firstBlockText = '';
+                                    foreach ($p['blocks'] as $bItem) {
+                                        $txt = trim((string) ($bItem['block']['text'] ?? ''));
+                                        if ($txt !== '') {
+                                            $firstBlockText = $txt;
+                                            break;
+                                        }
+                                    }
+                                @endphp
+                                {{ Str::limit($firstBlockText ?: '(Halaman ' . $p['pageNumber'] . ')', 70) }}
+                            </div>
                         </div>
-                    </div>
+                    @endforeach
                 </div>
 
             <!-- TAB 3: RESULTS -->
@@ -1120,195 +1135,212 @@
         </aside>
 
         <!-- ================================================================= -->
-        <!-- CENTER CANVAS: SEAMLESS REALISTIC MICROSOFT WORD PAPER SHEET      -->
+        <!-- CENTER CANVAS: SEPARATE PAGES (PDF VIEWER & MICROSOFT WORD STYLE) -->
         <!-- ================================================================= -->
-        <main class="word-canvas-area">
-            <div class="word-paper"
-                style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ ($fontFamily === 'serif' ? 'var(--ms-font-serif)' : ($fontFamily === 'mono' ? 'var(--ms-font-mono)' : 'var(--ms-font-ui)')) }}; font-size: {{ $fontSize }}pt; zoom: {{ (int) $zoom / 100 }}; transform-origin: top center;">
+        <main class="word-canvas-area" style="zoom: {{ (int) $zoom / 100 }};">
+            <div id="word-manuscript-editor"
+                class="word-manuscript-container"
+                wire:ignore.self
+                x-data="{
+                    syncAllPages() {
+                        const pageEls = this.$el.querySelectorAll('.word-sheet-content');
+                        const pageHtmls = [];
+                        pageEls.forEach(el => pageHtmls.push(el.innerHTML));
+                        $wire.syncManuscriptPages(pageHtmls);
+                    }
+                }"
+                style="width: 100%; display: flex; flex-direction: column; align-items: center;">
 
-                <!-- Watermark if configured -->
-                @if (!empty($pageSetup['watermark']))
-                    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; user-select:none; opacity:0.04; font-size:5rem; font-weight:800; text-transform:uppercase; transform:rotate(-35deg);">
-                        {{ $pageSetup['watermark'] }}
-                    </div>
-                @endif
-
-                <!-- Word Header Margin (Matches Image 1) -->
-                <div class="word-paper-header">
-                    <span>The Open Studio Handbook</span>
-                    <span>Spring edition</span>
-                </div>
-
-                <!-- UNIFIED MANUSCRIPT EDITOR: SINGLE CONTINUOUS CONTENTEDITABLE SURFACE -->
-                <div id="word-manuscript-editor"
-                    class="word-manuscript-editor"
-                    contenteditable="{{ $editingMode === 'viewing' ? 'false' : 'true' }}"
-                    spellcheck="false"
-                    wire:ignore.self
-                    @input.debounce.800ms="$wire.syncManuscriptHtml($el.innerHTML)"
-                    @blur="$wire.syncManuscriptHtml($el.innerHTML)"
-                    x-data="{
-                        hasSelection: false,
-                        checkSelection() {
-                            const sel = window.getSelection();
-                            this.hasSelection = sel && sel.toString().trim().length > 0;
-                        }
-                    }"
-                    @mouseup="checkSelection()"
-                    @keyup="checkSelection()">
-
+                @foreach ($paginatedPages as $pageData)
                     @php
+                        $pageNumber = $pageData['pageNumber'];
+                        $isFirstPage = $pageData['isFirstPage'];
+                        $pageBlocks = $pageData['blocks'];
                         $inBulletList = false;
                         $inNumberedList = false;
                         $inBibliographySection = false;
                     @endphp
 
-                    @foreach ($blocks as $index => $block)
-                        @php
-                            $type = $block['type'] ?? 'paragraph';
-                            $level = $block['level'] ?? 1;
-                            $headingId = 'heading-' . $index;
-                            $text = $block['text'] ?? '';
-                        @endphp
+                    <div class="word-paper-sheet" id="word-page-{{ $pageNumber }}" data-page-number="{{ $pageNumber }}"
+                        style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ ($fontFamily === 'serif' ? 'var(--ms-font-serif)' : ($fontFamily === 'mono' ? 'var(--ms-font-mono)' : 'var(--ms-font-ui)')) }}; font-size: {{ $fontSize }}pt;">
 
-                        @if ($type === 'bullet')
-                            @if (!$inBulletList)
-                                <ul class="word-bullet-list">
-                                @php $inBulletList = true; @endphp
+                        <!-- Watermark if configured -->
+                        @if (!empty($pageSetup['watermark']))
+                            <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; user-select:none; opacity:0.04; font-size:5rem; font-weight:800; text-transform:uppercase; transform:rotate(-35deg);">
+                                {{ $pageSetup['watermark'] }}
+                            </div>
+                        @endif
+
+                        <!-- Header Halaman (Sesuai Konsep Microsoft Word & Gambar 1) -->
+                        <div class="word-sheet-header" contenteditable="false">
+                            <span class="word-sheet-title">{{ $docTitle }}</span>
+                            @if ($isFirstPage)
+                                <span class="word-sheet-edition">Spring edition</span>
+                            @else
+                                <!-- BAB Selanjutnya: Nomor Halaman di Kanan Atas (Sesuai Gambar 1) -->
+                                <span class="word-sheet-page-top" title="Halaman {{ $pageNumber }}">{{ $pageNumber }}</span>
                             @endif
-                            <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                @if (str_contains($text, 'Clean as you go'))
-                                    <strong>Clean as you go.</strong> Leave a table the way you would like to find it.
-                                @elseif (str_contains($text, 'Label what is yours'))
-                                    <strong>Label what is yours.</strong> Unlabelled supplies on the commons shelf are fair game (Anderson, 2020).
-                                @elseif (str_contains($text, 'Ask before you borrow'))
-                                    <strong>Ask before you borrow.</strong> Even from the shelf, a quick note helps everyone keep track.
+                        </div>
+
+                        <!-- Konten Lembar Halaman (Continuous Flow Inside Page) -->
+                        <div class="word-sheet-content"
+                            id="word-page-content-{{ $pageNumber }}"
+                            contenteditable="{{ $editingMode === 'viewing' ? 'false' : 'true' }}"
+                            spellcheck="false"
+                            @input.debounce.800ms="syncAllPages()"
+                            @blur="syncAllPages()">
+
+                            @foreach ($pageBlocks as $item)
+                                @php
+                                    $index = $item['index'];
+                                    $block = $item['block'];
+                                    $type = $block['type'] ?? 'paragraph';
+                                    $level = $block['level'] ?? 1;
+                                    $headingId = 'heading-' . $index;
+                                    $text = $block['text'] ?? '';
+                                @endphp
+
+                                @if ($type === 'bullet')
+                                    @if (!$inBulletList)
+                                        <ul class="word-bullet-list">
+                                        @php $inBulletList = true; @endphp
+                                    @endif
+                                    <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                        @if (str_contains($text, 'Clean as you go'))
+                                            <strong>Clean as you go.</strong> Leave a table the way you would like to find it.
+                                        @elseif (str_contains($text, 'Label what is yours'))
+                                            <strong>Label what is yours.</strong> Unlabelled supplies on the commons shelf are fair game (Anderson, 2020).
+                                        @elseif (str_contains($text, 'Ask before you borrow'))
+                                            <strong>Ask before you borrow.</strong> Even from the shelf, a quick note helps everyone keep track.
+                                        @else
+                                            {!! e($text) !!}
+                                        @endif
+                                    </li>
                                 @else
-                                    {!! e($text) !!}
+                                    @if ($inBulletList)
+                                        </ul>
+                                        @php $inBulletList = false; @endphp
+                                    @endif
+
+                                    @if ($type === 'numbered')
+                                        @if (!$inNumberedList)
+                                            <ol class="word-numbered-list">
+                                            @php $inNumberedList = true; @endphp
+                                        @endif
+                                        <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">{!! e($text) !!}</li>
+                                    @else
+                                        @if ($inNumberedList)
+                                            </ol>
+                                            @php $inNumberedList = false; @endphp
+                                        @endif
+
+                                        @if ($type === 'title')
+                                            <h1 class="word-title-text" id="doc-title" data-block-index="{{ $index }}">{!! e($text ?: 'The Open Studio Handbook') !!}</h1>
+                                        @elseif ($type === 'subtitle')
+                                            <p class="word-subtitle-text" id="doc-subtitle" data-block-index="{{ $index }}">{!! e($text) !!}</p>
+                                        @elseif ($type === 'heading')
+                                            @php
+                                                if (stripos($text, 'daftar pustaka') !== false || stripos($text, 'referensi') !== false || stripos($text, 'bibliography') !== false) {
+                                                    $inBibliographySection = true;
+                                                } else {
+                                                    $inBibliographySection = false;
+                                                }
+                                            @endphp
+                                            @if ($level === 1)
+                                                <h2 class="word-heading-1" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h2>
+                                            @elseif ($level === 2)
+                                                <h3 class="word-heading-2" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h3>
+                                            @else
+                                                <h4 class="word-heading-3" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h4>
+                                            @endif
+                                        @elseif ($type === 'quote')
+                                            <blockquote class="word-quote-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                                <p class="word-quote-text">{!! e($text) !!}</p>
+                                            </blockquote>
+                                        @elseif ($type === 'toc')
+                                            <div class="word-toc-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}" contenteditable="false" style="margin: 18px 0 26px 0; padding: 14px 18px; background: #faf9f8; border: 1px solid #edebe9; border-radius: 4px;">
+                                                <div style="font-weight: 700; font-size: 13pt; color: #0f6cbd; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                                                    <span>📑 Daftar Isi Otomatis</span>
+                                                    <span style="font-size: 11px; font-weight: normal; color: #8a8886;">Diperbarui dari Heading dokumen</span>
+                                                </div>
+                                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                                    @php
+                                                        $tocRows = $block['table']['rows'] ?? [];
+                                                    @endphp
+                                                    @foreach ($tocRows as $tIdx => $tRow)
+                                                        @if ($tIdx > 0)
+                                                            <div style="display: flex; align-items: baseline; font-size: 11pt; color: #242424;">
+                                                                <span style="white-space: nowrap;">{{ $tRow[0]['text'] ?? '' }}</span>
+                                                                <span style="flex: 1; border-bottom: 1px dotted #a19f9d; margin: 0 8px; transform: translateY(-3px);"></span>
+                                                                <span style="font-size: 10pt; color: #616161;">{{ $tRow[1]['text'] === '…' ? (1 + floor($tIdx / 4)) : ($tRow[1]['text'] ?? '1') }}</span>
+                                                            </div>
+                                                        @endif
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @elseif ($type === 'callout')
+                                            <div class="word-callout-box" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                                📌 {!! nl2br(e($text)) !!}
+                                            </div>
+                                        @elseif ($type === 'table')
+                                            <div style="overflow-x:auto; margin:14px 0; border:1px solid #d1d1d1; border-radius:2px;" contenteditable="true" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                                <table style="width:100%; border-collapse:collapse; font-size:11pt;">
+                                                    @php
+                                                        $rows = $block['table']['rows'] ?? [];
+                                                        $hasHeader = $block['table']['header'] ?? true;
+                                                    @endphp
+                                                    @foreach ($rows as $rIdx => $row)
+                                                        <tr style="{{ $hasHeader && $rIdx === 0 ? 'background:#f3f2f1; font-weight:600; border-bottom:1px solid #a19f9d;' : 'border-bottom:1px solid #e1dfdd;' }}">
+                                                            @foreach ($row as $cIdx => $cell)
+                                                                <td style="padding:6px 10px; border-right:1px solid #e1dfdd;">
+                                                                    {{ $cell['text'] ?? '' }}
+                                                                </td>
+                                                            @endforeach
+                                                        </tr>
+                                                    @endforeach
+                                                </table>
+                                            </div>
+                                        @else
+                                            @if ($inBibliographySection)
+                                                <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                                    {!! nl2br(e($text)) !!}
+                                                </p>
+                                            @else
+                                                <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                                    @if ($index === 2 && str_contains($text, 'pleasant'))
+                                                        Every Thursday evening the old print shop on Alder Street fills with people who make things. <strong>Painters</strong> set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio (Gauntlett, 2018): the routines that keep it <span class="word-spell-squiggle" title="Spelling: pleasant">pleasant</span>, the tools we pool, and the small agreements that let thirty strangers become a crew (Sennett, 2019).
+                                                    @elseif ($index === 4 && str_contains($text, 'ceramicist'))
+                                                        Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A <span class="word-spell-squiggle" title="Spelling: ceramicist">ceramicist</span> explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point.
+                                                    @else
+                                                        {!! nl2br(e($text)) !!}
+                                                    @endif
+                                                </p>
+                                            @endif
+                                        @endif
+                                    @endif
                                 @endif
-                            </li>
-                        @else
+                            @endforeach
+
                             @if ($inBulletList)
                                 </ul>
-                                @php $inBulletList = false; @endphp
                             @endif
+                            @if ($inNumberedList)
+                                </ol>
+                            @endif
+                        </div>
 
-                            @if ($type === 'numbered')
-                                @if (!$inNumberedList)
-                                    <ol class="word-numbered-list">
-                                    @php $inNumberedList = true; @endphp
-                                @endif
-                                <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">{!! e($text) !!}</li>
+                        <!-- Footer Halaman (Sesuai Konsep Microsoft Word & Gambar 1) -->
+                        <div class="word-sheet-footer" contenteditable="false">
+                            @if ($isFirstPage)
+                                <!-- Awal BAB: Nomor Halaman di Bawah Tengah (Sesuai Gambar 1 Microsoft Word) -->
+                                <span class="word-sheet-page-bottom" title="Halaman {{ $pageNumber }}">{{ $pageNumber }}</span>
                             @else
-                                @if ($inNumberedList)
-                                    </ol>
-                                    @php $inNumberedList = false; @endphp
-                                @endif
-
-                                @if ($type === 'title')
-                                    <h1 class="word-title-text" id="doc-title" data-block-index="{{ $index }}">{!! e($text ?: 'The Open Studio Handbook') !!}</h1>
-                                @elseif ($type === 'subtitle')
-                                    <p class="word-subtitle-text" id="doc-subtitle" data-block-index="{{ $index }}">{!! e($text) !!}</p>
-                                @elseif ($type === 'heading')
-                                    @php
-                                        if (stripos($text, 'daftar pustaka') !== false || stripos($text, 'referensi') !== false || stripos($text, 'bibliography') !== false) {
-                                            $inBibliographySection = true;
-                                        } else {
-                                            $inBibliographySection = false;
-                                        }
-                                    @endphp
-                                    @if ($level === 1)
-                                        <h2 class="word-heading-1" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h2>
-                                    @elseif ($level === 2)
-                                        <h3 class="word-heading-2" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h3>
-                                    @else
-                                        <h4 class="word-heading-3" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h4>
-                                    @endif
-                                @elseif ($type === 'quote')
-                                    <blockquote class="word-quote-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                        <p class="word-quote-text">{!! e($text) !!}</p>
-                                    </blockquote>
-                                @elseif ($type === 'toc')
-                                    <div class="word-toc-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}" contenteditable="false" style="margin: 18px 0 26px 0; padding: 14px 18px; background: #faf9f8; border: 1px solid #edebe9; border-radius: 4px;">
-                                        <div style="font-weight: 700; font-size: 13pt; color: #0f6cbd; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-                                            <span>📑 Daftar Isi Otomatis</span>
-                                            <span style="font-size: 11px; font-weight: normal; color: #8a8886;">Diperbarui dari Heading dokumen</span>
-                                        </div>
-                                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                                            @php
-                                                $tocRows = $block['table']['rows'] ?? [];
-                                            @endphp
-                                            @foreach ($tocRows as $tIdx => $tRow)
-                                                @if ($tIdx > 0)
-                                                    <div style="display: flex; align-items: baseline; font-size: 11pt; color: #242424;">
-                                                        <span style="white-space: nowrap;">{{ $tRow[0]['text'] ?? '' }}</span>
-                                                        <span style="flex: 1; border-bottom: 1px dotted #a19f9d; margin: 0 8px; transform: translateY(-3px);"></span>
-                                                        <span style="font-size: 10pt; color: #616161;">{{ $tRow[1]['text'] === '…' ? (1 + floor($tIdx / 4)) : ($tRow[1]['text'] ?? '1') }}</span>
-                                                    </div>
-                                                @endif
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @elseif ($type === 'pagebreak')
-                                    <div class="word-page-divider" contenteditable="false">
-                                        <div class="word-page-divider-line"></div>
-                                        <span class="word-page-divider-label">Page Break</span>
-                                        <div class="word-page-divider-line"></div>
-                                    </div>
-                                    <div class="word-paper-header" contenteditable="false" style="margin-top: 36px; margin-bottom: 24px;">
-                                        <span>The Open Studio Handbook</span>
-                                        <span>Spring edition</span>
-                                    </div>
-                                @elseif ($type === 'callout')
-                                    <div class="word-callout-box" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                        📌 {!! nl2br(e($text)) !!}
-                                    </div>
-                                @elseif ($type === 'table')
-                                    <div style="overflow-x:auto; margin:14px 0; border:1px solid #d1d1d1; border-radius:2px;" contenteditable="true" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                        <table style="width:100%; border-collapse:collapse; font-size:11pt;">
-                                            @php
-                                                $rows = $block['table']['rows'] ?? [];
-                                                $hasHeader = $block['table']['header'] ?? true;
-                                            @endphp
-                                            @foreach ($rows as $rIdx => $row)
-                                                <tr style="{{ $hasHeader && $rIdx === 0 ? 'background:#f3f2f1; font-weight:600; border-bottom:1px solid #a19f9d;' : 'border-bottom:1px solid #e1dfdd;' }}">
-                                                    @foreach ($row as $cIdx => $cell)
-                                                        <td style="padding:6px 10px; border-right:1px solid #e1dfdd;">
-                                                            {{ $cell['text'] ?? '' }}
-                                                        </td>
-                                                    @endforeach
-                                                </tr>
-                                            @endforeach
-                                        </table>
-                                    </div>
-                                @else
-                                    @if ($inBibliographySection)
-                                        <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                            {!! nl2br(e($text)) !!}
-                                        </p>
-                                    @else
-                                        <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                            @if ($index === 2 && str_contains($text, 'pleasant'))
-                                                Every Thursday evening the old print shop on Alder Street fills with people who make things. <strong>Painters</strong> set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio (Gauntlett, 2018): the routines that keep it <span class="word-spell-squiggle" title="Spelling: pleasant">pleasant</span>, the tools we pool, and the small agreements that let thirty strangers become a crew (Sennett, 2019).
-                                            @elseif ($index === 4 && str_contains($text, 'ceramicist'))
-                                                Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A <span class="word-spell-squiggle" title="Spelling: ceramicist">ceramicist</span> explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point.
-                                            @else
-                                                {!! nl2br(e($text)) !!}
-                                            @endif
-                                        </p>
-                                    @endif
-                                @endif
+                                <span style="font-size: 10px; color: #8a8886;">{{ $docTitle }}</span>
                             @endif
-                        @endif
-                    @endforeach
+                        </div>
 
-                    @if ($inBulletList)
-                        </ul>
-                    @endif
-                    @if ($inNumberedList)
-                        </ol>
-                    @endif
-                </div>
+                    </div>
+                @endforeach
 
             </div>
         </main>
@@ -1534,7 +1566,7 @@
         <!-- Left: Page X of Y, Words, Proofing Language -->
         <div class="word-statusbar__left">
             <div class="word-status-item" wire:click="openDialog('stats')" title="Jump to page">
-                Page 1 of 2
+                Page 1 of {{ $pageCount ?? 2 }}
             </div>
             <div class="word-status-item" wire:click="openDialog('stats')" title="Word Count">
                 1 of {{ number_format($wordCount) }} words
