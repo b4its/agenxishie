@@ -328,15 +328,17 @@
         .ns-block__gutter {
             position: absolute;
             right: .25rem;
-            top: -.75rem;
+            top: -1.45rem;
             display: none;
+            align-items: center;
             gap: .2rem;
-            background: #ffffff;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(4px);
             border: 1px solid #cbd5e1;
             padding: .15rem .3rem;
             border-radius: 4px;
-            box-shadow: 0 2px 6px rgba(15,23,42,.12);
-            z-index: 10;
+            box-shadow: 0 2px 8px rgba(15,23,42,.12);
+            z-index: 25;
         }
         .ns-block:hover .ns-block__gutter, .ns-block:focus-within .ns-block__gutter { display: flex; }
         .ns-block__btn {
@@ -1220,8 +1222,188 @@
                     <input type="text" style="width:100%; border:none; outline:none; font-family:var(--rb-font-display); font-size:1.65rem; font-weight:800; color:inherit; padding:.2rem 0 .5rem; border-bottom:2px solid #e2e8f0; margin-bottom:1.5rem; background:transparent; text-align:{{ ($pageSetup['columns'] ?? 1) > 1 ? 'left' : 'center' }};"
                            wire:model="docTitle" wire:change="markDirty" placeholder="Judul Dokumen" aria-label="Judul Dokumen" />
 
-                    {{-- Blok-blok Dokumen --}}
-                    <div class="ns-blocks-wrap">
+                    {{-- Blok-blok Dokumen (Alur Penulisan Lancar seperti Microsoft Word & LibreOffice Writer) --}}
+                    <div class="ns-blocks-wrap"
+                         x-data="{
+                             aiMenuOpen: null,
+                             autoResize(el) {
+                                 if (!el) return;
+                                 el.style.height = 'auto';
+                                 el.style.height = (el.scrollHeight) + 'px';
+                             },
+                             handleTextareaKeydown(e, index, type) {
+                                 const ta = e.target;
+                                 const isCtrl = e.ctrlKey || e.metaKey;
+
+                                 // 1. Tab & Shift+Tab: Indent / Outdent tanpa kehilangan fokus
+                                 if (e.key === 'Tab') {
+                                     e.preventDefault();
+                                     if (e.shiftKey) {
+                                         $wire.formatParagraph('indent-');
+                                     } else {
+                                         const start = ta.selectionStart;
+                                         const end = ta.selectionEnd;
+                                         ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(end);
+                                         ta.selectionStart = ta.selectionEnd = start + 4;
+                                         ta.dispatchEvent(new Event('input'));
+                                     }
+                                     return;
+                                 }
+
+                                 // 2. Enter: Alur alami judul ke paragraf baru & membelah kalimat (Word & LibreOffice)
+                                 if (e.key === 'Enter' && !e.shiftKey && !isCtrl && !e.altKey) {
+                                     e.preventDefault();
+                                     const val = ta.value;
+                                     const pos = ta.selectionStart;
+
+                                     // Keluar dari daftar kosong menjadi paragraf biasa
+                                     if ((type === 'bullet' || type === 'numbered') && val.trim() === '') {
+                                         $wire.exitListToParagraph(index);
+                                         return;
+                                     }
+
+                                     // Bila kursor di akhir baris atau tipe judul/heading -> tambah paragraf normal di bawahnya
+                                     if (pos >= val.length || ['heading', 'title', 'subtitle'].includes(type)) {
+                                         if (pos < val.length) {
+                                             const left = val.slice(0, pos);
+                                             const right = val.slice(pos);
+                                             $wire.splitBlockAt(index, left, right, 'paragraph');
+                                         } else {
+                                             $wire.insertParagraphAfter(index);
+                                         }
+                                         this.$nextTick(() => {
+                                             const nextTa = document.querySelector(`#ns-block-${index + 1} textarea`);
+                                             if (nextTa) {
+                                                 nextTa.focus();
+                                                 nextTa.setSelectionRange(0, 0);
+                                                 this.autoResize(nextTa);
+                                             }
+                                         });
+                                         return;
+                                     }
+
+                                     // Membelah kalimat di tengah paragraf
+                                     const left = val.slice(0, pos);
+                                     const right = val.slice(pos);
+                                     $wire.splitBlockAt(index, left, right);
+                                     this.$nextTick(() => {
+                                         const nextTa = document.querySelector(`#ns-block-${index + 1} textarea`);
+                                         if (nextTa) {
+                                             nextTa.focus();
+                                             nextTa.setSelectionRange(0, 0);
+                                             this.autoResize(nextTa);
+                                         }
+                                     });
+                                     return;
+                                 }
+
+                                 // 3. Backspace: Hapus blok kosong dan fokus ke blok sebelumnya
+                                 if (e.key === 'Backspace') {
+                                     if (ta.selectionStart === 0 && ta.selectionEnd === 0 && (ta.value === '' || ta.value === '\n')) {
+                                         if (index > 0) {
+                                             e.preventDefault();
+                                             $wire.removeBlockAndFocusPrev(index);
+                                             this.$nextTick(() => {
+                                                 const prevTa = document.querySelector(`#ns-block-${index - 1} textarea`);
+                                                 if (prevTa) {
+                                                     prevTa.focus();
+                                                     prevTa.setSelectionRange(prevTa.value.length, prevTa.value.length);
+                                                 }
+                                             });
+                                             return;
+                                         }
+                                     }
+                                 }
+
+                                 // 4. Navigasi Panah Atas / Bawah antar blok
+                                 if (e.key === 'ArrowUp' && ta.selectionStart === 0 && ta.selectionEnd === 0) {
+                                     if (index > 0) {
+                                         const prevTa = document.querySelector(`#ns-block-${index - 1} textarea`);
+                                         if (prevTa) {
+                                             e.preventDefault();
+                                             prevTa.focus();
+                                             prevTa.setSelectionRange(prevTa.value.length, prevTa.value.length);
+                                         }
+                                     }
+                                 } else if (e.key === 'ArrowDown' && ta.selectionStart === ta.value.length && ta.selectionEnd === ta.value.length) {
+                                     const nextTa = document.querySelector(`#ns-block-${index + 1} textarea`);
+                                     if (nextTa) {
+                                         e.preventDefault();
+                                         nextTa.focus();
+                                         nextTa.setSelectionRange(0, 0);
+                                     }
+                                 }
+
+                                 // 5. Pintasan Keyboard Microsoft Word & LibreOffice di dalam blok
+                                 if (isCtrl && !e.altKey) {
+                                     const k = e.key.toLowerCase();
+                                     if (k === 'b') { e.preventDefault(); $wire.formatInline('bold'); }
+                                     else if (k === 'i') { e.preventDefault(); $wire.formatInline('italic'); }
+                                     else if (k === 'u') { e.preventDefault(); $wire.formatInline('underline'); }
+                                     else if (k === 'e') { e.preventDefault(); $wire.formatParagraph('align', 'center'); }
+                                     else if (k === 'l' && !e.shiftKey) { e.preventDefault(); $wire.formatParagraph('align', 'left'); }
+                                     else if (k === 'r') { e.preventDefault(); $wire.formatParagraph('align', 'right'); }
+                                     else if (k === 'j') { e.preventDefault(); $wire.formatParagraph('align', 'justify'); }
+                                     else if (e.key === '1') { e.preventDefault(); $wire.setLineSpacing(1.0); }
+                                     else if (e.key === '2') { e.preventDefault(); $wire.setLineSpacing(2.0); }
+                                     else if (e.key === '5') { e.preventDefault(); $wire.setLineSpacing(1.5); }
+                                     else if (e.key === '[') { e.preventDefault(); $wire.adjustFontSize(-1); }
+                                     else if (e.key === ']') { e.preventDefault(); $wire.adjustFontSize(1); }
+                                     else if (e.shiftKey && k === 'l') { e.preventDefault(); $wire.formatParagraph('listBullet'); }
+                                 } else if (isCtrl && e.altKey) {
+                                     if (e.key === '1') { e.preventDefault(); $wire.applyStyle(index, 'heading1'); }
+                                     else if (e.key === '2') { e.preventDefault(); $wire.applyStyle(index, 'heading2'); }
+                                     else if (e.key === '3') { e.preventDefault(); $wire.applyStyle(index, 'heading3'); }
+                                     else if (e.key === '0') { e.preventDefault(); $wire.applyStyle(index, 'paragraph'); }
+                                 }
+                             },
+                             handleTextareaInput(e, index) {
+                                 this.autoResize(e.target);
+                                 const val = e.target.value;
+                                 if (/^(\*|-)\s/.test(val)) {
+                                     $wire.autoFormatBlock(index, '*', val.replace(/^(\*|-)\s/, ''));
+                                 } else if (/^1\.\s/.test(val)) {
+                                     $wire.autoFormatBlock(index, '1.', val.replace(/^1\.\s/, ''));
+                                 } else if (/^###\s/.test(val)) {
+                                     $wire.autoFormatBlock(index, '###', val.replace(/^###\s/, ''));
+                                 } else if (/^##\s/.test(val)) {
+                                     $wire.autoFormatBlock(index, '##', val.replace(/^##\s/, ''));
+                                 } else if (/^#\s/.test(val)) {
+                                     $wire.autoFormatBlock(index, '#', val.replace(/^#\s/, ''));
+                                 } else if (/^>\s/.test(val)) {
+                                     $wire.autoFormatBlock(index, '>', val.replace(/^>\s/, ''));
+                                 }
+                             },
+                             handleTableCellKeydown(e, blockIndex, r, c, totalRows, totalCols) {
+                                 if (e.key === 'Tab') {
+                                     e.preventDefault();
+                                     if (e.shiftKey) {
+                                         if (c > 0) {
+                                             const prevInput = document.querySelector(`input[data-cell='${blockIndex}-${r}-${c - 1}']`);
+                                             if (prevInput) prevInput.focus();
+                                         } else if (r > 0) {
+                                             const prevInput = document.querySelector(`input[data-cell='${blockIndex}-${r - 1}-${totalCols - 1}']`);
+                                             if (prevInput) prevInput.focus();
+                                         }
+                                     } else {
+                                         if (c < totalCols - 1) {
+                                             const nextInput = document.querySelector(`input[data-cell='${blockIndex}-${r}-${c + 1}']`);
+                                             if (nextInput) nextInput.focus();
+                                         } else if (r < totalRows - 1) {
+                                             const nextInput = document.querySelector(`input[data-cell='${blockIndex}-${r + 1}-0']`);
+                                             if (nextInput) nextInput.focus();
+                                         } else {
+                                             // Sel terakhir tabel: Tambah baris baru secara otomatis (Word & LibreOffice)
+                                             $wire.tableInsertRow(blockIndex, totalRows - 1);
+                                             this.$nextTick(() => {
+                                                 const newCellInput = document.querySelector(`input[data-cell='${blockIndex}-${totalRows}-0']`);
+                                                 if (newCellInput) newCellInput.focus();
+                                             });
+                                         }
+                                     }
+                                 }
+                             }
+                         }">
                         @forelse ($blocks as $index => $block)
                             @php
                                 $type = (string) ($block['type'] ?? 'paragraph');
@@ -1249,22 +1431,29 @@
                                     <span class="ns-lineno">{{ $index + 1 }}</span>
                                 @endif
 
-                                {{-- Action Gutter melayang --}}
+                                {{-- Action Gutter Melayang Ringkas & Rapi (Tidak Menutupi Teks) --}}
                                 <div class="ns-block__gutter">
                                     <button type="button" class="ns-block__btn" wire:click.stop="moveBlock({{ $index }}, -1)" title="Pindahkan Ke Atas" @disabled($index === 0)>&#9650;</button>
                                     <button type="button" class="ns-block__btn" wire:click.stop="moveBlock({{ $index }}, 1)" title="Pindahkan Ke Bawah" @disabled($index === count($blocks) - 1)>&#9660;</button>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'heading1')" title="Jadikan H1">H1</button>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'heading2')" title="Jadikan H2">H2</button>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'paragraph')" title="Jadikan Paragraf">P</button>
+                                    <span style="display:inline-block; width:1px; height:12px; background:#cbd5e1; margin:0 2px;"></span>
+                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'heading1')" title="Jadikan H1 (Ctrl+Alt+1)">H1</button>
+                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'heading2')" title="Jadikan H2 (Ctrl+Alt+2)">H2</button>
+                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'paragraph')" title="Jadikan Paragraf (Ctrl+Alt+0)">P</button>
                                     <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'quote')" title="Jadikan Kutipan">&ldquo;</button>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="toggleDropCap({{ $index }})" title="Toggle Drop Cap (Huruf Awal Membesar)">DropCap</button>
-
-                                    {{-- Wordcraft AI Actions --}}
-                                    <button type="button" class="ns-block__btn ns-block__btn--ai" wire:click.stop="aiElaborateBlock({{ $index }})" title="Kembangkan gagasan teks ini dengan AI">&#9889; Kembangkan</button>
-                                    <button type="button" class="ns-block__btn ns-block__btn--ai" wire:click.stop="aiShortenBlock({{ $index }})" title="Persingkat teks ini">&#9986; Padatkan</button>
-                                    <button type="button" class="ns-block__btn ns-block__btn--ai" wire:click.stop="aiImproveBlock({{ $index }})" title="Perbaiki gaya &amp; tata bahasa">&#10024; Poles</button>
-                                    <button type="button" class="ns-block__btn ns-block__btn--ai" wire:click.stop="aiContinueStory({{ $index }})" title="Lanjutkan naskah setelah blok ini">&#10133; Lanjutkan</button>
-
+                                    <button type="button" class="ns-block__btn" wire:click.stop="toggleDropCap({{ $index }})" title="Toggle Drop Cap">A</button>
+                                    <span style="display:inline-block; width:1px; height:12px; background:#cbd5e1; margin:0 2px;"></span>
+                                    <div style="position:relative;" @click.outside="if (aiMenuOpen === {{ $index }}) aiMenuOpen = null">
+                                        <button type="button" class="ns-block__btn ns-block__btn--ai" @click.stop="aiMenuOpen = (aiMenuOpen === {{ $index }} ? null : {{ $index }})" title="Asisten AI Wordcraft">
+                                            &#10024; AI &#9662;
+                                        </button>
+                                        <div x-show="aiMenuOpen === {{ $index }}" x-cloak style="position:absolute; right:0; top:100%; margin-top:4px; width:160px; background:#ffffff; border:1px solid #cbd5e1; border-radius:4px; box-shadow:0 4px 12px rgba(15,23,42,.15); padding:4px; display:flex; flex-direction:column; gap:2px; z-index:30;">
+                                            <button type="button" class="ns-nav__item" style="font-size:.7rem; padding:.25rem .4rem;" wire:click.stop="aiElaborateBlock({{ $index }}); aiMenuOpen = null">&#9889; Kembangkan</button>
+                                            <button type="button" class="ns-nav__item" style="font-size:.7rem; padding:.25rem .4rem;" wire:click.stop="aiShortenBlock({{ $index }}); aiMenuOpen = null">&#9986; Padatkan</button>
+                                            <button type="button" class="ns-nav__item" style="font-size:.7rem; padding:.25rem .4rem;" wire:click.stop="aiImproveBlock({{ $index }}); aiMenuOpen = null">&#10024; Poles Bahasa</button>
+                                            <button type="button" class="ns-nav__item" style="font-size:.7rem; padding:.25rem .4rem;" wire:click.stop="aiContinueStory({{ $index }}); aiMenuOpen = null">&#10133; Lanjutkan Naskah</button>
+                                        </div>
+                                    </div>
+                                    <span style="display:inline-block; width:1px; height:12px; background:#cbd5e1; margin:0 2px;"></span>
                                     <button type="button" class="ns-block__btn" wire:click.stop="duplicateBlock({{ $index }})" title="Gandakan blok">&#128203;</button>
                                     <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click.stop="removeBlock({{ $index }})" title="Hapus blok">&times;</button>
                                 </div>
@@ -1289,8 +1478,10 @@
                                                         @php $cellTag = ($hasHeader && $r === 0) ? 'th' : 'td'; @endphp
                                                         <{{ $cellTag }}>
                                                             <input type="text"
+                                                                   data-cell="{{ $index }}-{{ $r }}-{{ $c }}"
                                                                    wire:model="blocks.{{ $index }}.table.rows.{{ $r }}.{{ $c }}.text"
                                                                    wire:change="markDirty"
+                                                                   @keydown="handleTableCellKeydown($event, {{ $index }}, {{ $r }}, {{ $c }}, {{ count($rows) }}, {{ count((array)$row) }})"
                                                                    placeholder="Sel..." />
                                                         </{{ $cellTag }}>
                                                     @endforeach
@@ -1357,6 +1548,9 @@
                                                 rows="{{ max(1, (int) ceil(mb_strlen((string) ($block['text'] ?? '')) / 70) + 1) }}"
                                                 wire:model="blocks.{{ $index }}.text"
                                                 wire:change="markDirty"
+                                                @keydown="handleTextareaKeydown($event, {{ $index }}, 'callout')"
+                                                @input="autoResize($event.target)"
+                                                x-init="autoResize($el)"
                                                 placeholder="Tulis catatan sorotan di sini..."
                                             >{{ $block['text'] ?? '' }}</textarea>
                                         </div>
@@ -1394,6 +1588,9 @@
                                             rows="1"
                                             wire:model="blocks.{{ $index }}.text"
                                             wire:change="markDirty"
+                                            @keydown="handleTextareaKeydown($event, {{ $index }}, 'title')"
+                                            @input="autoResize($event.target)"
+                                            x-init="autoResize($el)"
                                             placeholder="Judul Dokumen..."
                                             style="font-family:var(--rb-font-display, system-ui); font-size:1.6rem; font-weight:800; color:#1e40af; text-align:center;"
                                         >{{ $block['text'] ?? '' }}</textarea>
@@ -1406,6 +1603,9 @@
                                             rows="1"
                                             wire:model="blocks.{{ $index }}.text"
                                             wire:change="markDirty"
+                                            @keydown="handleTextareaKeydown($event, {{ $index }}, 'subtitle')"
+                                            @input="autoResize($event.target)"
+                                            x-init="autoResize($el)"
                                             placeholder="Subjudul Dokumen..."
                                             style="font-style:italic; font-size:1.05rem; color:#475569; text-align:center;"
                                         >{{ $block['text'] ?? '' }}</textarea>
@@ -1421,6 +1621,9 @@
                                             rows="{{ max(1, (int) ceil(mb_strlen((string) ($block['text'] ?? '')) / 76) + 1) }}"
                                             wire:model="blocks.{{ $index }}.text"
                                             wire:change="markDirty"
+                                            @keydown="handleTextareaKeydown($event, {{ $index }}, '{{ $type }}')"
+                                            @input="handleTextareaInput($event, {{ $index }})"
+                                            x-init="autoResize($el)"
                                             placeholder="{{ $type === 'heading' ? 'Judul Bagian...' : 'Tulis isi naskah di sini...' }}"
                                             aria-label="Blok {{ $index + 1 }} {{ $type }}"
                                         >{{ $block['text'] ?? '' }}</textarea>
