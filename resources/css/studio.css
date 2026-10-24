@@ -1788,6 +1788,69 @@ dialog#livewire-error {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+.word-assistant-rendered-markdown h1,
+.word-assistant-rendered-markdown h2,
+.word-assistant-rendered-markdown h3,
+.word-assistant-rendered-markdown h4 {
+    margin: 6px 0 4px 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1e1b4b;
+}
+
+.dark .word-assistant-rendered-markdown h1,
+.dark .word-assistant-rendered-markdown h2,
+.dark .word-assistant-rendered-markdown h3,
+.dark .word-assistant-rendered-markdown h4 {
+    color: #c7d2fe;
+}
+
+.word-assistant-rendered-markdown p {
+    margin: 4px 0 6px 0;
+    line-height: 1.5;
+}
+
+.word-assistant-rendered-markdown ul,
+.word-assistant-rendered-markdown ol {
+    margin: 4px 0 6px 16px;
+    padding: 0;
+}
+
+.word-assistant-rendered-markdown li {
+    margin-bottom: 3px;
+    line-height: 1.45;
+}
+
+.word-assistant-rendered-markdown table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: 11px;
+}
+
+.word-assistant-rendered-markdown th,
+.word-assistant-rendered-markdown td {
+    border: 1px solid #e2e8f0;
+    padding: 5px 7px;
+    text-align: left;
+}
+
+.word-assistant-rendered-markdown th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #334155;
+}
+
+.dark .word-assistant-rendered-markdown th {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+}
+
+.dark .word-assistant-rendered-markdown td {
+    border-color: #334155;
+}
+
 .word-assistant-act-btn {
     display: inline-flex;
     align-items: center;

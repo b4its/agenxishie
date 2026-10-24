@@ -8,12 +8,36 @@
         revisionsOpen: @entangle('showRevisions'),
         assistantPane: @entangle('assistantOpen'),
         navTab: @entangle('navigationTab'),
+        activeBlock: @entangle('activeBlock'),
         activePage: 1,
         showMiniToolbar: false,
         toolbarTop: 0,
         toolbarLeft: 0,
         selectedText: '',
         copilotMenuOpen: false,
+        syncAllPages() {
+            const pageEls = document.querySelectorAll('.word-sheet-content');
+            const pageHtmls = [];
+            pageEls.forEach(el => pageHtmls.push(el.innerHTML));
+            if (pageHtmls.length > 0) {
+                $wire.syncManuscriptPages(pageHtmls);
+            }
+        },
+        syncPages() {
+            this.syncAllPages();
+        },
+        updateActiveBlock(event) {
+            const target = event.target;
+            if (!target) return;
+            const blockEl = target.closest('[data-block-index]');
+            if (blockEl) {
+                const idx = parseInt(blockEl.getAttribute('data-block-index'), 10);
+                if (!isNaN(idx) && this.activeBlock !== idx) {
+                    this.activeBlock = idx;
+                    $wire.selectBlock(idx);
+                }
+            }
+        },
         checkSelection() {
             const sel = window.getSelection();
             if (!sel || sel.isCollapsed) {
@@ -42,6 +66,15 @@
                     this.toolbarTop = Math.max(10, (rect.top - rootRect.top) - 44);
                     this.toolbarLeft = Math.max(10, (rect.left - rootRect.left) + (rect.width / 2) - 150);
                     this.showMiniToolbar = true;
+
+                    const blockEl = anchor.parentElement ? anchor.parentElement.closest('[data-block-index]') : null;
+                    if (blockEl) {
+                        const idx = parseInt(blockEl.getAttribute('data-block-index'), 10);
+                        if (!isNaN(idx) && this.activeBlock !== idx) {
+                            this.activeBlock = idx;
+                            $wire.selectBlock(idx);
+                        }
+                    }
                 }
             } catch (err) {
                 this.showMiniToolbar = false;
@@ -49,17 +82,13 @@
         },
         format(cmd, val = null) {
             document.execCommand(cmd, false, val);
-            const pageEls = document.querySelectorAll('.word-sheet-content');
-            const pageHtmls = [];
-            pageEls.forEach(el => pageHtmls.push(el.innerHTML));
-            if (pageHtmls.length > 0) {
-                $wire.syncManuscriptPages(pageHtmls);
-            }
+            this.syncAllPages();
         },
         runAi(tool) {
+            const textToUse = this.selectedText;
             this.showMiniToolbar = false;
             this.copilotMenuOpen = false;
-            $wire.runTool(tool);
+            $wire.runTool(tool, textToUse);
         },
         init() {
             window.addEventListener('keydown', (e) => {
@@ -288,18 +317,8 @@
             @endforeach
         </div>
 
-        <!-- Right: Telemetry, Comments, Editing Mode Dropdown, Blue Share Button (Matches Image 1) -->
+        <!-- Right: Comments, Editing Mode Dropdown, Blue Share Button (Matches Word 365) -->
         <div class="word-ribbon-actions">
-            <!-- Live UX Telemetry Status: Time on Task & Compliance -->
-            <div class="word-ribbon-telemetry" style="display:inline-flex; align-items:center; gap:8px; margin-right:4px;">
-                <span style="font-size:11px; color:var(--ms-text-muted);" title="Time on Task / Waktu Sesi Aktif">
-                    ⏱️ Waktu Sesi: <strong style="color:var(--ms-text-primary);">{{ floor($sessionSeconds / 60) }}m {{ $sessionSeconds % 60 }}s</strong>
-                </span>
-                <span style="font-size:11px; color:var(--ms-text-muted);" title="Guideline Compliance Score">
-                    🎯 Kepatuhan: <strong style="color:var(--ms-blue);">{{ $complianceAudit['score'] }}%</strong>
-                </span>
-            </div>
-
             <!-- Comments Button -->
             <button type="button" wire:click="$toggle('showComments')" class="word-btn-pill {{ $showComments ? 'active' : '' }}" title="Comments">
                 <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
@@ -697,7 +716,7 @@
             <!-- GROUP: EDITOR -->
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="toggleKpiDrawer('UX')" title="Editor &amp; Proofing">
+                    <button type="button" class="word-btn-large" wire:click="openAssistant" title="Microsoft Editor &amp; Xishie Proofing">
                         <div style="position:relative; width:24px; height:24px; display:flex; align-items:center; justify-content:center; color:#0f6cbd;">
                             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -1433,6 +1452,9 @@
                             spellcheck="false"
                             @keydown.ctrl.enter.prevent="$wire.insertPageBreak()"
                             @keydown.meta.enter.prevent="$wire.insertPageBreak()"
+                            @click="updateActiveBlock($event)"
+                            @focusin="updateActiveBlock($event)"
+                            @keyup="updateActiveBlock($event)"
                             @input.debounce.800ms="syncAllPages()"
                             @blur="syncAllPages()">
 
@@ -1633,6 +1655,12 @@
                         <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/cek-gap')" title="Identifikasi research gap dan kebaruan penelitian">
                             🔬 /cek-gap
                         </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/matriks-literatur')" title="Bangun tabel matriks sintesis literatur (SOTA)">
+                            📊 /matriks-literatur
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/cari-referensi')" title="Cari rekomendasi referensi akademik relevan">
+                            🔍 /cari-referensi
+                        </button>
                     </div>
 
                     <!-- Conversation Stream -->
@@ -1647,7 +1675,7 @@
                                     Halo! Saya Xishie Assistant
                                 </div>
                                 <p style="font-size:11.5px; color:var(--ms-text-muted); line-height:1.45; margin:0 4px;">
-                                    Asisten cerdas Anda untuk menelaah naskah, memoles gaya bahasa akademik, parafrase anti-plagiasi, dan memastikan kepatuhan pedoman jurnal.
+                                    Asisten cerdas Anda untuk menelaah naskah, memoles gaya bahasa akademik, parafrase anti-plagiasi, menyusun matriks literatur, dan memastikan kepatuhan pedoman jurnal.
                                 </p>
 
                                 <div style="display:flex; flex-direction:column; gap:8px; width:100%; margin-top:8px;">
@@ -1670,6 +1698,13 @@
                                         <div style="flex:1;">
                                             <strong style="display:block; font-size:11.5px; color:#4338ca;">Audit Pedoman &amp; IMRAD</strong>
                                             <span style="font-size:10.5px; color:var(--ms-text-muted);">Periksa kelengkapan struktur naskah dan kaidah jurnal.</span>
+                                        </div>
+                                    </div>
+                                    <div class="word-assistant-prompt-card" wire:click="runTool('/matriks-literatur')">
+                                        <span style="font-size:15px;">📊</span>
+                                        <div style="flex:1;">
+                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Matriks Sintesis Literatur (SOTA)</strong>
+                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Bangun tabel perbandingan temuan dan penelitian terdahulu.</span>
                                         </div>
                                     </div>
                                     <div class="word-assistant-prompt-card" wire:click="runTool('/sitasi')">
@@ -1711,7 +1746,9 @@
                                             </div>
                                             <span style="font-size:9.5px; color:var(--ms-text-muted); background:#f1f5f9; padding:1px 5px; border-radius:3px;">AI Copilot</span>
                                         </div>
-                                        <div style="line-height:1.5; white-space:pre-wrap; margin-bottom:10px; font-size:11.5px;">{{ $log['content'] ?? '' }}</div>
+                                        <div class="word-assistant-rendered-markdown" style="line-height:1.55; margin-bottom:10px; font-size:12px;">
+                                            {!! \Illuminate\Support\Str::markdown($log['content'] ?? '') !!}
+                                        </div>
 
                                         <!-- In-Document Action Buttons -->
                                         <div style="display:flex; flex-wrap:wrap; gap:4px; border-top:1px solid #f1f5f9; padding-top:8px;">
@@ -1940,11 +1977,12 @@
             <div class="word-status-item" wire:click="openDialog('spelling')" title="Proofing Language">
                 English (United States)
             </div>
-            <div class="word-status-item" wire:click="openDialog('stats')" title="Status Aksesibilitas &amp; Statistik Dokumen">
+            <div class="word-status-item" wire:click="openDialog('stats')" title="Status Aksesibilitas &amp; Statistik Dokumen (Waktu Sesi: {{ floor($sessionSeconds / 60) }}m, Kepatuhan: {{ $complianceAudit['score'] }}%)">
                 <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" style="color:#107c41;">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                 </svg>
                 <span>Accessibility: Good to go</span>
+                <span class="sr-only" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0;">Waktu Sesi: {{ floor($sessionSeconds / 60) }}m {{ $sessionSeconds % 60 }}s | Kepatuhan: {{ $complianceAudit['score'] }}%</span>
             </div>
         </div>
 

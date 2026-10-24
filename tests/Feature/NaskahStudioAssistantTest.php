@@ -173,3 +173,53 @@ it('records assistant logs in database when connected to a project', function ()
         ->exists()
     )->toBeTrue();
 });
+
+it('supports running assistant tools with explicit selected text and extended tools', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Teks naskah umum.'],
+        ])
+        ->set('activeBlock', 0);
+
+    // 1. Run /poles with explicitly selected text
+    $selectedPhrase = 'Komunitas pengrajin membagi ruang dan perkakas kerja';
+    $page->call('runTool', '/poles', $selectedPhrase);
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Secara konseptual, komunitas pengrajin membagi ruang dan perkakas kerja');
+
+    // 2. Run /matriks-literatur
+    $page->call('runTool', '/matriks-literatur');
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Matriks Sintesis Literatur & State of the Art (SOTA)');
+
+    // 3. Run /cari-referensi
+    $page->call('runTool', '/cari-referensi');
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Rekomendasi Referensi Relevan');
+
+    // 4. Run /kembangkan
+    $page->call('runTool', '/kembangkan', 'Pengelolaan studio bersama menekan biaya operasional');
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Elaborasi Pengembangan Teks Akademik');
+
+    // 5. Run /ringkaskan
+    $page->call('runTool', '/ringkaskan', 'Ruang kerja bersama menyediakan fasilitas lengkap untuk semua anggota');
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Secara ringkas');
+
+    // 6. Run /perbaiki-ejaan
+    $page->call('runTool', '/perbaiki-ejaan', 'alat alat dan tehnik analisa data');
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Hasil Audit Ejaan & PUEBI Baku');
+});
+
+it('provides rich academic writing guidance for freeform questions', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('assistantInput', 'Bagaimana cara menyusun abstrak naskah yang baik?')
+        ->call('sendAssistant');
+
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Panduan Penulisan Abstrak Naskah')
+        ->and(end($log)['content'])->toContain('Latar Belakang')
+        ->and(end($log)['content'])->toContain('Metodologi');
+});
