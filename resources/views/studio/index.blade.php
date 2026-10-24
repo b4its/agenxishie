@@ -42,5 +42,17 @@
     </div>
 
     @livewireScripts
+    <script>
+        document.addEventListener('livewire:init', () => {
+            Livewire.hook('request', ({ fail }) => {
+                fail(({ preventDefault }) => {
+                    preventDefault();
+                });
+            });
+        });
+        window.addEventListener('livewire:error', (e) => {
+            e.preventDefault();
+        });
+    </script>
 </body>
 </html>

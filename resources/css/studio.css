@@ -87,6 +87,11 @@ html, body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* Suppress livewire internal error popup modal */
+dialog#livewire-error {
+    display: none !important;
+}
+
 /* =============================================================================
    ROOT LAYOUT CONTAINER
    ============================================================================= */
@@ -104,7 +109,7 @@ html, body {
    1. TOP TITLE BAR (QUICK ACCESS, AUTOSAVE, TITLE, SEARCH, SHARE)
    ============================================================================= */
 .word-titlebar {
-    height: 48px;
+    height: 44px;
     background: var(--ms-bg-ribbon);
     border-bottom: 1px solid var(--ms-border-subtle);
     display: flex;
@@ -120,7 +125,7 @@ html, body {
 .word-titlebar__left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
     flex-shrink: 0;
 }
@@ -174,8 +179,8 @@ html, body {
 }
 
 .word-icon-btn {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -184,7 +189,7 @@ html, body {
     border-radius: 4px;
     color: var(--ms-text-primary);
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     transition: background-color 0.1s;
 }
 
@@ -210,16 +215,16 @@ html, body {
 
 .word-doc-title-input {
     font-family: var(--ms-font-ui);
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--ms-text-primary);
     border: 1px solid transparent;
     border-radius: 4px;
     background: transparent;
-    padding: 3px 8px;
+    padding: 2px 8px;
     text-align: center;
     outline: none;
-    max-width: 440px;
+    max-width: 380px;
     transition: all 0.12s;
 }
 
@@ -241,7 +246,7 @@ html, body {
     white-space: nowrap;
 }
 
-/* Titlebar Right Section (Search, Comments, Editing, Share, Avatar, KPIs) */
+/* Titlebar Right Section */
 .word-titlebar__right {
     display: flex;
     align-items: center;
@@ -253,11 +258,11 @@ html, body {
     display: flex;
     align-items: center;
     gap: 6px;
-    background: var(--ms-bg-subtle, #f3f2f1);
+    background: var(--ms-bg-app);
     border: 1px solid transparent;
     border-radius: 9999px;
-    padding: 4px 12px;
-    width: 220px;
+    padding: 3px 12px;
+    width: 200px;
     height: 28px;
     font-size: 12px;
     color: var(--ms-text-secondary);
@@ -268,7 +273,7 @@ html, body {
     border-color: var(--ms-blue);
     background: #ffffff;
     box-shadow: 0 0 0 1px var(--ms-blue);
-    width: 260px;
+    width: 240px;
 }
 
 .word-search-input {
@@ -280,15 +285,11 @@ html, body {
     width: 100%;
 }
 
-.word-search-input::placeholder {
-    color: var(--ms-text-muted);
-}
-
 .word-btn-pill {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 4px 10px;
+    padding: 3px 10px;
     border-radius: 4px;
     border: 1px solid var(--ms-border);
     background: var(--ms-bg-surface);
@@ -311,7 +312,7 @@ html, body {
     border-color: var(--ms-blue);
     color: #ffffff;
     font-weight: 600;
-    padding: 4px 14px;
+    padding: 3px 14px;
     border-radius: 4px;
 }
 
@@ -336,17 +337,33 @@ html, body {
 }
 
 /* =============================================================================
-   2. RIBBON TABS BAR
+   2. RIBBON TABS BAR & ACTIONS (MATCHES IMAGE 1)
    ============================================================================= */
+.word-ribbon-tabs-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--ms-bg-ribbon);
+    padding: 0 12px 0 6px;
+    border-bottom: 1px solid var(--ms-border);
+    user-select: none;
+    flex-shrink: 0;
+    height: 36px;
+}
+
 .word-ribbon-tabs {
     display: flex;
     align-items: center;
-    background: var(--ms-bg-ribbon);
-    padding: 0 8px;
-    border-bottom: 1px solid var(--ms-border);
     overflow-x: auto;
     scrollbar-width: none;
     user-select: none;
+    height: 100%;
+}
+
+.word-ribbon-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0;
 }
 
@@ -355,10 +372,10 @@ html, body {
 }
 
 .word-tab {
-    padding: 6px 12px 8px 12px;
+    padding: 5px 12px 6px 12px;
     border: none;
     background: transparent;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 500;
     color: var(--ms-text-secondary);
     cursor: pointer;
@@ -388,20 +405,11 @@ html, body {
     border-radius: 2px 2px 0 0;
 }
 
-/* Telemetry Pills in Ribbon Header */
-.word-ribbon-telemetry {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding-right: 6px;
-}
-
 .word-kpi-chip {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 3px 8px;
+    gap: 4px;
+    padding: 2px 8px;
     border-radius: 9999px;
     background: var(--ms-blue-subtle);
     border: 1px solid var(--ms-blue-border);
@@ -430,7 +438,7 @@ html, body {
     padding: 4px 8px;
     gap: 4px;
     overflow-x: auto;
-    min-height: 84px;
+    height: 84px;
     flex-shrink: 0;
     user-select: none;
 }
@@ -448,8 +456,8 @@ html, body {
     content: '';
     position: absolute;
     left: -2px;
-    top: 4px;
-    bottom: 4px;
+    top: 6px;
+    bottom: 6px;
     width: 1px;
     background-color: var(--ms-border);
 }
@@ -477,7 +485,6 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
     padding-top: 2px;
 }
 
@@ -489,15 +496,15 @@ html, body {
     letter-spacing: 0.01em;
 }
 
-/* Word Large Split Buttons (e.g. Paste, Dictate, Editor) */
+/* Word Large Split Buttons (Paste, Dictate, Editor, 18 KPIs) */
 .word-btn-large {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 4px 8px;
-    min-width: 46px;
-    height: 56px;
+    padding: 4px 6px;
+    min-width: 44px;
+    height: 54px;
     border: 1px solid transparent;
     border-radius: 4px;
     background: transparent;
@@ -505,7 +512,7 @@ html, body {
     cursor: pointer;
     font-size: 11px;
     font-weight: 500;
-    gap: 3px;
+    gap: 2px;
     transition: all 0.1s;
 }
 
@@ -514,22 +521,13 @@ html, body {
     border-color: var(--ms-border);
 }
 
-.word-btn-large:active {
-    background: var(--ms-bg-active);
-}
-
-.word-btn-large svg {
-    width: 22px;
-    height: 22px;
-}
-
-/* Small Tool Buttons (e.g. Cut, Copy, Format Painter) */
+/* Small Tool Buttons */
 .word-tool-btn {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     padding: 2px 6px;
-    height: 24px;
+    height: 22px;
     border: 1px solid transparent;
     border-radius: 3px;
     background: transparent;
@@ -551,15 +549,10 @@ html, body {
     border-color: var(--ms-border-strong);
 }
 
-.word-tool-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-
-/* Compact Square Buttons (B, I, U, ab, x2, etc.) */
+/* Compact Square Buttons */
 .word-btn-square {
-    width: 26px;
-    height: 24px;
+    width: 24px;
+    height: 22px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -584,26 +577,18 @@ html, body {
     font-weight: 700;
 }
 
-/* Select Dropdowns (Font family, size) */
+/* Select Dropdowns */
 .word-select {
-    height: 24px;
+    height: 22px;
     border: 1px solid var(--ms-border);
     border-radius: 3px;
     background: var(--ms-bg-surface);
     color: var(--ms-text-primary);
     font-size: 11.5px;
     font-family: var(--ms-font-ui);
-    padding: 0 6px;
+    padding: 0 4px;
     outline: none;
     cursor: pointer;
-}
-
-.word-select:hover {
-    border-color: var(--ms-border-strong);
-}
-
-.word-select:focus {
-    border-color: var(--ms-blue);
 }
 
 /* Color Split Pickers */
@@ -612,8 +597,8 @@ html, body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 24px;
+    width: 24px;
+    height: 22px;
     border: 1px solid transparent;
     border-radius: 3px;
     background: transparent;
@@ -633,7 +618,7 @@ html, body {
 }
 
 /* =============================================================================
-   4. STYLES GALLERY (MICROSOFT WORD ICONIC QUICK STYLES TILES)
+   4. STYLES GALLERY
    ============================================================================= */
 .word-styles-gallery {
     display: flex;
@@ -649,8 +634,8 @@ html, body {
 }
 
 .word-style-tile {
-    width: 68px;
-    height: 54px;
+    width: 66px;
+    height: 52px;
     border: 1px solid var(--ms-border);
     border-radius: 3px;
     background: var(--ms-bg-surface);
@@ -658,7 +643,7 @@ html, body {
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    padding: 4px;
+    padding: 3px 4px;
     cursor: pointer;
     transition: all 0.1s;
     flex-shrink: 0;
@@ -676,7 +661,7 @@ html, body {
 }
 
 .word-style-tile__preview {
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 500;
     line-height: 1.2;
     text-align: center;
@@ -697,14 +682,13 @@ html, body {
 }
 
 /* =============================================================================
-   5. HORIZONTAL RULER (WORD RULER WITH INCH/CM TICKS & INDENT MARKERS)
+   5. HORIZONTAL RULER
    ============================================================================= */
 .word-ruler-container {
-    height: 22px;
+    height: 20px;
     background: var(--ms-bg-app);
     border-bottom: 1px solid var(--ms-border);
     display: flex;
-    align-items: center;
     justify-content: center;
     user-select: none;
     flex-shrink: 0;
@@ -738,13 +722,12 @@ html, body {
     flex: 1;
     height: 100%;
     position: relative;
-    border-right: 1px solid transparent;
 }
 
 .word-ruler__num {
     position: absolute;
     right: 3px;
-    top: 2px;
+    top: 1px;
     font-size: 9px;
     font-family: var(--ms-font-ui);
     color: var(--ms-text-muted);
@@ -755,7 +738,7 @@ html, body {
     right: 0;
     bottom: 0;
     width: 1px;
-    height: 7px;
+    height: 6px;
     background: #b3b0ad;
 }
 
@@ -764,7 +747,7 @@ html, body {
     left: 50%;
     bottom: 0;
     width: 1px;
-    height: 5px;
+    height: 4px;
     background: #d2d0ce;
 }
 
@@ -786,7 +769,6 @@ html, body {
     background: #edebe9;
 }
 
-/* Indent Markers */
 .word-indent-marker-left {
     position: absolute;
     left: 48px;
@@ -796,8 +778,8 @@ html, body {
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    width: 10px;
-    margin-left: -5px;
+    width: 8px;
+    margin-left: -4px;
     z-index: 10;
     cursor: ew-resize;
 }
@@ -809,14 +791,14 @@ html, body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 10px;
-    margin-right: -5px;
+    width: 8px;
+    margin-right: -4px;
     z-index: 10;
     cursor: ew-resize;
 }
 
 /* =============================================================================
-   6. MAIN WORKSPACE (NAVIGATION PANE, CANVAS AREA, TASK PANES)
+   6. MAIN WORKSPACE
    ============================================================================= */
 .word-workspace {
     flex: 1;
@@ -828,12 +810,12 @@ html, body {
 }
 
 /* =============================================================================
-   7. NAVIGATION PANE (LEFT SIDEBAR - HEADINGS, PAGES, RESULTS)
+   7. NAVIGATION PANE
    ============================================================================= */
 .word-nav-pane {
     width: 260px;
     min-width: 260px;
-    max-width: 320px;
+    max-width: 280px;
     background: var(--ms-bg-surface);
     border-right: 1px solid var(--ms-border);
     display: flex;
@@ -849,21 +831,21 @@ html, body {
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px 6px 14px;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 600;
     color: var(--ms-text-primary);
 }
 
 .word-nav-search {
-    padding: 4px 12px 10px 12px;
+    padding: 4px 12px 8px 12px;
 }
 
 .word-nav-search-input {
     width: 100%;
-    padding: 5px 8px 5px 28px;
+    padding: 4px 8px 4px 26px;
     border: 1px solid var(--ms-border);
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 11.5px;
     outline: none;
     background: var(--ms-bg-subtle, #f9f9fb);
     color: var(--ms-text-primary);
@@ -885,11 +867,11 @@ html, body {
 }
 
 .word-nav-pill {
-    padding: 4px 10px;
+    padding: 3px 10px;
     border-radius: 9999px;
     border: none;
     background: transparent;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 500;
     color: var(--ms-text-secondary);
     cursor: pointer;
@@ -907,11 +889,6 @@ html, body {
     font-weight: 600;
 }
 
-.dark .word-nav-pill.active {
-    background: #1e3a5f;
-    color: #93c5fd;
-}
-
 .word-nav-tree {
     flex: 1;
     overflow-y: auto;
@@ -926,7 +903,7 @@ html, body {
     align-items: center;
     width: 100%;
     text-align: left;
-    padding: 6px 10px;
+    padding: 5px 8px;
     border-radius: 4px;
     border: none;
     background: transparent;
@@ -948,12 +925,12 @@ html, body {
 }
 
 /* =============================================================================
-   8. CANVAS AREA & REALISTIC WORD PAPER
+   8. CANVAS AREA & SEAMLESS REALISTIC WORD PAPER
    ============================================================================= */
 .word-canvas-area {
     flex: 1;
     overflow-y: auto;
-    padding: 24px 20px 60px 20px;
+    padding: 20px 20px 60px 20px;
     display: flex;
     justify-content: center;
     background-color: var(--ms-bg-canvas);
@@ -981,49 +958,36 @@ html, body {
     color: #f3f3f3;
 }
 
-/* Word Realistic Header Margin */
 .word-paper-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: 16px;
-    margin-bottom: 24px;
-    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    border-bottom: none;
     font-size: 11px;
-    color: #707070;
+    color: #797775;
     user-select: none;
 }
 
-.dark .word-paper-header {
-    border-bottom-color: #333333;
-    color: #999999;
-}
-
-/* Word Blocks inside Paper */
+/* Block Item (Seamless text, no ugly borders) */
 .word-block {
     position: relative;
-    padding: 3px 6px;
-    margin-bottom: 10px;
-    border-radius: 3px;
+    padding: 2px 0;
+    margin-bottom: 8px;
     border: 1px solid transparent;
-    transition: border-color 0.1s, background-color 0.1s;
-}
-
-.word-block:hover {
-    border-color: #e5e5e5;
 }
 
 .word-block.active {
-    border-color: #cfe4fa;
-    background-color: rgba(15, 108, 189, 0.02);
+    border-color: transparent;
 }
 
-/* Mini Word Floating Formatting Toolbar */
+/* Mini Floating Toolbar: ONLY on active block! */
 .word-mini-toolbar {
     position: absolute;
     top: -34px;
-    right: 8px;
-    display: none;
+    right: 0;
+    display: flex;
     align-items: center;
     gap: 3px;
     background: rgba(255, 255, 255, 0.96);
@@ -1040,9 +1004,8 @@ html, body {
     background: rgba(37, 37, 38, 0.96);
 }
 
-.word-block:hover .word-mini-toolbar,
-.word-block.active .word-mini-toolbar {
-    display: flex;
+.word-mini-toolbar[style*="display: none"] {
+    display: none !important;
 }
 
 .word-mini-toolbar button {
@@ -1060,17 +1023,32 @@ html, body {
     color: var(--ms-blue);
 }
 
-/* Typographic Elements inside Paper */
+/* SEAMLESS TEXT TYPOGRAPHY (NO TEXTAREA BOXES, NO DRAG HANDLES) */
+.word-title-text,
+.word-subtitle-text,
+.word-heading-1,
+.word-heading-2,
+.word-heading-3,
+.word-paragraph-text {
+    width: 100%;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    resize: none !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    display: block;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+}
+
 .word-title-text {
     font-size: 28pt;
     font-weight: 700;
     color: #111827;
     line-height: 1.2;
     margin-bottom: 6px;
-    outline: none;
-    border: none;
-    background: transparent;
-    width: 100%;
 }
 
 .dark .word-title-text {
@@ -1082,10 +1060,6 @@ html, body {
     color: #4b5563;
     line-height: 1.45;
     margin-bottom: 18px;
-    outline: none;
-    border: none;
-    background: transparent;
-    width: 100%;
 }
 
 .dark .word-subtitle-text {
@@ -1093,53 +1067,35 @@ html, body {
 }
 
 .word-heading-1 {
-    font-size: 20pt;
-    font-weight: 600;
-    color: var(--ms-blue-dark);
-    line-height: 1.3;
-    margin-top: 18px;
-    margin-bottom: 10px;
-    outline: none;
-    border: none;
-    background: transparent;
-    width: 100%;
-}
-
-.word-heading-2 {
-    font-size: 15.5pt;
+    font-size: 18pt;
     font-weight: 600;
     color: var(--ms-blue-heading);
     line-height: 1.35;
-    margin-top: 16px;
+    margin-top: 22px;
+    margin-bottom: 10px;
+}
+
+.word-heading-2 {
+    font-size: 15pt;
+    font-weight: 600;
+    color: var(--ms-blue-heading);
+    line-height: 1.35;
+    margin-top: 18px;
     margin-bottom: 8px;
-    outline: none;
-    border: none;
-    background: transparent;
-    width: 100%;
 }
 
 .word-heading-3 {
     font-size: 13pt;
     font-weight: 600;
     color: var(--ms-blue-dark);
-    margin-top: 12px;
+    margin-top: 14px;
     margin-bottom: 6px;
-    outline: none;
-    border: none;
-    background: transparent;
-    width: 100%;
 }
 
 .word-paragraph-text {
-    font-size: 11.5pt;
+    font-size: 11pt;
     line-height: 1.68;
     color: #242424;
-    outline: none;
-    border: none;
-    background: transparent;
-    width: 100%;
-    resize: vertical;
-    min-height: 4.5rem;
 }
 
 .dark .word-paragraph-text {
@@ -1150,42 +1106,52 @@ html, body {
 .word-spell-squiggle {
     text-decoration: underline wavy #e02424 1.5px;
     text-underline-offset: 3px;
-    cursor: pointer;
-}
-
-.word-grammar-squiggle {
-    text-decoration: underline wavy #2563eb 1.5px;
-    text-underline-offset: 3px;
-    cursor: pointer;
+    cursor: default;
 }
 
 /* Bullet list item */
 .word-bullet-item {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    font-size: 11.5pt;
+    gap: 10px;
+    font-size: 11pt;
     line-height: 1.68;
     margin-left: 18px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 .word-bullet-dot {
-    font-size: 16px;
-    line-height: 1;
-    margin-top: 4px;
+    font-size: 14px;
+    line-height: 1.68;
     color: #242424;
 }
 
 /* Callout & Quote */
 .word-quote-block {
-    border-left: 3px solid var(--ms-blue);
+    text-align: center;
     padding: 8px 16px;
-    margin: 14px 0;
+    margin: 16px 0;
     font-style: italic;
     color: #4b5563;
     font-size: 12pt;
     line-height: 1.6;
+}
+
+.word-quote-text {
+    width: 100%;
+    outline: none;
+    border: none;
+    background: transparent;
+    font-style: italic;
+    font-size: 12pt;
+    line-height: 1.6;
+    color: #4b5563;
+    text-align: center;
+    font-family: inherit;
+}
+
+.dark .word-quote-text {
+    color: #cbd5e1;
 }
 
 .dark .word-quote-block {
@@ -1193,7 +1159,7 @@ html, body {
 }
 
 /* =============================================================================
-   9. BOTTOM STATUS BAR (PAGE X OF Y, WORDS, PROOFING, FOCUS, ZOOM)
+   9. BOTTOM STATUS BAR
    ============================================================================= */
 .word-statusbar {
     height: 26px;
@@ -1279,7 +1245,7 @@ html, body {
 }
 
 /* =============================================================================
-   10. TASK PANE (RIGHT SIDEBAR - 18 UX KPIS, EDITOR, COMMENTS, ASSISTANT)
+   10. TASK PANE (RIGHT SIDEBAR)
    ============================================================================= */
 .word-taskpane {
     width: 360px;
@@ -1305,7 +1271,7 @@ html, body {
 }
 
 .word-taskpane-title {
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 600;
     color: var(--ms-text-primary);
 }
@@ -1319,7 +1285,6 @@ html, body {
     gap: 12px;
 }
 
-/* Metric Card in Task Pane */
 .word-metric-card {
     border: 1px solid var(--ms-border);
     border-radius: 6px;
