@@ -1001,6 +1001,7 @@
                         @endphp
                         @if ($matchesSearch)
                             <button type="button" wire:click="selectBlock({{ $item['index'] }})"
+                                @click="document.getElementById('word-block-{{ $item['index'] }}')?.scrollIntoView({ behavior: 'smooth', block: 'center' })"
                                 class="word-nav-item {{ $activeBlock === $item['index'] ? 'active' : '' }}"
                                 style="padding-left: {{ $item['level'] === 1 ? '12px' : '26px' }}; font-weight: {{ $item['level'] === 1 ? '600' : '400' }}; font-size: 12px;">
                                 {{ $item['text'] ?: '(Untitled Heading)' }}
@@ -1016,7 +1017,8 @@
             <!-- TAB 2: PAGES -->
             @elseif ($navigationTab === 'pages')
                 <div style="padding:12px; display:flex; flex-direction:column; gap:8px;">
-                    <div style="border:1px solid var(--ms-blue); border-radius:3px; padding:6px; background:#ffffff; box-shadow:var(--ms-shadow-card); cursor:pointer;">
+                    <div @click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+                        style="border:1px solid var(--ms-blue); border-radius:3px; padding:6px; background:#ffffff; box-shadow:var(--ms-shadow-card); cursor:pointer;">
                         <div style="font-size:10px; color:#8a8886; margin-bottom:2px;">Page 1</div>
                         <div style="font-size:9.5px; line-height:1.25; color:#616161; overflow:hidden; height:50px;">
                             <strong>{{ $docTitle }}</strong><br>
@@ -1027,9 +1029,34 @@
 
             <!-- TAB 3: RESULTS -->
             @else
-                <div style="padding:12px; font-size:12px; color:var(--ms-text-muted);">
-                    {{ $navigationSearch ? 'Results for "' . $navigationSearch . '"' : 'Type to search document...' }}
-                </div>
+                @if (!empty($navigationSearch))
+                    <div class="word-nav-tree">
+                        @php
+                            $matchCount = 0;
+                        @endphp
+                        @foreach ($blocks as $bIdx => $b)
+                            @php
+                                $bText = $b['text'] ?? '';
+                            @endphp
+                            @if ($bText && stripos($bText, $navigationSearch) !== false)
+                                @php $matchCount++; @endphp
+                                <button type="button" wire:click="selectBlock({{ $bIdx }})"
+                                    @click="document.getElementById('word-block-{{ $bIdx }}')?.scrollIntoView({ behavior: 'smooth', block: 'center' })"
+                                    class="word-nav-item" style="font-size:11px; padding:6px 12px; line-height:1.3; text-align:left;">
+                                    <div style="font-weight:600; color:var(--ms-blue); font-size:10px;">Block #{{ $bIdx + 1 }} ({{ ucfirst($b['type'] ?? 'paragraph') }})</div>
+                                    <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ Str::limit($bText, 60) }}</div>
+                                </button>
+                            @endif
+                        @endforeach
+                        @if ($matchCount === 0)
+                            <div style="padding:12px; font-size:12px; color:var(--ms-text-muted);">No matches found for "{{ $navigationSearch }}".</div>
+                        @endif
+                    </div>
+                @else
+                    <div style="padding:12px; font-size:12px; color:var(--ms-text-muted);">
+                        Type in the search box above to search document text.
+                    </div>
+                @endif
             @endif
 
             <!-- Navigation Footer Quick Stats -->
@@ -1054,7 +1081,7 @@
         <!-- ================================================================= -->
         <main class="word-canvas-area">
             <div class="word-paper"
-                style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ ($fontFamily === 'serif' ? 'var(--ms-font-serif)' : ($fontFamily === 'mono' ? 'var(--ms-font-mono)' : 'var(--ms-font-ui)')) }}; font-size: {{ $fontSize }}pt;">
+                style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ ($fontFamily === 'serif' ? 'var(--ms-font-serif)' : ($fontFamily === 'mono' ? 'var(--ms-font-mono)' : 'var(--ms-font-ui)')) }}; font-size: {{ $fontSize }}pt; zoom: {{ (int) $zoom / 100 }}; transform-origin: top center;">
 
                 <!-- Watermark if configured -->
                 @if (!empty($pageSetup['watermark']))

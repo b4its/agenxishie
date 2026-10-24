@@ -1660,6 +1660,11 @@ trait HandlesNaskahStudio
         $this->zoom = in_array($zoom, ['50', '75', '100', '125', '150', '200'], true) ? $zoom : '100';
     }
 
+    public function setZoomLevel(string $zoom): void
+    {
+        $this->setZoom($zoom);
+    }
+
     public function zoomIn(): void
     {
         $steps = ['50', '75', '100', '125', '150', '200'];

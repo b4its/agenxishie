@@ -275,3 +275,69 @@ it('supports microsoft word navigation tabs, editing modes and autosave toggling
     expect($page->get('docTitle'))->toBe('The Open Studio Handbook')
         ->and(count($page->get('blocks')))->toBeGreaterThanOrEqual(10);
 });
+
+it('supports all eleven ribbon tabs and their dedicated operations', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class);
+
+    $tabs = ['file', 'home', 'insert', 'draw', 'design', 'layout', 'references', 'mailings', 'review', 'view', 'help'];
+
+    foreach ($tabs as $tab) {
+        $page->set('activeTab', $tab)
+            ->assertSet('activeTab', $tab);
+    }
+
+    // Tab Design & Layout operations
+    $page->call('applyTheme', 'modern')
+        ->assertSet('styleMeta.theme', 'modern');
+
+    $page->call('updatePageSetup', 'orientation', 'landscape');
+    expect($page->get('pageSetup')['orientation'])->toBe('landscape');
+
+    // Tab View zoom operations
+    $page->call('setZoomLevel', '125');
+    expect($page->get('zoom'))->toBe('125');
+
+    $page->call('setZoom', '100');
+    expect($page->get('zoom'))->toBe('100');
+
+    $page->call('zoomIn');
+    expect($page->get('zoom'))->toBe('125');
+
+    $page->call('zoomOut');
+    expect($page->get('zoom'))->toBe('100');
+});
+
+it('handles live inline block updates and table cell editing', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Teks awal'],
+            [
+                'type' => 'table',
+                'table' => [
+                    'header' => true,
+                    'rows' => [
+                        [['text' => 'Header 1', 'runs' => []], ['text' => 'Header 2', 'runs' => []]],
+                        [['text' => 'Sel 1', 'runs' => []], ['text' => 'Sel 2', 'runs' => []]],
+                    ],
+                ],
+            ],
+        ]);
+
+    $page->call('updateBlockText', 0, 'Teks telah diedit secara langsung');
+    expect($page->get('blocks')[0]['text'])->toBe('Teks telah diedit secara langsung');
+
+    $page->call('updateTableCell', 1, 1, 1, 'Nilai Sel Baru');
+    expect($page->get('blocks')[1]['table']['rows'][1][1]['text'])->toBe('Nilai Sel Baru');
+});
+
+it('renders all six ux guide resource links in the telemetry drawer', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('toggleKpiDrawer', 'RESOURCES');
+
+    $page->assertSee('lnkd.in/dWGVK2Tp')
+        ->assertSee('lnkd.in/dfbfSg8T')
+        ->assertSee('lnkd.in/dAS5bdx5')
+        ->assertSee('lnkd.in/dvA_si5X')
+        ->assertSee('lnkd.in/dSNEHVRx')
+        ->assertSee('lnkd.in/dsMA7AFH');
+});

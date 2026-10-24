@@ -223,6 +223,11 @@ class NaskahStudioApp extends Component
         $this->zoom = $zoom;
     }
 
+    public function setZoom(string $zoom): void
+    {
+        $this->setZoomLevel($zoom);
+    }
+
     /**
      * Rating CSAT / Single Ease Question secara interaktif (HEART - Happiness).
      */
