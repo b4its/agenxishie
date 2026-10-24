@@ -259,6 +259,9 @@
                 <button type="button" @click="runAi('/perbaiki-ejaan')" class="word-mini-dropdown-item">
                     <span>🔤 Perbaiki Ejaan &amp; PUEBI</span>
                 </button>
+                <button type="button" @click="runAi('/terjemahkan')" class="word-mini-dropdown-item">
+                    <span>🌐 Terjemahkan Akademik</span>
+                </button>
                 <button type="button" @click="runAi('/sitasi')" class="word-mini-dropdown-item">
                     <span>📚 Rekomendasikan Sitasi</span>
                 </button>
@@ -299,6 +302,12 @@
                 </button>
                 <button type="button" @click="blockCopilotMenu = false; runBlockAi('/perbaiki-ejaan')" class="word-mini-dropdown-item">
                     <span>🔤 Koreksi Ejaan PUEBI</span>
+                </button>
+                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/terjemahkan')" class="word-mini-dropdown-item">
+                    <span>🌐 Terjemahan Akademik</span>
+                </button>
+                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/rumus')" class="word-mini-dropdown-item">
+                    <span>π Rekomendasi Rumus LaTeX</span>
                 </button>
                 <button type="button" @click="blockCopilotMenu = false; runBlockAi('/cek-pedoman')" class="word-mini-dropdown-item">
                     <span>🎯 Audit Kepatuhan Kaidah</span>
@@ -363,8 +372,12 @@
             <input type="text" wire:model.live.debounce.400ms="docTitle" wire:change="markDirty"
                 class="word-doc-title-input"
                 placeholder="The Open Studio Handbook">
-            <span class="word-doc-status">
-                — {{ $dirty ? 'Not saved' : 'Saved' }}
+            <span class="word-doc-status" style="display:inline-flex; align-items:center; gap:4px; font-size:11px;">
+                @if ($dirty)
+                    <span style="color:#d83b01; font-weight:600;">● Perubahan belum disimpan</span>
+                @else
+                    <span style="color:#107c41; font-weight:600;">✓ Tersimpan otomatis</span>
+                @endif
             </span>
         </div>
 
@@ -1643,10 +1656,13 @@
                                                 <p class="word-quote-text">{!! $text !!}</p>
                                             </blockquote>
                                         @elseif ($type === 'toc')
-                                            <div class="word-toc-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}" contenteditable="false" style="margin: 18px 0 26px 0; padding: 14px 18px; background: #faf9f8; border: 1px solid #edebe9; border-radius: 4px;">
+                                            <div class="word-toc-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}" contenteditable="false" style="margin: 18px 0 26px 0; padding: 14px 18px; background: #faf9f8; border: 1px solid #edebe9; border-radius: 4px; position:relative;">
                                                 <div style="font-weight: 700; font-size: 13pt; color: #0f6cbd; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
                                                     <span>📑 Daftar Isi Otomatis</span>
-                                                    <span style="font-size: 11px; font-weight: normal; color: #8a8886;">Diperbarui dari Heading dokumen</span>
+                                                    <div style="display:flex; align-items:center; gap:6px;">
+                                                        <button type="button" class="word-tool-btn" style="padding:1px 6px; font-size:10px; height:20px;" wire:click="insertTableOfContents" title="Perbarui Daftar Isi">🔄 Perbarui</button>
+                                                        <button type="button" class="word-tool-btn" style="padding:1px 6px; font-size:10px; height:20px; color:#d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Daftar Isi">🗑️</button>
+                                                    </div>
                                                 </div>
                                                 <div style="display: flex; flex-direction: column; gap: 6px;">
                                                     @php
@@ -1693,6 +1709,9 @@
                                                 data-block-index="{{ $index }}"
                                                 data-callout-type="{{ $cType }}"
                                                 style="border-left: 4px solid {{ $cBorder }}; background: {{ $cBg }}; padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 11pt; line-height: 1.5; position: relative;">
+                                                <div class="word-callout-actions" contenteditable="false" style="position: absolute; right: 6px; top: 6px; display: flex; gap: 4px; z-index: 10;">
+                                                    <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; height: 20px; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Catatan Sorotan">🗑️</button>
+                                                </div>
                                                 <div style="display:flex; align-items:flex-start; gap:8px;">
                                                     <span style="font-size: 14pt; line-height: 1; user-select: none;">{{ $cIcon }}</span>
                                                     <div style="flex:1;">{!! nl2br(e($text)) !!}</div>
