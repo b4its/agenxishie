@@ -1077,3 +1077,77 @@ it('cleans rendered KaTeX HTML spans back to clean math formulas during parseHtm
         ->and($blocks[0]['text'])->not->toContain('katex')
         ->and($blocks[0]['text'])->not->toContain('<math>');
 });
+
+it('supports Microsoft Word and LibreOffice fluid splitBlockAt, exitListToParagraph, and autoFormatBlock', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('blocks', [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+            ['type' => 'bullet', 'text' => ''],
+        ]);
+
+    // 1. Uji Enter di tengah/akhir Heading menghasilkan paragraf normal (Word/LibreOffice standard)
+    $page->call('splitBlockAt', 0, 'Bab I', ' Pendahuluan Lanjutan');
+    $blocks = $page->get('blocks');
+
+    expect($blocks)->toHaveCount(3)
+        ->and($blocks[0]['text'])->toBe('Bab I')
+        ->and($blocks[0]['type'])->toBe('heading')
+        ->and($blocks[1]['text'])->toBe(' Pendahuluan Lanjutan')
+        ->and($blocks[1]['type'])->toBe('paragraph')
+        ->and($page->get('activeBlock'))->toBe(1);
+
+    // 2. Uji Enter pada butir daftar kosong keluar kembali menjadi paragraf normal
+    $page->call('exitListToParagraph', 2);
+    $blocksAfterExit = $page->get('blocks');
+    expect($blocksAfterExit[2]['type'])->toBe('paragraph')
+        ->and($blocksAfterExit[2]['listType'])->toBe('none');
+
+    // 3. Uji AutoFormat pengetikan awalan (*, 1., #, ##, >)
+    $page->call('autoFormatBlock', 1, '*', 'Poin butir pertama');
+    $blocksAfterBullet = $page->get('blocks');
+    expect($blocksAfterBullet[1]['type'])->toBe('bullet')
+        ->and($blocksAfterBullet[1]['text'])->toBe('Poin butir pertama');
+
+    $page->call('autoFormatBlock', 1, '1.', 'Poin nomor pertama');
+    $blocksAfterNum = $page->get('blocks');
+    expect($blocksAfterNum[1]['type'])->toBe('numbered')
+        ->and($blocksAfterNum[1]['text'])->toBe('Poin nomor pertama');
+
+    $page->call('autoFormatBlock', 1, '##', 'Sub-bab Metodologi');
+    $blocksAfterH2 = $page->get('blocks');
+    expect($blocksAfterH2[1]['type'])->toBe('heading')
+        ->and($blocksAfterH2[1]['level'])->toBe(2)
+        ->and($blocksAfterH2[1]['text'])->toBe('Sub-bab Metodologi');
+
+    $page->call('autoFormatBlock', 1, '>', 'Kutipan inspiratif naskah ilmiah');
+    $blocksAfterQuote = $page->get('blocks');
+    expect($blocksAfterQuote[1]['type'])->toBe('quote')
+        ->and($blocksAfterQuote[1]['text'])->toBe('Kutipan inspiratif naskah ilmiah');
+});
+
+it('supports font size adjustments and line spacing shortcuts matching Word and LibreOffice', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('fontSize', '12');
+
+    $page->call('adjustFontSize', 2);
+    expect($page->get('fontSize'))->toBe('14')
+        ->and($page->get('styleMeta')['fontSize'])->toBe(14);
+
+    $page->call('adjustFontSize', -1);
+    expect($page->get('fontSize'))->toBe('13')
+        ->and($page->get('styleMeta')['fontSize'])->toBe(13);
+
+    // Uji batas minimal dan maksimal ukuran huruf
+    $page->call('adjustFontSize', 50);
+    expect((int) $page->get('fontSize'))->toBe(48);
+
+    $page->call('adjustFontSize', -60);
+    expect((int) $page->get('fontSize'))->toBe(8);
+
+    // Uji spasi 1.0, 1.5, dan 2.0 (Ctrl+1, Ctrl+5, Ctrl+2)
+    $page->call('setLineSpacing', 1.5);
+    expect((float) $page->get('pageSetup')['lineSpacing'])->toBe(1.5);
+
+    $page->call('setLineSpacing', 2.0);
+    expect((float) $page->get('pageSetup')['lineSpacing'])->toBe(2.0);
+});

@@ -848,6 +848,76 @@ trait HandlesNaskahStudio
         $this->markDirty();
     }
 
+    /**
+     * Membagi blok di posisi kursor seperti alur Enter Microsoft Word & LibreOffice Writer.
+     */
+    public function splitBlockAt(int $index, string $leftText, string $rightText, ?string $nextType = null): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $currentType = (string) ($this->blocks[$index]['type'] ?? 'paragraph');
+        $this->blocks[$index]['text'] = $leftText;
+        if (isset($this->blocks[$index]['runs'][0])) {
+            $this->blocks[$index]['runs'][0]['text'] = $leftText;
+        }
+
+        // Standar Word/LibreOffice: menekan Enter pada judul menghasilkan paragraf teks normal
+        if ($nextType === null) {
+            $nextType = match ($currentType) {
+                'heading', 'title', 'subtitle', 'quote' => 'paragraph',
+                'bullet' => 'bullet',
+                'numbered' => 'numbered',
+                default => 'paragraph',
+            };
+        }
+
+        $newBlock = $this->model->newBlock($nextType, $rightText);
+        array_splice($this->blocks, $index + 1, 0, [$newBlock]);
+        $this->activeBlock = $index + 1;
+        $this->editorRevision++;
+        $this->markDirty();
+    }
+
+    /**
+     * Mengeluarkan butir daftar kosong menjadi paragraf normal (Word/LibreOffice Enter pada bullet kosong).
+     */
+    public function exitListToParagraph(int $index): void
+    {
+        if (isset($this->blocks[$index])) {
+            $this->blocks[$index]['type'] = 'paragraph';
+            $this->blocks[$index]['listType'] = 'none';
+            $this->editorRevision++;
+            $this->markDirty();
+        }
+    }
+
+    /**
+     * Konversi pengetikan awalan secara langsung (*, -, 1., #, ##, ###, >) sesuai AutoFormat Word & LibreOffice.
+     */
+    public function autoFormatBlock(int $index, string $prefix, string $remainingText): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $style = match ($prefix) {
+            '*', '-' => 'bullet',
+            '1.' => 'numbered',
+            '#' => 'heading1',
+            '##' => 'heading2',
+            '###' => 'heading3',
+            '>' => 'quote',
+            default => null,
+        };
+
+        if ($style !== null) {
+            $this->applyStyle($index, $style);
+            $this->updateBlockText($index, $remainingText);
+        }
+    }
+
     public function removeBlockAndFocusPrev(int $index): void
     {
         if (count($this->blocks) > 1 && isset($this->blocks[$index])) {
@@ -952,7 +1022,11 @@ trait HandlesNaskahStudio
 
     public function adjustFontSize(int $delta): void
     {
-        $this->styleMeta['fontSize'] = max(8, min(48, (int) $this->styleMeta['fontSize'] + $delta));
+        $newSize = max(8, min(48, (int) $this->fontSize + $delta));
+        $this->fontSize = (string) $newSize;
+        $this->styleMeta['fontSize'] = $newSize;
+        $this->dirty = true;
+        $this->editorRevision++;
     }
 
     /**
