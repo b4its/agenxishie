@@ -387,3 +387,22 @@ it('supports enriched academic commands (/abstrak, /metodologi, /tabel-analisis,
     $log5 = $page->get('assistantLog');
     expect(count($log5))->toBeGreaterThan(count($log4));
 });
+
+it('supports /puebi and /kembangkan slash commands', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('blocks', [
+            ['type' => 'title', 'text' => 'Analisis Kebijakan'],
+            ['type' => 'paragraph', 'text' => 'studi ini membuktikan pengaruh variabel x thdp y.'],
+        ])
+        ->set('activeBlock', 1);
+
+    // 1. /puebi
+    $page->call('runTool', '/puebi');
+    $log = $page->get('assistantLog');
+    expect(end($log)['content'])->toContain('Hasil Audit Ejaan & PUEBI Baku');
+
+    // 2. /kembangkan
+    $page->call('runTool', '/kembangkan');
+    $log2 = $page->get('assistantLog');
+    expect(end($log2)['content'])->toContain('Elaborasi Pengembangan Teks Akademik');
+});

@@ -479,3 +479,24 @@ it('serves api endpoints for programmatic document inspection and export', funct
     $this->get(route('api.v1.naskah.export', ['id' => $document->id, 'format' => 'odt']))
         ->assertOk();
 });
+
+it('supports assistant response insertion and replacement in filament naskah studio page', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Pendahuluan Awal'],
+            ['type' => 'paragraph', 'text' => 'Teks lama yang akan diganti.'],
+        ])
+        ->set('activeBlock', 1)
+        ->set('assistantLog', [
+            [
+                'role' => 'assistant',
+                'content' => 'Teks baru hasil telaah asisten Xishie.',
+            ],
+        ]);
+
+    $page->call('replaceActiveBlockWithAssistant', 0);
+    expect($page->get('blocks')[1]['text'])->toBe('Teks baru hasil telaah asisten Xishie.');
+
+    $page->call('insertAssistantResponse', 0);
+    expect(count($page->get('blocks')))->toBe(3);
+});
