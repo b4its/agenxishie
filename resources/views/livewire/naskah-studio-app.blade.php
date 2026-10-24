@@ -355,22 +355,22 @@
 
                         <!-- Row 2: B, I, U, Strike, Sub, Super, Glow, Highlight, Color -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" style="font-weight:700;" @click="document.execCommand('bold')" wire:click="formatInline('bold')" title="Bold (Ctrl+B)">B</button>
-                            <button type="button" class="word-btn-square" style="font-style:italic;" @click="document.execCommand('italic')" wire:click="formatInline('italic')" title="Italic (Ctrl+I)">I</button>
-                            <button type="button" class="word-btn-square" style="text-decoration:underline;" @click="document.execCommand('underline')" wire:click="formatInline('underline')" title="Underline (Ctrl+U)">U ▾</button>
-                            <button type="button" class="word-btn-square" style="text-decoration:line-through;" @click="document.execCommand('strikeThrough')" wire:click="formatInline('strike')" title="Strikethrough (ab)">ab</button>
-                            <button type="button" class="word-btn-square" @click="document.execCommand('subscript')" wire:click="formatInline('code')" title="Subscript (x₂)">x₂</button>
-                            <button type="button" class="word-btn-square" @click="document.execCommand('superscript')" wire:click="formatInline('code')" title="Superscript (x²)">x²</button>
+                            <button type="button" class="word-btn-square" style="font-weight:700;" @mousedown.prevent @click="document.execCommand('bold'); syncAllPages();" title="Bold (Ctrl+B)">B</button>
+                            <button type="button" class="word-btn-square" style="font-style:italic;" @mousedown.prevent @click="document.execCommand('italic'); syncAllPages();" title="Italic (Ctrl+I)">I</button>
+                            <button type="button" class="word-btn-square" style="text-decoration:underline;" @mousedown.prevent @click="document.execCommand('underline'); syncAllPages();" title="Underline (Ctrl+U)">U ▾</button>
+                            <button type="button" class="word-btn-square" style="text-decoration:line-through;" @mousedown.prevent @click="document.execCommand('strikeThrough'); syncAllPages();" title="Strikethrough (ab)">ab</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('subscript'); syncAllPages();" title="Subscript (x₂)">x₂</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('superscript'); syncAllPages();" title="Superscript (x²)">x²</button>
                             <button type="button" class="word-btn-square" style="color:#0f6cbd;" wire:click="applyTheme('modern')" title="Text Effects">A</button>
 
                             <!-- Highlight Pen -->
-                            <div class="word-color-picker-btn" wire:click="formatInline('highlight', '#fde68a')" title="Highlight Color">
+                            <div class="word-color-picker-btn" @mousedown.prevent @click="document.execCommand('hiliteColor', false, '#fef08a'); syncAllPages();" title="Highlight Color">
                                 <span>🖊️</span>
                                 <div class="word-color-bar" style="background:#fde68a;"></div>
                             </div>
 
                             <!-- Font Color -->
-                            <div class="word-color-picker-btn" wire:click="formatInline('color', '#b91c1c')" title="Font Color">
+                            <div class="word-color-picker-btn" @mousedown.prevent @click="document.execCommand('foreColor', false, '#b91c1c'); syncAllPages();" title="Font Color">
                                 <span style="font-weight:700; line-height:1;">A</span>
                                 <div class="word-color-bar" style="background:#b91c1c;"></div>
                             </div>
@@ -388,8 +388,8 @@
                     <div class="word-group__col">
                         <!-- Row 1: Bullets, Numbering, Multilevel, Indent-, Indent+, Marks -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" @click="document.execCommand('insertUnorderedList')" wire:click="applyStyle({{ $activeBlock }}, 'bullet')" title="Bullets">• ▾</button>
-                            <button type="button" class="word-btn-square" @click="document.execCommand('insertOrderedList')" wire:click="applyStyle({{ $activeBlock }}, 'numbered')" title="Numbering">1. ▾</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('insertUnorderedList'); syncAllPages();" title="Bullets">• ▾</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('insertOrderedList'); syncAllPages();" title="Numbering">1. ▾</button>
                             <button type="button" class="word-btn-square" wire:click="addBlock('bullet')" title="Multilevel List">▾</button>
                             <button type="button" class="word-btn-square" wire:click="formatParagraph('indent-')" title="Decrease Indent">⇤</button>
                             <button type="button" class="word-btn-square" wire:click="formatParagraph('indent+')" title="Increase Indent">⇥</button>
@@ -398,10 +398,10 @@
 
                         <!-- Row 2: Align Left, Center, Right, Justify, Spacing, Shading, Borders -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" @click="document.execCommand('justifyLeft')" wire:click="formatParagraph('align', 'left')" title="Align Left">⫷</button>
-                            <button type="button" class="word-btn-square" @click="document.execCommand('justifyCenter')" wire:click="formatParagraph('align', 'center')" title="Center">≡</button>
-                            <button type="button" class="word-btn-square" @click="document.execCommand('justifyRight')" wire:click="formatParagraph('align', 'right')" title="Align Right">⫸</button>
-                            <button type="button" class="word-btn-square" @click="document.execCommand('justifyFull')" wire:click="formatParagraph('align', 'justify')" title="Justify">☷</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyLeft'); syncAllPages();" title="Align Left">⫷</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyCenter'); syncAllPages();" title="Center">≡</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyRight'); syncAllPages();" title="Align Right">⫸</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyFull'); syncAllPages();" title="Justify">☷</button>
                             <button type="button" class="word-btn-square" wire:click="openDialog('pagesetup')" title="Line Spacing">↕ ▾</button>
                             <button type="button" class="word-btn-square" wire:click="updatePageSetup('pageColor', '#fdfbf7')" title="Shading">🪣</button>
                             <button type="button" class="word-btn-square" wire:click="openDialog('table')" title="Borders">⊞ ▾</button>
@@ -1843,6 +1843,46 @@
                     <div class="word-dialog__footer">
                         <button type="button" class="word-btn-pill" wire:click="closeDialog">Cancel</button>
                         <button type="button" class="word-btn-pill word-btn-share" wire:click="insertFootnote">Insert</button>
+                    </div>
+
+                {{-- SOURCES MANAGER (CITATION MANAGER) --}}
+                @elseif ($dialog === 'sources')
+                    <div class="word-dialog__header">
+                        <span>Source Manager &amp; Citations</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
+                    </div>
+                    <div class="word-dialog__body">
+                        <div style="font-size:12px; color:var(--ms-text-secondary); margin-bottom:10px;">
+                            Pilih sumber pustaka untuk disisipkan sebagai acuan sitasi naskah (Gaya: <strong>{{ $citationStyle ?? 'APA' }}</strong>):
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            @php
+                                $sampleSources = [
+                                    ['author' => 'Anderson, C.', 'year' => '2020', 'title' => 'Makers: The New Industrial Revolution and Shared Tool Collectives', 'publisher' => 'Crown Business Publishing', 'key' => '(Anderson, 2020)'],
+                                    ['author' => 'Gauntlett, D.', 'year' => '2018', 'title' => 'Making is Connecting: The Social Power of Shared Craft Studios', 'publisher' => 'Polity Press', 'key' => '(Gauntlett, 2018)'],
+                                    ['author' => 'Kafai, Y. B., & Peppler, K. A.', 'year' => '2021', 'title' => 'Youth, Technology, and DIY Authoring in Collaborative Workshops', 'publisher' => 'MIT Press', 'key' => '(Kafai & Peppler, 2021)'],
+                                    ['author' => 'Sennett, R.', 'year' => '2019', 'title' => 'The Craftsman: Material Culture, Guild Cooperation, and Studio Ethics', 'publisher' => 'Yale University Press', 'key' => '(Sennett, 2019)'],
+                                ];
+                            @endphp
+                            @foreach ($sampleSources as $src)
+                                <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:4px; display:flex; justify-content:space-between; align-items:center; background:#faf9f8;">
+                                    <div>
+                                        <div style="font-weight:600; font-size:12px; color:#0f6cbd;">{{ $src['author'] }} ({{ $src['year'] }})</div>
+                                        <div style="font-size:11px; color:#424242;">{{ $src['title'] }}</div>
+                                        <div style="font-size:10px; color:#8a8886;">{{ $src['publisher'] }}</div>
+                                    </div>
+                                    <button type="button" class="word-tool-btn" style="color:#0f6cbd; border-color:#0f6cbd; font-weight:600; font-size:11px;" wire:click="insertCitation('{{ $src['key'] }}'); closeDialog();">
+                                        + Sisipkan Sitasi
+                                    </button>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="word-dialog__footer" style="display:flex; justify-content:space-between;">
+                        <button type="button" class="word-tool-btn" wire:click="insertBibliography; closeDialog();">
+                            📜 Buat Daftar Pustaka Lengkap
+                        </button>
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Tutup</button>
                     </div>
 
                 {{-- SYMBOLS --}}

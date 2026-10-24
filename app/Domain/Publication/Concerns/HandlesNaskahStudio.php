@@ -1174,6 +1174,7 @@ trait HandlesNaskahStudio
 
         $this->buildTocBlock();
         $this->dirty = true;
+        $this->editorRevision++;
         $this->notify('Daftar isi dibuat', count($outline).' judul.', 'success');
     }
 
@@ -1235,6 +1236,7 @@ trait HandlesNaskahStudio
         }
 
         $this->dirty = true;
+        $this->editorRevision++;
         $this->notify('Daftar Pustaka Disisipkan', '4 referensi akademik format APA telah ditambahkan sebagai acuan naskah.', 'success');
     }
 
@@ -1261,6 +1263,7 @@ trait HandlesNaskahStudio
         }
 
         $this->dirty = true;
+        $this->editorRevision++;
         $this->notify('Sitasi Disisipkan', "Acuan sitasi {$citation} disisipkan ke naskah.", 'success');
     }
 

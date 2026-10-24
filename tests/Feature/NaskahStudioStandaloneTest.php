@@ -495,3 +495,35 @@ it('persists typed and edited text seamlessly without text loss or hardcoded str
     $page->call('newDocument');
     expect($page->get('editorRevision'))->toBeGreaterThan($initialRev);
 });
+
+it('manages citation sources and generates dynamic academic bibliography and toc', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    // Buka dialog Source Manager
+    $page->call('openDialog', 'sources')
+        ->assertSee('Source Manager &amp; Citations', false)
+        ->assertSee('Anderson, C.', false);
+
+    // Sisipkan sitasi spesifik
+    $page->call('insertCitation', '(Anderson, 2020)');
+    $blocks = $page->get('blocks');
+    expect(json_encode($blocks))->toContain('(Anderson, 2020)');
+
+    // Sisipkan daftar isi otomatis
+    $page->call('insertTableOfContents');
+    $blocksWithToc = $page->get('blocks');
+    expect(array_column($blocksWithToc, 'type'))->toContain('toc');
+
+    // Sisipkan daftar pustaka akademik
+    $page->call('insertBibliography');
+    $blocksWithBib = $page->get('blocks');
+    $hasBibHeading = false;
+    foreach ($blocksWithBib as $b) {
+        if (($b['type'] ?? '') === 'heading' && str_contains($b['text'] ?? '', 'Daftar Pustaka')) {
+            $hasBibHeading = true;
+            break;
+        }
+    }
+    expect($hasBibHeading)->toBeTrue();
+});
