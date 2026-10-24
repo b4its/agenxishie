@@ -276,11 +276,38 @@
         @click.outside="showBlockCopilot = false"
         class="word-in-canvas-copilot"
         :style="`top: ${blockCopilotTop}px; left: ${blockCopilotLeft}px;`"
-        title="Poles kalimat blok aktif ini dengan Xishie Assistant">
-        <button type="button" class="word-block-copilot-btn" @click="runBlockAi('/poles')">
-            <span style="font-size:11px;">✨</span>
-            <span>Poles Blok</span>
-        </button>
+        x-data="{ blockCopilotMenu: false }"
+        title="Xishie Assistant AI Copilot">
+        <div style="position:relative; display:inline-flex; align-items:center;">
+            <button type="button" class="word-block-copilot-btn" @click="blockCopilotMenu = !blockCopilotMenu">
+                <span style="font-size:11px;">✨</span>
+                <span>Copilot ▾</span>
+            </button>
+            <div x-show="blockCopilotMenu" @click.outside="blockCopilotMenu = false" class="word-mini-dropdown" style="width: 220px; top: 28px; right: 0;">
+                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/poles')" class="word-mini-dropdown-item">
+                    <span>🪄 Poles Gaya Bahasa</span>
+                </button>
+                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/parafrase')" class="word-mini-dropdown-item">
+                    <span>🔄 Parafrase Anti-Plagiasi</span>
+                </button>
+                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/kembangkan')" class="word-mini-dropdown-item">
+                    <span>✍️ Kembangkan Paragraf</span>
+                </button>
+                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/ringkaskan')" class="word-mini-dropdown-item">
+                    <span>✂️ Padatkan / Ringkas</span>
+                </button>
+                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/perbaiki-ejaan')" class="word-mini-dropdown-item">
+                    <span>🔤 Koreksi Ejaan PUEBI</span>
+                </button>
+                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/cek-pedoman')" class="word-mini-dropdown-item">
+                    <span>🎯 Audit Kepatuhan Kaidah</span>
+                </button>
+                <div style="height:1px; background:#e1dfdd; margin:2px 0;"></div>
+                <button type="button" @click="blockCopilotMenu = false; showBlockCopilot = false; $wire.openAssistant()" class="word-mini-dropdown-item" style="color:#0f6cbd; font-weight:600;">
+                    <span>💬 Buka di Xishie Assistant...</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- ===================================================================== -->
@@ -1892,6 +1919,18 @@
                         <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/gambar')" title="Panduan diagram alur &amp; penyisipan gambar">
                             🖼️ /gambar
                         </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/abstrak')" title="Susun draf abstrak akademik terstruktur IMRAD">
+                            📄 /abstrak
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/metodologi')" title="Rancang struktur bab metodologi riset">
+                            📐 /metode
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/tabel-analisis')" title="Buat tabel evaluasi komparasi kinerja">
+                            📊 /tabel-analisis
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/terjemahkan')" title="Konversi terjemahan bahasa akademik formal">
+                            🌐 /terjemahkan
+                        </button>
                     </div>
 
                     <!-- Conversation Stream -->
@@ -1966,6 +2005,20 @@
                                         </div>
                                         <span style="font-size:10px; color:var(--ms-text-muted);">Elaborasi poin jadi paragraf utuh</span>
                                     </div>
+                                    <div class="word-assistant-card" wire:click="runTool('/abstrak')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">📄</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Rancang Abstrak</strong>
+                                        </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Draf abstrak terstruktur IMRAD</span>
+                                    </div>
+                                    <div class="word-assistant-card" wire:click="runTool('/tabel-analisis')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">📊</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Tabel Analisis</strong>
+                                        </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Tabel evaluasi komparasi kinerja</span>
+                                    </div>
                                 </div>
                             </div>
                         @else
@@ -2006,6 +2059,19 @@
                                             <button type="button" x-data="{ copied: false }" @click="navigator.clipboard.writeText(@js($log['content'])); copied = true; setTimeout(() => copied = false, 2000);" class="word-assistant-act-btn" title="Salin teks ke clipboard">
                                                 <span x-show="!copied">📋 Salin</span>
                                                 <span x-show="copied" style="color:#107c41;">✓ Tersalin!</span>
+                                            </button>
+                                        </div>
+
+                                        <!-- Quick Follow-up Chips -->
+                                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; border-top:1px dashed #f1f5f9; padding-top:6px;">
+                                            <button type="button" wire:click="sendAssistantWithText('Jelaskan rekomendasi ini secara lebih mendalam dengan rincian operasional.')" class="word-assistant-chip-tiny" title="Minta penjelasan lebih mendalam">
+                                                💬 Jelaskan Detail
+                                            </button>
+                                            <button type="button" wire:click="sendAssistantWithText('Buatkan alternatif formulasi lain untuk kalimat/bagian ini.')" class="word-assistant-chip-tiny" title="Minta alternatif lain">
+                                                🔄 Alternatif Lain
+                                            </button>
+                                            <button type="button" wire:click="sendAssistantWithText('Buat formulasi kalimat yang lebih padat dan ringkas.')" class="word-assistant-chip-tiny" title="Minta versi lebih padat">
+                                                ✂️ Lebih Ringkas
                                             </button>
                                         </div>
                                     </div>
