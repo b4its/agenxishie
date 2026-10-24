@@ -277,7 +277,7 @@ dialog#livewire-error {
     border: 1px solid transparent;
     border-radius: 9999px;
     padding: 3px 12px;
-    width: 200px;
+    width: 240px;
     height: 28px;
     font-size: 12px;
     color: var(--ms-text-secondary);
@@ -288,7 +288,7 @@ dialog#livewire-error {
     border-color: var(--ms-blue);
     background: #ffffff;
     box-shadow: 0 0 0 1px var(--ms-blue);
-    width: 240px;
+    width: 280px;
 }
 
 .word-search-input {
@@ -1688,23 +1688,29 @@ dialog#livewire-error {
 
 .word-assistant-tools-bar {
     display: flex;
+    flex-wrap: nowrap;
     gap: 6px;
     overflow-x: auto;
-    padding: 8px 14px;
+    padding: 8px 12px;
     background: var(--ms-bg-surface);
     border-bottom: 1px solid var(--ms-border-subtle);
-    scrollbar-width: thin;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.word-assistant-tools-bar::-webkit-scrollbar {
+    display: none;
 }
 
 .word-assistant-tool-chip {
     flex-shrink: 0;
-    padding: 4px 9px;
+    padding: 4px 10px;
     border-radius: 9999px;
-    border: 1px solid var(--ms-border);
-    background: var(--ms-bg-surface);
-    color: var(--ms-text-primary);
+    border: 1px solid #c7d2fe;
+    background: #f8fafc;
+    color: #4338ca;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.12s ease;
     white-space: nowrap;
@@ -1713,7 +1719,7 @@ dialog#livewire-error {
 .word-assistant-tool-chip:hover {
     border-color: #6366f1;
     background: #eef2ff;
-    color: #4338ca;
+    transform: translateY(-0.5px);
 }
 
 .word-assistant-chat {
@@ -1810,4 +1816,200 @@ dialog#livewire-error {
     display: flex;
     flex-direction: column;
     gap: 6px;
+}
+
+/* Floating Selection Mini-Toolbar (Word 365 Bubble Menu) */
+.word-mini-toolbar {
+    position: absolute;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 7px;
+    background: #ffffff;
+    border: 1px solid #d1d1d1;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
+    user-select: none;
+    animation: fadeInSlideUp 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .word-mini-toolbar {
+    background: #252526;
+    border-color: #3f3f46;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes fadeInSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.word-mini-btn {
+    width: 25px;
+    height: 25px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ms-text-primary);
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+}
+
+.word-mini-btn:hover {
+    background: var(--ms-bg-hover);
+    border-color: var(--ms-border);
+}
+
+.word-mini-btn.active {
+    background: #ebf3fc;
+    color: #0f6cbd;
+    border-color: #cfe4fa;
+}
+
+.word-mini-copilot-btn {
+    width: auto;
+    padding: 0 7px;
+    background: linear-gradient(135deg, #eef2ff 0%, #ede9fe 100%);
+    border: 1px solid #c7d2fe;
+    color: #4338ca;
+    font-weight: 700;
+    font-size: 11px;
+    border-radius: 4px;
+}
+
+.word-mini-copilot-btn:hover {
+    background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%);
+    border-color: #818cf8;
+}
+
+.word-mini-divider {
+    width: 1px;
+    height: 16px;
+    background: var(--ms-border);
+    margin: 0 3px;
+}
+
+.word-mini-dropdown {
+    position: absolute;
+    left: 0;
+    top: 28px;
+    background: #ffffff;
+    border: 1px solid #e1dfdd;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    width: 190px;
+    z-index: 1001;
+    padding: 4px 0;
+    font-size: 11.5px;
+}
+
+.dark .word-mini-dropdown {
+    background: #252526;
+    border-color: #3f3f46;
+}
+
+.word-mini-dropdown-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: none;
+    background: transparent;
+    color: var(--ms-text-primary);
+    text-align: left;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+
+.word-mini-dropdown-item:hover {
+    background: var(--ms-bg-hover);
+    color: #4338ca;
+}
+
+/* Canvas Horizontal Ruler Wrapper (Centered with Paper Sheet) */
+.word-canvas-ruler-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    background: var(--ms-bg-app);
+    padding: 4px 0;
+    user-select: none;
+}
+
+.word-ruler {
+    width: 816px;
+    max-width: 816px;
+    height: 18px;
+    background: #ffffff;
+    border: 1px solid #d1d1d1;
+    border-radius: 2px 2px 0 0;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.dark .word-ruler {
+    background: #252526;
+    border-color: #3f3f46;
+}
+
+/* Assistant Loading State */
+.word-assistant-loading {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 11.5px;
+    color: #4338ca;
+    margin-top: 6px;
+}
+
+[wire\:loading].word-assistant-loading {
+    display: flex !important;
+}
+
+.word-assistant-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #c7d2fe;
+    border-top-color: #4f46e5;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+
+/* Interactive Block Hover & Active Styling */
+.word-sheet-content [data-block-index] {
+    position: relative;
+    transition: outline 0.12s ease;
+}
+
+.word-sheet-content [data-block-index]:hover {
+    outline: 1px dashed rgba(15, 108, 189, 0.35);
+    outline-offset: 3px;
+}
+
+.word-sheet-content [data-block-index]:focus {
+    outline: 1px solid rgba(15, 108, 189, 0.6);
+    outline-offset: 3px;
 }

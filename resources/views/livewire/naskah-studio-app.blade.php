@@ -1,4 +1,5 @@
 <div class="word-root {{ $darkMode ? 'dark' : '' }}"
+    style="position: relative;"
     x-data="{
         kpiPane: @entangle('kpiDrawerOpen'),
         zenMode: @entangle('zenMode'),
@@ -8,6 +9,58 @@
         assistantPane: @entangle('assistantOpen'),
         navTab: @entangle('navigationTab'),
         activePage: 1,
+        showMiniToolbar: false,
+        toolbarTop: 0,
+        toolbarLeft: 0,
+        selectedText: '',
+        copilotMenuOpen: false,
+        checkSelection() {
+            const sel = window.getSelection();
+            if (!sel || sel.isCollapsed) {
+                this.showMiniToolbar = false;
+                this.copilotMenuOpen = false;
+                return;
+            }
+            const text = sel.toString().trim();
+            if (!text) {
+                this.showMiniToolbar = false;
+                this.copilotMenuOpen = false;
+                return;
+            }
+            const anchor = sel.anchorNode;
+            if (!anchor || !anchor.parentElement || !anchor.parentElement.closest('.word-sheet-content')) {
+                this.showMiniToolbar = false;
+                this.copilotMenuOpen = false;
+                return;
+            }
+            try {
+                const range = sel.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                const rootRect = $el.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    this.selectedText = text;
+                    this.toolbarTop = Math.max(10, (rect.top - rootRect.top) - 44);
+                    this.toolbarLeft = Math.max(10, (rect.left - rootRect.left) + (rect.width / 2) - 150);
+                    this.showMiniToolbar = true;
+                }
+            } catch (err) {
+                this.showMiniToolbar = false;
+            }
+        },
+        format(cmd, val = null) {
+            document.execCommand(cmd, false, val);
+            const pageEls = document.querySelectorAll('.word-sheet-content');
+            const pageHtmls = [];
+            pageEls.forEach(el => pageHtmls.push(el.innerHTML));
+            if (pageHtmls.length > 0) {
+                $wire.syncManuscriptPages(pageHtmls);
+            }
+        },
+        runAi(tool) {
+            this.showMiniToolbar = false;
+            this.copilotMenuOpen = false;
+            $wire.runTool(tool);
+        },
         init() {
             window.addEventListener('keydown', (e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -34,11 +87,94 @@
                     $wire.openDialog('find');
                 }
             });
+
+            document.addEventListener('selectionchange', () => {
+                clearTimeout(this._selTimer);
+                this._selTimer = setTimeout(() => this.checkSelection(), 120);
+            });
+
             setInterval(() => {
                 $wire.tickSession();
             }, 5000);
         }
     }">
+
+    <!-- ===================================================================== -->
+    <!-- FLOATING SELECTION MINI-TOOLBAR (MICROSOFT WORD 365 BUBBLE MENU)      -->
+    <!-- ===================================================================== -->
+    <div x-cloak
+        x-show="showMiniToolbar"
+        @click.outside="showMiniToolbar = false"
+        class="word-mini-toolbar"
+        :style="`top: ${toolbarTop}px; left: ${toolbarLeft}px;`"
+        x-transition:enter="transition ease-out duration-150"
+        x-transition:enter-start="opacity-0 transform translate-y-2 scale-95"
+        x-transition:enter-end="opacity-100 transform translate-y-0 scale-100"
+        x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="opacity-100 transform translate-y-0 scale-100"
+        x-transition:leave-end="opacity-0 transform translate-y-2 scale-95">
+
+        <!-- Bold, Italic, Underline, Strike -->
+        <button type="button" class="word-mini-btn" @mousedown.prevent="format('bold')" title="Huruf Tebal (Ctrl+B)">
+            <strong>B</strong>
+        </button>
+        <button type="button" class="word-mini-btn" @mousedown.prevent="format('italic')" title="Huruf Miring (Ctrl+I)">
+            <em>I</em>
+        </button>
+        <button type="button" class="word-mini-btn" @mousedown.prevent="format('underline')" title="Garis Bawah (Ctrl+U)">
+            <u>U</u>
+        </button>
+        <button type="button" class="word-mini-btn" @mousedown.prevent="format('strikeThrough')" title="Coret (Strikethrough)">
+            <s>S</s>
+        </button>
+
+        <div class="word-mini-divider"></div>
+
+        <!-- Highlight & Color -->
+        <button type="button" class="word-mini-btn" @mousedown.prevent="format('hiliteColor', '#fde68a')" title="Stabilo Kuning">
+            <span style="background:#fde68a; padding:1px 3px; border-radius:2px; font-weight:700; font-size:10px;">ab</span>
+        </button>
+        <button type="button" class="word-mini-btn" @mousedown.prevent="format('foreColor', '#0f6cbd')" title="Warna Biru Word">
+            <span style="color:#0f6cbd; font-weight:700; font-size:11px;">A</span>
+        </button>
+
+        <div class="word-mini-divider"></div>
+
+        <!-- Alignment -->
+        <button type="button" class="word-mini-btn" @mousedown.prevent="format('justifyLeft')" title="Rata Kiri">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+                <path d="M2 3h12v1.5H2zm0 3.5h8v1.5H2zm0 3.5h12v1.5H2zm0 3.5h8V15H2z"/>
+            </svg>
+        </button>
+        <button type="button" class="word-mini-btn" @mousedown.prevent="format('justifyCenter')" title="Rata Tengah">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+                <path d="M2 3h12v1.5H2zm2 3.5h8v1.5H4zm-2 3.5h12v1.5H2zm2 3.5h8V15H4z"/>
+            </svg>
+        </button>
+
+        <div class="word-mini-divider"></div>
+
+        <!-- Xishie Copilot Quick Action Dropdown -->
+        <div style="position:relative;">
+            <button type="button" @click="copilotMenuOpen = !copilotMenuOpen" class="word-mini-btn word-mini-copilot-btn" title="Xishie Assistant AI Actions">
+                <span>✨ AI</span>
+            </button>
+            <div x-show="copilotMenuOpen" @click.outside="copilotMenuOpen = false" class="word-mini-dropdown">
+                <button type="button" @click="runAi('/poles')" class="word-mini-dropdown-item">
+                    <span>🪄 Poles Kalimat Terpilih</span>
+                </button>
+                <button type="button" @click="runAi('/parafrase')" class="word-mini-dropdown-item">
+                    <span>🔄 Parafrase Anti-Plagiasi</span>
+                </button>
+                <button type="button" @click="runAi('/sitasi')" class="word-mini-dropdown-item">
+                    <span>📚 Rekomendasikan Sitasi</span>
+                </button>
+                <button type="button" @click="runAi('/cek-pedoman')" class="word-mini-dropdown-item">
+                    <span>🎯 Cek Kepatuhan Pedoman</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- ===================================================================== -->
     <!-- 1. TOP TITLEBAR (MICROSOFT WORD 365 TOP BAR)                          -->
@@ -105,7 +241,7 @@
                     <circle cx="8.5" cy="8.5" r="5.5"/>
                     <path d="M13 13l4 4"/>
                 </svg>
-                <input type="text" class="word-search-input" placeholder="Search commands and help" readonly style="cursor:pointer;">
+                <input type="text" class="word-search-input" placeholder="Search (Ctrl+K)" readonly style="cursor:pointer;">
                 <kbd style="font-size:9px; background:#ffffff; border:1px solid #d1d1d1; padding:1px 3px; border-radius:2px; color:#616161;">Ctrl+K</kbd>
             </div>
 
@@ -442,7 +578,7 @@
                             <div class="word-style-tile__name">Heading 1</div>
                         </div>
 
-                        <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'heading' ? 'active' : '' }}"
+                        <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'title' ? 'active' : '' }}"
                             wire:click="applyStyle({{ $activeBlock }}, 'title')" title="Title">
                             <div class="word-style-tile__preview" style="font-weight:800; font-size:14px; color:#111827;">AaBb</div>
                             <div class="word-style-tile__name">Title</div>
@@ -454,9 +590,16 @@
                             <div class="word-style-tile__name">Heading 2</div>
                         </div>
 
-                        <div class="word-style-tile" wire:click="applyStyle({{ $activeBlock }}, 'quote')" title="Subtitle">
-                            <div class="word-style-tile__preview" style="color:#6b7280; font-style:italic; font-size:11.5px;">AaBbCcD</div>
+                        <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'subtitle' ? 'active' : '' }}"
+                            wire:click="applyStyle({{ $activeBlock }}, 'subtitle')" title="Subtitle">
+                            <div class="word-style-tile__preview" style="color:#6b7280; font-size:11.5px;">AaBbCcD</div>
                             <div class="word-style-tile__name">Subtitle</div>
+                        </div>
+
+                        <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'quote' ? 'active' : '' }}"
+                            wire:click="applyStyle({{ $activeBlock }}, 'quote')" title="Quote">
+                            <div class="word-style-tile__preview" style="color:#6b7280; font-style:italic; font-size:11.5px;">AaBbCcD</div>
+                            <div class="word-style-tile__name">Quote</div>
                         </div>
                     </div>
                 </div>
@@ -591,7 +734,7 @@
                     </div>
                 </div>
                 <div class="word-group__footer">
-                    <span class="word-group__label">Xishie Assistant</span>
+                    <span class="word-group__label">Copilot</span>
                 </div>
             </div>
 
@@ -1019,41 +1162,7 @@
     </div>
 
     <!-- ===================================================================== -->
-    <!-- 4. HORIZONTAL RULER (MICROSOFT WORD INCH RULER)                       -->
-    <!-- ===================================================================== -->
-    @if ($showRuler && ! $zenMode)
-        <div class="word-ruler-container">
-            <div class="word-ruler">
-                <!-- Left Indent Marker (First Line + Hanging + Left Box) -->
-                <div class="word-indent-marker-left" title="First Line &amp; Left Indent">
-                    <svg viewBox="0 0 10 10" width="7" height="7" fill="#616161"><polygon points="0,0 10,0 5,8"/></svg>
-                    <svg viewBox="0 0 10 10" width="7" height="7" fill="#616161"><polygon points="5,0 10,8 0,8"/></svg>
-                    <div style="width:7px; height:3px; background:#616161;"></div>
-                </div>
-
-                <!-- Ruler Inches Markings (1 to 7 inches) -->
-                <div class="word-ruler__numbers">
-                    @for ($inch = 1; $inch <= 7; $inch++)
-                        <div class="word-ruler__inch">
-                            <span class="word-ruler__num">{{ $inch }}</span>
-                            <div class="word-ruler__tick-quarter"></div>
-                            <div class="word-ruler__tick-half"></div>
-                            <div class="word-ruler__tick-three-quarter"></div>
-                            <div class="word-ruler__tick-major"></div>
-                        </div>
-                    @endfor
-                </div>
-
-                <!-- Right Margin Indent Marker -->
-                <div class="word-indent-marker-right" title="Right Margin Indent">
-                    <svg viewBox="0 0 10 10" width="7" height="7" fill="#616161"><polygon points="5,0 10,8 0,8"/></svg>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    <!-- ===================================================================== -->
-    <!-- 5. MAIN WORKSPACE: NAVIGATION PANE, CANVAS AREA & RIGHT TASK PANE     -->
+    <!-- 4. MAIN WORKSPACE: NAVIGATION PANE, CANVAS AREA & RIGHT TASK PANE     -->
     <!-- ===================================================================== -->
     <div class="word-workspace">
 
@@ -1219,6 +1328,39 @@
                     }
                 });
             ">
+
+            <!-- Horizontal Ruler Aligned Directly Above Canvas Sheet -->
+            @if ($showRuler && ! $zenMode)
+                <div class="word-canvas-ruler-wrapper">
+                    <div class="word-ruler">
+                        <!-- Left Indent Marker (First Line + Hanging + Left Box) -->
+                        <div class="word-indent-marker-left" title="First Line &amp; Left Indent">
+                            <svg viewBox="0 0 10 10" width="7" height="7" fill="#616161"><polygon points="0,0 10,0 5,8"/></svg>
+                            <svg viewBox="0 0 10 10" width="7" height="7" fill="#616161"><polygon points="5,0 10,8 0,8"/></svg>
+                            <div style="width:7px; height:3px; background:#616161;"></div>
+                        </div>
+
+                        <!-- Ruler Inches Markings (1 to 7 inches) -->
+                        <div class="word-ruler__numbers">
+                            @for ($inch = 1; $inch <= 7; $inch++)
+                                <div class="word-ruler__inch">
+                                    <span class="word-ruler__num">{{ $inch }}</span>
+                                    <div class="word-ruler__tick-quarter"></div>
+                                    <div class="word-ruler__tick-half"></div>
+                                    <div class="word-ruler__tick-three-quarter"></div>
+                                    <div class="word-ruler__tick-major"></div>
+                                </div>
+                            @endfor
+                        </div>
+
+                        <!-- Right Margin Indent Marker -->
+                        <div class="word-indent-marker-right" title="Right Margin Indent">
+                            <svg viewBox="0 0 10 10" width="7" height="7" fill="#616161"><polygon points="5,0 10,8 0,8"/></svg>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <div id="word-manuscript-editor"
                 class="word-manuscript-container"
                 wire:key="manuscript-canvas-{{ $pageCount }}"
@@ -1589,10 +1731,10 @@
                             @endforeach
                         @endif
 
-                        <!-- Loading Indicator -->
-                        <div wire:loading wire:target="sendAssistant,runTool" style="padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; display:flex; align-items:center; gap:8px; font-size:11.5px; color:#4338ca;">
-                            <span style="display:inline-block; animation:spin 1s linear infinite;">⏳</span>
-                            <span>Xishie Assistant sedang memproses dan menelaah naskah Anda...</span>
+                        <!-- Loading Indicator (Hidden until active request) -->
+                        <div wire:loading.flex wire:target="sendAssistant,runTool" class="word-assistant-loading">
+                            <span class="word-assistant-spinner"></span>
+                            <span>Xishie Assistant sedang menelaah naskah Anda...</span>
                         </div>
                     </div>
 
