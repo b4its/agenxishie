@@ -55,11 +55,13 @@
             document.querySelectorAll('.latex-math-render').forEach(el => {
                 const latex = el.getAttribute('data-latex') || el.textContent;
                 if (!latex) return;
+                if (el.dataset.renderedTex === latex) return;
                 try {
                     window.katex.render(latex, el, {
                         throwOnError: false,
                         displayMode: true
                     });
+                    el.dataset.renderedTex = latex;
                 } catch (e) {
                     console.debug('KaTeX render notice:', e);
                 }

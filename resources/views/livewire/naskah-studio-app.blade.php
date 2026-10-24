@@ -458,13 +458,13 @@
                     <span>{{ ucfirst($editingMode) }} ▾</span>
                 </button>
                 <div x-show="open" @click.outside="open = false" style="position:absolute; right:0; top:28px; background:#ffffff; border:1px solid #e1dfdd; border-radius:6px; box-shadow:0 8px 24px rgba(0,0,0,0.12); width:170px; z-index:100; padding:4px 0; font-size:12px;">
-                    <button type="button" wire:click="setEditingMode('editing'); open = false;" class="word-nav-item {{ $editingMode === 'editing' ? 'active' : '' }}">
+                    <button type="button" @click="open = false" wire:click="setEditingMode('editing')" class="word-nav-item {{ $editingMode === 'editing' ? 'active' : '' }}">
                         ✏️ Editing
                     </button>
-                    <button type="button" wire:click="setEditingMode('reviewing'); open = false;" class="word-nav-item {{ $editingMode === 'reviewing' ? 'active' : '' }}">
+                    <button type="button" @click="open = false" wire:click="setEditingMode('reviewing')" class="word-nav-item {{ $editingMode === 'reviewing' ? 'active' : '' }}">
                         💬 Reviewing
                     </button>
-                    <button type="button" wire:click="setEditingMode('viewing'); open = false;" class="word-nav-item {{ $editingMode === 'viewing' ? 'active' : '' }}">
+                    <button type="button" @click="open = false" wire:click="setEditingMode('viewing')" class="word-nav-item {{ $editingMode === 'viewing' ? 'active' : '' }}">
                         👁️ Viewing
                     </button>
                 </div>
@@ -679,10 +679,10 @@
                             <div style="position:relative;" x-data="{ openSpacing: false }">
                                 <button type="button" class="word-btn-square" @click="openSpacing = !openSpacing" title="Line Spacing (1.0, 1.15, 1.5, 2.0)">↕ ▾</button>
                                 <div x-show="openSpacing" @click.outside="openSpacing = false" style="position:absolute; left:0; top:24px; background:#ffffff; border:1px solid #e1dfdd; border-radius:4px; box-shadow:0 4px 16px rgba(0,0,0,0.12); width:135px; z-index:100; padding:4px 0; font-size:11.5px;">
-                                    <button type="button" wire:click="setLineSpacing('1.0'); openSpacing = false;" class="word-nav-item {{ (string)($pageSetup['lineSpacing'] ?? '1.5') === '1' || ($pageSetup['lineSpacing'] ?? '') == 1.0 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.0 Single</button>
-                                    <button type="button" wire:click="setLineSpacing('1.15'); openSpacing = false;" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 1.15 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.15 Normal</button>
-                                    <button type="button" wire:click="setLineSpacing('1.5'); openSpacing = false;" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 1.5 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.5 Academic (DIKTI)</button>
-                                    <button type="button" wire:click="setLineSpacing('2.0'); openSpacing = false;" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 2.0 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">2.0 Double</button>
+                                    <button type="button" @click="openSpacing = false" wire:click="setLineSpacing('1.0')" class="word-nav-item {{ (string)($pageSetup['lineSpacing'] ?? '1.5') === '1' || ($pageSetup['lineSpacing'] ?? '') == 1.0 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.0 Single</button>
+                                    <button type="button" @click="openSpacing = false" wire:click="setLineSpacing('1.15')" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 1.15 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.15 Normal</button>
+                                    <button type="button" @click="openSpacing = false" wire:click="setLineSpacing('1.5')" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 1.5 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.5 Academic (DIKTI)</button>
+                                    <button type="button" @click="openSpacing = false" wire:click="setLineSpacing('2.0')" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 2.0 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">2.0 Double</button>
                                 </div>
                             </div>
                             <button type="button" class="word-btn-square" wire:click="updatePageSetup('pageColor', '#fdfbf7')" title="Shading">🪣</button>
@@ -2819,7 +2819,7 @@
                                         <div style="font-size:11px; color:#424242;">{{ $src['title'] }}</div>
                                         <div style="font-size:10px; color:#8a8886;">{{ $src['publisher'] }}</div>
                                     </div>
-                                    <button type="button" class="word-tool-btn" style="color:#0f6cbd; border-color:#0f6cbd; font-weight:600; font-size:11px;" wire:click="insertCitation('{{ $src['key'] }}'); closeDialog()">
+                                    <button type="button" class="word-tool-btn" style="color:#0f6cbd; border-color:#0f6cbd; font-weight:600; font-size:11px;" wire:click="insertCitation('{{ $src['key'] }}')">
                                         + Sisipkan Sitasi
                                     </button>
                                 </div>
@@ -2827,7 +2827,7 @@
                         </div>
                     </div>
                     <div class="word-dialog__footer" style="display:flex; justify-content:space-between;">
-                        <button type="button" class="word-tool-btn" wire:click="insertBibliography(); closeDialog()">
+                        <button type="button" class="word-tool-btn" wire:click="insertBibliography">
                             📜 Buat Daftar Pustaka Lengkap
                         </button>
                         <button type="button" class="word-btn-pill" wire:click="closeDialog">Tutup</button>

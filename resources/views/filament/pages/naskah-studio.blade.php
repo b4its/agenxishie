@@ -930,9 +930,9 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Margin</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="updatePageSetup('marginTop', 25); updatePageSetup('marginRight', 25); updatePageSetup('marginBottom', 25); updatePageSetup('marginLeft', 25)">Normal (2.5 cm)</button>
-                            <button type="button" class="ns-btn" wire:click="updatePageSetup('marginTop', 12); updatePageSetup('marginRight', 12); updatePageSetup('marginBottom', 12); updatePageSetup('marginLeft', 12)">Sempit (1.2 cm)</button>
-                            <button type="button" class="ns-btn" wire:click="updatePageSetup('marginTop', 38); updatePageSetup('marginRight', 38); updatePageSetup('marginBottom', 38); updatePageSetup('marginLeft', 38)">Lebar (3.8 cm)</button>
+                            <button type="button" class="ns-btn" wire:click="setMarginsPreset('normal')">Normal (2.5 cm)</button>
+                            <button type="button" class="ns-btn" wire:click="setMarginsPreset('narrow')">Sempit (1.2 cm)</button>
+                            <button type="button" class="ns-btn" wire:click="setMarginsPreset('wide')">Lebar (3.8 cm)</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('pagesetup')">Kustom…</button>
                         </div>
                     </div>
@@ -978,9 +978,9 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Asisten Riset</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="toggleTool('/sitasi'); $set('assistantOpen', true)">&#128279; Sitasi</button>
-                            <button type="button" class="ns-btn" wire:click="toggleTool('/cari-referensi'); $set('assistantOpen', true)">&#128269; Cari Referensi</button>
-                            <button type="button" class="ns-btn" wire:click="toggleTool('/matriks-literatur'); $set('assistantOpen', true)">&#128202; Matriks Literatur</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/sitasi')">&#128279; Sitasi</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/cari-referensi')">&#128269; Cari Referensi</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/matriks-literatur')">&#128202; Matriks Literatur</button>
                         </div>
                     </div>
 
@@ -1015,9 +1015,9 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Audit Asisten</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="toggleTool('/cek-pedoman'); $set('assistantOpen', true)">&#128269; Cek Pedoman</button>
-                            <button type="button" class="ns-btn" wire:click="toggleTool('/cek-gap'); $set('assistantOpen', true)">&#128300; Cek Gap Riset</button>
-                            <button type="button" class="ns-btn" wire:click="toggleTool('/ringkas'); $set('assistantOpen', true)">&#128221; Ringkas Naskah</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/cek-pedoman')">&#128269; Cek Pedoman</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/cek-gap')">&#128300; Cek Gap Riset</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/ringkas')">&#128221; Ringkas Naskah</button>
                         </div>
                     </div>
 
@@ -1363,6 +1363,54 @@
                                         <button type="button" class="ns-block__btn" style="color:#b91c1c; align-self:flex-start;" wire:click.stop="removeBlock({{ $index }})" title="Hapus Sorotan">&times;</button>
                                     </div>
 
+                                {{-- Render Daftar Isi Otomatis --}}
+                                @elseif ($type === 'toc')
+                                    <div class="ns-toc-block" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; padding:.75rem 1rem; margin:.75rem 0; width:100%;">
+                                        <div style="font-weight:700; font-size:1.05rem; color:#1e40af; margin-bottom:.6rem; display:flex; align-items:center; justify-content:space-between;">
+                                            <span>📑 Daftar Isi Otomatis</span>
+                                            <div style="display:flex; align-items:center; gap:.4rem;">
+                                                <button type="button" class="ns-block__btn" wire:click.stop="insertTableOfContents" title="Perbarui Daftar Isi">🔄 Perbarui</button>
+                                                <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click.stop="removeBlock({{ $index }})" title="Hapus Daftar Isi">&times;</button>
+                                            </div>
+                                        </div>
+                                        <div style="display:flex; flex-direction:column; gap:.35rem;">
+                                            @php $tocRows = $block['table']['rows'] ?? []; @endphp
+                                            @foreach ($tocRows as $tIdx => $tRow)
+                                                @if ($tIdx > 0)
+                                                    <div style="display:flex; align-items:baseline; font-size:.85rem; color:#334155;">
+                                                        <span style="white-space:nowrap;">{{ $tRow[0]['text'] ?? '' }}</span>
+                                                        <span style="flex:1; border-bottom:1px dotted #94a3b8; margin:0 .5rem; transform:translateY(-2px);"></span>
+                                                        <span style="font-size:.78rem; color:#64748b;">{{ $tRow[1]['text'] === '…' ? (1 + floor($tIdx / 4)) : ($tRow[1]['text'] ?? '1') }}</span>
+                                                    </div>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    </div>
+
+                                {{-- Render Judul Naskah (Title) --}}
+                                @elseif ($type === 'title')
+                                    <div style="width:100%;">
+                                        <textarea
+                                            rows="1"
+                                            wire:model="blocks.{{ $index }}.text"
+                                            wire:change="markDirty"
+                                            placeholder="Judul Dokumen..."
+                                            style="font-family:var(--rb-font-display, system-ui); font-size:1.6rem; font-weight:800; color:#1e40af; text-align:center;"
+                                        >{{ $block['text'] ?? '' }}</textarea>
+                                    </div>
+
+                                {{-- Render Subjudul Naskah (Subtitle) --}}
+                                @elseif ($type === 'subtitle')
+                                    <div style="width:100%;">
+                                        <textarea
+                                            rows="1"
+                                            wire:model="blocks.{{ $index }}.text"
+                                            wire:change="markDirty"
+                                            placeholder="Subjudul Dokumen..."
+                                            style="font-style:italic; font-size:1.05rem; color:#475569; text-align:center;"
+                                        >{{ $block['text'] ?? '' }}</textarea>
+                                    </div>
+
                                 {{-- Render Blok Teks Biasa (Heading, Paragraph, Quote, Bullet, Numbered) --}}
                                 @else
                                     <div style="display:flex; width:100%;">
@@ -1582,7 +1630,7 @@
                             </div>
                         </div>
                         <div class="ns-dialog__footer">
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="markDirty; closeDialog()">Terapkan</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="applyPageSetup">Terapkan</button>
                         </div>
 
                     {{-- Dialog Cek Ejaan (Spelling) --}}
@@ -1787,7 +1835,7 @@
                         <div class="ns-dialog__body">
                             <div style="display:grid; grid-template-columns:repeat(8, 1fr); gap:.35rem;">
                                 @foreach (['©', '®', '™', '§', '¶', '±', '×', '÷', '≠', '≤', '≥', '≈', '∞', '°', 'µ', 'α', 'β', 'γ', 'π', '∑', '√', '—', '–', '•', '€', '£', '¥', '→'] as $sym)
-                                    <button type="button" class="ns-btn" style="font-size:1.1rem; padding:.3rem; justify-content:center;" wire:click="insertSymbol('{{ $sym }}'); closeDialog()">
+                                    <button type="button" class="ns-btn" style="font-size:1.1rem; padding:.3rem; justify-content:center;" wire:click="insertSymbol('{{ $sym }}')">
                                         {{ $sym }}
                                     </button>
                                 @endforeach
@@ -1835,7 +1883,7 @@
                         </div>
                         <div class="ns-dialog__footer">
                             <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="addComment; closeDialog()">Simpan Komentar</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="postCommentAndClose">Simpan Komentar</button>
                         </div>
 
                     {{-- Dialog Pusat Perintah (Wordcraft Command Palette / HUD) --}}
@@ -1907,7 +1955,7 @@
                             </div>
                         </div>
                         <div class="ns-dialog__footer">
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="save; closeDialog()">Simpan Properti</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="saveProperties">Simpan Properti</button>
                         </div>
 
                     {{-- Dialog Riwayat Versi & Snapshot (LibreOffice Versions) --}}
@@ -2082,11 +2130,12 @@
         function renderFilamentLatex() {
             if (typeof katex === 'undefined') return;
             document.querySelectorAll('.latex-math-render').forEach(el => {
-                if (el.querySelector('.katex')) return;
                 const tex = el.getAttribute('data-latex') || el.textContent || '';
                 if (tex.trim() !== '') {
+                    if (el.dataset.renderedTex === tex) return;
                     try {
                         katex.render(tex, el, { throwOnError: false, displayMode: true });
+                        el.dataset.renderedTex = tex;
                     } catch (e) {}
                 }
             });
