@@ -1994,6 +1994,8 @@ trait HandlesNaskahStudio
             }
 
             if (str_contains($class, 'word-toc-block')) {
+                $blocks[] = $this->model->newBlock('toc', 'Daftar Isi Otomatis');
+
                 continue;
             }
 
@@ -3183,9 +3185,26 @@ trait HandlesNaskahStudio
     public function answerResponse(?XishieProject $project, string $input): array
     {
         $documentText = Str::limit($this->documentText(), 1500, ' …');
+        $activeBlockText = trim((string) ($this->blocks[$this->activeBlock]['text'] ?? ''));
+
+        $trimmed = trim($input);
+        $firstToken = mb_strtolower(explode(' ', $trimmed)[0] ?? '');
+        $hasArg = trim(substr($trimmed, strlen($firstToken))) !== '';
+
+        $effectiveInput = $input;
+        if (! $hasArg && in_array($firstToken, ['/poles', '/parafrase', '/kembangkan', '/puebi', '/perbaiki-ejaan', '/terjemahkan', '/ringkaskan'], true)) {
+            $fallbackArg = $activeBlockText !== '' ? $activeBlockText : Str::limit(trim($this->documentText()), 400, '');
+            if ($fallbackArg !== '') {
+                $effectiveInput = $firstToken.' '.$fallbackArg;
+            }
+        }
 
         if ($project !== null) {
-            $result = app(XishieAssistantService::class)->handle($project, $input);
+            $result = app(XishieAssistantService::class)->handle($project, $effectiveInput);
+            if (! empty($result['data']['latex'])) {
+                $this->equationLatex = (string) $result['data']['latex'];
+                $this->equationCaption = (string) ($result['data']['caption'] ?? '(1)');
+            }
 
             return [
                 'reply' => (string) ($result['reply'] ?? ''),
@@ -3194,10 +3213,10 @@ trait HandlesNaskahStudio
         }
 
         // Standalone studio fallback handling for slash commands:
-        if (str_starts_with($input, '/poles')) {
-            $arg = trim(substr($input, 6));
+        if (str_starts_with($effectiveInput, '/poles')) {
+            $arg = trim(substr($effectiveInput, 6));
             if ($arg === '') {
-                $arg = trim((string) ($this->blocks[$this->activeBlock]['text'] ?? ''));
+                $arg = $activeBlockText;
             }
             if ($arg === '') {
                 return ['reply' => 'Pilih blok atau sertakan teks untuk dipoles dengan format: /poles [teks]', 'data' => []];
@@ -3209,10 +3228,10 @@ trait HandlesNaskahStudio
             ];
         }
 
-        if (str_starts_with($input, '/parafrase')) {
-            $arg = trim(substr($input, 10));
+        if (str_starts_with($effectiveInput, '/parafrase')) {
+            $arg = trim(substr($effectiveInput, 10));
             if ($arg === '') {
-                $arg = trim((string) ($this->blocks[$this->activeBlock]['text'] ?? ''));
+                $arg = $activeBlockText;
             }
             if ($arg === '') {
                 return ['reply' => 'Pilih blok atau sertakan teks untuk diparafrase dengan format: /parafrase [teks]', 'data' => []];
@@ -3224,7 +3243,7 @@ trait HandlesNaskahStudio
             ];
         }
 
-        if (str_starts_with($input, '/cek-pedoman')) {
+        if (str_starts_with($effectiveInput, '/cek-pedoman')) {
             $complianceScore = method_exists($this, 'getComplianceAuditProperty')
                 ? ($this->complianceAudit['score'] ?? 80.0)
                 : 85.0;
@@ -3244,10 +3263,10 @@ trait HandlesNaskahStudio
             return ['reply' => implode("\n", $lines), 'data' => ['score' => $complianceScore, 'grade' => $complianceGrade]];
         }
 
-        if (str_starts_with($input, '/ringkaskan')) {
-            $arg = trim(substr($input, 11));
+        if (str_starts_with($effectiveInput, '/ringkaskan')) {
+            $arg = trim(substr($effectiveInput, 11));
             if ($arg === '') {
-                $arg = trim((string) ($this->blocks[$this->activeBlock]['text'] ?? ''));
+                $arg = $activeBlockText;
             }
             if ($arg === '') {
                 return ['reply' => 'Pilih blok atau berikan teks untuk diringkaskan: /ringkaskan [teks]', 'data' => []];
@@ -3259,7 +3278,7 @@ trait HandlesNaskahStudio
             ];
         }
 
-        if (str_starts_with($input, '/ringkas')) {
+        if (str_starts_with($effectiveInput, '/ringkas')) {
             $stats = $this->statistics;
             $headings = array_values(array_filter(array_map(static fn (array $b): ?string => ($b['type'] ?? '') === 'heading' ? ($b['text'] ?? '') : null, $this->blocks)));
             $lines = [
@@ -3273,7 +3292,7 @@ trait HandlesNaskahStudio
             return ['reply' => implode("\n", $lines), 'data' => ['stats' => $stats]];
         }
 
-        if (str_starts_with($input, '/cek-gap')) {
+        if (str_starts_with($effectiveInput, '/cek-gap')) {
             return [
                 'reply' => "### Analisis Research Gap & State of the Art (SOTA)\n"
                     ."- **Observasi**: Berdasarkan draf '{$this->docTitle}', perumusan masalah utama perlu mempertegas limitasi studi sebelumnya.\n"
@@ -3283,7 +3302,7 @@ trait HandlesNaskahStudio
             ];
         }
 
-        if (str_starts_with($input, '/sitasi')) {
+        if (str_starts_with($effectiveInput, '/sitasi')) {
             return [
                 'reply' => "### Rekomendasi Sitasi & Kaidah Pengutipan\n"
                     ."- Gunakan format standar sitasi naskah aktif (APA 7th: *(Nama, Tahun)* atau IEEE: *[1]*).\n"
@@ -3293,7 +3312,7 @@ trait HandlesNaskahStudio
             ];
         }
 
-        if (str_starts_with($input, '/matriks-literatur')) {
+        if (str_starts_with($effectiveInput, '/matriks-literatur')) {
             $refs = ! empty($this->citationSources) ? $this->citationSources : [
                 ['authors' => 'Anderson, C.', 'year' => '2020', 'title' => 'Makers: The New Industrial Revolution', 'source' => 'Crown Business Publishing'],
                 ['authors' => 'Gauntlett, D.', 'year' => '2018', 'title' => 'Making is Connecting: The Social Power of Shared Craft Studios', 'source' => 'Polity Press'],
@@ -3315,8 +3334,8 @@ trait HandlesNaskahStudio
             return ['reply' => implode("\n", $lines), 'data' => ['matrix' => $refs]];
         }
 
-        if (str_starts_with($input, '/cari-referensi')) {
-            $topic = trim(substr($input, 15));
+        if (str_starts_with($effectiveInput, '/cari-referensi')) {
+            $topic = trim(substr($effectiveInput, 15));
             if ($topic === '') {
                 $topic = $this->docTitle;
             }
@@ -3331,10 +3350,10 @@ trait HandlesNaskahStudio
             ];
         }
 
-        if (str_starts_with($input, '/kembangkan')) {
-            $arg = trim(substr($input, 11));
+        if (str_starts_with($effectiveInput, '/kembangkan')) {
+            $arg = trim(substr($effectiveInput, 11));
             if ($arg === '') {
-                $arg = trim((string) ($this->blocks[$this->activeBlock]['text'] ?? ''));
+                $arg = $activeBlockText;
             }
             if ($arg === '') {
                 return ['reply' => 'Pilih blok atau berikan poin teks untuk dikembangkan: /kembangkan [poin]', 'data' => []];
@@ -3347,10 +3366,10 @@ trait HandlesNaskahStudio
             ];
         }
 
-        if (str_starts_with($input, '/perbaiki-ejaan') || str_starts_with($input, '/puebi')) {
-            $arg = trim((string) preg_replace('/^\/(perbaiki-ejaan|puebi)\s*/i', '', $input));
+        if (str_starts_with($effectiveInput, '/perbaiki-ejaan') || str_starts_with($effectiveInput, '/puebi')) {
+            $arg = trim((string) preg_replace('/^\/(perbaiki-ejaan|puebi)\s*/i', '', $effectiveInput));
             if ($arg === '') {
-                $arg = trim((string) ($this->blocks[$this->activeBlock]['text'] ?? ''));
+                $arg = $activeBlockText;
             }
             if ($arg === '') {
                 return ['reply' => 'Pilih blok teks untuk diperiksa ejaannya: /perbaiki-ejaan [teks]', 'data' => []];
@@ -3365,7 +3384,7 @@ trait HandlesNaskahStudio
             ];
         }
 
-        if (str_starts_with($input, '/abstrak')) {
+        if (str_starts_with($effectiveInput, '/abstrak')) {
             $title = $this->docTitle ?: 'Naskah Ilmiah';
             $reply = "### Draf Abstrak Akademik Terstruktur (IMRAD)\n\n"
                 ."**Latar Belakang**: Fenomena transformasi digital dan keterbukaan akses literatur menuntut pemutakhiran metodologi penulisan naskah yang terstruktur demi mempertahankan integritas serta reputasi publikasi ilmiah.\n\n"
@@ -3378,7 +3397,7 @@ trait HandlesNaskahStudio
             return ['reply' => $reply, 'data' => ['abstract' => true]];
         }
 
-        if (str_starts_with($input, '/metodologi') || str_starts_with($input, '/metode')) {
+        if (str_starts_with($effectiveInput, '/metodologi') || str_starts_with($effectiveInput, '/metode')) {
             $reply = "### Rancangan Struktur Bab Metodologi Penelitian\n\n"
                 ."1. **Desain Riset**: Pendekatan kuantitatif inferensial yang mengombinasikan telaah literatur sistematis (*systematic literature review*) dengan validasi empiris terukur.\n"
                 ."2. **Populasi & Sampel**: Teknik *purposive sampling* terhadap korpus naskah akademik dengan kriteria inklusi berbasis indeks reputasi (Scopus/Sinta).\n"
@@ -3388,7 +3407,7 @@ trait HandlesNaskahStudio
             return ['reply' => $reply, 'data' => ['methodology' => true]];
         }
 
-        if (str_starts_with($input, '/tabel-analisis')) {
+        if (str_starts_with($effectiveInput, '/tabel-analisis')) {
             $reply = "### Matriks Evaluasi & Analisis Komparasi Kinerja\n\n"
                 ."| Parameter Evaluasi | Metode Konvensional | Pendekatan Yang Diusulkan | Peningkatan | Signifikansi |\n"
                 ."|---|---|---|---|---|\n"
@@ -3401,10 +3420,10 @@ trait HandlesNaskahStudio
             return ['reply' => $reply, 'data' => ['table' => true]];
         }
 
-        if (str_starts_with($input, '/terjemahkan')) {
-            $arg = trim((string) preg_replace('/^\/terjemahkan\s*/i', '', $input));
+        if (str_starts_with($effectiveInput, '/terjemahkan')) {
+            $arg = trim((string) preg_replace('/^\/terjemahkan\s*/i', '', $effectiveInput));
             if ($arg === '') {
-                $arg = trim((string) ($this->blocks[$this->activeBlock]['text'] ?? ''));
+                $arg = $activeBlockText;
             }
             if ($arg === '') {
                 return ['reply' => 'Pilih blok atau berikan kalimat untuk diterjemahkan ke bahasa akademik: /terjemahkan [kalimat]', 'data' => []];
@@ -3419,35 +3438,8 @@ trait HandlesNaskahStudio
             return ['reply' => $reply, 'data' => ['translation' => true]];
         }
 
-        $wordCount = $this->model->countWords($this->model->normalize($this->blocks));
-
-        $llm = app(OmnigensiChatClient::class);
-        $generated = $llm->generate(
-            "Konteks naskah:\n".$documentText."\n\nPermintaan pengguna:\n".$input,
-            'Anda Xishie Assistant untuk penulisan akademik. Jawab ringkas dan actionable dalam Bahasa Indonesia. Jangan mengarang referensi.',
-            0.6,
-            700,
-        );
-
-        if ($generated !== null && trim((string) ($generated['content'] ?? '')) !== '') {
-            return ['reply' => trim((string) $generated['content']), 'data' => ['llm' => true]];
-        }
-
-        // Heuristic fallback response tailored to user queries
-        $lowerInput = mb_strtolower($input);
-        if (str_contains($lowerInput, 'abstrak') || str_contains($lowerInput, 'abstract')) {
-            $reply = "### Panduan Penulisan Abstrak Naskah\n"
-                ."- **Latar Belakang (1-2 kalimat)**: Nyatakan urgensi masalah dan research gap yang diangkat.\n"
-                ."- **Tujuan (1 kalimat)**: Nyatakan tujuan utama riset secara terukur.\n"
-                ."- **Metodologi (1-2 kalimat)**: Jelaskan pendekatan, desain, instrumen, dan teknik analisis data.\n"
-                ."- **Hasil Utama (2-3 kalimat)**: Sajikan temuan kunci dan data empiris paling signifikan.\n"
-                .'- **Kesimpulan & Implikasi (1 kalimat)**: Kontribusi teoretis maupun praktis riset.';
-
-            return ['reply' => $reply, 'data' => ['guidance' => 'abstract']];
-        }
-
-        if (str_starts_with($input, '/rumus') || str_starts_with($input, '/latex') || str_starts_with($input, '/equation')) {
-            $arg = trim((string) preg_replace('/^\/(rumus|latex|equation)\s*/i', '', $input));
+        if (str_starts_with($effectiveInput, '/rumus') || str_starts_with($effectiveInput, '/latex') || str_starts_with($effectiveInput, '/equation')) {
+            $arg = trim((string) preg_replace('/^\/(rumus|latex|equation)\s*/i', '', $effectiveInput));
             if ($arg === '') {
                 $arg = 'regresi';
             }
@@ -3503,7 +3495,7 @@ trait HandlesNaskahStudio
             ];
         }
 
-        if (str_starts_with($input, '/gambar') || str_starts_with($input, '/diagram')) {
+        if (str_starts_with($effectiveInput, '/gambar') || str_starts_with($effectiveInput, '/diagram')) {
             $reply = "### Panduan & Generator Diagram Ilmiah Naskah\n"
                 ."- **Diagram Alur (Flowchart)**: Gunakan pita menu *Insert > Pictures > 📊 Flowchart* untuk menyisipkan alur metodologi penelitian.\n"
                 ."- **Diagram Batang (Chart)**: Pilih *Insert > Pictures > 📈 Chart* untuk visualisasi komparasi performa model vs baseline.\n"
@@ -3511,6 +3503,33 @@ trait HandlesNaskahStudio
                 .'- Gambar otomatis diformat dengan keterangan gambar (*caption*), perataan terpusat, dan kompatibel ekspor Microsoft Word (.docx).';
 
             return ['reply' => $reply, 'data' => ['diagram' => true]];
+        }
+
+        $wordCount = $this->model->countWords($this->model->normalize($this->blocks));
+
+        $llm = app(OmnigensiChatClient::class);
+        $generated = $llm->generate(
+            "Konteks naskah:\n".$documentText."\n\nPermintaan pengguna:\n".$effectiveInput,
+            'Anda Xishie Assistant untuk penulisan akademik. Jawab ringkas dan actionable dalam Bahasa Indonesia. Jangan mengarang referensi.',
+            0.6,
+            700,
+        );
+
+        if ($generated !== null && trim((string) ($generated['content'] ?? '')) !== '') {
+            return ['reply' => trim((string) $generated['content']), 'data' => ['llm' => true]];
+        }
+
+        // Heuristic fallback response tailored to user queries
+        $lowerInput = mb_strtolower($effectiveInput);
+        if (str_contains($lowerInput, 'abstrak') || str_contains($lowerInput, 'abstract')) {
+            $reply = "### Panduan Penulisan Abstrak Naskah\n"
+                ."- **Latar Belakang (1-2 kalimat)**: Nyatakan urgensi masalah dan research gap yang diangkat.\n"
+                ."- **Tujuan (1 kalimat)**: Nyatakan tujuan utama riset secara terukur.\n"
+                ."- **Metodologi (1-2 kalimat)**: Jelaskan pendekatan, desain, instrumen, dan teknik analisis data.\n"
+                ."- **Hasil Utama (2-3 kalimat)**: Sajikan temuan kunci dan data empiris paling signifikan.\n"
+                .'- **Kesimpulan & Implikasi (1 kalimat)**: Kontribusi teoretis maupun praktis riset.';
+
+            return ['reply' => $reply, 'data' => ['guidance' => 'abstract']];
         }
 
         if (str_contains($lowerInput, 'metode') || str_contains($lowerInput, 'method')) {
