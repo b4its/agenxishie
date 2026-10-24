@@ -135,7 +135,12 @@ class NaskahStudioApp extends Component
             $this->model->newBlock('heading', 'Opening the studio', 1),
             $this->model->newBlock('paragraph', 'Keyholders may open the space at 8:00 AM on weekdays and 10:00 AM on weekends. The last artisan to leave is responsible for locking the alley fire door, switching off the ventilation blowers, unplugging irons and hot plates, and setting the security alarm chime.'),
             $this->model->newBlock('heading', 'Membership', 1),
-            $this->model->newBlock('paragraph', 'Membership contributions are thirty dollars per month, which directly fund community tea, shop rags, solvents, and municipal recycling fees. We host a community potluck and open critique on the first Tuesday evening of every month where prospective members are welcome to present their work.'),
+            $this->model->newBlock('paragraph', 'Membership contributions are thirty dollars per month, which directly fund community tea, shop rags, solvents, and municipal recycling fees. We host a community potluck and open critique on the first Tuesday evening of every month where prospective members are welcome to present their work (Kafai & Peppler, 2021).'),
+            $this->model->newBlock('heading', 'Daftar Pustaka', 1),
+            $this->model->newBlock('paragraph', 'Anderson, C. (2020). Makers: The New Industrial Revolution and Shared Tool Collectives. Crown Business Publishing, 14(2), 112–129.'),
+            $this->model->newBlock('paragraph', 'Gauntlett, D. (2018). Making is Connecting: The Social Power of Shared Craft Studios and Tool Libraries. Polity Press, Cambridge.'),
+            $this->model->newBlock('paragraph', 'Kafai, Y. B., & Peppler, K. A. (2021). Youth, Technology, and DIY Authoring in Collaborative Community Workshops. MIT Press, Boston.'),
+            $this->model->newBlock('paragraph', 'Sennett, R. (2019). The Craftsman: Material Culture, Guild Cooperation, and Studio Ethics. Yale University Press, New Haven.'),
         ];
         $this->activeBlock = 0;
         $this->dirty = false;

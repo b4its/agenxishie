@@ -384,5 +384,15 @@ it('loads authentic microsoft word sample handbook with complete sections on bot
         ->and($outlineTexts)->toContain('What we agree on')
         ->and($outlineTexts)->toContain('Shared equipment')
         ->and($outlineTexts)->toContain('Opening the studio')
-        ->and($outlineTexts)->toContain('Membership');
+        ->and($outlineTexts)->toContain('Membership')
+        ->and($outlineTexts)->toContain('Daftar Pustaka');
+
+    // Uji pemilihan gaya sitasi akademik (APA, IEEE, dsb.) dan penyisipan kutipan acuan naskah
+    $page->call('setCitationStyle', 'IEEE');
+    expect($page->get('citationStyle'))->toBe('IEEE');
+
+    $page->call('selectBlock', 2);
+    $page->call('insertCitation');
+    $currentBlocks = $page->get('blocks');
+    expect($currentBlocks[2]['text'])->toContain('[1]');
 });

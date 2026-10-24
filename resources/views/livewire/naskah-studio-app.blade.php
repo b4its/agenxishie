@@ -705,11 +705,12 @@
                 <div class="word-group__footer"><span class="word-group__label">Paragraph</span></div>
             </div>
 
-        <!-- TAB: REFERENCES -->
+        <!-- TAB: REFERENCES (ACUAN DAFTAR PUSTAKA & DAFTAR ISI) -->
         @elseif ($activeTab === 'references')
+            <!-- Group: Table of Contents -->
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="insertTableOfContents" title="Generate Automatic Table of Contents">
+                    <button type="button" class="word-btn-large" wire:click="insertTableOfContents" title="Generate Automatic Table of Contents based on Headings">
                         <span style="font-size:20px;">📑</span>
                         <span>Table of Contents</span>
                     </button>
@@ -717,9 +718,10 @@
                 <div class="word-group__footer"><span class="word-group__label">Table of Contents</span></div>
             </div>
 
+            <!-- Group: Footnotes -->
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="openDialog('footnote')" title="Insert Footnote">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('footnote')" title="Insert Footnote (Catatan Kaki)">
                         <span style="font-size:18px;">⚓</span>
                         <span>Insert Footnote</span>
                     </button>
@@ -727,15 +729,45 @@
                 <div class="word-group__footer"><span class="word-group__label">Footnotes</span></div>
             </div>
 
+            <!-- Group: Citations & Bibliography -->
             <div class="word-group">
                 <div class="word-group__content">
                     <div class="word-group__col">
-                        <button type="button" class="word-tool-btn" wire:click="runTool('sitasi')">📚 Insert Citation</button>
-                        <button type="button" class="word-tool-btn" wire:click="insertBibliography">📜 Generate Bibliography</button>
-                        <button type="button" class="word-tool-btn" wire:click="runTool('cek-gap')">🔍 Analyze Literature Gap</button>
+                        <div class="word-group__row">
+                            <button type="button" class="word-tool-btn" wire:click="insertCitation" title="Insert Academic Citation into Manuscript">
+                                📚 Insert Citation
+                            </button>
+                            <button type="button" class="word-tool-btn" wire:click="openDialog('sources')" title="Manage Sources">
+                                🗂️ Manage Sources
+                            </button>
+                        </div>
+                        <div class="word-group__row" style="align-items: center; gap: 6px;">
+                            <span style="font-size: 11px; color: var(--ms-text-secondary);">Style:</span>
+                            <select wire:change="setCitationStyle($event.target.value)" class="word-select" style="width: 95px; height: 22px; font-size: 11px;">
+                                <option value="APA" {{ ($citationStyle ?? 'APA') === 'APA' ? 'selected' : '' }}>APA (7th)</option>
+                                <option value="IEEE" {{ ($citationStyle ?? 'APA') === 'IEEE' ? 'selected' : '' }}>IEEE</option>
+                                <option value="Harvard" {{ ($citationStyle ?? 'APA') === 'Harvard' ? 'selected' : '' }}>Harvard</option>
+                                <option value="Chicago" {{ ($citationStyle ?? 'APA') === 'Chicago' ? 'selected' : '' }}>Chicago</option>
+                                <option value="MLA" {{ ($citationStyle ?? 'APA') === 'MLA' ? 'selected' : '' }}>MLA (9th)</option>
+                            </select>
+                            <button type="button" class="word-tool-btn" wire:click="insertBibliography" title="Generate Bibliography / Daftar Pustaka Section at End of Document">
+                                📜 Bibliography
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Citations &amp; Bibliography</span></div>
+            </div>
+
+            <!-- Group: Research & Literature Gap -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="runTool('cek-gap')">🔍 Analyze Literature Gap</button>
+                        <button type="button" class="word-tool-btn" wire:click="runTool('sitasi')">✅ Verify Citations</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Research &amp; Validation</span></div>
             </div>
 
         <!-- TAB: MAILINGS -->
@@ -992,19 +1024,30 @@
                 </button>
             </div>
 
-            <!-- TAB 1: HEADINGS TREE -->
+            <!-- TAB 1: HEADINGS TREE (NAVIGASI DOKUMEN & ACUAN DAFTAR PUSTAKA) -->
             @if ($navigationTab === 'headings')
                 <div class="word-nav-tree">
                     @forelse ($outline as $item)
                         @php
                             $matchesSearch = empty($navigationSearch) || str_contains(strtolower($item['text']), strtolower($navigationSearch));
+                            $isBibHeading = stripos($item['text'], 'daftar pustaka') !== false || stripos($item['text'], 'referensi') !== false || stripos($item['text'], 'bibliography') !== false;
                         @endphp
                         @if ($matchesSearch)
                             <button type="button" wire:click="selectBlock({{ $item['index'] }})"
-                                @click="document.getElementById('word-block-{{ $item['index'] }}')?.scrollIntoView({ behavior: 'smooth', block: 'center' })"
+                                @click="
+                                    const target = document.getElementById('heading-{{ $item['index'] }}') || document.getElementById('word-block-{{ $item['index'] }}');
+                                    if (target) {
+                                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        target.classList.add('word-nav-target');
+                                        setTimeout(() => target.classList.remove('word-nav-target'), 1500);
+                                    }
+                                "
                                 class="word-nav-item {{ $activeBlock === $item['index'] ? 'active' : '' }}"
-                                style="padding-left: {{ $item['level'] === 1 ? '12px' : '26px' }}; font-weight: {{ $item['level'] === 1 ? '600' : '400' }}; font-size: 12px;">
-                                {{ $item['text'] ?: '(Untitled Heading)' }}
+                                style="padding-left: {{ $item['level'] === 1 ? '12px' : '26px' }}; font-weight: {{ $item['level'] === 1 ? '600' : '400' }}; font-size: 12px; display: flex; align-items: center; justify-content: space-between;">
+                                <span>{{ $item['text'] ?: '(Untitled Heading)' }}</span>
+                                @if ($isBibHeading)
+                                    <span style="font-size: 10px; color: #0f6cbd; background: #ebf3fc; padding: 1px 6px; border-radius: 9999px; font-weight: 600;">Acuan</span>
+                                @endif
                             </button>
                         @endif
                     @empty
@@ -1096,211 +1139,175 @@
                     <span>Spring edition</span>
                 </div>
 
-                <!-- DOCUMENT BLOCKS CONTAINER (NATURAL WORD DOCUMENT FLOW) -->
-                <div class="word-document-flow" style="display:block; flex:1; width:100%;">
+                <!-- UNIFIED MANUSCRIPT EDITOR: SINGLE CONTINUOUS CONTENTEDITABLE SURFACE -->
+                <div id="word-manuscript-editor"
+                    class="word-manuscript-editor"
+                    contenteditable="{{ $editingMode === 'viewing' ? 'false' : 'true' }}"
+                    spellcheck="false"
+                    wire:ignore.self
+                    @input.debounce.800ms="$wire.syncManuscriptHtml($el.innerHTML)"
+                    @blur="$wire.syncManuscriptHtml($el.innerHTML)"
+                    x-data="{
+                        hasSelection: false,
+                        checkSelection() {
+                            const sel = window.getSelection();
+                            this.hasSelection = sel && sel.toString().trim().length > 0;
+                        }
+                    }"
+                    @mouseup="checkSelection()"
+                    @keyup="checkSelection()">
+
+                    @php
+                        $inBulletList = false;
+                        $inNumberedList = false;
+                        $inBibliographySection = false;
+                    @endphp
+
                     @foreach ($blocks as $index => $block)
                         @php
                             $type = $block['type'] ?? 'paragraph';
-                            $isActive = $activeBlock === $index;
+                            $level = $block['level'] ?? 1;
+                            $headingId = 'heading-' . $index;
+                            $text = $block['text'] ?? '';
                         @endphp
 
-                        <div wire:key="block-{{ $index }}"
-                            id="word-block-{{ $index }}"
-                            wire:click="selectBlock({{ $index }})"
-                            x-data="{
-                                hasSelection: false,
-                                checkSelection() {
-                                    const sel = window.getSelection();
-                                    this.hasSelection = sel && sel.toString().trim().length > 0;
-                                }
-                            }"
-                            @mouseup="checkSelection()"
-                            @keyup="checkSelection()"
-                            class="word-block {{ $isActive ? 'active' : '' }}">
-
-                            <!-- Mini Floating Formatting Toolbar: ONLY appears when user highlights/selects text! -->
-                            <div x-show="hasSelection"
-                                x-transition
-                                class="word-mini-toolbar">
-                                <button type="button" wire:click.stop="formatInline('bold')" style="font-weight:700;" title="Bold">B</button>
-                                <button type="button" wire:click.stop="formatInline('italic')" style="font-style:italic;" title="Italic">I</button>
-                                <button type="button" wire:click.stop="formatInline('underline')" style="text-decoration:underline;" title="Underline">U</button>
-                                <span style="color:#d1d1d1; padding:0 2px;">|</span>
-                                <button type="button" wire:click.stop="aiElaborateBlock({{ $index }})" title="Elaborate with AI (Wordcraft)">✨ Elaborate</button>
-                                <button type="button" wire:click.stop="aiShortenBlock({{ $index }})" title="Shorten">✂️ Shorten</button>
-                                <button type="button" wire:click.stop="aiFixTone({{ $index }}, 'akademik')" title="Formal Tone">🎓 Tone</button>
-                                <span style="color:#d1d1d1; padding:0 2px;">|</span>
-                                <button type="button" wire:click.stop="moveBlock({{ $index }}, -1)" title="Move Up">▲</button>
-                                <button type="button" wire:click.stop="moveBlock({{ $index }}, 1)" title="Move Down">▼</button>
-                                <button type="button" wire:click.stop="removeBlock({{ $index }})" style="color:#c50f1f;" title="Delete Block">&times;</button>
-                            </div>
-
-                            <!-- BLOCK: TITLE -->
-                            @if ($type === 'title')
-                                <div contenteditable="true"
-                                    wire:ignore.self
-                                    @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
-                                    @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
-                                    class="word-title-text"
-                                    spellcheck="false">{!! e($block['text'] ?? 'The Open Studio Handbook') !!}</div>
-
-                            <!-- BLOCK: SUBTITLE -->
-                            @elseif ($type === 'subtitle')
-                                <div contenteditable="true"
-                                    wire:ignore.self
-                                    @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
-                                    @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
-                                    @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
-                                    class="word-subtitle-text"
-                                    spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
-
-                            <!-- BLOCK: HEADING -->
-                            @elseif ($type === 'heading')
-                                @php $level = $block['level'] ?? 1; @endphp
-                                @if ($level === 1)
-                                    <div contenteditable="true"
-                                        wire:ignore.self
-                                        @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
-                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
-                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
-                                        class="word-heading-1"
-                                        spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
-                                @elseif ($level === 2)
-                                    <div contenteditable="true"
-                                        wire:ignore.self
-                                        @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
-                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
-                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
-                                        class="word-heading-2"
-                                        spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
+                        @if ($type === 'bullet')
+                            @if (!$inBulletList)
+                                <ul class="word-bullet-list">
+                                @php $inBulletList = true; @endphp
+                            @endif
+                            <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                @if (str_contains($text, 'Clean as you go'))
+                                    <strong>Clean as you go.</strong> Leave a table the way you would like to find it.
+                                @elseif (str_contains($text, 'Label what is yours'))
+                                    <strong>Label what is yours.</strong> Unlabelled supplies on the commons shelf are fair game (Anderson, 2020).
+                                @elseif (str_contains($text, 'Ask before you borrow'))
+                                    <strong>Ask before you borrow.</strong> Even from the shelf, a quick note helps everyone keep track.
                                 @else
-                                    <div contenteditable="true"
-                                        wire:ignore.self
-                                        @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
-                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
-                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
-                                        class="word-heading-3"
-                                        spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
+                                    {!! e($text) !!}
                                 @endif
-
-                            <!-- BLOCK: BULLET LIST -->
-                            @elseif ($type === 'bullet')
-                                <div class="word-bullet-item">
-                                    <span class="word-bullet-dot">•</span>
-                                    <div contenteditable="true"
-                                        wire:ignore.self
-                                        @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
-                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
-                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
-                                        class="word-paragraph-text"
-                                        spellcheck="false">
-                                        @if (str_contains($block['text'] ?? '', 'Clean as you go'))
-                                            <strong>Clean as you go.</strong> Leave a table the way you would like to find it.
-                                        @elseif (str_contains($block['text'] ?? '', 'Label what is yours'))
-                                            <strong>Label what is yours.</strong> Unlabelled supplies on the commons shelf are fair game.
-                                        @elseif (str_contains($block['text'] ?? '', 'Ask before you borrow'))
-                                            <strong>Ask before you borrow.</strong> Even from the shelf, a quick note helps everyone keep track.
-                                        @else
-                                            {!! e($block['text'] ?? '') !!}
-                                        @endif
-                                    </div>
-                                </div>
-
-                            <!-- BLOCK: NUMBERED LIST -->
-                            @elseif ($type === 'numbered')
-                                <div class="word-bullet-item">
-                                    <span style="font-weight:600; min-width:18px; color:#242424;">1.</span>
-                                    <div contenteditable="true"
-                                        wire:ignore.self
-                                        @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
-                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
-                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
-                                        class="word-paragraph-text"
-                                        spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
-                                </div>
-
-                            <!-- BLOCK: QUOTE -->
-                            @elseif ($type === 'quote')
-                                <div class="word-quote-block">
-                                    <div contenteditable="true"
-                                        wire:ignore.self
-                                        @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
-                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
-                                        @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
-                                        class="word-quote-text"
-                                        spellcheck="false">{!! e($block['text'] ?? '') !!}</div>
-                                </div>
-
-                            <!-- BLOCK: CALLOUT -->
-                            @elseif ($type === 'callout')
-                                @php $cType = $block['calloutType'] ?? 'info'; @endphp
-                                <div style="border-left:4px solid #0f6cbd; background:rgba(15,108,189,0.04); padding:10px 14px; border-radius:0 4px 4px 0; margin:10px 0;">
-                                    <div style="font-size:11px; font-weight:700; color:#0f6cbd; margin-bottom:4px; text-transform:uppercase;">
-                                        📌 Note ({{ strtoupper($cType) }})
-                                    </div>
-                                    <div contenteditable="true"
-                                        wire:ignore.self
-                                        @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
-                                        @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
-                                        class="word-paragraph-text"
-                                        spellcheck="false">{!! nl2br(e($block['text'] ?? '')) !!}</div>
-                                </div>
-
-                            <!-- BLOCK: TABLE -->
-                            @elseif ($type === 'table')
-                                <div style="overflow-x:auto; margin:12px 0; border:1px solid #d1d1d1; border-radius:2px;">
-                                    <table style="width:100%; border-collapse:collapse; font-size:11pt;">
-                                        @php
-                                            $rows = $block['table']['rows'] ?? [];
-                                            $hasHeader = $block['table']['header'] ?? true;
-                                        @endphp
-                                        @foreach ($rows as $rIdx => $row)
-                                            <tr style="{{ $hasHeader && $rIdx === 0 ? 'background:#f3f2f1; font-weight:600; border-bottom:1px solid #a19f9d;' : 'border-bottom:1px solid #e1dfdd;' }}">
-                                                @foreach ($row as $cIdx => $cell)
-                                                    <td style="padding:6px 10px; border-right:1px solid #e1dfdd;">
-                                                        <input type="text" value="{{ $cell['text'] ?? '' }}"
-                                                            wire:blur="updateTableCell({{ $index }}, {{ $rIdx }}, {{ $cIdx }}, $event.target.value)"
-                                                            style="width:100%; border:none; background:transparent; outline:none; font-size:11pt;">
-                                                    </td>
-                                                @endforeach
-                                            </tr>
-                                        @endforeach
-                                    </table>
-                                </div>
-
-                            <!-- BLOCK: PAGEBREAK -->
-                            @elseif ($type === 'pagebreak')
-                                <div class="word-page-divider">
-                                    <div class="word-page-divider-line"></div>
-                                    <span class="word-page-divider-label">Page Break</span>
-                                    <div class="word-page-divider-line"></div>
-                                </div>
-                                <div class="word-paper-header" style="margin-top: 36px; margin-bottom: 24px;">
-                                    <span>The Open Studio Handbook</span>
-                                    <span>Spring edition</span>
-                                </div>
-
-                            <!-- BLOCK: PARAGRAPH (DEFAULT) -->
-                            @else
-                                <div contenteditable="true"
-                                    wire:ignore.self
-                                    @blur="$wire.updateBlockText({{ $index }}, $el.innerText)"
-                                    @keydown.enter.prevent="$wire.insertParagraphAfter({{ $index }})"
-                                    @keydown.backspace="if ($el.innerText.trim() === '') { $event.preventDefault(); $wire.removeBlockAndFocusPrev({{ $index }}); }"
-                                    class="word-paragraph-text"
-                                    spellcheck="false">
-                                    @if ($index === 2 && str_contains($block['text'] ?? '', 'pleasant'))
-                                        Every Thursday evening the old print shop on Alder Street fills with people who make things. <strong>Painters</strong> set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio: the routines that keep it <span class="word-spell-squiggle" title="Spelling: pleasant">pleasant</span>, the tools we pool, and the small agreements that let thirty strangers become a crew.
-                                    @elseif ($index === 4 && str_contains($block['text'] ?? '', 'ceramicist'))
-                                        Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A <span class="word-spell-squiggle" title="Spelling: ceramicist">ceramicist</span> explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point.
-                                    @else
-                                        {!! nl2br(e($block['text'] ?? '')) !!}
-                                    @endif
-                                </div>
+                            </li>
+                        @else
+                            @if ($inBulletList)
+                                </ul>
+                                @php $inBulletList = false; @endphp
                             @endif
 
-                        </div>
+                            @if ($type === 'numbered')
+                                @if (!$inNumberedList)
+                                    <ol class="word-numbered-list">
+                                    @php $inNumberedList = true; @endphp
+                                @endif
+                                <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">{!! e($text) !!}</li>
+                            @else
+                                @if ($inNumberedList)
+                                    </ol>
+                                    @php $inNumberedList = false; @endphp
+                                @endif
+
+                                @if ($type === 'title')
+                                    <h1 class="word-title-text" id="doc-title" data-block-index="{{ $index }}">{!! e($text ?: 'The Open Studio Handbook') !!}</h1>
+                                @elseif ($type === 'subtitle')
+                                    <p class="word-subtitle-text" id="doc-subtitle" data-block-index="{{ $index }}">{!! e($text) !!}</p>
+                                @elseif ($type === 'heading')
+                                    @php
+                                        if (stripos($text, 'daftar pustaka') !== false || stripos($text, 'referensi') !== false || stripos($text, 'bibliography') !== false) {
+                                            $inBibliographySection = true;
+                                        } else {
+                                            $inBibliographySection = false;
+                                        }
+                                    @endphp
+                                    @if ($level === 1)
+                                        <h2 class="word-heading-1" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h2>
+                                    @elseif ($level === 2)
+                                        <h3 class="word-heading-2" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h3>
+                                    @else
+                                        <h4 class="word-heading-3" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h4>
+                                    @endif
+                                @elseif ($type === 'quote')
+                                    <blockquote class="word-quote-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                        <p class="word-quote-text">{!! e($text) !!}</p>
+                                    </blockquote>
+                                @elseif ($type === 'toc')
+                                    <div class="word-toc-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}" contenteditable="false" style="margin: 18px 0 26px 0; padding: 14px 18px; background: #faf9f8; border: 1px solid #edebe9; border-radius: 4px;">
+                                        <div style="font-weight: 700; font-size: 13pt; color: #0f6cbd; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                                            <span>📑 Daftar Isi Otomatis</span>
+                                            <span style="font-size: 11px; font-weight: normal; color: #8a8886;">Diperbarui dari Heading dokumen</span>
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                                            @php
+                                                $tocRows = $block['table']['rows'] ?? [];
+                                            @endphp
+                                            @foreach ($tocRows as $tIdx => $tRow)
+                                                @if ($tIdx > 0)
+                                                    <div style="display: flex; align-items: baseline; font-size: 11pt; color: #242424;">
+                                                        <span style="white-space: nowrap;">{{ $tRow[0]['text'] ?? '' }}</span>
+                                                        <span style="flex: 1; border-bottom: 1px dotted #a19f9d; margin: 0 8px; transform: translateY(-3px);"></span>
+                                                        <span style="font-size: 10pt; color: #616161;">{{ $tRow[1]['text'] === '…' ? (1 + floor($tIdx / 4)) : ($tRow[1]['text'] ?? '1') }}</span>
+                                                    </div>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @elseif ($type === 'pagebreak')
+                                    <div class="word-page-divider" contenteditable="false">
+                                        <div class="word-page-divider-line"></div>
+                                        <span class="word-page-divider-label">Page Break</span>
+                                        <div class="word-page-divider-line"></div>
+                                    </div>
+                                    <div class="word-paper-header" contenteditable="false" style="margin-top: 36px; margin-bottom: 24px;">
+                                        <span>The Open Studio Handbook</span>
+                                        <span>Spring edition</span>
+                                    </div>
+                                @elseif ($type === 'callout')
+                                    <div class="word-callout-box" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                        📌 {!! nl2br(e($text)) !!}
+                                    </div>
+                                @elseif ($type === 'table')
+                                    <div style="overflow-x:auto; margin:14px 0; border:1px solid #d1d1d1; border-radius:2px;" contenteditable="true" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                        <table style="width:100%; border-collapse:collapse; font-size:11pt;">
+                                            @php
+                                                $rows = $block['table']['rows'] ?? [];
+                                                $hasHeader = $block['table']['header'] ?? true;
+                                            @endphp
+                                            @foreach ($rows as $rIdx => $row)
+                                                <tr style="{{ $hasHeader && $rIdx === 0 ? 'background:#f3f2f1; font-weight:600; border-bottom:1px solid #a19f9d;' : 'border-bottom:1px solid #e1dfdd;' }}">
+                                                    @foreach ($row as $cIdx => $cell)
+                                                        <td style="padding:6px 10px; border-right:1px solid #e1dfdd;">
+                                                            {{ $cell['text'] ?? '' }}
+                                                        </td>
+                                                    @endforeach
+                                                </tr>
+                                            @endforeach
+                                        </table>
+                                    </div>
+                                @else
+                                    @if ($inBibliographySection)
+                                        <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                            {!! nl2br(e($text)) !!}
+                                        </p>
+                                    @else
+                                        <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                            @if ($index === 2 && str_contains($text, 'pleasant'))
+                                                Every Thursday evening the old print shop on Alder Street fills with people who make things. <strong>Painters</strong> set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio (Gauntlett, 2018): the routines that keep it <span class="word-spell-squiggle" title="Spelling: pleasant">pleasant</span>, the tools we pool, and the small agreements that let thirty strangers become a crew (Sennett, 2019).
+                                            @elseif ($index === 4 && str_contains($text, 'ceramicist'))
+                                                Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A <span class="word-spell-squiggle" title="Spelling: ceramicist">ceramicist</span> explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point.
+                                            @else
+                                                {!! nl2br(e($text)) !!}
+                                            @endif
+                                        </p>
+                                    @endif
+                                @endif
+                            @endif
+                        @endif
                     @endforeach
+
+                    @if ($inBulletList)
+                        </ul>
+                    @endif
+                    @if ($inNumberedList)
+                        </ol>
+                    @endif
                 </div>
 
             </div>

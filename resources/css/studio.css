@@ -970,6 +970,93 @@ dialog#livewire-error {
     user-select: none;
 }
 
+/* Unified Microsoft Word Manuscript Canvas (Continuous Natural Flow) */
+.word-manuscript-editor {
+    width: 100%;
+    min-height: 850px;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    cursor: text;
+    line-height: 1.5;
+    color: #242424;
+    user-select: text;
+    display: block;
+}
+
+.dark .word-manuscript-editor {
+    color: #f3f3f3;
+}
+
+/* Authentic Word Bullet & Numbered Lists */
+.word-bullet-list {
+    margin: 8px 0 16px 28px;
+    padding-left: 8px;
+    list-style-type: disc;
+}
+
+.word-bullet-list li {
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #242424;
+    margin-bottom: 6px;
+    padding-left: 4px;
+}
+
+.dark .word-bullet-list li {
+    color: #e5e5e5;
+}
+
+.word-numbered-list {
+    margin: 8px 0 16px 28px;
+    padding-left: 8px;
+    list-style-type: decimal;
+}
+
+.word-numbered-list li {
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #242424;
+    margin-bottom: 6px;
+    padding-left: 4px;
+}
+
+.dark .word-numbered-list li {
+    color: #e5e5e5;
+}
+
+/* Authentic Academic Bibliography Entry (Hanging Indent) */
+.word-bib-entry {
+    font-size: 10.5pt;
+    line-height: 1.6;
+    margin-bottom: 10px;
+    padding-left: 32px;
+    text-indent: -32px;
+    color: #242424;
+}
+
+.dark .word-bib-entry {
+    color: #e5e5e5;
+}
+
+/* Navigation Outline Target Jump Highlight */
+.word-nav-target {
+    background-color: rgba(15, 108, 189, 0.12) !important;
+    border-radius: 4px;
+    transition: background-color 0.4s ease-out;
+}
+
+.word-callout-box {
+    border-left: 4px solid #0f6cbd;
+    background: rgba(15, 108, 189, 0.04);
+    padding: 10px 14px;
+    border-radius: 0 4px 4px 0;
+    margin: 14px 0;
+    font-size: 11pt;
+    line-height: 1.5;
+}
+
 /* Block Item (Seamless text, no ugly borders, true Word flow) */
 .word-block {
     position: relative;
