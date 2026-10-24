@@ -207,14 +207,22 @@ class NaskahStudioApp extends Component
     public function openTaskPane(string $pane): void
     {
         $this->activeTaskPane = $pane;
-        if ($pane === 'kpi' || $pane === 'editor') {
-            $this->kpiDrawerOpen = true;
+        if ($pane === 'assistant') {
+            $this->assistantOpen = true;
+            $this->kpiDrawerOpen = false;
+            $this->showComments = false;
+            $this->showRevisions = false;
         } elseif ($pane === 'comments') {
             $this->showComments = true;
+            $this->assistantOpen = false;
+            $this->kpiDrawerOpen = false;
         } elseif ($pane === 'revisions') {
             $this->showRevisions = true;
-        } elseif ($pane === 'assistant') {
-            $this->assistantOpen = true;
+            $this->assistantOpen = false;
+            $this->kpiDrawerOpen = false;
+        } elseif ($pane === 'kpi' || $pane === 'editor') {
+            $this->kpiDrawerOpen = true;
+            $this->assistantOpen = false;
         }
     }
 
@@ -225,6 +233,9 @@ class NaskahStudioApp extends Component
     {
         $this->activeTaskPane = '';
         $this->kpiDrawerOpen = false;
+        $this->assistantOpen = false;
+        $this->showComments = false;
+        $this->showRevisions = false;
     }
 
     /**

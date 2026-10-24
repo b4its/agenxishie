@@ -17,6 +17,7 @@ enum SlashCommand: string
     case MATRIKS = '/matriks-literatur';
     case CARI_REFERENSI = '/cari-referensi';
     case RINGKAS = '/ringkas';
+    case POLES = '/poles';
 
     public function description(): string
     {
@@ -28,6 +29,7 @@ enum SlashCommand: string
             self::MATRIKS => 'Bangun tabel matriks literatur (SOTA).',
             self::CARI_REFERENSI => 'Cari referensi relevan via memori hybrid MySQL.',
             self::RINGKAS => 'Ringkasan eksekutif progres naskah pada stage aktif.',
+            self::POLES => 'Poles kalimat dengan tata bahasa akademik baku dan kohesif.',
         };
     }
 

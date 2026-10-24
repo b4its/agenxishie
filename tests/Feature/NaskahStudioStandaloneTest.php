@@ -17,7 +17,7 @@ it('renders the standalone naskah studio page outside of admin panel', function 
 
     $response->assertOk()
         ->assertSee('NASKAH STUDIO')
-        ->assertSee('18 UX KPIs')
+        ->assertSee('Xishie Assistant')
         ->assertSee('Waktu Sesi')
         ->assertSee('Kepatuhan');
 });

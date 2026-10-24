@@ -48,6 +48,7 @@ final class XishieAssistantService
             SlashCommand::MATRIKS => $this->matriks($project),
             SlashCommand::CARI_REFERENSI => $this->cariReferensi($project, $argument),
             SlashCommand::RINGKAS => $this->ringkas($project),
+            SlashCommand::POLES => $this->poles($project, $argument),
         };
     }
 
@@ -79,6 +80,40 @@ final class XishieAssistantService
         $rewritten = 'Dengan demikian, '.lcfirst(rtrim($argument, '.')).' dapat dinyatakan sebagai kontribusi yang perlu divalidasi secara empiris.';
 
         return ['command' => SlashCommand::PARAFRASE->value, 'reply' => $rewritten, 'data' => ['original' => $argument]];
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function poles(XishieProject $project, string $argument): array
+    {
+        if ($argument === '') {
+            return [
+                'command' => SlashCommand::POLES->value,
+                'reply' => 'Sertakan kalimat atau pilih blok yang ingin dipoles setelah /poles.',
+                'data' => [],
+            ];
+        }
+
+        $context = $this->memory->build($project, $argument);
+        $prompt = "Sebagai asisten penulisan artikel ilmiah bereputasi, poles kalimat/paragraf berikut menjadi bahasa akademik formal, baku, dan kaya diksi ilmiah tanpa mengubah maknanya:\n\n\"{$argument}\"";
+        $answer = $this->answerWithLlm($project, $prompt, $context);
+
+        if ($answer !== null && trim($answer) !== '') {
+            return [
+                'command' => SlashCommand::POLES->value,
+                'reply' => trim($answer),
+                'data' => ['original' => $argument, 'source' => 'omnigensi-llm'],
+            ];
+        }
+
+        $polished = 'Secara konseptual, '.lcfirst(rtrim($argument, '.')).', yang secara empiris memperkuat landasan teoretis naskah.';
+
+        return [
+            'command' => SlashCommand::POLES->value,
+            'reply' => $polished,
+            'data' => ['original' => $argument],
+        ];
     }
 
     /**

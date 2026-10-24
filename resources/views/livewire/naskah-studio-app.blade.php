@@ -109,12 +109,10 @@
                 <kbd style="font-size:9px; background:#ffffff; border:1px solid #d1d1d1; padding:1px 3px; border-radius:2px; color:#616161;">Ctrl+K</kbd>
             </div>
 
-            <!-- 18 UX KPIs Telemetry Pill Button (Matches Image 1 Discord pill position) -->
-            <button type="button" wire:click="toggleKpiDrawer" class="word-kpi-chip" title="Buka 18 UX KPIs &amp; Telemetri Usability">
-                <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
-                    <path d="M2 10a8 8 0 1116 0 8 8 0 01-16 0zm8-6a6 6 0 100 12 6 6 0 000-12zm-1 3a1 1 0 012 0v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 10.586V7z"/>
-                </svg>
-                <span>18 UX KPIs</span>
+            <!-- Xishie Assistant Topbar Trigger Button -->
+            <button type="button" wire:click="openAssistant" class="word-assistant-pill-btn {{ $assistantOpen ? 'active' : '' }}" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">
+                <span class="word-assistant-pill-icon">✨</span>
+                <span>Xishie Assistant</span>
             </button>
 
             <!-- User Avatar Circle WU (Matches Image 1) -->
@@ -571,18 +569,29 @@
                 </div>
             </div>
 
-            <!-- GROUP: 18 UX KPIS -->
+            <!-- GROUP: XISHIE ASSISTANT (COPILOT) -->
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="toggleKpiDrawer" title="18 UX &amp; Product Metrics Inspector">
-                        <div style="width:24px; height:24px; border-radius:4px; background:#ebf3fc; color:#0f6cbd; display:flex; align-items:center; justify-content:center; font-size:12px;">
-                            📊
+                    <button type="button" class="word-btn-large word-btn-assistant-highlight" wire:click="openAssistant" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">
+                        <div class="word-copilot-icon-badge">
+                            ✨
                         </div>
-                        <span>18 KPIs ▾</span>
+                        <span style="font-weight:700; color:#4338ca;">Xishie AI</span>
                     </button>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/poles')" title="Poles Teks Akademik">
+                            <span>🪄 Poles Teks</span>
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/parafrase')" title="Parafrase Paragraf">
+                            <span>🔄 Parafrase</span>
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/cek-pedoman')" title="Audit Kepatuhan Pedoman">
+                            <span>📋 Pedoman</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="word-group__footer">
-                    <span class="word-group__label">Telemetry</span>
+                    <span class="word-group__label">Xishie Assistant</span>
                 </div>
             </div>
 
@@ -900,13 +909,17 @@
 
             <div class="word-group">
                 <div class="word-group__content">
+                    <button type="button" class="word-btn-large word-btn-assistant-highlight" wire:click="openAssistant" title="Buka Xishie Assistant Copilot">
+                        <div class="word-copilot-icon-badge">✨</div>
+                        <span style="font-weight:700; color:#4338ca;">Copilot</span>
+                    </button>
                     <div class="word-group__col">
                         <button type="button" class="word-tool-btn" wire:click="aiElaborateBlock({{ $activeBlock }})">✨ AI Elaborate</button>
                         <button type="button" class="word-tool-btn" wire:click="aiShortenBlock({{ $activeBlock }})">✂️ AI Shorten</button>
                         <button type="button" class="word-tool-btn" wire:click="aiFixTone({{ $activeBlock }}, 'akademik')">🎓 Academic Tone</button>
                     </div>
                 </div>
-                <div class="word-group__footer"><span class="word-group__label">Wordcraft AI</span></div>
+                <div class="word-group__footer"><span class="word-group__label">Xishie AI</span></div>
             </div>
 
         <!-- TAB: VIEW -->
@@ -987,30 +1000,20 @@
 
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="openAssistant" title="Open AI Wordcraft Copilot">
-                        <span style="font-size:18px;">✨</span>
-                        <span>AI Assistant</span>
+                    <button type="button" class="word-btn-large word-btn-assistant-highlight" wire:click="openAssistant" title="Buka Xishie Assistant Penulisan Ilmiah">
+                        <div class="word-copilot-icon-badge">✨</div>
+                        <span style="font-weight:700; color:#4338ca;">Asisten AI</span>
                     </button>
-                    <button type="button" class="word-btn-large" wire:click="runTool('cek-pedoman')" title="Check Guideline Compliance">
-                        <span style="font-size:18px;">🎯</span>
-                        <span>Pedoman</span>
-                    </button>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/cek-pedoman')" title="Audit Kepatuhan Pedoman Naskah">
+                            <span>🎯 Cek Pedoman</span>
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('stats')" title="Statistik &amp; Skor Keterbacaan">
+                            <span>📊 Statistik</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="word-group__footer"><span class="word-group__label">Copilot &amp; Audit</span></div>
-            </div>
-
-            <div class="word-group">
-                <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="toggleKpiDrawer('HEART')" title="Rate CSAT Satisfaction">
-                        <span style="font-size:18px;">⭐</span>
-                        <span>Feedback / CSAT</span>
-                    </button>
-                    <button type="button" class="word-btn-large" wire:click="toggleKpiDrawer('RESOURCES')" title="18 UX KPIs Documentation &amp; Learning Guides">
-                        <span style="font-size:18px;">📖</span>
-                        <span>18 UX Guides</span>
-                    </button>
-                </div>
-                <div class="word-group__footer"><span class="word-group__label">Feedback &amp; 18 KPIs</span></div>
+                <div class="word-group__footer"><span class="word-group__label">Asisten &amp; Audit</span></div>
             </div>
         @endif
     </div>
@@ -1431,13 +1434,242 @@
         </main>
 
         <!-- ================================================================= -->
-        <!-- RIGHT TASK PANE: 18 UX KPIS, EDITOR, COMMENTS, ASSISTANT          -->
+        <!-- RIGHT TASK PANE: XISHIE ASSISTANT, COMMENTS, REVISIONS, TELEMETRY  -->
         <!-- ================================================================= -->
-        @if ($kpiDrawerOpen || $showComments || $showRevisions || $assistantOpen)
+        @if ($assistantOpen || $showComments || $showRevisions || $kpiDrawerOpen)
             <aside class="word-taskpane">
 
-                <!-- 18 UX KPIS & USABILITY TELEMETRY PANE -->
-                @if ($kpiDrawerOpen)
+                <!-- 1. XISHIE ASSISTANT TASK PANE (PRIMARY AI COPILOT) -->
+                @if ($assistantOpen)
+                    <div class="word-assistant-header">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div class="word-copilot-icon-badge" style="width:22px; height:22px; font-size:12px;">✨</div>
+                            <div>
+                                <span class="word-taskpane-title" style="font-weight:700; color:var(--ms-text-primary);">Xishie Assistant</span>
+                                <div style="font-size:10px; color:var(--ms-text-muted);">AI Co-pilot Penulisan Ilmiah</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            @if (!empty($assistantLog))
+                                <button type="button" class="word-icon-btn" wire:click="clearAssistantLog" title="Bersihkan Riwayat Chat">
+                                    <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                    </svg>
+                                </button>
+                            @endif
+                            <button type="button" class="word-icon-btn" wire:click="closeAssistant" title="Tutup Asisten">&times;</button>
+                        </div>
+                    </div>
+
+                    <!-- Context Bar -->
+                    <div class="word-assistant-context">
+                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:210px;">
+                            📄 {{ Str::limit($docTitle, 22) }}
+                        </span>
+                        <span style="font-size:10px; color:#4338ca; font-weight:600; background:#e0e7ff; padding:1px 6px; border-radius:9999px;">
+                            Blok #{{ $activeBlock + 1 }} ({{ ucfirst($blocks[$activeBlock]['type'] ?? 'paragraf') }})
+                        </span>
+                    </div>
+
+                    <!-- Quick Command Chips Bar -->
+                    <div class="word-assistant-tools-bar">
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/poles')" title="Poles kalimat/paragraf dengan gaya penulisan akademik">
+                            🪄 /poles
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/parafrase')" title="Parafrase kalimat untuk menghindari plagiasi">
+                            🔄 /parafrase
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/cek-pedoman')" title="Audit kepatuhan naskah terhadap kaidah ilmiah &amp; pedoman">
+                            🎯 /cek-pedoman
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/sitasi')" title="Cari rekomendasi sitasi dan referensi ilmiah yang valid">
+                            📚 /sitasi
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/ringkas')" title="Ringkasan eksekutif progres dan statistik naskah">
+                            📝 /ringkas
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/cek-gap')" title="Identifikasi research gap dan kebaruan penelitian">
+                            🔬 /cek-gap
+                        </button>
+                    </div>
+
+                    <!-- Conversation Stream -->
+                    <div class="word-assistant-chat">
+                        @if (empty($assistantLog))
+                            <!-- Empty State with Interactive Prompts -->
+                            <div class="word-assistant-empty">
+                                <div style="width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg, #eef2ff 0%, #ede9fe 100%); display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow:0 2px 8px rgba(99,102,241,0.15);">
+                                    ✨
+                                </div>
+                                <div style="font-weight:700; font-size:14px; color:var(--ms-text-primary);">
+                                    Halo! Saya Xishie Assistant
+                                </div>
+                                <p style="font-size:11.5px; color:var(--ms-text-muted); line-height:1.45; margin:0 4px;">
+                                    Asisten cerdas Anda untuk menelaah naskah, memoles gaya bahasa akademik, parafrase anti-plagiasi, dan memastikan kepatuhan pedoman jurnal.
+                                </p>
+
+                                <div style="display:flex; flex-direction:column; gap:8px; width:100%; margin-top:8px;">
+                                    <div class="word-assistant-prompt-card" wire:click="runTool('/poles')">
+                                        <span style="font-size:15px;">🪄</span>
+                                        <div style="flex:1;">
+                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Poles Gaya Akademik</strong>
+                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Sempurnakan kalimat blok aktif agar lebih ilmiah &amp; formal.</span>
+                                        </div>
+                                    </div>
+                                    <div class="word-assistant-prompt-card" wire:click="runTool('/parafrase')">
+                                        <span style="font-size:15px;">🔄</span>
+                                        <div style="flex:1;">
+                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Parafrase Paragraf</strong>
+                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Restrukturisasi kalimat untuk menekan tingkat plagiasi.</span>
+                                        </div>
+                                    </div>
+                                    <div class="word-assistant-prompt-card" wire:click="runTool('/cek-pedoman')">
+                                        <span style="font-size:15px;">🎯</span>
+                                        <div style="flex:1;">
+                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Audit Pedoman &amp; IMRAD</strong>
+                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Periksa kelengkapan struktur naskah dan kaidah jurnal.</span>
+                                        </div>
+                                    </div>
+                                    <div class="word-assistant-prompt-card" wire:click="runTool('/sitasi')">
+                                        <span style="font-size:15px;">📚</span>
+                                        <div style="flex:1;">
+                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Cari Sitasi Rujukan</strong>
+                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Dapatkan saran rujukan sitasi untuk klaim pada naskah.</span>
+                                        </div>
+                                    </div>
+                                    <div class="word-assistant-prompt-card" wire:click="runTool('/ringkas')">
+                                        <span style="font-size:15px;">📝</span>
+                                        <div style="flex:1;">
+                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Ringkas Naskah</strong>
+                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Buat ringkasan eksekutif progres dan statistik dokumen.</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
+                            @foreach ($assistantLog as $logIndex => $log)
+                                @if (($log['role'] ?? '') === 'user')
+                                    <!-- User Message Bubble -->
+                                    <div class="word-assistant-bubble-user">
+                                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:3px; gap:8px;">
+                                            <strong style="font-size:10.5px; color:#0f6cbd;">Anda</strong>
+                                            @if (!empty($log['command']) && $log['command'] !== 'freeform' && $log['command'] !== 'chat')
+                                                <span style="font-size:9.5px; background:#cfe4fa; color:#0f6cbd; padding:1px 5px; border-radius:4px; font-weight:700;">{{ $log['command'] }}</span>
+                                            @endif
+                                        </div>
+                                        <div>{{ $log['content'] ?? '' }}</div>
+                                    </div>
+                                @else
+                                    <!-- Assistant Message Bubble -->
+                                    <div class="word-assistant-bubble-bot">
+                                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                                            <div style="display:flex; align-items:center; gap:5px;">
+                                                <span style="font-size:12px;">✨</span>
+                                                <strong style="font-size:11px; color:#4338ca;">Xishie Assistant</strong>
+                                            </div>
+                                            <span style="font-size:9.5px; color:var(--ms-text-muted); background:#f1f5f9; padding:1px 5px; border-radius:3px;">AI Copilot</span>
+                                        </div>
+                                        <div style="line-height:1.5; white-space:pre-wrap; margin-bottom:10px; font-size:11.5px;">{{ $log['content'] ?? '' }}</div>
+
+                                        <!-- In-Document Action Buttons -->
+                                        <div style="display:flex; flex-wrap:wrap; gap:4px; border-top:1px solid #f1f5f9; padding-top:8px;">
+                                            <button type="button" wire:click="insertAssistantResponse({{ $logIndex }})" class="word-assistant-act-btn" title="Sisipkan teks ini sebagai paragraf baru di naskah">
+                                                <span>➕ Sisipkan ke Naskah</span>
+                                            </button>
+                                            <button type="button" wire:click="replaceActiveBlockWithAssistant({{ $logIndex }})" class="word-assistant-act-btn" title="Ganti blok aktif #{{ $activeBlock + 1 }} dengan teks ini">
+                                                <span>🔄 Ganti Blok Aktif</span>
+                                            </button>
+                                            <button type="button" x-data="{ copied: false }" @click="navigator.clipboard.writeText(@js($log['content'])); copied = true; setTimeout(() => copied = false, 2000);" class="word-assistant-act-btn" title="Salin teks ke clipboard">
+                                                <span x-show="!copied">📋 Salin</span>
+                                                <span x-show="copied" style="color:#107c41;">✓ Tersalin!</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
+                        @endif
+
+                        <!-- Loading Indicator -->
+                        <div wire:loading wire:target="sendAssistant,runTool" style="padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; display:flex; align-items:center; gap:8px; font-size:11.5px; color:#4338ca;">
+                            <span style="display:inline-block; animation:spin 1s linear infinite;">⏳</span>
+                            <span>Xishie Assistant sedang memproses dan menelaah naskah Anda...</span>
+                        </div>
+                    </div>
+
+                    <!-- Input Form -->
+                    <div class="word-assistant-input-area">
+                        <form wire:submit.prevent="sendAssistant" style="display:flex; gap:6px;">
+                            <input type="text" wire:model="assistantInput" class="word-select" style="flex:1; height:34px; padding:0 10px; font-size:12px;" placeholder="Tanya asisten atau ketik /poles, /sitasi... (Enter)">
+                            <button type="submit" class="word-btn-pill word-btn-share" style="height:34px; padding:0 12px; font-weight:600;" wire:loading.attr="disabled" wire:target="sendAssistant,runTool">
+                                Kirim
+                            </button>
+                        </form>
+                        <div style="font-size:10px; color:var(--ms-text-muted); display:flex; justify-content:space-between;">
+                            <span>Tekan <strong>Enter</strong> untuk mengirim</span>
+                            <span>Perintah: /poles, /parafrase, /sitasi, /cek-pedoman</span>
+                        </div>
+                    </div>
+
+                <!-- 2. COMMENTS TASK PANE -->
+                @elseif ($showComments)
+                    <div class="word-taskpane-header">
+                        <span class="word-taskpane-title">Comments ({{ count($comments) }})</span>
+                        <button type="button" class="word-icon-btn" wire:click="$set('showComments', false)">&times;</button>
+                    </div>
+                    <div class="word-taskpane-body">
+                        <div style="display:flex; gap:6px;">
+                            <input type="text" class="word-select" style="flex:1; height:32px;" placeholder="Comment on block #{{ $activeBlock + 1 }}..." wire:model="commentDraft" wire:keydown.enter="addComment">
+                            <button type="button" class="word-btn-pill word-btn-share" wire:click="addComment">Post</button>
+                        </div>
+                        @forelse ($comments as $cIdx => $c)
+                            <div style="padding:10px; border-radius:6px; border:1px solid #e1dfdd; background:#ffffff; box-shadow:var(--ms-shadow-card);">
+                                <div style="display:flex; justify-content:space-between; font-size:11px; color:#8a8886; margin-bottom:4px;">
+                                    <strong>{{ $c['author'] ?? 'Reviewer' }}</strong>
+                                    <span>Block #{{ ((int)($c['blockIndex'] ?? 0)) + 1 }}</span>
+                                </div>
+                                <p style="font-size:12px; line-height:1.45; margin-bottom:8px;">{{ $c['body'] ?? '' }}</p>
+                                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                                    <button type="button" wire:click="resolveComment({{ $cIdx }})" class="word-tool-btn" style="color:#0f6cbd;">
+                                        {{ !empty($c['resolved']) ? 'Reopen' : '✓ Resolve' }}
+                                    </button>
+                                    <button type="button" wire:click="deleteComment({{ $cIdx }})" class="word-tool-btn" style="color:#c50f1f;">Delete</button>
+                                </div>
+                            </div>
+                        @empty
+                            <div style="text-align:center; color:#8a8886; font-size:12px; padding:24px 0;">No comments yet.</div>
+                        @endforelse
+                    </div>
+
+                <!-- 3. REVISIONS TASK PANE -->
+                @elseif ($showRevisions)
+                    <div class="word-taskpane-header">
+                        <span class="word-taskpane-title">Track Changes ({{ $pendingRevisionCount }} pending)</span>
+                        <button type="button" class="word-icon-btn" wire:click="$set('showRevisions', false)">&times;</button>
+                    </div>
+                    <div class="word-taskpane-body">
+                        <div style="display:flex; gap:6px; margin-bottom:8px;">
+                            <button type="button" wire:click="acceptAllRevisions" class="word-btn-pill word-btn-share" style="flex:1; justify-content:center;">✓ Accept All</button>
+                            <button type="button" wire:click="rejectAllRevisions" class="word-btn-pill" style="flex:1; justify-content:center; color:#c50f1f;">✕ Reject All</button>
+                        </div>
+                        @forelse ($revisions as $rIdx => $rev)
+                            @if (($rev['status'] ?? '') === 'pending')
+                                <div style="padding:10px; border-radius:6px; border:1px solid #fde68a; background:#fffbeb; font-size:12px;">
+                                    <div style="font-size:10px; color:#8a8886; margin-bottom:4px;">{{ $rev['author'] ?? 'Author' }} · Block #{{ ((int)($rev['blockIndex'] ?? 0)) + 1 }}</div>
+                                    <div style="text-decoration:line-through; color:#c50f1f; margin-bottom:2px;">{{ $rev['before'] ?? '' }}</div>
+                                    <div style="color:#107c41; font-weight:600; margin-bottom:6px;">{{ $rev['after'] ?? '' }}</div>
+                                    <div style="display:flex; justify-content:flex-end; gap:6px;">
+                                        <button type="button" wire:click="acceptRevision({{ $rIdx }})" class="word-tool-btn" style="color:#107c41;">✓ Accept</button>
+                                        <button type="button" wire:click="rejectRevision({{ $rIdx }})" class="word-tool-btn" style="color:#c50f1f;">✕ Reject</button>
+                                    </div>
+                                </div>
+                            @endif
+                        @empty
+                            <div style="text-align:center; color:#8a8886; font-size:12px; padding:24px 0;">No pending revisions.</div>
+                        @endforelse
+                    </div>
+
+                <!-- 4. INTERNAL TELEMETRY & 18 UX KPIS DRAWER (DEVELOPER INSPECTION) -->
+                @elseif ($kpiDrawerOpen)
                     <div class="word-taskpane-header">
                         <div style="display:flex; align-items:center; gap:6px;">
                             <div style="width:20px; height:20px; background:#0f6cbd; border-radius:3px; display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:11px;">📊</div>
@@ -1446,7 +1678,6 @@
                         <button type="button" class="word-icon-btn" wire:click="toggleKpiDrawer">&times;</button>
                     </div>
 
-                    <!-- Framework Switcher Tabs (HEART, AARRR, Usability, Resources) -->
                     <div class="word-nav-subtabs" style="padding:8px 12px; background:var(--ms-bg-subtle, #f9f9fb);">
                         <button type="button" wire:click="setKpiFramework('HEART')" class="word-nav-pill {{ $kpiActiveFramework === 'HEART' ? 'active' : '' }}">
                             ❤️ HEART
@@ -1462,9 +1693,7 @@
                         </button>
                     </div>
 
-                    <!-- Task Pane Body -->
                     <div class="word-taskpane-body">
-                        <!-- Top Usability Summary Card -->
                         <div style="padding:12px; border-radius:6px; background:#ebf3fc; border:1px solid #cfe4fa; display:flex; flex-direction:column; gap:6px;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <strong style="color:#0f6cbd; font-size:13px;">Editor &amp; UX Health Score</strong>
@@ -1475,7 +1704,6 @@
                             </div>
                         </div>
 
-                        <!-- CSAT Rating Widget -->
                         <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:6px; background:#ffffff;">
                             <div style="font-size:12px; font-weight:600; margin-bottom:4px; display:flex; justify-content:space-between;">
                                 <span>Bagikan Kepuasan UX (CSAT)</span>
@@ -1493,7 +1721,6 @@
                             @endif
                         </div>
 
-                        <!-- TAB: RESOURCES (6 UX GUIDES FROM PROMPT) -->
                         @if ($kpiActiveFramework === 'RESOURCES')
                             <div style="display:flex; flex-direction:column; gap:8px;">
                                 <div style="font-size:12px; font-weight:600; color:#242424;">18 KPIs &amp; UX Behavioral Resources:</div>
@@ -1528,8 +1755,6 @@
                                     <span style="font-size:11px; color:#616161;">Task Completion Rate, Time on Task, User Error Rate, dan SEQ/CSAT.</span>
                                 </a>
                             </div>
-
-                        <!-- TAB: METRIC CARDS LIST (HEART, AARRR, UX) -->
                         @else
                             @php
                                 $filteredKpis = array_filter($uxKpis, fn($m) => $kpiActiveFramework === 'UX' ? ($m['framework'] === 'UX') : ($m['framework'] === $kpiActiveFramework));
@@ -1550,92 +1775,6 @@
                                 </div>
                             @endforeach
                         @endif
-                    </div>
-
-                <!-- COMMENTS TASK PANE -->
-                @elseif ($showComments)
-                    <div class="word-taskpane-header">
-                        <span class="word-taskpane-title">Comments ({{ count($comments) }})</span>
-                        <button type="button" class="word-icon-btn" wire:click="$set('showComments', false)">&times;</button>
-                    </div>
-                    <div class="word-taskpane-body">
-                        <div style="display:flex; gap:6px;">
-                            <input type="text" class="word-select" style="flex:1; height:32px;" placeholder="Comment on block #{{ $activeBlock + 1 }}..." wire:model="commentDraft" wire:keydown.enter="addComment">
-                            <button type="button" class="word-btn-pill word-btn-share" wire:click="addComment">Post</button>
-                        </div>
-                        @forelse ($comments as $cIdx => $c)
-                            <div style="padding:10px; border-radius:6px; border:1px solid #e1dfdd; background:#ffffff; box-shadow:var(--ms-shadow-card);">
-                                <div style="display:flex; justify-content:space-between; font-size:11px; color:#8a8886; margin-bottom:4px;">
-                                    <strong>{{ $c['author'] ?? 'Reviewer' }}</strong>
-                                    <span>Block #{{ ((int)($c['blockIndex'] ?? 0)) + 1 }}</span>
-                                </div>
-                                <p style="font-size:12px; line-height:1.45; margin-bottom:8px;">{{ $c['body'] ?? '' }}</p>
-                                <div style="display:flex; justify-content:flex-end; gap:8px;">
-                                    <button type="button" wire:click="resolveComment({{ $cIdx }})" class="word-tool-btn" style="color:#0f6cbd;">
-                                        {{ !empty($c['resolved']) ? 'Reopen' : '✓ Resolve' }}
-                                    </button>
-                                    <button type="button" wire:click="deleteComment({{ $cIdx }})" class="word-tool-btn" style="color:#c50f1f;">Delete</button>
-                                </div>
-                            </div>
-                        @empty
-                            <div style="text-align:center; color:#8a8886; font-size:12px; padding:24px 0;">No comments yet.</div>
-                        @endforelse
-                    </div>
-
-                <!-- REVISIONS TASK PANE -->
-                @elseif ($showRevisions)
-                    <div class="word-taskpane-header">
-                        <span class="word-taskpane-title">Track Changes ({{ $pendingRevisionCount }} pending)</span>
-                        <button type="button" class="word-icon-btn" wire:click="$set('showRevisions', false)">&times;</button>
-                    </div>
-                    <div class="word-taskpane-body">
-                        <div style="display:flex; gap:6px; margin-bottom:8px;">
-                            <button type="button" wire:click="acceptAllRevisions" class="word-btn-pill word-btn-share" style="flex:1; justify-content:center;">✓ Accept All</button>
-                            <button type="button" wire:click="rejectAllRevisions" class="word-btn-pill" style="flex:1; justify-content:center; color:#c50f1f;">✕ Reject All</button>
-                        </div>
-                        @forelse ($revisions as $rIdx => $rev)
-                            @if (($rev['status'] ?? '') === 'pending')
-                                <div style="padding:10px; border-radius:6px; border:1px solid #fde68a; background:#fffbeb; font-size:12px;">
-                                    <div style="font-size:10px; color:#8a8886; margin-bottom:4px;">{{ $rev['author'] ?? 'Author' }} · Block #{{ ((int)($rev['blockIndex'] ?? 0)) + 1 }}</div>
-                                    <div style="text-decoration:line-through; color:#c50f1f; margin-bottom:2px;">{{ $rev['before'] ?? '' }}</div>
-                                    <div style="color:#107c41; font-weight:600; margin-bottom:6px;">{{ $rev['after'] ?? '' }}</div>
-                                    <div style="display:flex; justify-content:flex-end; gap:6px;">
-                                        <button type="button" wire:click="acceptRevision({{ $rIdx }})" class="word-tool-btn" style="color:#107c41;">✓ Accept</button>
-                                        <button type="button" wire:click="rejectRevision({{ $rIdx }})" class="word-tool-btn" style="color:#c50f1f;">✕ Reject</button>
-                                    </div>
-                                </div>
-                            @endif
-                        @empty
-                            <div style="text-align:center; color:#8a8886; font-size:12px; padding:24px 0;">No pending revisions.</div>
-                        @endforelse
-                    </div>
-
-                <!-- COPILOT / XISHIE ASSISTANT PANE -->
-                @elseif ($assistantOpen)
-                    <div class="word-taskpane-header">
-                        <span class="word-taskpane-title">🤖 Copilot &amp; Assistant</span>
-                        <button type="button" class="word-icon-btn" wire:click="closeAssistant">&times;</button>
-                    </div>
-                    <div class="word-taskpane-body">
-                        <div style="display:flex; flex-wrap:wrap; gap:4px;">
-                            <button type="button" wire:click="runTool('parafrase')" class="word-btn-pill" style="font-size:11px;">/parafrase</button>
-                            <button type="button" wire:click="runTool('sitasi')" class="word-btn-pill" style="font-size:11px;">/sitasi</button>
-                            <button type="button" wire:click="runTool('cek-pedoman')" class="word-btn-pill" style="font-size:11px;">/cek-pedoman</button>
-                        </div>
-                        <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
-                            @forelse ($assistantLog as $log)
-                                <div style="padding:8px 10px; border-radius:6px; font-size:12px; {{ ($log['role'] ?? '') === 'user' ? 'background:#ebf3fc; border:1px solid #cfe4fa; margin-left:12px;' : 'background:#f9f9fb; border:1px solid #e1dfdd; margin-right:12px;' }}">
-                                    <strong style="font-size:10px; color:#8a8886; display:block; margin-bottom:2px;">{{ ($log['role'] ?? '') === 'user' ? 'You' : 'Copilot' }}</strong>
-                                    <div style="line-height:1.45;">{{ $log['content'] ?? '' }}</div>
-                                </div>
-                            @empty
-                                <div style="text-align:center; color:#8a8886; font-size:12px; padding:32px 0;">Ask Copilot to help draft, cite, or refine your manuscript.</div>
-                            @endforelse
-                        </div>
-                        <form wire:submit.prevent="sendAssistant" style="display:flex; gap:4px; margin-top:8px;">
-                            <input type="text" wire:model="assistantInput" class="word-select" style="flex:1; height:32px;" placeholder="Ask Copilot or type /command...">
-                            <button type="submit" class="word-btn-pill word-btn-share">Send</button>
-                        </form>
                     </div>
                 @endif
 
@@ -1659,7 +1798,7 @@
             <div class="word-status-item" wire:click="openDialog('spelling')" title="Proofing Language">
                 English (United States)
             </div>
-            <div class="word-status-item" wire:click="toggleKpiDrawer('UX')" title="Accessibility &amp; Compliance">
+            <div class="word-status-item" wire:click="openDialog('stats')" title="Status Aksesibilitas &amp; Statistik Dokumen">
                 <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" style="color:#107c41;">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                 </svg>
