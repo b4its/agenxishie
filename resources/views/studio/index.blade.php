@@ -51,6 +51,7 @@
             if (typeof window.katex === 'undefined') {
                 return;
             }
+            // 1. Render display equation blocks
             document.querySelectorAll('.latex-math-render').forEach(el => {
                 const latex = el.getAttribute('data-latex') || el.textContent;
                 if (!latex) return;
@@ -61,6 +62,20 @@
                     });
                 } catch (e) {
                     console.debug('KaTeX render notice:', e);
+                }
+            });
+
+            // 2. Render inline math expressions ($...$) inside document paragraphs
+            document.querySelectorAll('.word-paragraph-text, .word-heading-1, .word-heading-2, .word-quote-text').forEach(p => {
+                if (p.textContent.includes('$') && !p.dataset.mathRendered) {
+                    p.innerHTML = p.innerHTML.replace(/\$([^\$]+)\$/g, function(match, math) {
+                        try {
+                            return window.katex.renderToString(math, { throwOnError: false, displayMode: false });
+                        } catch (err) {
+                            return match;
+                        }
+                    });
+                    p.dataset.mathRendered = 'true';
                 }
             });
         }

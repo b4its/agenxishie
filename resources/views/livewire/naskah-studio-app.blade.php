@@ -1558,12 +1558,18 @@
                                                 📌 {!! nl2br(e($text)) !!}
                                             </div>
                                         @elseif ($type === 'table')
-                                            <div style="overflow-x:auto; margin:14px 0; border:1px solid #d1d1d1; border-radius:2px;" contenteditable="true" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                            <div style="overflow-x:auto; margin:14px 0; border:1px solid #d1d1d1; border-radius:2px; position:relative;" class="word-table-wrapper" contenteditable="true" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                                @php
+                                                    $rows = $block['table']['rows'] ?? [];
+                                                    $hasHeader = $block['table']['header'] ?? true;
+                                                @endphp
+                                                <div class="word-table-actions" contenteditable="false" style="position:absolute; right:6px; top:6px; z-index:10; display:flex; gap:4px; background:rgba(255,255,255,0.92); padding:2px 4px; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                                                    <button type="button" class="word-tool-btn" style="padding:1px 6px; font-size:10px; height:20px;" wire:click="tableInsertRow({{ $index }}, {{ count($rows) }})" title="Tambah Baris Bawah">➕ Baris</button>
+                                                    <button type="button" class="word-tool-btn" style="padding:1px 6px; font-size:10px; height:20px;" wire:click="tableInsertColumn({{ $index }}, {{ count($rows[0] ?? []) }})" title="Tambah Kolom Kanan">➕ Kolom</button>
+                                                    <button type="button" class="word-tool-btn" style="padding:1px 6px; font-size:10px; height:20px;" wire:click="tableToggleHeader({{ $index }})" title="Toggle Baris Header">🏷️ Header</button>
+                                                    <button type="button" class="word-tool-btn" style="padding:1px 6px; font-size:10px; height:20px; color:#d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Tabel">🗑️</button>
+                                                </div>
                                                 <table style="width:100%; border-collapse:collapse; font-size:11pt;">
-                                                    @php
-                                                        $rows = $block['table']['rows'] ?? [];
-                                                        $hasHeader = $block['table']['header'] ?? true;
-                                                    @endphp
                                                     @foreach ($rows as $rIdx => $row)
                                                         <tr style="{{ $hasHeader && $rIdx === 0 ? 'background:#f3f2f1; font-weight:600; border-bottom:1px solid #a19f9d;' : 'border-bottom:1px solid #e1dfdd;' }}">
                                                             @foreach ($row as $cIdx => $cell)
@@ -1623,13 +1629,15 @@
                                                 contenteditable="false"
                                                 style="margin: 18px 0; display: flex; flex-direction: column; align-items: {{ $align === 'left' ? 'flex-start' : ($align === 'right' ? 'flex-end' : 'center') }}; text-align: {{ $align }}; position: relative;">
                                                 <div style="position: relative; display: inline-block; max-width: 100%;">
-                                                    <div class="word-image-actions" style="position: absolute; right: 6px; top: 6px; display: flex; gap: 4px; background: rgba(255,255,255,0.92); padding: 2px 4px; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.15);">
-                                                        <button type="button" class="word-tool-btn" style="padding: 2px 6px; font-size: 11px; height: 22px; cursor: pointer;" wire:click="openDialog('image')" title="Ganti / Sisipkan Gambar">
-                                                            🖼️ Ubah
-                                                        </button>
-                                                        <button type="button" class="word-tool-btn" style="padding: 2px 6px; font-size: 11px; height: 22px; cursor: pointer; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Gambar">
-                                                            🗑️
-                                                        </button>
+                                                    <div class="word-image-actions" style="position: absolute; right: 6px; top: 6px; display: flex; gap: 4px; background: rgba(255,255,255,0.95); padding: 3px 6px; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); z-index:10;">
+                                                        <button type="button" class="word-tool-btn" style="padding: 1px 5px; font-size: 10px; height: 20px; {{ $width === 320 ? 'background:#e0e7ff; font-weight:700;' : '' }}" wire:click="setImageWidth({{ $index }}, 320)" title="Ukuran Kecil (320px)">320</button>
+                                                        <button type="button" class="word-tool-btn" style="padding: 1px 5px; font-size: 10px; height: 20px; {{ $width === 480 ? 'background:#e0e7ff; font-weight:700;' : '' }}" wire:click="setImageWidth({{ $index }}, 480)" title="Ukuran Sedang (480px)">480</button>
+                                                        <button type="button" class="word-tool-btn" style="padding: 1px 5px; font-size: 10px; height: 20px; {{ $width === 640 ? 'background:#e0e7ff; font-weight:700;' : '' }}" wire:click="setImageWidth({{ $index }}, 640)" title="Ukuran Lebar (640px)">640</button>
+                                                        <button type="button" class="word-tool-btn" style="padding: 1px 5px; font-size: 10px; height: 20px;" wire:click="setImageAlign({{ $index }}, 'left')" title="Rata Kiri">⬅️</button>
+                                                        <button type="button" class="word-tool-btn" style="padding: 1px 5px; font-size: 10px; height: 20px;" wire:click="setImageAlign({{ $index }}, 'center')" title="Rata Tengah">↔️</button>
+                                                        <button type="button" class="word-tool-btn" style="padding: 1px 5px; font-size: 10px; height: 20px;" wire:click="setImageAlign({{ $index }}, 'right')" title="Rata Kanan">➡️</button>
+                                                        <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; height: 20px;" wire:click="openDialog('image')" title="Ganti Gambar">🖼️</button>
+                                                        <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; height: 20px; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Gambar">🗑️</button>
                                                     </div>
                                                     @if ($src !== '')
                                                         <img src="{{ $src }}"
@@ -1647,6 +1655,16 @@
                                                     </figcaption>
                                                 @endif
                                             </figure>
+                                        @elseif ($type === 'footnote-ref')
+                                            <div class="word-footnote-block"
+                                                id="word-block-{{ $index }}"
+                                                data-block-index="{{ $index }}"
+                                                contenteditable="false"
+                                                style="margin: 14px 0 6px 0; padding-top: 6px; border-top: 1px solid #cbd5e1; font-size: 9.5pt; color: #475569; display: flex; align-items: baseline; gap: 8px;">
+                                                <span style="font-size: 9pt; font-weight: 700; color: #0f6cbd;">⚓ Catatan Kaki:</span>
+                                                <span style="flex: 1; font-style: italic;">{!! e($text) !!}</span>
+                                                <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Catatan Kaki">🗑️</button>
+                                            </div>
                                         @else
                                             @if ($inBibliographySection)
                                                 <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
@@ -2375,6 +2393,34 @@
                             <span style="font-size:10px; color:var(--ms-text-muted); margin-top:2px; display:block;">Dukungan penuh sintaks LaTeX: pecahan (\frac), integral (\int), akar (\sqrt), matriks, huruf Yunani (\alpha, \beta, \pi).</span>
                         </div>
 
+                        <!-- Palet Simbol Matematika Cepat -->
+                        <div>
+                            <label style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--ms-text-secondary);">Karakter &amp; Operator Cepat (Klik untuk Sisipkan):</label>
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; background:#faf9f8; padding:6px; border:1px solid #e1dfdd; border-radius:3px;">
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\pm')">±</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\times')">×</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\div')">÷</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\neq')">≠</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\approx')">≈</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\le')">≤</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\ge')">≥</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\infty')">∞</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\sqrt{x}')">√x</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\frac{a}{b}')">a/b</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\int')">∫</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\sum')">∑</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\alpha')">α</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\beta')">β</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\theta')">θ</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\lambda')">λ</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\mu')">μ</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\pi')">π</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\sigma')">σ</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\Delta')">Δ</button>
+                                <button type="button" class="word-tool-btn" style="min-width:24px; height:22px; font-size:11px; font-weight:600;" wire:click="appendEquationSymbol('\\partial')">∂</button>
+                            </div>
+                        </div>
+
                         <!-- Live Preview Box -->
                         <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; padding:12px; text-align:center;">
                             <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Pratinjau Rumus</div>
@@ -2397,11 +2443,16 @@
                             </div>
                         </div>
                     </div>
-                    <div class="word-dialog__footer">
+                    <div class="word-dialog__footer" style="display:flex; justify-content:space-between;">
                         <button type="button" class="word-btn-pill" wire:click="closeDialog">Batal</button>
-                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertEquation">
-                            {{ $editingEquationIndex !== null ? 'Perbarui Rumus' : 'Sisipkan Rumus ke Naskah' }}
-                        </button>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" class="word-btn-pill" wire:click="insertInlineEquation" title="Sisipkan sebagai rumus sebaris ($)">
+                                Sisipkan Inline ($)
+                            </button>
+                            <button type="button" class="word-btn-pill word-btn-share" wire:click="insertEquation">
+                                {{ $editingEquationIndex !== null ? 'Perbarui Rumus' : 'Sisipkan Blok Persamaan' }}
+                            </button>
+                        </div>
                     </div>
 
                 {{-- INSERT IMAGE --}}
@@ -2430,7 +2481,7 @@
                         <!-- Opsi 3: Diagram Cepat Siap Pakai -->
                         <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:4px; background:#faf9f8;">
                             <label style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:#0f6cbd;">3. Diagram Akademik Cepat (1-Klik):</label>
-                            <div style="display:flex; gap:8px;">
+                            <div style="display:flex; flex-wrap:wrap; gap:8px;">
                                 <button type="button" class="word-tool-btn" style="padding:4px 8px; font-size:11px;" wire:click="insertSampleDiagram('flowchart')">
                                     📊 Flowchart Metodologi
                                 </button>
@@ -2440,6 +2491,14 @@
                                 <button type="button" class="word-tool-btn" style="padding:4px 8px; font-size:11px;" wire:click="insertSampleDiagram('mindmap')">
                                     🧠 Kerangka Konseptual
                                 </button>
+                                <button type="button" class="word-tool-btn" style="padding:4px 8px; font-size:11px;" wire:click="insertSampleDiagram('venn')">
+                                    ⭕ Diagram Venn
+                                </button>
+                                <button type="button" class="word-tool-btn" style="padding:4px 8px; font-size:11px;" wire:click="insertSampleDiagram('timeline')">
+                                    ⏱️ Timeline Riset
+                                </button>
+                            </div>
+                        </div>
                             </div>
                         </div>
 

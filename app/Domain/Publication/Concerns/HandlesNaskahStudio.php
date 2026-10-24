@@ -1186,6 +1186,30 @@ trait HandlesNaskahStudio
                 .'<text x="320" y="30" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="600" fill="#0f6cbd">94.5%</text>'
                 .'<text x="320" y="180" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="700" fill="#0f6cbd">Xishie Model</text>'
                 .'</svg>',
+            'timeline' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 140" width="560" height="140">'
+                .'<rect width="560" height="140" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<line x1="50" y1="70" x2="510" y2="70" stroke="#0f6cbd" stroke-width="3"/>'
+                .'<circle cx="80" cy="70" r="9" fill="#0f6cbd"/>'
+                .'<text x="80" y="45" font-family="sans-serif" font-size="11" font-weight="700" fill="#0f6cbd" text-anchor="middle">Bulan 1-2</text>'
+                .'<text x="80" y="105" font-family="sans-serif" font-size="10" fill="#475569" text-anchor="middle">Studi Literatur</text>'
+                .'<circle cx="220" cy="70" r="9" fill="#0f6cbd"/>'
+                .'<text x="220" y="45" font-family="sans-serif" font-size="11" font-weight="700" fill="#0f6cbd" text-anchor="middle">Bulan 3-4</text>'
+                .'<text x="220" y="105" font-family="sans-serif" font-size="10" fill="#475569" text-anchor="middle">Eksperimen</text>'
+                .'<circle cx="360" cy="70" r="9" fill="#0f6cbd"/>'
+                .'<text x="360" y="45" font-family="sans-serif" font-size="11" font-weight="700" fill="#0f6cbd" text-anchor="middle">Bulan 5</text>'
+                .'<text x="360" y="105" font-family="sans-serif" font-size="10" fill="#475569" text-anchor="middle">Evaluasi &amp; Uji</text>'
+                .'<circle cx="480" cy="70" r="9" fill="#107c41"/>'
+                .'<text x="480" y="45" font-family="sans-serif" font-size="11" font-weight="700" fill="#107c41" text-anchor="middle">Bulan 6</text>'
+                .'<text x="480" y="105" font-family="sans-serif" font-size="10" fill="#107c41" font-weight="600" text-anchor="middle">Publikasi</text>'
+                .'</svg>',
+            'venn' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 180" width="540" height="180">'
+                .'<rect width="540" height="180" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<circle cx="210" cy="90" r="65" fill="#0f6cbd" fill-opacity="0.35" stroke="#0f6cbd" stroke-width="2"/>'
+                .'<circle cx="330" cy="90" r="65" fill="#107c41" fill-opacity="0.35" stroke="#107c41" stroke-width="2"/>'
+                .'<text x="180" y="95" fill="#0f6cbd" font-family="sans-serif" font-size="12" font-weight="700" text-anchor="middle">Teori A</text>'
+                .'<text x="360" y="95" fill="#107c41" font-family="sans-serif" font-size="12" font-weight="700" text-anchor="middle">Metode B</text>'
+                .'<text x="270" y="95" fill="#1e293b" font-family="sans-serif" font-size="12" font-weight="800" text-anchor="middle">Sintesis</text>'
+                .'</svg>',
             default => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 160" width="540" height="160">'
                 .'<rect width="540" height="160" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
                 .'<circle cx="270" cy="80" r="45" fill="#0f6cbd"/>'
@@ -1203,6 +1227,8 @@ trait HandlesNaskahStudio
         $caption = match ($diagramType) {
             'flowchart' => 'Gambar 1: Alur Metodologi Penelitian',
             'barchart' => 'Gambar 2: Perbandingan Akurasi Model terhadap Baseline',
+            'venn' => 'Gambar 3: Diagram Irisan Kerangka Sintesis Riset',
+            'timeline' => 'Gambar 4: Jadwal & Milestone Riset Ilmiah',
             default => 'Gambar: Kerangka Konseptual Naskah',
         };
 
@@ -1218,6 +1244,61 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->dialog = '';
         $this->notify('Diagram disisipkan ke naskah', '', 'success');
+    }
+
+    public function appendEquationSymbol(string $symbol): void
+    {
+        $this->equationLatex = trim($this->equationLatex) !== '' ? trim($this->equationLatex).' '.$symbol : $symbol;
+    }
+
+    public function insertInlineEquation(?string $latex = null): void
+    {
+        $formula = trim($latex ?? $this->equationLatex);
+        if ($formula === '') {
+            $formula = 'E = mc^2';
+        }
+
+        $index = $this->activeBlock;
+        if (! isset($this->blocks[$index])) {
+            $this->blocks[] = $this->model->newBlock('paragraph', '');
+            $index = count($this->blocks) - 1;
+        }
+
+        $inlineSnippet = '$'.$formula.'$';
+        $existing = (string) ($this->blocks[$index]['text'] ?? '');
+        $this->blocks[$index]['text'] = $existing !== '' ? $existing.' '.$inlineSnippet : $inlineSnippet;
+        if (isset($this->blocks[$index]['runs'][0])) {
+            $this->blocks[$index]['runs'][0]['text'] = $this->blocks[$index]['text'];
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->dialog = '';
+        $this->notify('Rumus inline disisipkan', $inlineSnippet, 'success');
+    }
+
+    public function setImageWidth(int $blockIndex, int $width): void
+    {
+        if (! isset($this->blocks[$blockIndex])) {
+            return;
+        }
+
+        $w = max(120, min(800, $width));
+        $this->blocks[$blockIndex]['image']['width'] = $w;
+        $this->dirty = true;
+        $this->editorRevision++;
+    }
+
+    public function setImageAlign(int $blockIndex, string $align): void
+    {
+        if (! isset($this->blocks[$blockIndex])) {
+            return;
+        }
+
+        $al = in_array($align, ['left', 'center', 'right'], true) ? $align : 'center';
+        $this->blocks[$blockIndex]['align'] = $al;
+        $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function insertEquation(?string $latex = null, ?string $caption = null, string $display = 'block'): void
@@ -1327,43 +1408,95 @@ trait HandlesNaskahStudio
             return;
         }
 
-        $this->blocks[] = $this->model->newBlock('footnote-ref', $text);
-        $this->activeBlock = count($this->blocks) - 1;
+        $newBlock = $this->model->newBlock('footnote-ref', $text);
+        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+            ? $this->activeBlock + 1
+            : count($this->blocks);
+        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+
+        $this->activeBlock = $insertAt;
         $this->footnoteText = '';
         $this->dialog = '';
+        $this->editorRevision++;
         $this->dirty = true;
+        $this->notify('Catatan kaki disisipkan', '', 'success');
     }
 
     public function insertPageBreak(): void
     {
-        $this->blocks[] = $this->model->normalizeBlock(['type' => 'pagebreak']);
+        $newBlock = $this->model->normalizeBlock(['type' => 'pagebreak']);
+        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+            ? $this->activeBlock + 1
+            : count($this->blocks);
+        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+
+        $this->activeBlock = $insertAt;
         $this->dirty = true;
         $this->editorRevision++;
+        $this->notify('Pemisah halaman (Page Break) disisipkan', '', 'info');
     }
 
     public function insertHorizontalRule(): void
     {
-        $this->blocks[] = $this->model->newBlock('paragraph', '――――――――――――――――――――――――――――――');
+        $newBlock = $this->model->newBlock('paragraph', '――――――――――――――――――――――――――――――');
+        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+            ? $this->activeBlock + 1
+            : count($this->blocks);
+        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+
+        $this->activeBlock = $insertAt;
+        $this->editorRevision++;
         $this->dirty = true;
     }
 
     public function insertDate(): void
     {
-        $this->blocks[] = $this->model->newBlock('paragraph', now()->translatedFormat('d F Y'));
+        $newBlock = $this->model->newBlock('paragraph', now()->translatedFormat('d F Y'));
+        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+            ? $this->activeBlock + 1
+            : count($this->blocks);
+        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+
+        $this->activeBlock = $insertAt;
+        $this->editorRevision++;
         $this->dirty = true;
     }
 
     public function insertPageNumberField(): void
     {
-        $this->blocks[] = $this->model->newBlock('paragraph', 'Halaman 1');
+        $newBlock = $this->model->newBlock('paragraph', 'Halaman 1');
+        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+            ? $this->activeBlock + 1
+            : count($this->blocks);
+        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+
+        $this->activeBlock = $insertAt;
+        $this->editorRevision++;
         $this->dirty = true;
     }
 
     public function insertSymbol(string $symbol): void
     {
-        $this->blocks[] = $this->model->newBlock('paragraph', $symbol);
+        $index = $this->activeBlock;
+        if (isset($this->blocks[$index]) && in_array($this->blocks[$index]['type'] ?? '', ['paragraph', 'heading', 'title', 'subtitle', 'quote', 'bullet', 'numbered'], true)) {
+            $existing = (string) ($this->blocks[$index]['text'] ?? '');
+            $this->blocks[$index]['text'] = $existing.$symbol;
+            if (isset($this->blocks[$index]['runs'][0])) {
+                $this->blocks[$index]['runs'][0]['text'] = $this->blocks[$index]['text'];
+            }
+        } else {
+            $newBlock = $this->model->newBlock('paragraph', $symbol);
+            $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+                ? $this->activeBlock + 1
+                : count($this->blocks);
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->activeBlock = $insertAt;
+        }
+
+        $this->editorRevision++;
         $this->dirty = true;
         $this->dialog = '';
+        $this->notify('Simbol disisipkan', $symbol, 'success');
     }
 
     public function applyPageSetup(): void
@@ -1748,6 +1881,9 @@ trait HandlesNaskahStudio
             } elseif (str_contains($class, 'word-callout-box')) {
                 $clean = trim(str_replace('📌', '', $text));
                 $blocks[] = $this->model->newBlock('callout', $clean);
+            } elseif (str_contains($class, 'word-footnote-block')) {
+                $clean = trim(preg_replace('/^⚓\s*Catatan Kaki:\s*/u', '', $node->textContent));
+                $blocks[] = $this->model->newBlock('footnote-ref', $clean);
             } elseif ($tag === 'ul') {
                 foreach ($node->childNodes as $li) {
                     if ($li->nodeType === XML_ELEMENT_NODE && strtolower($li->nodeName) === 'li') {

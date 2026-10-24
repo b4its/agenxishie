@@ -808,3 +808,88 @@ it('exports equations and images correctly to DOCX, HTML, Markdown and LaTeX', f
     $zip->close();
     @unlink($tempFile);
 });
+
+it('supports math symbols palette, inline equation insertion, and visual image resizing controls', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    // 1. Uji penambahan simbol matematika ke rumus (appendEquationSymbol)
+    $page->set('equationLatex', 'E =')
+        ->call('appendEquationSymbol', 'mc^2')
+        ->call('appendEquationSymbol', '\\pm')
+        ->call('appendEquationSymbol', '\\Delta');
+    expect($page->get('equationLatex'))->toContain('E = mc^2 \\pm \\Delta');
+
+    // 2. Uji penyisipan rumus inline ke paragraf aktif
+    $page->call('selectBlock', 1);
+    $initialText = (string) ($page->get('blocks')[1]['text'] ?? '');
+    $page->set('equationLatex', '\\alpha = 0.05')
+        ->call('insertInlineEquation');
+
+    $updatedBlock = $page->get('blocks')[1];
+    expect($updatedBlock['text'])->toContain('$\\alpha = 0.05$');
+
+    // 3. Uji pengubahan ukuran (setImageWidth) dan perataan (setImageAlign) gambar
+    $page->call('insertImageUrl', 'https://example.com/figure.png', 'Gambar Riset', 480, 'center');
+    $imgIndex = $page->get('activeBlock');
+    expect($page->get('blocks')[$imgIndex]['image']['width'])->toBe(480);
+
+    $page->call('setImageWidth', $imgIndex, 640);
+    expect($page->get('blocks')[$imgIndex]['image']['width'])->toBe(640);
+
+    $page->call('setImageAlign', $imgIndex, 'right');
+    expect($page->get('blocks')[$imgIndex]['align'])->toBe('right');
+
+    // 4. Uji diagram Venn dan Timeline riset
+    $page->call('insertSampleDiagram', 'venn');
+    $page->call('insertSampleDiagram', 'timeline');
+    $allBlocks = $page->get('blocks');
+    $vennFound = false;
+    $timelineFound = false;
+    foreach ($allBlocks as $b) {
+        if (($b['type'] ?? '') === 'image' && str_contains((string) ($b['image']['caption'] ?? ''), 'Irisan')) {
+            $vennFound = true;
+        }
+        if (($b['type'] ?? '') === 'image' && str_contains((string) ($b['image']['caption'] ?? ''), 'Milestone')) {
+            $timelineFound = true;
+        }
+    }
+    expect($vennFound)->toBeTrue()
+        ->and($timelineFound)->toBeTrue();
+});
+
+it('supports footnote insertion at cursor position, html roundtrip sync, and docx export', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    $page->call('selectBlock', 2);
+    $page->set('footnoteText', 'Penelitian ini didanai oleh Hibah Riset Kemendikbud 2026.')
+        ->call('insertFootnote');
+
+    $blocks = $page->get('blocks');
+    expect($blocks[3]['type'])->toBe('footnote-ref')
+        ->and($blocks[3]['text'])->toBe('Penelitian ini didanai oleh Hibah Riset Kemendikbud 2026.');
+
+    // Uji sync html roundtrip
+    $html = '<h2 class="word-heading-1">Metodologi</h2>'
+        .'<p class="word-paragraph-text">Teks penjelasan metode riset.</p>'
+        .'<div class="word-footnote-block">⚓ Catatan Kaki: Catatan rujukan lapangan.</div>';
+    $page->call('syncManuscriptPages', [$html]);
+
+    $syncedBlocks = $page->get('blocks');
+    expect(count($syncedBlocks))->toBe(3)
+        ->and($syncedBlocks[2]['type'])->toBe('footnote-ref')
+        ->and($syncedBlocks[2]['text'])->toBe('Catatan rujukan lapangan.');
+
+    // Uji DOCX export
+    $docxExporter = app(NaskahDocxExporter::class);
+    $docxBinary = $docxExporter->toDocx($syncedBlocks, 'Naskah dengan Catatan Kaki');
+    $zip = new \ZipArchive;
+    $tempFile = tempnam(sys_get_temp_dir(), 'docx_footnote_test');
+    file_put_contents($tempFile, $docxBinary);
+    expect($zip->open($tempFile))->toBeTrue();
+    $docXml = $zip->getFromName('word/document.xml');
+    expect($docXml)->toContain('[Catatan Kaki] Catatan rujukan lapangan.');
+    $zip->close();
+    @unlink($tempFile);
+});

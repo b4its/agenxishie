@@ -113,6 +113,15 @@ final class NaskahDocxExporter
                 continue;
             }
 
+            if ($type === 'footnote-ref') {
+                $text = (string) ($block['text'] ?? '');
+                $body .= '<w:p><w:pPr><w:spacing w:before="120" w:after="120"/></w:pPr>'
+                    .'<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="18"/><w:i/><w:color w:val="475569"/></w:rPr>'
+                    .'<w:t xml:space="preserve">[Catatan Kaki] '.$this->esc($text).'</w:t></w:r></w:p>';
+
+                continue;
+            }
+
             if ($type === 'image') {
                 $src = (string) ($block['image']['src'] ?? '');
                 $caption = (string) ($block['image']['caption'] ?? $block['image']['alt'] ?? '');

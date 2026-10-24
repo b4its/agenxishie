@@ -2119,3 +2119,30 @@ dialog#livewire-error {
 .dark .word-equation-render {
     color: #f1f5f9;
 }
+
+.word-table-wrapper {
+    position: relative;
+    transition: all 0.15s ease;
+}
+
+.word-table-actions {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.word-table-wrapper:hover .word-table-actions {
+    opacity: 1;
+}
+
+.word-footnote-block {
+    transition: background-color 0.15s ease;
+}
+
+.word-footnote-block:hover {
+    background-color: #f8fafc;
+}
+
+.dark .word-footnote-block {
+    border-top-color: #3f3f46;
+    color: #94a3b8;
+}
