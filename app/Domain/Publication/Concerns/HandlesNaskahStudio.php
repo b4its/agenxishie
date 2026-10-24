@@ -2282,6 +2282,8 @@ trait HandlesNaskahStudio
 
     public function runTool(string $tool, ?string $selectedText = null): void
     {
+        $tool = str_starts_with($tool, '/') ? $tool : '/'.$tool;
+
         if (! in_array($tool, $this->activeTools, true)) {
             $this->activeTools[] = $tool;
         }

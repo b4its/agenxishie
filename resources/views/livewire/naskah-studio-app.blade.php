@@ -188,12 +188,21 @@
             <button type="button" @click="copilotMenuOpen = !copilotMenuOpen" class="word-mini-btn word-mini-copilot-btn" title="Xishie Assistant AI Actions">
                 <span>✨ AI</span>
             </button>
-            <div x-show="copilotMenuOpen" @click.outside="copilotMenuOpen = false" class="word-mini-dropdown">
+            <div x-show="copilotMenuOpen" @click.outside="copilotMenuOpen = false" class="word-mini-dropdown" style="width: 210px;">
                 <button type="button" @click="runAi('/poles')" class="word-mini-dropdown-item">
                     <span>🪄 Poles Kalimat Terpilih</span>
                 </button>
                 <button type="button" @click="runAi('/parafrase')" class="word-mini-dropdown-item">
                     <span>🔄 Parafrase Anti-Plagiasi</span>
+                </button>
+                <button type="button" @click="runAi('/kembangkan')" class="word-mini-dropdown-item">
+                    <span>✍️ Elaborasi &amp; Kembangkan</span>
+                </button>
+                <button type="button" @click="runAi('/ringkaskan')" class="word-mini-dropdown-item">
+                    <span>✂️ Padatkan / Buat Ringkas</span>
+                </button>
+                <button type="button" @click="runAi('/perbaiki-ejaan')" class="word-mini-dropdown-item">
+                    <span>🔤 Perbaiki Ejaan &amp; PUEBI</span>
                 </button>
                 <button type="button" @click="runAi('/sitasi')" class="word-mini-dropdown-item">
                     <span>📚 Rekomendasikan Sitasi</span>
@@ -262,7 +271,7 @@
             </span>
         </div>
 
-        <!-- Right: Search commands and help, 18 UX KPIs Pill, Profile Avatar -->
+        <!-- Right: Search commands, Xishie Assistant Copilot, Profile Avatar -->
         <div class="word-titlebar__right">
             <!-- Search commands and help (Ctrl+K) -->
             <div class="word-search-box" wire:click="openDialog('palette')" style="cursor:pointer;" title="Search commands and help (Ctrl+K)">
@@ -434,7 +443,7 @@
                         <button type="button" class="word-tool-btn" wire:click="loadSampleHandbook" title="Reset to The Open Studio Handbook">
                             📖 Reload Handbook
                         </button>
-                        <button type="button" class="word-tool-btn" wire:click="runTool('cek-pedoman')" title="Check Guideline Compliance">
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/cek-pedoman')" title="Check Guideline Compliance">
                             🎯 Check DIKTI / Pedoman
                         </button>
                     </div>
@@ -1002,8 +1011,8 @@
             <div class="word-group">
                 <div class="word-group__content">
                     <div class="word-group__col">
-                        <button type="button" class="word-tool-btn" wire:click="runTool('cek-gap')">🔍 Analyze Literature Gap</button>
-                        <button type="button" class="word-tool-btn" wire:click="runTool('sitasi')">✅ Verify Citations</button>
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/cek-gap')">🔬 /cek-gap Research Gap</button>
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/matriks-literatur')">📊 /matriks Sintesis SOTA</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Research &amp; Validation</span></div>
@@ -1712,6 +1721,20 @@
                                         <div style="flex:1;">
                                             <strong style="display:block; font-size:11.5px; color:#4338ca;">Cari Sitasi Rujukan</strong>
                                             <span style="font-size:10.5px; color:var(--ms-text-muted);">Dapatkan saran rujukan sitasi untuk klaim pada naskah.</span>
+                                        </div>
+                                    </div>
+                                    <div class="word-assistant-prompt-card" wire:click="runTool('/kembangkan')">
+                                        <span style="font-size:15px;">✍️</span>
+                                        <div style="flex:1;">
+                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Elaborasi &amp; Kembangkan Draf</strong>
+                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Ubah poin naskah atau argumen ringkas menjadi paragraf ilmiah utuh.</span>
+                                        </div>
+                                    </div>
+                                    <div class="word-assistant-prompt-card" wire:click="runTool('/perbaiki-ejaan')">
+                                        <span style="font-size:15px;">🔤</span>
+                                        <div style="flex:1;">
+                                            <strong style="display:block; font-size:11.5px; color:#4338ca;">Audit Ejaan &amp; Tata Bahasa</strong>
+                                            <span style="font-size:10.5px; color:var(--ms-text-muted);">Periksa saltik, spasi, tanda baca, dan kosakata baku PUEBI/KBBI.</span>
                                         </div>
                                     </div>
                                     <div class="word-assistant-prompt-card" wire:click="runTool('/ringkas')">

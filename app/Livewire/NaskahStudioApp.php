@@ -207,7 +207,7 @@ class NaskahStudioApp extends Component
     public function openTaskPane(string $pane): void
     {
         $this->activeTaskPane = $pane;
-        if ($pane === 'assistant') {
+        if ($pane === 'assistant' || $pane === 'editor') {
             $this->assistantOpen = true;
             $this->kpiDrawerOpen = false;
             $this->showComments = false;
@@ -220,7 +220,7 @@ class NaskahStudioApp extends Component
             $this->showRevisions = true;
             $this->assistantOpen = false;
             $this->kpiDrawerOpen = false;
-        } elseif ($pane === 'kpi' || $pane === 'editor') {
+        } elseif ($pane === 'kpi') {
             $this->kpiDrawerOpen = true;
             $this->assistantOpen = false;
         }
