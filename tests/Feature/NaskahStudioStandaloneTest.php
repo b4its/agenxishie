@@ -1151,3 +1151,63 @@ it('supports font size adjustments and line spacing shortcuts matching Word and 
     $page->call('setLineSpacing', 2.0);
     expect((float) $page->get('pageSetup')['lineSpacing'])->toBe(2.0);
 });
+
+it('preserves block alignment attributes during html synchronization like Word and LibreOffice', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class);
+
+    $html = '<h1 style="text-align: center;">Judul Tengah</h1>'
+        .'<p align="right">Paragraf Rata Kanan</p>'
+        .'<p style="text-align: justify;">Paragraf Rata Kanan Kiri Justify</p>'
+        .'<blockquote align="center"><p>Kutipan Rata Tengah</p></blockquote>'
+        .'<p>Paragraf Biasa Kiri</p>';
+
+    $blocks = $page->instance()->parseHtmlToBlocks($html);
+
+    expect($blocks)->toHaveCount(5)
+        ->and($blocks[0]['align'])->toBe('center')
+        ->and($blocks[1]['align'])->toBe('right')
+        ->and($blocks[2]['align'])->toBe('justify')
+        ->and($blocks[3]['align'])->toBe('center')
+        ->and($blocks[4]['align'])->toBe('left');
+});
+
+it('finds and replaces text across both regular blocks and table cells like Word find and replace', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('newDocument');
+
+    // Tambah tabel dengan data kata kunci
+    $page->call('addBlock', 'table');
+    $blocks = $page->get('blocks');
+    $tableIdx = count($blocks) - 1;
+
+    // Isi tabel dan paragraf dengan kata kunci tertentu
+    $page->call('tableUpdateCell', $tableIdx, 0, 0, 'Metode kuantitatif');
+    $page->call('tableUpdateCell', $tableIdx, 0, 1, 'Data kuantitatif');
+    $page->call('updateBlockText', 0, 'Penelitian ini menggunakan pendekatan kuantitatif komparatif.');
+
+    // Cari kemunculan kata "kuantitatif"
+    $page->set('findQuery', 'kuantitatif');
+    $page->call('findText');
+
+    expect($page->get('findResult'))->toContain('3 kemunculan');
+
+    // Ganti semua "kuantitatif" menjadi "kualitatif"
+    $page->set('replaceQuery', 'kualitatif');
+    $page->call('replaceAll');
+
+    expect($page->get('findResult'))->toContain('Mengganti 3 kemunculan');
+
+    $updatedBlocks = $page->get('blocks');
+    expect($updatedBlocks[0]['text'])->toContain('kualitatif')
+        ->and($updatedBlocks[0]['text'])->not->toContain('kuantitatif')
+        ->and($updatedBlocks[$tableIdx]['table']['rows'][0][0]['text'])->toBe('Metode kualitatif')
+        ->and($updatedBlocks[$tableIdx]['table']['rows'][0][1]['text'])->toBe('Data kualitatif');
+});
+
+it('defaults ruler to visible and shows Indonesian proofing language in status bar', function (): void {
+    Livewire::test(NaskahStudioApp::class)
+        ->assertSet('showRuler', true)
+        ->assertSet('proofingLanguage', 'Indonesia (PUEBI)')
+        ->assertSee('Indonesia (PUEBI)')
+        ->assertSee('class="word-ruler"', false);
+});
