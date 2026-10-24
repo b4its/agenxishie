@@ -1,7 +1,8 @@
 /**
  * Naskah Studio — Microsoft Word & LibreOffice Writer Canvas Engine
- * Menangani pengetikan alami, pintasan keyboard, format instan tanpa kehilangan fokus,
- * tipografi cerdas (Smart Typography), dan navigasi tabel Word.
+ * Menangani pengetikan alami, pintasan keyboard, alur penulisan lancar tanpa jeda,
+ * tipografi cerdas (Smart Typography), format instan tanpa kehilangan kursor,
+ * peleburan blok (merge on backspace/delete), dan navigasi tabel Word.
  */
 window.wordStudioApp = function(config) {
     return {
@@ -21,6 +22,23 @@ window.wordStudioApp = function(config) {
         showBlockCopilot: false,
         blockCopilotTop: 0,
         blockCopilotLeft: 0,
+        savingState: 'saved', // 'saving' | 'saved' | 'unsaved'
+        liveWordCount: 0,
+        liveCharCount: 0,
+        currentFormat: {
+            bold: false,
+            italic: false,
+            underline: false,
+            strike: false,
+            subscript: false,
+            superscript: false,
+            align: 'left',
+            style: 'normal', // 'normal' | 'heading1' | 'heading2' | 'heading3' | 'title' | 'subtitle' | 'quote' | 'nospacing'
+            isBullet: false,
+            isNumbered: false,
+            tag: 'p',
+        },
+        copiedFormat: null,
         _syncTimer: null,
         _inputTimer: null,
         _selTimer: null,
@@ -29,8 +47,64 @@ window.wordStudioApp = function(config) {
             return this.$wire || config.wire || (window.Livewire ? window.Livewire.find(this.$el?.closest('[wire\\:id]')?.getAttribute('wire:id')) : null);
         },
 
+        updateCounts() {
+            let fullText = '';
+            document.querySelectorAll('.word-sheet-content').forEach(sheet => {
+                fullText += ' ' + (sheet.innerText || sheet.textContent || '');
+            });
+            const clean = fullText.trim();
+            this.liveWordCount = clean ? clean.split(/\s+/).length : 0;
+            this.liveCharCount = clean.length;
+        },
+
+        updateCurrentFormat() {
+            this.updateCounts();
+            const sel = window.getSelection();
+            if (!sel || !sel.rangeCount) return;
+
+            try {
+                this.currentFormat.bold = document.queryCommandState('bold');
+                this.currentFormat.italic = document.queryCommandState('italic');
+                this.currentFormat.underline = document.queryCommandState('underline');
+                this.currentFormat.strike = document.queryCommandState('strikeThrough');
+                this.currentFormat.subscript = document.queryCommandState('subscript');
+                this.currentFormat.superscript = document.queryCommandState('superscript');
+            } catch (e) {}
+
+            const anchor = sel.anchorNode;
+            if (!anchor) return;
+            const el = anchor.nodeType === 1 ? anchor : anchor.parentElement;
+            if (!el) return;
+
+            const block = el.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+            if (block) {
+                const tag = block.tagName.toLowerCase();
+                this.currentFormat.tag = tag;
+                this.currentFormat.align = block.style.textAlign || block.getAttribute('align') || 'left';
+                this.currentFormat.isBullet = block.closest('ul') !== null;
+                this.currentFormat.isNumbered = block.closest('ol') !== null;
+
+                if (tag === 'h1' || block.classList.contains('word-title-text')) {
+                    this.currentFormat.style = 'title';
+                } else if (tag === 'h2' || block.classList.contains('word-heading-1')) {
+                    this.currentFormat.style = 'heading1';
+                } else if (tag === 'h3' || block.classList.contains('word-heading-2')) {
+                    this.currentFormat.style = 'heading2';
+                } else if (tag === 'h4' || block.classList.contains('word-heading-3')) {
+                    this.currentFormat.style = 'heading3';
+                } else if (tag === 'blockquote' || block.classList.contains('word-quote-block')) {
+                    this.currentFormat.style = 'quote';
+                } else if (block.classList.contains('word-subtitle-text')) {
+                    this.currentFormat.style = 'subtitle';
+                } else {
+                    this.currentFormat.style = 'normal';
+                }
+            }
+        },
+
         syncAllPages(immediate = false) {
             clearTimeout(this._syncTimer);
+            this.savingState = 'saving';
             const doSync = () => {
                 const pageEls = document.querySelectorAll('.word-sheet-content');
                 const pageHtmls = [];
@@ -39,8 +113,14 @@ window.wordStudioApp = function(config) {
                     const wire = this.getWire();
                     if (wire) {
                         wire.syncManuscriptPages(pageHtmls);
+                        setTimeout(() => { this.savingState = 'saved'; }, 300);
+                    } else {
+                        this.savingState = 'saved';
                     }
+                } else {
+                    this.savingState = 'saved';
                 }
+                this.updateCounts();
             };
             if (immediate) {
                 doSync();
@@ -119,6 +199,7 @@ window.wordStudioApp = function(config) {
 
                 blockEl.replaceWith(newEl);
                 this.focusNode(newEl, true);
+                this.updateCurrentFormat();
                 this.syncAllPages();
             } else if (this.activeBlock !== null) {
                 const wire = this.getWire();
@@ -131,6 +212,7 @@ window.wordStudioApp = function(config) {
         applyAlignment(align) {
             const cmd = align === 'center' ? 'justifyCenter' : (align === 'right' ? 'justifyRight' : (align === 'justify' ? 'justifyFull' : 'justifyLeft'));
             document.execCommand(cmd, false, null);
+            this.currentFormat.align = align;
             this.syncAllPages();
         },
 
@@ -140,6 +222,29 @@ window.wordStudioApp = function(config) {
             } else {
                 document.execCommand('outdent', false, null);
             }
+            this.syncAllPages();
+        },
+
+        copyCurrentFormat() {
+            this.copiedFormat = { ...this.currentFormat };
+            const wire = this.getWire();
+            if (wire) {
+                wire.copyFormat(this.activeBlock);
+                wire.notify('Format Painter', 'Gaya format disalin (Format Painter). Klik teks target untuk menerapkan.', 'info');
+            }
+        },
+
+        pasteCurrentFormat() {
+            if (!this.copiedFormat) {
+                const wire = this.getWire();
+                if (wire) wire.pasteFormat(this.activeBlock);
+                return;
+            }
+            if (this.copiedFormat.bold !== document.queryCommandState('bold')) document.execCommand('bold');
+            if (this.copiedFormat.italic !== document.queryCommandState('italic')) document.execCommand('italic');
+            if (this.copiedFormat.underline !== document.queryCommandState('underline')) document.execCommand('underline');
+            if (this.copiedFormat.align) this.applyAlignment(this.copiedFormat.align);
+            if (this.copiedFormat.style) this.applyBlockStyle(this.copiedFormat.style);
             this.syncAllPages();
         },
 
@@ -169,6 +274,7 @@ window.wordStudioApp = function(config) {
             } else {
                 this.showBlockCopilot = false;
             }
+            this.updateCurrentFormat();
         },
 
         runBlockAi(tool) {
@@ -184,6 +290,7 @@ window.wordStudioApp = function(config) {
             if (!sel || sel.isCollapsed) {
                 this.showMiniToolbar = false;
                 this.copilotMenuOpen = false;
+                this.updateCurrentFormat();
                 return;
             }
             const text = sel.toString().trim();
@@ -223,10 +330,12 @@ window.wordStudioApp = function(config) {
             } catch (err) {
                 this.showMiniToolbar = false;
             }
+            this.updateCurrentFormat();
         },
 
         format(cmd, val = null) {
             document.execCommand(cmd, false, val);
+            this.updateCurrentFormat();
             this.syncAllPages();
         },
 
@@ -381,7 +490,7 @@ window.wordStudioApp = function(config) {
             const sel = window.getSelection();
             if (!sel || !sel.rangeCount) return;
 
-            // 1. TAB & SHIFT+TAB: Navigasi tabel dan indentasi tanpa kehilangan fokus
+            // 1. TAB & SHIFT+TAB: Navigasi tabel dan indentasi alami (Word & LibreOffice)
             if (e.key === 'Tab') {
                 e.preventDefault();
                 const anchor = sel.anchorNode;
@@ -422,7 +531,7 @@ window.wordStudioApp = function(config) {
                     return;
                 }
 
-                // Pada daftar butir: Tab menjorok ke dalam, Shift+Tab keluar
+                // Pada daftar butir: Tab menjorok ke dalam (sub-list), Shift+Tab keluar
                 const li = anchor?.nodeType === 1 ? anchor.closest('li') : anchor?.parentElement?.closest('li');
                 if (li) {
                     if (e.shiftKey) {
@@ -444,7 +553,15 @@ window.wordStudioApp = function(config) {
                 return;
             }
 
-            // 2. ENTER: Alur alami judul ke paragraf normal & keluar dari butir daftar kosong
+            // 2. SHIFT+ENTER: Line Break (Soft Break dalam paragraf yang sama)
+            if (e.key === 'Enter' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                document.execCommand('insertLineBreak');
+                this.syncAllPages();
+                return;
+            }
+
+            // 3. ENTER: Alur alami judul ke paragraf normal, keluar dari daftar, dan pemecahan kalimat
             if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 const anchor = sel.anchorNode;
 
@@ -485,6 +602,7 @@ window.wordStudioApp = function(config) {
 
                     heading.insertAdjacentElement('afterend', newP);
                     this.focusNode(newP, false);
+                    this.updateCurrentFormat();
                     this.syncAllPages();
                     return;
                 }
@@ -505,27 +623,131 @@ window.wordStudioApp = function(config) {
                             list.insertAdjacentElement('afterend', newP);
                         }
                         this.focusNode(newP, false);
+                        this.updateCurrentFormat();
                         this.syncAllPages();
                         return;
                     }
                 }
             }
 
-            // 3. BACKSPACE: Menghapus blok kosong dan memindahkan kursor ke blok sebelumnya dengan halus
+            // 4. BACKSPACE: Menghapus blok kosong, peleburan paragraf (merge paragraph), atau keluar dari gaya
             if (e.key === 'Backspace') {
                 const anchor = sel.anchorNode;
                 const block = anchor?.nodeType === 1
                     ? anchor.closest('p, h1, h2, h3, h4, li, blockquote')
                     : anchor?.parentElement?.closest('p, h1, h2, h3, h4, li, blockquote');
 
-                if (block) {
-                    const text = block.textContent;
-                    if (!text || text.trim() === '' || block.innerHTML === '<br>') {
+                if (block && sel.isCollapsed) {
+                    const range = sel.getRangeAt(0);
+                    const preRange = range.cloneRange();
+                    preRange.selectNodeContents(block);
+                    preRange.setEnd(range.startContainer, range.startOffset);
+                    const isAtStart = preRange.toString().length === 0;
+
+                    if (isAtStart) {
+                        const text = block.textContent;
+                        const isEmpty = !text || text.trim() === '' || block.innerHTML === '<br>';
                         const prev = block.previousElementSibling;
-                        if (prev && !prev.classList.contains('word-sheet-header')) {
+
+                        // Case A: Blok kosong -> Hapus dan fokus ke akhir blok sebelumnya
+                        if (isEmpty) {
+                            if (prev && !prev.classList.contains('word-sheet-header')) {
+                                e.preventDefault();
+                                block.remove();
+                                this.focusNode(prev, true);
+                                this.updateCurrentFormat();
+                                this.syncAllPages();
+                                return;
+                            }
+                        }
+
+                        // Case B: Di awal judul/heading -> Tekan Backspace mengubah kembali ke Paragraf Normal (Word)
+                        if (['H1', 'H2', 'H3', 'H4'].includes(block.tagName)) {
                             e.preventDefault();
+                            this.applyBlockStyle('normal');
+                            return;
+                        }
+
+                        // Case C: Di awal butir daftar (li) -> Keluar dari daftar
+                        if (block.tagName === 'LI') {
+                            e.preventDefault();
+                            const list = block.closest('ul, ol');
+                            if (list) {
+                                const newP = document.createElement('p');
+                                newP.className = 'word-paragraph-text';
+                                newP.innerHTML = block.innerHTML || '<br>';
+                                block.remove();
+                                if (list.children.length === 0) {
+                                    list.replaceWith(newP);
+                                } else {
+                                    list.insertAdjacentElement('afterend', newP);
+                                }
+                                this.focusNode(newP, false);
+                                this.updateCurrentFormat();
+                                this.syncAllPages();
+                                return;
+                            }
+                        }
+
+                        // Case D: Di awal paragraf non-kosong -> LEBURKAN (Merge) dengan paragraf sebelumnya (Word & LibreOffice)
+                        if (prev && !prev.classList.contains('word-sheet-header') && !['TABLE', 'FIGURE'].includes(prev.tagName)) {
+                            e.preventDefault();
+                            const blockHtml = block.innerHTML === '<br>' ? '' : block.innerHTML;
+                            const prevLength = (prev.innerText || prev.textContent || '').length;
+
+                            if (prev.innerHTML === '<br>') {
+                                prev.innerHTML = blockHtml || '<br>';
+                            } else if (blockHtml) {
+                                prev.innerHTML += blockHtml;
+                            }
+
                             block.remove();
-                            this.focusNode(prev, true);
+
+                            // Letakkan kursor tepat di titik sambungan merger
+                            try {
+                                const newRange = document.createRange();
+                                newRange.selectNodeContents(prev);
+                                newRange.collapse(false);
+                                sel.removeAllRanges();
+                                sel.addRange(newRange);
+                            } catch (err) {
+                                this.focusNode(prev, true);
+                            }
+
+                            this.updateCurrentFormat();
+                            this.syncAllPages();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // 5. DELETE: Peleburan paragraf ke depan (pull next paragraph forward on Delete at end)
+            if (e.key === 'Delete') {
+                const anchor = sel.anchorNode;
+                const block = anchor?.nodeType === 1
+                    ? anchor.closest('p, h1, h2, h3, h4, li, blockquote')
+                    : anchor?.parentElement?.closest('p, h1, h2, h3, h4, li, blockquote');
+
+                if (block && sel.isCollapsed) {
+                    const range = sel.getRangeAt(0);
+                    const postRange = range.cloneRange();
+                    postRange.selectNodeContents(block);
+                    postRange.setStart(range.endContainer, range.endOffset);
+                    const isAtEnd = postRange.toString().length === 0;
+
+                    if (isAtEnd) {
+                        const next = block.nextElementSibling;
+                        if (next && !next.classList.contains('word-sheet-footer') && !next.classList.contains('word-sheet-header') && !['TABLE', 'FIGURE'].includes(next.tagName)) {
+                            e.preventDefault();
+                            const nextHtml = next.innerHTML === '<br>' ? '' : next.innerHTML;
+                            if (block.innerHTML === '<br>') {
+                                block.innerHTML = nextHtml || '<br>';
+                            } else if (nextHtml) {
+                                block.innerHTML += nextHtml;
+                            }
+                            next.remove();
+                            this.updateCurrentFormat();
                             this.syncAllPages();
                             return;
                         }
@@ -536,12 +758,13 @@ window.wordStudioApp = function(config) {
 
         handleContentInput(e) {
             clearTimeout(this._inputTimer);
+            this.savingState = 'saving';
             this._inputTimer = setTimeout(() => this.syncAllPages(), 500);
 
             const sel = window.getSelection();
             if (!sel || !sel.rangeCount) return;
 
-            // Smart Typography Auto-Replacement (Word & LibreOffice Writer: -- -> —, ... -> …, (c) -> ©)
+            // Smart Typography Auto-Replacement (Word & LibreOffice Writer)
             if (sel.isCollapsed) {
                 const node = sel.anchorNode;
                 if (node && node.nodeType === Node.TEXT_NODE) {
@@ -550,11 +773,19 @@ window.wordStudioApp = function(config) {
                     const beforeText = textVal.slice(0, offset);
 
                     const replacements = [
+                        { pattern: /---\s$/, replace: '— ' },
                         { pattern: /--\s$/, replace: '— ' },
                         { pattern: /\.\.\.\s$/, replace: '… ' },
                         { pattern: /\([cC]\)\s$/, replace: '© ' },
                         { pattern: /\([rR]\)\s$/, replace: '® ' },
                         { pattern: /\([tT][mM]\)\s$/, replace: '™ ' },
+                        { pattern: /1\/2\s$/, replace: '½ ' },
+                        { pattern: /1\/4\s$/, replace: '¼ ' },
+                        { pattern: /3\/4\s$/, replace: '¾ ' },
+                        { pattern: /\+-\s$/, replace: '± ' },
+                        { pattern: /!=\s$/, replace: '≠ ' },
+                        { pattern: /<=\s$/, replace: '≤ ' },
+                        { pattern: />=\s$/, replace: '≥ ' },
                         { pattern: /->\s$/, replace: '→ ' },
                         { pattern: /<-\s$/, replace: '← ' },
                         { pattern: /<=>\s$/, replace: '⇔ ' },
@@ -580,7 +811,10 @@ window.wordStudioApp = function(config) {
             // AutoFormat Microsoft Word & LibreOffice Writer (*, -, 1., >, #, ##, ###)
             const anchor = sel.anchorNode;
             const p = anchor?.nodeType === 1 ? anchor.closest('p.word-paragraph-text') : anchor?.parentElement?.closest('p.word-paragraph-text');
-            if (!p) return;
+            if (!p) {
+                this.updateCurrentFormat();
+                return;
+            }
 
             const text = p.textContent || '';
             if (/^(\*|-)\s/.test(text)) {
@@ -592,6 +826,7 @@ window.wordStudioApp = function(config) {
                 ul.appendChild(li);
                 p.replaceWith(ul);
                 this.focusNode(li, true);
+                this.updateCurrentFormat();
                 this.syncAllPages();
                 return;
             }
@@ -605,6 +840,7 @@ window.wordStudioApp = function(config) {
                 ol.appendChild(li);
                 p.replaceWith(ol);
                 this.focusNode(li, true);
+                this.updateCurrentFormat();
                 this.syncAllPages();
                 return;
             }
@@ -619,6 +855,7 @@ window.wordStudioApp = function(config) {
                 bq.appendChild(quoteP);
                 p.replaceWith(bq);
                 this.focusNode(quoteP, true);
+                this.updateCurrentFormat();
                 this.syncAllPages();
                 return;
             }
@@ -630,6 +867,7 @@ window.wordStudioApp = function(config) {
                 h4.innerHTML = clean ? clean : '<br>';
                 p.replaceWith(h4);
                 this.focusNode(h4, true);
+                this.updateCurrentFormat();
                 this.syncAllPages();
                 return;
             }
@@ -641,6 +879,7 @@ window.wordStudioApp = function(config) {
                 h3.innerHTML = clean ? clean : '<br>';
                 p.replaceWith(h3);
                 this.focusNode(h3, true);
+                this.updateCurrentFormat();
                 this.syncAllPages();
                 return;
             }
@@ -652,12 +891,17 @@ window.wordStudioApp = function(config) {
                 h2.innerHTML = clean ? clean : '<br>';
                 p.replaceWith(h2);
                 this.focusNode(h2, true);
+                this.updateCurrentFormat();
                 this.syncAllPages();
                 return;
             }
+
+            this.updateCurrentFormat();
         },
 
         init() {
+            this.updateCounts();
+
             window.addEventListener('keydown', (e) => {
                 const isCtrl = e.ctrlKey || e.metaKey;
                 const wire = this.getWire();
@@ -694,16 +938,16 @@ window.wordStudioApp = function(config) {
                         this.format('underline');
                     } else if (key === 'e') {
                         e.preventDefault();
-                        this.format('justifyCenter');
+                        this.applyAlignment('center');
                     } else if (key === 'l' && !e.shiftKey) {
                         e.preventDefault();
-                        this.format('justifyLeft');
+                        this.applyAlignment('left');
                     } else if (key === 'r') {
                         e.preventDefault();
-                        this.format('justifyRight');
+                        this.applyAlignment('right');
                     } else if (key === 'j') {
                         e.preventDefault();
-                        this.format('justifyFull');
+                        this.applyAlignment('justify');
                     } else if (e.key === '1') {
                         e.preventDefault();
                         if (wire) wire.setLineSpacing(1.0);
@@ -725,14 +969,11 @@ window.wordStudioApp = function(config) {
                     } else if (e.shiftKey && key === 'c') {
                         // Word Format Painter Copy
                         e.preventDefault();
-                        if (wire) {
-                            wire.copyFormat(this.activeBlock);
-                            wire.notify('Format Disalin', 'Gaya format disalin (Format Painter).', 'info');
-                        }
+                        this.copyCurrentFormat();
                     } else if (e.shiftKey && key === 'v') {
                         // Word Format Painter Paste
                         e.preventDefault();
-                        if (wire) wire.pasteFormat(this.activeBlock);
+                        this.pasteCurrentFormat();
                     } else if (key === 'h') {
                         // Word Find & Replace
                         e.preventDefault();
@@ -742,6 +983,7 @@ window.wordStudioApp = function(config) {
                         e.preventDefault();
                         document.execCommand('removeFormat', false, null);
                         if (wire) wire.clearFormatting();
+                        this.updateCurrentFormat();
                     }
                 }
 
@@ -749,16 +991,16 @@ window.wordStudioApp = function(config) {
                 if (isCtrl && e.altKey) {
                     if (e.key === '1') {
                         e.preventDefault();
-                        this.format('formatBlock', '<h2>');
+                        this.applyBlockStyle('heading1');
                     } else if (e.key === '2') {
                         e.preventDefault();
-                        this.format('formatBlock', '<h3>');
+                        this.applyBlockStyle('heading2');
                     } else if (e.key === '3') {
                         e.preventDefault();
-                        this.format('formatBlock', '<h4>');
+                        this.applyBlockStyle('heading3');
                     } else if (e.key === '0') {
                         e.preventDefault();
-                        this.format('formatBlock', '<p>');
+                        this.applyBlockStyle('normal');
                     }
                 }
 
@@ -770,7 +1012,10 @@ window.wordStudioApp = function(config) {
 
             document.addEventListener('selectionchange', () => {
                 clearTimeout(this._selTimer);
-                this._selTimer = setTimeout(() => this.checkSelection(), 120);
+                this._selTimer = setTimeout(() => {
+                    this.checkSelection();
+                    this.updateCurrentFormat();
+                }, 100);
             });
 
             setInterval(() => {
