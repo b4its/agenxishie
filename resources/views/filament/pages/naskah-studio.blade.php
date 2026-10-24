@@ -1878,7 +1878,12 @@
             <div class="ns-assistant" aria-label="Xishie Assistant Panel">
                 <div class="ns-assistant__titlebar">
                     <span>&#10024; XISHIE ASSISTANT · WORDCRAFT CO-WRITER</span>
-                    <button type="button" style="background:transparent; border:none; color:inherit; cursor:pointer; font-size:1.1rem;" wire:click="closeAssistant" aria-label="Tutup asisten">&times;</button>
+                    <div style="display:flex; align-items:center; gap:.4rem;">
+                        @if (!empty($assistantLog))
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.1rem .3rem; background:transparent;" wire:click="clearAssistantLog" title="Bersihkan riwayat">&#128465; Bersihkan</button>
+                        @endif
+                        <button type="button" style="background:transparent; border:none; color:inherit; cursor:pointer; font-size:1.1rem; line-height:1;" wire:click="closeAssistant" aria-label="Tutup asisten">&times;</button>
+                    </div>
                 </div>
                 <div class="ns-assistant__body">
                     <p style="font-family:var(--rb-font-mono); font-size:.6rem; color:var(--rb-ink-muted); margin:0;">
@@ -1914,10 +1919,20 @@
                     </div>
 
                     <div class="ns-chatlog">
-                        @forelse ($assistantLog as $msg)
+                        @forelse ($assistantLog as $logIndex => $msg)
                             <div class="ns-msg ns-msg--{{ $msg['role'] === 'user' ? 'user' : 'assistant' }}">
                                 <span class="ns-msg__role">{{ $msg['role'] === 'user' ? 'Anda' : 'Xishie' }}@if(!empty($msg['command'])) · {{ ltrim($msg['command'], '/') }}@endif</span>
-                                {{ $msg['content'] }}
+                                <div>{{ $msg['content'] }}</div>
+                                @if (($msg['role'] ?? '') === 'assistant')
+                                    <div style="display:flex; gap:.3rem; margin-top:.4rem; border-top:1px dashed #cbd5e1; padding-top:.3rem;">
+                                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="insertAssistantResponse({{ $logIndex }})" title="Sisipkan ke naskah">
+                                            ➕ Sisipkan
+                                        </button>
+                                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="replaceActiveBlockWithAssistant({{ $logIndex }})" title="Ganti blok aktif">
+                                            🔄 Ganti Blok
+                                        </button>
+                                    </div>
+                                @endif
                             </div>
                         @empty
                             <p style="font-family:var(--rb-font-mono); font-size:.6rem; color:var(--rb-ink-muted); margin:0;">Belum ada percakapan.</p>

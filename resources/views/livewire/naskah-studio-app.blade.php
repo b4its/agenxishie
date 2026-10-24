@@ -41,8 +41,9 @@
                 try {
                     const rect = blockEl.getBoundingClientRect();
                     const rootRect = $el.getBoundingClientRect();
+                    const maxLeft = (this.assistantPane || this.commentsOpen || this.revisionsOpen) ? (rootRect.width - 380 - 100) : (rootRect.width - 120);
                     this.blockCopilotTop = Math.max(10, (rect.top - rootRect.top) - 10);
-                    this.blockCopilotLeft = Math.max(10, (rect.right - rootRect.left) - 96);
+                    this.blockCopilotLeft = Math.min(maxLeft, Math.max(10, (rect.right - rootRect.left) - 96));
                     this.showBlockCopilot = true;
                 } catch (e) {
                     this.showBlockCopilot = false;
@@ -1611,7 +1612,7 @@
                                             <ol class="word-numbered-list">
                                             @php $inNumberedList = true; @endphp
                                         @endif
-                                        <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">{!! e($text) !!}</li>
+                                        <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">{!! $text !!}</li>
                                     @else
                                         @if ($inNumberedList)
                                             </ol>
@@ -1619,9 +1620,9 @@
                                         @endif
 
                                         @if ($type === 'title')
-                                            <h1 class="word-title-text" id="doc-title" data-block-index="{{ $index }}">{!! e($text ?: 'The Open Studio Handbook') !!}</h1>
+                                            <h1 class="word-title-text" id="doc-title" data-block-index="{{ $index }}">{!! $text ?: 'The Open Studio Handbook' !!}</h1>
                                         @elseif ($type === 'subtitle')
-                                            <p class="word-subtitle-text" id="doc-subtitle" data-block-index="{{ $index }}">{!! e($text) !!}</p>
+                                            <p class="word-subtitle-text" id="doc-subtitle" data-block-index="{{ $index }}">{!! $text !!}</p>
                                         @elseif ($type === 'heading')
                                             @php
                                                 if (stripos($text, 'daftar pustaka') !== false || stripos($text, 'referensi') !== false || stripos($text, 'bibliography') !== false) {
@@ -1631,15 +1632,15 @@
                                                 }
                                             @endphp
                                             @if ($level === 1)
-                                                <h2 class="word-heading-1" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h2>
+                                                <h2 class="word-heading-1" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! $text !!}</h2>
                                             @elseif ($level === 2)
-                                                <h3 class="word-heading-2" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h3>
+                                                <h3 class="word-heading-2" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! $text !!}</h3>
                                             @else
-                                                <h4 class="word-heading-3" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! e($text) !!}</h4>
+                                                <h4 class="word-heading-3" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! $text !!}</h4>
                                             @endif
                                         @elseif ($type === 'quote')
                                             <blockquote class="word-quote-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                                <p class="word-quote-text">{!! e($text) !!}</p>
+                                                <p class="word-quote-text">{!! $text !!}</p>
                                             </blockquote>
                                         @elseif ($type === 'toc')
                                             <div class="word-toc-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}" contenteditable="false" style="margin: 18px 0 26px 0; padding: 14px 18px; background: #faf9f8; border: 1px solid #edebe9; border-radius: 4px;">
@@ -1931,10 +1932,16 @@
                         <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/terjemahkan')" title="Konversi terjemahan bahasa akademik formal">
                             🌐 /terjemahkan
                         </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/puebi')" title="Periksa ejaan baku dan kaidah bahasa PUEBI/KBBI">
+                            🔤 /puebi
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/kembangkan')" title="Elaborasi dan kembangkan poin menjadi teks utuh">
+                            ✍️ /kembangkan
+                        </button>
                     </div>
 
                     <!-- Conversation Stream -->
-                    <div class="word-assistant-chat">
+                    <div class="word-assistant-chat" x-init="$watch('$el.children.length', () => $nextTick(() => $el.scrollTop = $el.scrollHeight)); $nextTick(() => $el.scrollTop = $el.scrollHeight);">
                         @if (empty($assistantLog))
                             <!-- Empty State with Interactive Prompts (Word 365 Copilot Style Grid) -->
                             <div class="word-assistant-empty">
@@ -2080,7 +2087,7 @@
                         @endif
 
                         <!-- Loading Indicator (Hidden until active request) -->
-                        <div wire:loading.flex wire:target="sendAssistant,runTool" class="word-assistant-loading" style="display: none;">
+                        <div wire:loading.flex wire:target="sendAssistant,runTool,sendAssistantWithText" class="word-assistant-loading" style="display: none;">
                             <span class="word-assistant-spinner"></span>
                             <span style="font-weight: 500;">Xishie Assistant sedang menelaah naskah Anda...</span>
                         </div>
@@ -2090,7 +2097,7 @@
                     <div class="word-assistant-input-area">
                         <form wire:submit.prevent="sendAssistant" style="display:flex; gap:6px;">
                             <input type="text" wire:model="assistantInput" class="word-select" style="flex:1; height:34px; padding:0 10px; font-size:12px;" placeholder="Tanya asisten atau ketik /poles, /sitasi... (Enter)">
-                            <button type="submit" class="word-btn-pill word-btn-share" style="height:34px; padding:0 12px; font-weight:600;" wire:loading.attr="disabled" wire:target="sendAssistant,runTool">
+                            <button type="submit" class="word-btn-pill word-btn-share" style="height:34px; padding:0 12px; font-weight:600;" wire:loading.attr="disabled" wire:target="sendAssistant,runTool,sendAssistantWithText">
                                 Kirim
                             </button>
                         </form>
@@ -2793,7 +2800,7 @@
                                         <div style="font-size:11px; color:#424242;">{{ $src['title'] }}</div>
                                         <div style="font-size:10px; color:#8a8886;">{{ $src['publisher'] }}</div>
                                     </div>
-                                    <button type="button" class="word-tool-btn" style="color:#0f6cbd; border-color:#0f6cbd; font-weight:600; font-size:11px;" wire:click="insertCitation('{{ $src['key'] }}'); closeDialog();">
+                                    <button type="button" class="word-tool-btn" style="color:#0f6cbd; border-color:#0f6cbd; font-weight:600; font-size:11px;" wire:click="insertCitation('{{ $src['key'] }}'); closeDialog()">
                                         + Sisipkan Sitasi
                                     </button>
                                 </div>
@@ -2801,7 +2808,7 @@
                         </div>
                     </div>
                     <div class="word-dialog__footer" style="display:flex; justify-content:space-between;">
-                        <button type="button" class="word-tool-btn" wire:click="insertBibliography; closeDialog();">
+                        <button type="button" class="word-tool-btn" wire:click="insertBibliography(); closeDialog()">
                             📜 Buat Daftar Pustaka Lengkap
                         </button>
                         <button type="button" class="word-btn-pill" wire:click="closeDialog">Tutup</button>
@@ -3023,7 +3030,7 @@
                     <div class="word-dialog__body">
                         <div style="display:flex; gap:6px;">
                             <input type="text" class="word-select" style="flex:1; height:32px;" placeholder="Snapshot label..." wire:model="snapshotLabel">
-                            <button type="button" class="word-btn-pill word-btn-share" wire:click="createSnapshot(snapshotLabel)">Save Version</button>
+                            <button type="button" class="word-btn-pill word-btn-share" wire:click="createSnapshot">Save Version</button>
                         </div>
                         <div style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
                             @forelse ($snapshots as $sIdx => $snap)
