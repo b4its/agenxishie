@@ -19,8 +19,7 @@
                     const pageEls = document.querySelectorAll('.word-sheet-content');
                     const pageHtmls = [];
                     pageEls.forEach(el => pageHtmls.push(el.innerHTML));
-                    $wire.syncManuscriptPages(pageHtmls);
-                    $wire.save();
+                    $wire.save(pageHtmls);
                 }
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
                     e.preventDefault();
@@ -65,7 +64,7 @@
 
             <!-- Quick Access Toolbar (Save, Undo, Redo, Down Arrow) -->
             <div class="word-quick-actions">
-                <button type="button" class="word-icon-btn" @click="const pageEls = document.querySelectorAll('.word-sheet-content'); const pageHtmls = []; pageEls.forEach(el => pageHtmls.push(el.innerHTML)); $wire.syncManuscriptPages(pageHtmls);" wire:click="save" title="Save Document (Ctrl+S)">
+                <button type="button" class="word-icon-btn" @click="const pageEls = document.querySelectorAll('.word-sheet-content'); const pageHtmls = []; pageEls.forEach(el => pageHtmls.push(el.innerHTML)); $wire.save(pageHtmls);" title="Save Document (Ctrl+S)">
                     <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor">
                         <path d="M4 2a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6.414A2 2 0 0017.414 5L15 2.586A2 2 0 0013.586 2H4zm1 2h8v3H5V4zm0 6h10v6H5v-6z"/>
                     </svg>
@@ -229,7 +228,7 @@
                         </svg>
                         <span>Sample</span>
                     </button>
-                    <button type="button" class="word-btn-large" @click="const pageEls = document.querySelectorAll('.word-sheet-content'); const pageHtmls = []; pageEls.forEach(el => pageHtmls.push(el.innerHTML)); $wire.syncManuscriptPages(pageHtmls);" wire:click="save" title="Save Document (Ctrl+S)">
+                    <button type="button" class="word-btn-large" @click="const pageEls = document.querySelectorAll('.word-sheet-content'); const pageHtmls = []; pageEls.forEach(el => pageHtmls.push(el.innerHTML)); $wire.save(pageHtmls);" title="Save Document (Ctrl+S)">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
                             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
                         </svg>
@@ -1222,10 +1221,12 @@
                 wire:key="manuscript-canvas-{{ $pageCount }}"
                 x-data="{
                     syncAllPages() {
-                        const pageEls = this.$el.querySelectorAll('.word-sheet-content');
+                        const pageEls = document.querySelectorAll('.word-sheet-content');
                         const pageHtmls = [];
                         pageEls.forEach(el => pageHtmls.push(el.innerHTML));
-                        $wire.syncManuscriptPages(pageHtmls);
+                        if (pageHtmls.length > 0) {
+                            $wire.syncManuscriptPages(pageHtmls);
+                        }
                     }
                 }"
                 style="width: 100%; display: flex; flex-direction: column; align-items: center;">
@@ -1254,7 +1255,7 @@
                     @endphp
 
                     <div class="word-paper-sheet"
-                        wire:key="page-sheet-{{ $pageNumber }}-v{{ $editorRevision }}-p{{ $pageCount }}"
+                        wire:key="page-sheet-{{ $pageNumber }}-v{{ $editorRevision }}"
                         id="word-page-{{ $pageNumber }}"
                         data-page-number="{{ $pageNumber }}"
                         style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ $fontFamilyCss }}; font-size: {{ $fontSize }}pt; padding: {{ $padTop }}mm {{ $padRight }}mm {{ $padBottom }}mm {{ $padLeft }}mm;">
@@ -1279,7 +1280,7 @@
 
                         <!-- Konten Lembar Halaman (Continuous Flow Inside Page) -->
                         <div class="word-sheet-content"
-                            wire:key="page-content-{{ $pageNumber }}-v{{ $editorRevision }}-p{{ $pageCount }}"
+                            wire:key="page-content-{{ $pageNumber }}-v{{ $editorRevision }}"
                             wire:ignore
                             id="word-page-content-{{ $pageNumber }}"
                             style="line-height: {{ $pageSetup['lineSpacing'] ?? '1.5' }};"
@@ -1470,7 +1471,7 @@
                                 <span style="font-weight:700; color:#107c41; font-size:13px;">{{ $complianceAudit['score'] }}% ({{ $complianceAudit['grade'] }})</span>
                             </div>
                             <div style="font-size:11px; color:#424242; line-height:1.4;">
-                                ⏱️ Time on Task: <strong>{{ floor($sessionSeconds / 60) }}m {{ $sessionSeconds % 60 }}s</strong> • Sitasi: <strong>{{ round(($statistics['words'] > 0 ? (($elements['footnotes'] ?? 0) / max(1, $statistics['words'])) * 1000 : 0), 1) }}/1k</strong>
+                                ⏱️ Time on Task: <strong>{{ floor($sessionSeconds / 60) }}m {{ $sessionSeconds % 60 }}s</strong> • Sitasi: <strong>{{ round((($statistics['words'] ?? 0) > 0 ? (($elements['footnotes'] ?? 0) / max(1, $statistics['words'])) * 1000 : 0), 1) }}/1k</strong>
                             </div>
                         </div>
 

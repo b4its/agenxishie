@@ -496,6 +496,62 @@ it('persists typed and edited text seamlessly without text loss or hardcoded str
     expect($page->get('editorRevision'))->toBeGreaterThan($initialRev);
 });
 
+it('prevents manuscript word and sentence loss on save and empty blur syncs', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    $originalBlockCount = count($page->get('blocks'));
+    $originalWords = $page->get('statistics')['words'] ?? 0;
+    expect($originalBlockCount)->toBeGreaterThan(0)
+        ->and($originalWords)->toBeGreaterThan(0);
+
+    // 1. Uji pemanggilan syncManuscriptPages([]) dengan array kosong (mis. blur/querySelector kosong)
+    // JANGAN PERNAH menghapus kalimat atau kata yang sudah ada
+    $page->call('syncManuscriptPages', []);
+    expect(count($page->get('blocks')))->toBe($originalBlockCount)
+        ->and(count($page->get('blocks')))->toBeGreaterThan(1);
+
+    // 2. Uji atomic save dengan page HTML langsung dari editor klien
+    $myContent = [
+        '<h1 class="word-title-text">Naskah Penelitian Ilmiah AI</h1>'.
+        '<p class="word-paragraph-text">Seluruh kalimat dan kata dalam naskah ini harus tersimpan utuh dan tidak boleh hilang sedikitpun saat disimpan.</p>',
+    ];
+
+    $page->call('save', $myContent);
+
+    // Pastikan blocks tersinkronisasi dan tersimpan di database
+    $blocksAfterSave = $page->get('blocks');
+    expect($blocksAfterSave[0]['text'])->toBe('Naskah Penelitian Ilmiah AI')
+        ->and($blocksAfterSave[1]['text'])->toContain('Seluruh kalimat dan kata dalam naskah ini harus tersimpan utuh')
+        ->and($page->get('dirty'))->toBeFalse();
+
+    $docId = $page->get('documentId');
+    expect($docId)->not->toBeNull();
+
+    $savedDoc = NaskahDocument::query()->find($docId);
+    expect($savedDoc)->not->toBeNull()
+        ->and($savedDoc->title)->toBe('Naskah Penelitian Ilmiah AI')
+        ->and($savedDoc->word_count)->toBeGreaterThan(10)
+        ->and($savedDoc->blocks[0]['text'])->toBe('Naskah Penelitian Ilmiah AI')
+        ->and($savedDoc->blocks[1]['text'])->toContain('Seluruh kalimat dan kata dalam naskah ini harus tersimpan utuh');
+
+    // 3. Uji pemanggilan save([]) dengan array kosong tidak mengosongkan naskah
+    $page->call('save', []);
+    $savedDocAgain = NaskahDocument::query()->find($docId);
+    expect($savedDocAgain->word_count)->toBeGreaterThan(10);
+
+    // 4. Uji kutipan dan tabel dipertahankan saat di-parse
+    $page->call('save', [
+        '<blockquote class="word-quote-block"><p class="word-quote-text">Kutipan bernas tanpa nesting p ganda.</p></blockquote>'.
+        '<table><tr><th>Kolom 1</th><th>Kolom 2</th></tr><tr><td>Data A</td><td>Data B</td></tr></table>',
+    ]);
+    $richParsed = $page->get('blocks');
+    expect($richParsed[0]['type'])->toBe('quote')
+        ->and($richParsed[0]['text'])->toBe('Kutipan bernas tanpa nesting p ganda.')
+        ->and($richParsed[1]['type'])->toBe('table')
+        ->and(count($richParsed[1]['table']['rows']))->toBe(2);
+});
+
 it('manages citation sources and generates dynamic academic bibliography and toc', function (): void {
     $page = Livewire::test(NaskahStudioApp::class)
         ->call('loadSampleHandbook');

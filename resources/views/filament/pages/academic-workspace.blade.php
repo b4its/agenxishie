@@ -466,7 +466,7 @@
                                             type="text"
                                             class="rb-input"
                                             style="font-family:var(--rb-font-display); font-weight:700; font-size:.85rem; flex:1 1 220px; margin:0;"
-                                            wire:model.defer="editorSections.{{ $index }}.heading"
+                                            wire:model="editorSections.{{ $index }}.heading"
                                             placeholder="Judul sub-bab"
                                             aria-label="Judul sub-bab {{ $index + 1 }}"
                                         />
@@ -484,7 +484,7 @@
                                     <textarea
                                         class="rb-textarea"
                                         style="width:100%; font-size:.85rem; line-height:1.7; min-height:140px;"
-                                        wire:model.defer="editorSections.{{ $index }}.content"
+                                        wire:model="editorSections.{{ $index }}.content"
                                         wire:change="markEditorDirty"
                                         placeholder="Tulis isi sub-bab di sini…"
                                         aria-label="Isi sub-bab {{ $section['heading'] ?? ($index + 1) }}"

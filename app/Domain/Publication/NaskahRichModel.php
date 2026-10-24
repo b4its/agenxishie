@@ -29,10 +29,10 @@ namespace App\Domain\Publication;
 final class NaskahRichModel
 {
     /** @var array<int, string> */
-    public const TEXT_TYPES = ['heading', 'paragraph', 'quote', 'bullet', 'numbered', 'footnote-ref', 'callout'];
+    public const TEXT_TYPES = ['title', 'subtitle', 'heading', 'paragraph', 'quote', 'bullet', 'numbered', 'footnote-ref', 'callout', 'toc'];
 
     /** @var array<int, string> */
-    public const ALL_TYPES = ['heading', 'paragraph', 'quote', 'bullet', 'numbered', 'table', 'image', 'pagebreak', 'footnote-ref', 'callout'];
+    public const ALL_TYPES = ['title', 'subtitle', 'heading', 'paragraph', 'quote', 'bullet', 'numbered', 'table', 'image', 'pagebreak', 'footnote-ref', 'callout', 'toc'];
 
     /**
      * Normalisasi satu set blok (termasuk migrasi dokumen lama).

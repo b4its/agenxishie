@@ -53,6 +53,8 @@ trait HandlesNaskahStudio
 
     public int $editorRevision = 1;
 
+    public array $statistics = [];
+
     public ?string $lastSavedAt = null;
 
     // ===== Sumber dokumen =====
@@ -272,6 +274,8 @@ trait HandlesNaskahStudio
         if (empty($this->blocks)) {
             $this->loadSampleHandbook();
         }
+
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     /**
@@ -307,6 +311,7 @@ trait HandlesNaskahStudio
         $this->activeBlock = 0;
         $this->dirty = false;
         $this->editorRevision++;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     // =====================================================================
@@ -411,6 +416,8 @@ trait HandlesNaskahStudio
         $this->metadata = array_merge($this->metadata, (array) ($document->style_meta['metadata'] ?? []));
         $this->lastSavedAt = $document->last_saved_at?->diffForHumans();
         $this->dirty = false;
+        $this->editorRevision++;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function openDocument(int $documentId): void
@@ -445,6 +452,7 @@ trait HandlesNaskahStudio
         $this->dirty = false;
         $this->activeBlock = 0;
         $this->editorRevision++;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     // =====================================================================
@@ -1444,6 +1452,43 @@ trait HandlesNaskahStudio
                 continue;
             }
 
+            if (str_contains($class, 'word-toc-block')) {
+                continue;
+            }
+
+            if ($tag === 'table' || $node->getElementsByTagName('table')->length > 0) {
+                $tableNode = $tag === 'table' ? $node : $node->getElementsByTagName('table')->item(0);
+                $tableRows = [];
+                if ($tableNode !== null) {
+                    foreach ($tableNode->getElementsByTagName('tr') as $tr) {
+                        $rowCells = [];
+                        foreach ($tr->childNodes as $cell) {
+                            if ($cell->nodeType === XML_ELEMENT_NODE && in_array(strtolower($cell->nodeName), ['td', 'th'], true)) {
+                                $rowCells[] = ['text' => trim($cell->textContent)];
+                            }
+                        }
+                        if (! empty($rowCells)) {
+                            $tableRows[] = $rowCells;
+                        }
+                    }
+                }
+                if (! empty($tableRows)) {
+                    $blocks[] = [
+                        'type' => 'table',
+                        'text' => '',
+                        'runs' => [],
+                        'table' => [
+                            'rows' => $tableRows,
+                            'header' => true,
+                            'style' => 'grid',
+                        ],
+                        'align' => 'left',
+                    ];
+                }
+
+                continue;
+            }
+
             // Ambil inner HTML atau teks anak elemen dengan menjaga format tebal/miring/tanda
             $innerHtml = '';
             foreach ($node->childNodes as $child) {
@@ -1465,6 +1510,14 @@ trait HandlesNaskahStudio
             } elseif (in_array($tag, ['h4', 'h5', 'h6'], true) || str_contains($class, 'word-heading-3')) {
                 $blocks[] = $this->model->newBlock('heading', $text, 3);
             } elseif ($tag === 'blockquote' || str_contains($class, 'word-quote-block')) {
+                $quoteP = $node->getElementsByTagName('p')->item(0);
+                if ($quoteP !== null) {
+                    $pInner = '';
+                    foreach ($quoteP->childNodes as $pc) {
+                        $pInner .= $dom->saveHTML($pc);
+                    }
+                    $text = trim($pInner);
+                }
                 $blocks[] = $this->model->newBlock('quote', $text);
             } elseif (str_contains($class, 'word-callout-box')) {
                 $clean = trim(str_replace('📌', '', $text));
@@ -1510,6 +1563,12 @@ trait HandlesNaskahStudio
      */
     public function syncManuscriptPages(array $pageHtmlList): void
     {
+        // JANGAN PERNAH menimpa blok dokumen menjadi kosong jika list halaman kosong
+        // (misal querySelector gagal atau dipanggil tanpa argumen halaman).
+        if (empty($pageHtmlList)) {
+            return;
+        }
+
         $allBlocks = [];
         foreach ($pageHtmlList as $pageHtml) {
             $pageBlocks = $this->parseHtmlToBlocks((string) $pageHtml);
@@ -1520,7 +1579,10 @@ trait HandlesNaskahStudio
 
         if (! empty($allBlocks)) {
             $this->blocks = $allBlocks;
-        } else {
+            if (($allBlocks[0]['type'] ?? '') === 'title' && trim((string) ($allBlocks[0]['text'] ?? '')) !== '') {
+                $this->docTitle = trim((string) $allBlocks[0]['text']);
+            }
+        } elseif (count($pageHtmlList) === 1 && trim(strip_tags((string) ($pageHtmlList[0] ?? ''))) === '') {
             $this->blocks = [
                 $this->model->newBlock('paragraph', ''),
             ];
@@ -1898,8 +1960,19 @@ trait HandlesNaskahStudio
     // Simpan & ekspor
     // =====================================================================
 
-    public function save(): void
+    /**
+     * Simpan naskah ke database.
+     * Menerima opsi list string HTML tiap lembar halaman langsung dari klien untuk
+     * menjamin sinkronisasi isi editor dan penyimpanan berlangsung atomik tanpa race condition.
+     *
+     * @param  array<int, string>|null  $pageHtmlList
+     */
+    public function save(?array $pageHtmlList = null): void
     {
+        if ($pageHtmlList !== null && ! empty($pageHtmlList)) {
+            $this->syncManuscriptPages($pageHtmlList);
+        }
+
         $blocks = $this->model->normalize($this->blocks);
         $wordCount = $this->model->countWords($blocks);
 

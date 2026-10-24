@@ -144,6 +144,7 @@ class NaskahStudioApp extends Component
         ];
         $this->activeBlock = 0;
         $this->dirty = false;
+        $this->editorRevision++;
     }
 
     /**
