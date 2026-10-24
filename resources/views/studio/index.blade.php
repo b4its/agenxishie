@@ -15,6 +15,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous" onload="renderLatexEquations()"></script>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script src="{{ asset('js/word-studio.js') }}"></script>
     @livewireStyles
 </head>
 <body class="h-full flex flex-col antialiased selection:bg-blue-100 selection:text-blue-900" x-data="{
