@@ -1212,47 +1212,6 @@ dialog#livewire-error {
     font-weight: 600;
 }
 
-/* Mini Floating Toolbar: ONLY on active block! */
-.word-mini-toolbar {
-    position: absolute;
-    top: -34px;
-    right: 0;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    background: rgba(255, 255, 255, 0.96);
-    backdrop-filter: blur(8px);
-    border: 1px solid var(--ms-border);
-    border-radius: 6px;
-    padding: 3px 6px;
-    box-shadow: var(--ms-shadow-flyout);
-    z-index: 30;
-    user-select: none;
-}
-
-.dark .word-mini-toolbar {
-    background: rgba(37, 37, 38, 0.96);
-}
-
-.word-mini-toolbar[style*="display: none"] {
-    display: none !important;
-}
-
-.word-mini-toolbar button {
-    background: transparent;
-    border: none;
-    border-radius: 3px;
-    padding: 2px 5px;
-    font-size: 11px;
-    color: var(--ms-text-primary);
-    cursor: pointer;
-}
-
-.word-mini-toolbar button:hover {
-    background: var(--ms-bg-hover);
-    color: var(--ms-blue);
-}
-
 /* SEAMLESS TEXT TYPOGRAPHY (NO TEXTAREA BOXES, NO DRAG HANDLES) */
 .word-title-text,
 .word-subtitle-text,

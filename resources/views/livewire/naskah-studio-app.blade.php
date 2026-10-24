@@ -399,7 +399,7 @@
         <!-- Right: Comments, Editing Mode Dropdown, Blue Share Button (Matches Word 365) -->
         <div class="word-ribbon-actions">
             <!-- Comments Button -->
-            <button type="button" wire:click="$toggle('showComments')" class="word-btn-pill {{ $showComments ? 'active' : '' }}" title="Comments">
+            <button type="button" wire:click="toggleTaskPane('comments')" class="word-btn-pill {{ $showComments ? 'active' : '' }}" title="Comments">
                 <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
                     <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/>
                 </svg>
@@ -1149,7 +1149,7 @@
 
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-tool-btn {{ $showComments ? 'active' : '' }}" wire:click="$toggle('showComments')">💬 Show Comments</button>
+                    <button type="button" class="word-tool-btn {{ $showComments ? 'active' : '' }}" wire:click="toggleTaskPane('comments')">💬 Show Comments</button>
                     <button type="button" class="word-tool-btn" wire:click="openDialog('comment')">➕ New Comment</button>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Comments</span></div>
@@ -1157,7 +1157,7 @@
 
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-tool-btn {{ $showRevisions ? 'active' : '' }}" wire:click="$toggle('showRevisions')">👁️ Track Changes</button>
+                    <button type="button" class="word-tool-btn {{ $showRevisions ? 'active' : '' }}" wire:click="toggleTaskPane('revisions')">👁️ Track Changes</button>
                     <button type="button" class="word-tool-btn" style="color:#107c41;" wire:click="acceptAllRevisions">✓ Accept All</button>
                     <button type="button" class="word-tool-btn" style="color:#c50f1f;" wire:click="rejectAllRevisions">✕ Reject All</button>
                 </div>
@@ -1441,6 +1441,8 @@
                         if (!isNaN(p)) { activePage = p; }
                     }
                 });
+                showMiniToolbar = false;
+                showBlockCopilot = false;
             ">
 
             <!-- Horizontal Ruler Aligned Directly Above Canvas Sheet -->
@@ -2037,7 +2039,7 @@
                 @elseif ($showComments)
                     <div class="word-taskpane-header">
                         <span class="word-taskpane-title">Comments ({{ count($comments) }})</span>
-                        <button type="button" class="word-icon-btn" wire:click="$set('showComments', false)">&times;</button>
+                        <button type="button" class="word-icon-btn" wire:click="closeTaskPane">&times;</button>
                     </div>
                     <div class="word-taskpane-body">
                         <div style="display:flex; gap:6px;">
@@ -2067,7 +2069,7 @@
                 @elseif ($showRevisions)
                     <div class="word-taskpane-header">
                         <span class="word-taskpane-title">Track Changes ({{ $pendingRevisionCount }} pending)</span>
-                        <button type="button" class="word-icon-btn" wire:click="$set('showRevisions', false)">&times;</button>
+                        <button type="button" class="word-icon-btn" wire:click="closeTaskPane">&times;</button>
                     </div>
                     <div class="word-taskpane-body">
                         <div style="display:flex; gap:6px; margin-bottom:8px;">
@@ -2160,7 +2162,7 @@
     <!-- 7. FLUENT WORD MODAL DIALOGS                                          -->
     <!-- ===================================================================== -->
     @if ($dialog !== '')
-        <div class="word-dialog-backdrop">
+        <div class="word-dialog-backdrop" wire:click.self="closeDialog" @keydown.escape.window="$wire.closeDialog()">
             <div class="word-dialog">
 
                 {{-- FIND & REPLACE --}}

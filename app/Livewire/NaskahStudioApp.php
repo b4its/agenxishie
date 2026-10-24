@@ -202,43 +202,6 @@ class NaskahStudioApp extends Component
     }
 
     /**
-     * Buka Task Pane samping kanan gaya Microsoft Word.
-     */
-    public function openTaskPane(string $pane): void
-    {
-        $this->activeTaskPane = $pane;
-        if ($pane === 'assistant' || $pane === 'editor') {
-            $this->assistantOpen = true;
-            $this->kpiDrawerOpen = false;
-            $this->showComments = false;
-            $this->showRevisions = false;
-        } elseif ($pane === 'comments') {
-            $this->showComments = true;
-            $this->assistantOpen = false;
-            $this->kpiDrawerOpen = false;
-        } elseif ($pane === 'revisions') {
-            $this->showRevisions = true;
-            $this->assistantOpen = false;
-            $this->kpiDrawerOpen = false;
-        } elseif ($pane === 'kpi') {
-            $this->kpiDrawerOpen = true;
-            $this->assistantOpen = false;
-        }
-    }
-
-    /**
-     * Tutup Task Pane samping kanan.
-     */
-    public function closeTaskPane(): void
-    {
-        $this->activeTaskPane = '';
-        $this->kpiDrawerOpen = false;
-        $this->assistantOpen = false;
-        $this->showComments = false;
-        $this->showRevisions = false;
-    }
-
-    /**
      * Set level zoom dokumen.
      */
     public function setZoomLevel(string $zoom): void

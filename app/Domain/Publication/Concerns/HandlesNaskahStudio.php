@@ -334,6 +334,26 @@ trait HandlesNaskahStudio
     // Sumber dokumen
     // =====================================================================
 
+    public function updatedDocTitle(string $value): void
+    {
+        $val = trim($value);
+        if ($val === '') {
+            return;
+        }
+
+        foreach ($this->blocks as $idx => $b) {
+            if (($b['type'] ?? '') === 'title') {
+                $this->blocks[$idx]['text'] = $val;
+                if (isset($this->blocks[$idx]['runs'][0])) {
+                    $this->blocks[$idx]['runs'][0]['text'] = $val;
+                }
+                $this->dirty = true;
+                $this->editorRevision++;
+                break;
+            }
+        }
+    }
+
     public function updatedUpload(): void
     {
         if ($this->upload === null) {
@@ -752,6 +772,11 @@ trait HandlesNaskahStudio
         $this->activeBlock = max(0, min($this->activeBlock, count($this->blocks) - 1));
         $this->dirty = true;
         $this->editorRevision++;
+    }
+
+    public function deleteBlock(int $index): void
+    {
+        $this->removeBlock($index);
     }
 
     public function moveBlock(int $index, int $direction): void
@@ -2694,6 +2719,8 @@ trait HandlesNaskahStudio
     public function openAssistant(): void
     {
         $this->assistantOpen = true;
+        $this->showComments = false;
+        $this->showRevisions = false;
         if (property_exists($this, 'activeTaskPane')) {
             $this->activeTaskPane = 'assistant';
         }
@@ -2708,6 +2735,81 @@ trait HandlesNaskahStudio
         if (property_exists($this, 'activeTaskPane') && $this->activeTaskPane === 'assistant') {
             $this->activeTaskPane = '';
         }
+    }
+
+    public function openTaskPane(string $pane): void
+    {
+        if (property_exists($this, 'activeTaskPane')) {
+            $this->activeTaskPane = $pane;
+        }
+
+        if ($pane === 'assistant' || $pane === 'editor') {
+            $this->assistantOpen = true;
+            $this->showComments = false;
+            $this->showRevisions = false;
+            if (property_exists($this, 'kpiDrawerOpen')) {
+                $this->kpiDrawerOpen = false;
+            }
+        } elseif ($pane === 'comments') {
+            $this->showComments = true;
+            $this->assistantOpen = false;
+            $this->showRevisions = false;
+            if (property_exists($this, 'kpiDrawerOpen')) {
+                $this->kpiDrawerOpen = false;
+            }
+        } elseif ($pane === 'revisions') {
+            $this->showRevisions = true;
+            $this->assistantOpen = false;
+            $this->showComments = false;
+            if (property_exists($this, 'kpiDrawerOpen')) {
+                $this->kpiDrawerOpen = false;
+            }
+        } elseif ($pane === 'kpi' && property_exists($this, 'kpiDrawerOpen')) {
+            $this->kpiDrawerOpen = true;
+            $this->assistantOpen = false;
+        }
+    }
+
+    public function closeTaskPane(): void
+    {
+        if (property_exists($this, 'activeTaskPane')) {
+            $this->activeTaskPane = '';
+        }
+        if (property_exists($this, 'kpiDrawerOpen')) {
+            $this->kpiDrawerOpen = false;
+        }
+        $this->assistantOpen = false;
+        $this->showComments = false;
+        $this->showRevisions = false;
+    }
+
+    public function toggleTaskPane(string $pane): void
+    {
+        if (property_exists($this, 'activeTaskPane') && $this->activeTaskPane === $pane) {
+            $this->closeTaskPane();
+
+            return;
+        }
+
+        if ($pane === 'comments' && $this->showComments) {
+            $this->closeTaskPane();
+
+            return;
+        }
+
+        if ($pane === 'revisions' && $this->showRevisions) {
+            $this->closeTaskPane();
+
+            return;
+        }
+
+        if ($pane === 'assistant' && $this->assistantOpen) {
+            $this->closeAssistant();
+
+            return;
+        }
+
+        $this->openTaskPane($pane);
     }
 
     public function toggleAssistant(): void
