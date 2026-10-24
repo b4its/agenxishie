@@ -540,7 +540,8 @@ final class NaskahRichModel
             if ($type === 'equation') {
                 $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
                 $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
-                $captionHtml = $caption !== '' ? '<span class="eq-caption" style="float:right; font-weight:600; color:#616161;">('.$escape($caption).')</span>' : '';
+                $capTrim = trim($caption, '()');
+                $captionHtml = $capTrim !== '' ? '<span class="eq-caption" style="float:right; font-weight:600; color:#616161;">('.$escape($capTrim).')</span>' : '';
                 $body .= '<div class="equation-block" style="margin:16px 0; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; text-align:center; font-family:\'Cambria Math\', serif; font-size:1.15em;">'.$captionHtml.'<span class="latex-math">'.$escape($latex).'</span></div>';
 
                 continue;

@@ -208,6 +208,8 @@ trait HandlesNaskahStudio
 
     public ?int $editingEquationIndex = null;
 
+    public ?int $editingImageIndex = null;
+
     public string $footnoteText = '';
 
     public string $citationStyle = 'APA';
@@ -1108,19 +1110,26 @@ trait HandlesNaskahStudio
 
             $newBlock = $this->model->newImageBlock($dataUrl, $this->imageAlt ?: $caption, $width, $this->imageAlign ?: 'center', $caption);
 
-            $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
-                ? $this->activeBlock + 1
-                : count($this->blocks);
-            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            if ($this->editingImageIndex !== null && isset($this->blocks[$this->editingImageIndex])) {
+                $this->blocks[$this->editingImageIndex] = $newBlock;
+                $this->activeBlock = $this->editingImageIndex;
+                $this->editingImageIndex = null;
+                $this->notify('Gambar berhasil diperbarui', '', 'success');
+            } else {
+                $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+                    ? $this->activeBlock + 1
+                    : count($this->blocks);
+                array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+                $this->activeBlock = $insertAt;
+                $this->notify('Gambar disisipkan', '', 'success');
+            }
 
-            $this->activeBlock = $insertAt;
             $this->editorRevision++;
             $this->dirty = true;
             $this->dialog = '';
             $this->imageAlt = '';
             $this->imageCaption = '';
             $this->imageUpload = null;
-            $this->notify('Gambar disisipkan', '', 'success');
         } catch (\Throwable $exception) {
             $this->notify('Gagal menyisipkan gambar', Str::limit($exception->getMessage(), 140), 'danger');
         }
@@ -1136,24 +1145,82 @@ trait HandlesNaskahStudio
         }
 
         $captionText = trim($caption ?? $this->imageCaption);
+        if ($captionText === '') {
+            $existingImageCount = count(array_filter($this->blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'image'));
+            $captionText = 'Gambar '.($existingImageCount + 1);
+        }
         $w = max(80, min(900, $width ?: (int) ($this->imageWidth ?: 480)));
         $al = in_array($align, ['left', 'center', 'right'], true) ? $align : ($this->imageAlign ?: 'center');
 
         $newBlock = $this->model->newImageBlock($src, $this->imageAlt ?: $captionText, $w, $al, $captionText);
 
-        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
-            ? $this->activeBlock + 1
-            : count($this->blocks);
-        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+        if ($this->editingImageIndex !== null && isset($this->blocks[$this->editingImageIndex])) {
+            $this->blocks[$this->editingImageIndex] = $newBlock;
+            $this->activeBlock = $this->editingImageIndex;
+            $this->editingImageIndex = null;
+            $this->notify('Gambar berhasil diperbarui', '', 'success');
+        } else {
+            $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+                ? $this->activeBlock + 1
+                : count($this->blocks);
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->activeBlock = $insertAt;
+            $this->notify('Gambar berhasil disisipkan', '', 'success');
+        }
 
-        $this->activeBlock = $insertAt;
         $this->editorRevision++;
         $this->dirty = true;
         $this->dialog = '';
         $this->imageUrl = '';
         $this->imageCaption = '';
         $this->imageAlt = '';
-        $this->notify('Gambar berhasil disisipkan', '', 'success');
+    }
+
+    public function editImage(int $blockIndex): void
+    {
+        if (! isset($this->blocks[$blockIndex])) {
+            return;
+        }
+
+        $b = $this->blocks[$blockIndex];
+        if (($b['type'] ?? '') !== 'image') {
+            return;
+        }
+
+        $this->editingImageIndex = $blockIndex;
+        $this->activeBlock = $blockIndex;
+        $this->imageUrl = (string) ($b['image']['src'] ?? '');
+        $this->imageCaption = (string) ($b['image']['caption'] ?? '');
+        $this->imageAlt = (string) ($b['image']['alt'] ?? '');
+        $this->imageWidth = (string) ($b['image']['width'] ?? 480);
+        $this->imageAlign = (string) ($b['align'] ?? 'center');
+        $this->dialog = 'image';
+    }
+
+    public function updateImageProperties(): void
+    {
+        if ($this->editingImageIndex === null || ! isset($this->blocks[$this->editingImageIndex])) {
+            $this->dialog = '';
+
+            return;
+        }
+
+        $w = max(80, min(900, (int) ($this->imageWidth ?: 480)));
+        $caption = trim($this->imageCaption);
+        $this->blocks[$this->editingImageIndex]['image']['width'] = $w;
+        $this->blocks[$this->editingImageIndex]['image']['caption'] = $caption;
+        $this->blocks[$this->editingImageIndex]['image']['alt'] = $this->imageAlt ?: $caption;
+        $this->blocks[$this->editingImageIndex]['align'] = in_array($this->imageAlign, ['left', 'center', 'right'], true) ? $this->imageAlign : 'center';
+
+        if ($this->imageUrl !== '') {
+            $this->blocks[$this->editingImageIndex]['image']['src'] = $this->imageUrl;
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->editingImageIndex = null;
+        $this->dialog = '';
+        $this->notify('Pengaturan gambar berhasil disimpan', '', 'success');
     }
 
     public function insertSampleDiagram(string $diagramType = 'flowchart'): void
@@ -1309,6 +1376,10 @@ trait HandlesNaskahStudio
         }
 
         $captionText = trim($caption ?? $this->equationCaption);
+        if ($captionText === '') {
+            $existingEquationCount = count(array_filter($this->blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'equation'));
+            $captionText = '('.($existingEquationCount + 1).')';
+        }
 
         $newBlock = $this->model->newEquationBlock($formula, $captionText, $display);
 
@@ -1331,6 +1402,73 @@ trait HandlesNaskahStudio
         $this->dialog = '';
         $this->equationLatex = 'E = mc^2';
         $this->equationCaption = '';
+    }
+
+    public function insertCrossReference(string $type, string $label): void
+    {
+        $refText = match ($type) {
+            'equation' => str_starts_with($label, '(') ? 'persamaan '.$label : 'persamaan ('.$label.')',
+            'image', 'figure' => str_starts_with(strtolower($label), 'gambar') ? $label : 'Gambar '.$label,
+            'table' => str_starts_with(strtolower($label), 'tabel') ? $label : 'Tabel '.$label,
+            default => $label,
+        };
+
+        $index = $this->activeBlock;
+        if (! isset($this->blocks[$index])) {
+            $this->blocks[] = $this->model->newBlock('paragraph', '');
+            $index = count($this->blocks) - 1;
+        }
+
+        $existing = (string) ($this->blocks[$index]['text'] ?? '');
+        $this->blocks[$index]['text'] = $existing !== '' ? $existing.' '.$refText : $refText;
+        if (isset($this->blocks[$index]['runs'][0])) {
+            $this->blocks[$index]['runs'][0]['text'] = $this->blocks[$index]['text'];
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->dialog = '';
+        $this->notify('Rujukan silang disisipkan', $refText, 'success');
+    }
+
+    /**
+     * @return array{equations: array<int, array{index: int, caption: string, preview: string}>, images: array<int, array{index: int, caption: string, src: string}>, tables: array<int, array{index: int, caption: string}>}
+     */
+    public function getManuscriptCaptions(): array
+    {
+        $equations = [];
+        $images = [];
+        $tables = [];
+
+        foreach ($this->blocks as $idx => $block) {
+            $type = (string) ($block['type'] ?? '');
+            if ($type === 'equation') {
+                $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? ($idx + 1));
+                $equations[] = [
+                    'index' => $idx,
+                    'caption' => $caption,
+                    'preview' => (string) ($block['equation']['latex'] ?? $block['text'] ?? ''),
+                ];
+            } elseif ($type === 'image') {
+                $caption = (string) ($block['image']['caption'] ?? $block['image']['alt'] ?? ('Gambar '.($idx + 1)));
+                $images[] = [
+                    'index' => $idx,
+                    'caption' => $caption,
+                    'src' => (string) ($block['image']['src'] ?? ''),
+                ];
+            } elseif ($type === 'table') {
+                $tables[] = [
+                    'index' => $idx,
+                    'caption' => 'Tabel '.(count($tables) + 1),
+                ];
+            }
+        }
+
+        return [
+            'equations' => $equations,
+            'images' => $images,
+            'tables' => $tables,
+        ];
     }
 
     public function editEquation(int $blockIndex): void
@@ -1363,6 +1501,12 @@ trait HandlesNaskahStudio
             'einstein' => 'E = mc^2',
             'limit' => '\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1',
             'summation' => '\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}',
+            'euler' => 'e^{i\\pi} + 1 = 0',
+            'regression' => 'y = \\beta_0 + \\beta_1 x_1 + \\beta_2 x_2 + \\varepsilon',
+            'poisson' => 'P(X=k) = \\frac{\\lambda^k e^{-\\lambda}}{k!}',
+            'taylor' => 'f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n',
+            'fraction' => '\\frac{a}{b}',
+            'radical' => '\\sqrt{a^2 + b^2}',
             'schrodinger' => 'i\\hbar \\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r},t) = \\hat{H}\\Psi(\\mathbf{r},t)',
             'fourier' => '\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} \\, dx',
             default => 'E = mc^2',
@@ -2556,12 +2700,33 @@ trait HandlesNaskahStudio
             return;
         }
 
-        $content = trim((string) $this->assistantLog[$logIndex]['content']);
+        $log = $this->assistantLog[$logIndex];
+        $content = trim((string) $log['content']);
         if ($content === '') {
             return;
         }
 
         $this->pushUndo();
+
+        // 1. Check if assistant response contains an equation recommendation data
+        if (! empty($log['data']['latex'])) {
+            $formula = (string) $log['data']['latex'];
+            $caption = (string) ($log['data']['caption'] ?? '');
+            $this->insertEquation($formula, $caption);
+
+            return;
+        }
+
+        // 2. Check if assistant response contains a ```latex code block
+        if (preg_match('/```latex\s*\n(.*?)\n```/is', $content, $m) === 1) {
+            $formula = trim($m[1]);
+            if ($formula !== '') {
+                $this->insertEquation($formula);
+
+                return;
+            }
+        }
+
         $lines = explode("\n", $content);
         $paragraphs = [];
         $currentGroup = [];
@@ -2617,12 +2782,43 @@ trait HandlesNaskahStudio
             return;
         }
 
-        $content = trim((string) $this->assistantLog[$logIndex]['content']);
+        $log = $this->assistantLog[$logIndex];
+        $content = trim((string) $log['content']);
         if ($content === '' || ! isset($this->blocks[$this->activeBlock])) {
             return;
         }
 
         $this->pushUndo();
+
+        // 1. If assistant has a LaTeX equation recommendation, replace active block with equation block
+        if (! empty($log['data']['latex'])) {
+            $formula = (string) $log['data']['latex'];
+            $caption = (string) ($log['data']['caption'] ?? '');
+            $newBlock = $this->model->newEquationBlock($formula, $caption);
+            $this->blocks[$this->activeBlock] = $newBlock;
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Blok Diganti dengan Rumus LaTeX', '', 'success');
+
+            return;
+        }
+
+        // 2. If contains ```latex code block
+        if (preg_match('/```latex\s*\n(.*?)\n```/is', $content, $m) === 1) {
+            $formula = trim($m[1]);
+            if ($formula !== '') {
+                $newBlock = $this->model->newEquationBlock($formula);
+                $this->blocks[$this->activeBlock] = $newBlock;
+                $this->dirty = true;
+                $this->editorRevision++;
+                $this->statistics = $this->model->computeStatistics($this->blocks);
+                $this->notify('Blok Diganti dengan Rumus LaTeX', '', 'success');
+
+                return;
+            }
+        }
+
         $oldText = (string) ($this->blocks[$this->activeBlock]['text'] ?? '');
         $cleanText = preg_replace('/^[-*#\s]+/u', '', $content) ?? $content;
         $this->recordRevision($this->activeBlock, $oldText, $cleanText);

@@ -893,3 +893,63 @@ it('supports footnote insertion at cursor position, html roundtrip sync, and doc
     $zip->close();
     @unlink($tempFile);
 });
+
+it('supports editing existing images, updating properties, expanded presets, and inserting cross references', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    // 1. Insert image and test editing image properties
+    $page->call('insertImageUrl', 'https://example.com/figure1.png', 'Gambar 1: Desain Awal', 480, 'center');
+    $imgIndex = $page->get('activeBlock');
+
+    $page->call('editImage', $imgIndex);
+    expect($page->get('editingImageIndex'))->toBe($imgIndex)
+        ->and($page->get('dialog'))->toBe('image')
+        ->and($page->get('imageUrl'))->toBe('https://example.com/figure1.png')
+        ->and($page->get('imageCaption'))->toBe('Gambar 1: Desain Awal');
+
+    // Update image properties
+    $page->set('imageCaption', 'Gambar 1: Desain Arsitektur Final')
+        ->set('imageWidth', '600')
+        ->set('imageAlign', 'right')
+        ->call('updateImageProperties');
+
+    $updatedBlocks = $page->get('blocks');
+    expect($updatedBlocks[$imgIndex]['image']['caption'])->toBe('Gambar 1: Desain Arsitektur Final')
+        ->and($updatedBlocks[$imgIndex]['image']['width'])->toBe(600)
+        ->and($updatedBlocks[$imgIndex]['align'])->toBe('right')
+        ->and($page->get('editingImageIndex'))->toBeNull()
+        ->and($page->get('dialog'))->toBe('');
+
+    // 2. Uji expanded equation presets
+    $page->call('setEquationPreset', 'euler');
+    expect($page->get('equationLatex'))->toBe('e^{i\\pi} + 1 = 0');
+
+    $page->call('setEquationPreset', 'regression');
+    expect($page->get('equationLatex'))->toContain('y = \\beta_0 + \\beta_1 x_1');
+
+    $page->call('setEquationPreset', 'poisson');
+    expect($page->get('equationLatex'))->toContain('P(X=k) = \\frac{\\lambda^k e^{-\\lambda}}{k!}');
+
+    $page->call('setEquationPreset', 'taylor');
+    expect($page->get('equationLatex'))->toContain('f(x) = \\sum_{n=0}^{\\infty}');
+
+    // 3. Insert equation and verify captions collection
+    $page->call('insertEquation', 'e^{i\\pi} + 1 = 0', '1');
+    $captions = $page->instance()->getManuscriptCaptions();
+
+    expect(count($captions['equations']))->toBeGreaterThanOrEqual(1)
+        ->and(count($captions['images']))->toBeGreaterThanOrEqual(1);
+
+    // 4. Test cross reference insertion
+    $page->call('selectBlock', 0);
+    $initialText = (string) ($page->get('blocks')[0]['text'] ?? '');
+    $page->call('insertCrossReference', 'equation', '1');
+
+    $block0 = $page->get('blocks')[0];
+    expect($block0['text'])->toContain('persamaan (1)');
+
+    $page->call('insertCrossReference', 'image', '1');
+    $block0After = $page->get('blocks')[0];
+    expect($block0After['text'])->toContain('Gambar 1');
+});

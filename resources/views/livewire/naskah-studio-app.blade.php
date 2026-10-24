@@ -90,6 +90,39 @@
             this.copilotMenuOpen = false;
             $wire.runTool(tool, textToUse);
         },
+        handlePaste(e) {
+            const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+            if (!items) return;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    if (!blob) continue;
+                    e.preventDefault();
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const dataUrl = event.target.result;
+                        $wire.insertImageUrl(dataUrl, 'Gambar dari Tangkapan Layar (Clipboard)', 480, 'center');
+                    };
+                    reader.readAsDataURL(blob);
+                    return;
+                }
+            }
+        },
+        handleDrop(e) {
+            const files = e.dataTransfer?.files;
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            if (file.type.indexOf('image') !== -1) {
+                e.preventDefault();
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const dataUrl = event.target.result;
+                    const fileName = file.name.replace(/\.[^/.]+$/, '');
+                    $wire.insertImageUrl(dataUrl, 'Gambar: ' + fileName, 480, 'center');
+                };
+                reader.readAsDataURL(file);
+            }
+        },
         init() {
             window.addEventListener('keydown', (e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -1015,6 +1048,18 @@
                 <div class="word-group__footer"><span class="word-group__label">Citations &amp; Bibliography</span></div>
             </div>
 
+            <!-- Group: Captions & Cross-Reference -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('crossref')" title="Sisipkan Rujukan Silang ke Persamaan / Gambar / Tabel">🔗 Cross-Reference</button>
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('equation')" title="Sisipkan Persamaan Matematika">π Persamaan</button>
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('image')" title="Sisipkan Gambar Ilmiah">🖼️ Gambar</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Captions &amp; Cross-Ref</span></div>
+            </div>
+
             <!-- Group: Research & Literature Gap -->
             <div class="word-group">
                 <div class="word-group__content">
@@ -1469,6 +1514,9 @@
                             spellcheck="false"
                             @keydown.ctrl.enter.prevent="$wire.insertPageBreak()"
                             @keydown.meta.enter.prevent="$wire.insertPageBreak()"
+                            @paste="handlePaste($event)"
+                            @dragover.prevent
+                            @drop="handleDrop($event)"
                             @click="updateActiveBlock($event)"
                             @focusin="updateActiveBlock($event)"
                             @keyup="updateActiveBlock($event)"
@@ -1594,7 +1642,8 @@
                                                 data-caption="{{ $caption }}"
                                                 data-display="{{ $display }}"
                                                 contenteditable="false"
-                                                style="user-select:none; margin: 16px 0; padding: 12px 18px; background: #fbfcfe; border: 1px solid #e1dfdd; border-radius: 4px; display: flex; align-items: center; justify-content: center; position: relative;">
+                                                @dblclick="$wire.editEquation({{ $index }})"
+                                                style="user-select:none; margin: 16px 0; padding: 12px 18px; background: #fbfcfe; border: 1px solid #e1dfdd; border-radius: 4px; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer;">
                                                 <div class="word-equation-actions" style="position: absolute; right: 8px; top: 8px; display: flex; gap: 4px;">
                                                     <button type="button" class="word-tool-btn" style="padding: 2px 8px; font-size: 11px; height: 22px; background: #ffffff; border: 1px solid #d1d1d1; border-radius: 3px; cursor: pointer;" wire:click="editEquation({{ $index }})" title="Edit Rumus LaTeX">
                                                         ✏️ Edit Rumus
@@ -1608,7 +1657,7 @@
                                                 </div>
                                                 @if ($caption !== '')
                                                     <div class="word-equation-caption" style="position: absolute; right: 16px; font-size: 11pt; font-weight: 600; color: #616161;">
-                                                        ({{ $caption }})
+                                                        ({{ trim($caption, '()') }})
                                                     </div>
                                                 @endif
                                             </div>
@@ -1627,7 +1676,8 @@
                                                 data-width="{{ $width }}"
                                                 data-align="{{ $align }}"
                                                 contenteditable="false"
-                                                style="margin: 18px 0; display: flex; flex-direction: column; align-items: {{ $align === 'left' ? 'flex-start' : ($align === 'right' ? 'flex-end' : 'center') }}; text-align: {{ $align }}; position: relative;">
+                                                @dblclick="$wire.editImage({{ $index }})"
+                                                style="margin: 18px 0; display: flex; flex-direction: column; align-items: {{ $align === 'left' ? 'flex-start' : ($align === 'right' ? 'flex-end' : 'center') }}; text-align: {{ $align }}; position: relative; cursor: pointer;">
                                                 <div style="position: relative; display: inline-block; max-width: 100%;">
                                                     <div class="word-image-actions" style="position: absolute; right: 6px; top: 6px; display: flex; gap: 4px; background: rgba(255,255,255,0.95); padding: 3px 6px; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); z-index:10;">
                                                         <button type="button" class="word-tool-btn" style="padding: 1px 5px; font-size: 10px; height: 20px; {{ $width === 320 ? 'background:#e0e7ff; font-weight:700;' : '' }}" wire:click="setImageWidth({{ $index }}, 320)" title="Ukuran Kecil (320px)">320</button>
@@ -1636,7 +1686,7 @@
                                                         <button type="button" class="word-tool-btn" style="padding: 1px 5px; font-size: 10px; height: 20px;" wire:click="setImageAlign({{ $index }}, 'left')" title="Rata Kiri">⬅️</button>
                                                         <button type="button" class="word-tool-btn" style="padding: 1px 5px; font-size: 10px; height: 20px;" wire:click="setImageAlign({{ $index }}, 'center')" title="Rata Tengah">↔️</button>
                                                         <button type="button" class="word-tool-btn" style="padding: 1px 5px; font-size: 10px; height: 20px;" wire:click="setImageAlign({{ $index }}, 'right')" title="Rata Kanan">➡️</button>
-                                                        <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; height: 20px;" wire:click="openDialog('image')" title="Ganti Gambar">🖼️</button>
+                                                        <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; height: 20px;" wire:click="editImage({{ $index }})" title="Ganti / Edit Gambar">🖼️ Edit</button>
                                                         <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; height: 20px; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Gambar">🗑️</button>
                                                     </div>
                                                     @if ($src !== '')
@@ -2380,7 +2430,10 @@
                                 <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('gaussian')">Distribusi Normal</button>
                                 <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('integral')">Integral Tentu</button>
                                 <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('matrix')">Matriks 2x2</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('euler')">Identitas Euler (e^iπ+1=0)</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('regression')">Regresi Berganda</button>
                                 <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('einstein')">Massa-Energi (E=mc²)</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('taylor')">Deret Taylor</button>
                                 <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('limit')">Limit</button>
                                 <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('summation')">Sigma Deret</button>
                                 <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('fourier')">Transformasi Fourier</button>
@@ -2421,10 +2474,21 @@
                             </div>
                         </div>
 
-                        <!-- Live Preview Box -->
-                        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; padding:12px; text-align:center;">
-                            <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Pratinjau Rumus</div>
-                            <div style="font-family:'Cambria Math', 'KaTeX_Math', 'Times New Roman', serif; font-size:1.25rem; color:#0f172a; min-height:36px; display:flex; align-items:center; justify-content:center;">
+                        <!-- Live Preview Box with Real-time Client-Side KaTeX update -->
+                        <div x-data="{
+                            previewLatex: @entangle('equationLatex'),
+                            updateMath() {
+                                if (this.$refs.mathBox && typeof window.katex !== 'undefined' && this.previewLatex) {
+                                    try {
+                                        window.katex.render(this.previewLatex, this.$refs.mathBox, { throwOnError: false, displayMode: true });
+                                        return;
+                                    } catch(e) {}
+                                }
+                            }
+                        }" x-init="$nextTick(() => updateMath()); $watch('previewLatex', () => $nextTick(() => updateMath()))"
+                        style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; padding:12px; text-align:center;">
+                            <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Pratinjau Rumus (Live Math)</div>
+                            <div x-ref="mathBox" style="font-family:'Cambria Math', 'KaTeX_Math', 'Times New Roman', serif; font-size:1.25rem; color:#0f172a; min-height:36px; display:flex; align-items:center; justify-content:center;">
                                 <span class="latex-math-render" data-latex="{{ $equationLatex }}">{{ $equationLatex ?: 'E = mc^2' }}</span>
                             </div>
                         </div>
@@ -2455,10 +2519,10 @@
                         </div>
                     </div>
 
-                {{-- INSERT IMAGE --}}
+                {{-- INSERT / EDIT IMAGE --}}
                 @elseif ($dialog === 'image')
                     <div class="word-dialog__header">
-                        <span>Insert Picture &amp; Academic Diagram</span>
+                        <span>{{ $editingImageIndex !== null ? 'Edit Gambar & Diagram Ilmiah' : 'Insert Picture & Academic Diagram' }}</span>
                         <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="word-dialog__body" style="display:flex; flex-direction:column; gap:14px;">
@@ -2471,10 +2535,12 @@
 
                         <!-- Opsi 2: Sisipkan via URL -->
                         <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:4px; background:#faf9f8;">
-                            <label style="display:block; font-weight:700; font-size:12px; margin-bottom:4px; color:#0f6cbd;">2. Gambar dari Tautan URL:</label>
+                            <label style="display:block; font-weight:700; font-size:12px; margin-bottom:4px; color:#0f6cbd;">2. Gambar dari Tautan URL / Data URI:</label>
                             <div style="display:flex; gap:6px;">
                                 <input type="url" class="word-select" style="flex:1; height:32px; background:#fff;" wire:model="imageUrl" placeholder="https://contoh.com/gambar-grafik.png">
-                                <button type="button" class="word-btn-pill word-btn-share" style="height:32px; font-size:11px;" wire:click="insertImageUrl">Sisipkan URL</button>
+                                <button type="button" class="word-btn-pill word-btn-share" style="height:32px; font-size:11px;" wire:click="insertImageUrl">
+                                    {{ $editingImageIndex !== null ? 'Terapkan URL' : 'Sisipkan URL' }}
+                                </button>
                             </div>
                         </div>
 
@@ -2499,8 +2565,6 @@
                                 </button>
                             </div>
                         </div>
-                            </div>
-                        </div>
 
                         <!-- Pengaturan Ukuran & Keterangan Gambar -->
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -2517,6 +2581,78 @@
                                     <option value="720">Penuh (720 px)</option>
                                 </select>
                             </div>
+                        </div>
+                    </div>
+                    <div class="word-dialog__footer" style="display:flex; justify-content:space-between;">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Tutup</button>
+                        @if ($editingImageIndex !== null)
+                            <button type="button" class="word-btn-pill word-btn-share" wire:click="updateImageProperties">Simpan Perubahan</button>
+                        @endif
+                    </div>
+
+                {{-- CROSS-REFERENCE DIALOG --}}
+                @elseif ($dialog === 'crossref')
+                    @php
+                        $caps = $this->getManuscriptCaptions();
+                    @endphp
+                    <div class="word-dialog__header">
+                        <span>Cross-Reference (Rujukan Silang Akademik)</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
+                    </div>
+                    <div class="word-dialog__body" style="display:flex; flex-direction:column; gap:12px; max-height:420px; overflow-y:auto;">
+                        <div style="font-size:12px; color:var(--ms-text-secondary);">
+                            Pilih elemen dokumen untuk disisipkan sebagai rujukan silang ke posisi kursor / blok aktif:
+                        </div>
+
+                        <!-- Equations -->
+                        <div>
+                            <label style="display:block; font-weight:700; font-size:12px; color:#0f6cbd; margin-bottom:4px;">Persamaan Matematika (Equations):</label>
+                            @if (empty($caps['equations']))
+                                <div style="font-size:11px; color:#8a8886; font-style:italic; padding:6px; background:#f9f9fb; border-radius:3px;">Belum ada rumus persamaan dalam naskah.</div>
+                            @else
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    @foreach ($caps['equations'] as $eq)
+                                        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
+                                            <span style="font-family:'Cambria Math', monospace; font-size:12px;">Persamaan ({{ trim($eq['caption'], '()') }}): <span style="color:#64748b;">{{ \Illuminate\Support\Str::limit($eq['preview'], 35) }}</span></span>
+                                            <button type="button" class="word-btn-pill word-btn-share" style="padding:2px 8px; font-size:11px; height:24px;" wire:click="insertCrossReference('equation', '{{ trim($eq['caption'], '()') }}')">Sisipkan</button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+
+                        <!-- Figures / Images -->
+                        <div>
+                            <label style="display:block; font-weight:700; font-size:12px; color:#0f6cbd; margin-bottom:4px;">Gambar &amp; Diagram (Figures):</label>
+                            @if (empty($caps['images']))
+                                <div style="font-size:11px; color:#8a8886; font-style:italic; padding:6px; background:#f9f9fb; border-radius:3px;">Belum ada gambar dalam naskah.</div>
+                            @else
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    @foreach ($caps['images'] as $img)
+                                        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
+                                            <span style="font-size:12px;">{{ \Illuminate\Support\Str::limit($img['caption'], 45) }}</span>
+                                            <button type="button" class="word-btn-pill word-btn-share" style="padding:2px 8px; font-size:11px; height:24px;" wire:click="insertCrossReference('image', '{{ $img['caption'] }}')">Sisipkan</button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+
+                        <!-- Tables -->
+                        <div>
+                            <label style="display:block; font-weight:700; font-size:12px; color:#0f6cbd; margin-bottom:4px;">Tabel Data:</label>
+                            @if (empty($caps['tables']))
+                                <div style="font-size:11px; color:#8a8886; font-style:italic; padding:6px; background:#f9f9fb; border-radius:3px;">Belum ada tabel dalam naskah.</div>
+                            @else
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    @foreach ($caps['tables'] as $tb)
+                                        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
+                                            <span style="font-size:12px;">{{ $tb['caption'] }}</span>
+                                            <button type="button" class="word-btn-pill word-btn-share" style="padding:2px 8px; font-size:11px; height:24px;" wire:click="insertCrossReference('table', '{{ $tb['caption'] }}')">Sisipkan</button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
                     </div>
                     <div class="word-dialog__footer">

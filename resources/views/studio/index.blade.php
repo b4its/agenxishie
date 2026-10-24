@@ -12,7 +12,7 @@
 
     <!-- KaTeX math typesetting (CDN) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous" onload="renderLatexEquations()"></script>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles

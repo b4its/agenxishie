@@ -247,3 +247,37 @@ it('supports /rumus and /gambar slash commands with academic recommendations', f
         ->and(end($log)['content'])->toContain('Flowchart')
         ->and(end($log)['content'])->toContain('Chart');
 });
+
+it('inserts or replaces manuscript blocks with rich equation blocks from assistant recommendations', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Persamaan model regresi:'],
+            ['type' => 'paragraph', 'text' => 'Teks yang akan diganti.'],
+        ])
+        ->set('activeBlock', 0);
+
+    // 1. Run /rumus regresi
+    $page->call('runTool', '/rumus regresi');
+    $log = $page->get('assistantLog');
+    $lastIndex = count($log) - 1;
+
+    // 2. Insert assistant formula as new equation block below block 0
+    $page->call('insertAssistantResponse', $lastIndex);
+
+    $blocksAfterInsert = $page->get('blocks');
+    expect($blocksAfterInsert[1]['type'])->toBe('equation')
+        ->and($blocksAfterInsert[1]['equation']['latex'])->toContain('y = \\beta_0')
+        ->and($blocksAfterInsert[1]['equation']['caption'])->toBe('(1)');
+
+    // 3. Replace block with assistant equation recommendation
+    $page->set('activeBlock', 2);
+    $page->call('runTool', '/rumus kuadrat');
+    $log2 = $page->get('assistantLog');
+    $lastIndex2 = count($log2) - 1;
+
+    $page->call('replaceActiveBlockWithAssistant', $lastIndex2);
+
+    $blocksAfterReplace = $page->get('blocks');
+    expect($blocksAfterReplace[2]['type'])->toBe('equation')
+        ->and($blocksAfterReplace[2]['equation']['latex'])->toContain('\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}');
+});

@@ -252,6 +252,25 @@ final class NaskahDocxExporter
         }
         $rPr .= '<w:sz w:val="'.$size.'"/></w:rPr>';
 
+        if (str_contains($text, '$') && preg_match('/\$(.+?)\$/', $text)) {
+            $parts = preg_split('/(\$.+?\$)/', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+            $out = '';
+            foreach ($parts as $part) {
+                if ($part === '') {
+                    continue;
+                }
+                if (str_starts_with($part, '$') && str_ends_with($part, '$') && strlen($part) > 2) {
+                    $mathContent = substr($part, 1, -1);
+                    $mathPr = '<w:rPr><w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/><w:i/><w:sz w:val="'.$size.'"/></w:rPr>';
+                    $out .= '<w:r>'.$mathPr.'<w:t xml:space="preserve">'.$this->esc($mathContent).'</w:t></w:r>';
+                } else {
+                    $out .= '<w:r>'.$rPr.'<w:t xml:space="preserve">'.$this->esc($part).'</w:t></w:r>';
+                }
+            }
+
+            return $out;
+        }
+
         return '<w:r>'.$rPr.'<w:t xml:space="preserve">'.$this->esc($text).'</w:t></w:r>';
     }
 
@@ -385,7 +404,8 @@ final class NaskahDocxExporter
 
     private function equationBlockXml(string $latex, string $caption = ''): string
     {
-        $capText = $caption !== '' ? '   ('.$this->esc($caption).')' : '';
+        $capTrim = trim($caption, '()');
+        $capText = $capTrim !== '' ? '   ('.$this->esc($capTrim).')' : '';
 
         return '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="240"/></w:pPr>'
             .'<w:r><w:rPr><w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/><w:i/><w:sz w:val="24"/></w:rPr>'
