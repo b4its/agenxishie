@@ -208,7 +208,78 @@
     <!-- 3. RIBBON TOOLBAR BODY (MICROSOFT WORD 365 COMMANDS)                  -->
     <!-- ===================================================================== -->
     <div x-show="!zenMode" class="word-ribbon-body">
-        @if ($activeTab === 'home' || $activeTab === 'file')
+        @if ($activeTab === 'file')
+            <!-- TAB: FILE -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="newDocument" title="Create New Document">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+                        </svg>
+                        <span>New</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="save" title="Save Document (Ctrl+S)">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        <span>Save</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="openDialog('snapshots')" title="Version History &amp; Snapshots">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/>
+                        </svg>
+                        <span>History</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="openDialog('properties')" title="Document Metadata &amp; Properties">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                        <span>Properties</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Document</span></div>
+            </div>
+
+            <!-- Group: Export Direct -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="export('docx')" title="Download Microsoft Word .docx">
+                        <div style="font-weight:800; font-size:12px; color:#0f6cbd;">DOCX</div>
+                        <span>Word</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="export('odt')" title="Download OpenDocument .odt">
+                        <div style="font-weight:800; font-size:12px; color:#107c41;">ODT</div>
+                        <span>OpenDoc</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="export('latex')" title="Download LaTeX archive">
+                        <div style="font-weight:800; font-size:12px; color:#7c3aed;">TeX</div>
+                        <span>LaTeX</span>
+                    </button>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="export('md')">📄 Markdown</button>
+                        <button type="button" class="word-tool-btn" wire:click="export('rtf')">📑 Rich Text</button>
+                        <button type="button" class="word-tool-btn" wire:click="export('txt')">📝 Plain Text</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Export &amp; Share</span></div>
+            </div>
+
+            <!-- Group: Templates -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="loadSampleHandbook" title="Reset to The Open Studio Handbook">
+                            📖 Reload Handbook
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="runTool('cek-pedoman')" title="Check Guideline Compliance">
+                            🎯 Check DIKTI / Pedoman
+                        </button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Templates</span></div>
+            </div>
+
+        @elseif ($activeTab === 'home')
             <!-- GROUP: CLIPBOARD -->
             <div class="word-group">
                 <div class="word-group__content">
@@ -447,47 +518,175 @@
                 </div>
             </div>
 
+        <!-- TAB: INSERT -->
         @elseif ($activeTab === 'insert')
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="addBlock('paragraph')">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-                        <span>Page</span>
+                    <button type="button" class="word-btn-large" wire:click="addBlock('paragraph')" title="Insert Blank Page">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <span>Blank Page</span>
                     </button>
-                    <button type="button" class="word-btn-large" wire:click="openDialog('table')">
+                    <button type="button" class="word-btn-large" wire:click="insertPageBreak" title="Insert Page Break">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v6h12V8z"/><path d="M6 16v6a2 2 0 002 2h12a2 2 0 002-2v-6H6z"/><line x1="2" y1="12" x2="22" y2="12" stroke-dasharray="2 2"/></svg>
+                        <span>Page Break</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Pages</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('table')" title="Insert Custom Table">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
-                        <span>Table</span>
+                        <span>Table ▾</span>
                     </button>
-                    <button type="button" class="word-btn-large" wire:click="openDialog('image')">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="insertTable" title="Quick 3x3 Table">⊞ 3x3 Quick</button>
+                        <button type="button" class="word-tool-btn" wire:click="tableInsertRow({{ $activeBlock }}, 1)" title="Add Row Below">➕ Row</button>
+                        <button type="button" class="word-tool-btn" wire:click="tableInsertColumn({{ $activeBlock }}, 1)" title="Add Column">➕ Col</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Tables</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('image')" title="Insert Picture">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                         <span>Pictures</span>
                     </button>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="insertCallout('info')">📌 Note (Info)</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertCallout('warning')">⚠️ Note (Warning)</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertCallout('success')">✅ Note (Success)</button>
+                    </div>
                 </div>
-                <div class="word-group__footer"><span class="word-group__label">Tables &amp; Media</span></div>
+                <div class="word-group__footer"><span class="word-group__label">Illustrations</span></div>
             </div>
 
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-tool-btn" wire:click="openDialog('link')">🔗 Link</button>
-                    <button type="button" class="word-tool-btn" wire:click="openDialog('footnote')">⚓ Footnote</button>
-                    <button type="button" class="word-tool-btn" wire:click="insertTableOfContents">📑 Table of Contents</button>
-                    <button type="button" class="word-tool-btn" wire:click="openDialog('symbols')">Ω Symbol</button>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('link')">🔗 Hyperlink</button>
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('footnote')">⚓ Footnote</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertHorizontalRule">➖ Horizontal Line</button>
+                    </div>
                 </div>
-                <div class="word-group__footer"><span class="word-group__label">Links &amp; Symbols</span></div>
+                <div class="word-group__footer"><span class="word-group__label">Links &amp; Notes</span></div>
             </div>
 
-        @elseif ($activeTab === 'layout' || $activeTab === 'design')
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="openDialog('pagesetup')">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="1"/><line x1="8" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/></svg>
-                        <span>Margins</span>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('pagesetup')">📄 Header &amp; Footer</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertPageNumberField"># Page Number</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertDate">📅 Date &amp; Time</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Header &amp; Footer</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('symbols')" title="Insert Special Character">
+                        <span style="font-size:20px; font-weight:700; line-height:1;">Ω</span>
+                        <span>Symbol</span>
                     </button>
-                    <button type="button" class="word-btn-large" wire:click="updatePageSetup('orientation', '{{ ($pageSetup['orientation'] ?? 'portrait') === 'portrait' ? 'landscape' : 'portrait' }}')">
+                    <button type="button" class="word-btn-large" wire:click="insertTableOfContents" title="Insert Table of Contents">
+                        <span style="font-size:18px;">📑</span>
+                        <span>TOC</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Symbols</span></div>
+            </div>
+
+        <!-- TAB: DRAW -->
+        @elseif ($activeTab === 'draw')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large active" title="Select / Cursor Mode">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l7 18 3-7 7-3L3 3z"/></svg>
+                        <span>Select</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="formatInline('highlight', '#bfdbfe')" title="Blue Pen Drawing">
+                        <div style="width:20px; height:20px; background:#0f6cbd; border-radius:9999px;"></div>
+                        <span>Blue Pen</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="formatInline('highlight', '#fecaca')" title="Red Pen Drawing">
+                        <div style="width:20px; height:20px; background:#dc2626; border-radius:9999px;"></div>
+                        <span>Red Pen</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="formatInline('highlight', '#fef08a')" title="Yellow Highlighter">
+                        <div style="width:20px; height:20px; background:#eab308; border-radius:9999px;"></div>
+                        <span>Highlighter</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="formatInline('highlight', null)" title="Eraser">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2C14 1 16 1 17 2L22 7C23 8 23 10 22 11L13 20"/></svg>
+                        <span>Eraser</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Drawing Tools</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="insertCallout('sketch')">🎨 Drawing Sketch Note</button>
+                        <button type="button" class="word-tool-btn" wire:click="clearFormatting">✕ Clear All Ink</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Convert &amp; Canvas</span></div>
+            </div>
+
+        <!-- TAB: DESIGN -->
+        @elseif ($activeTab === 'design')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="applyTheme('modern')" title="Office Modern Theme">
+                        <div style="width:20px; height:20px; border-radius:3px; background:#0f6cbd;"></div>
+                        <span>Modern</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="applyTheme('classic')" title="Classic Academic Theme">
+                        <div style="width:20px; height:20px; border-radius:3px; background:#1e3a8a;"></div>
+                        <span>Academic</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="applyTheme('serif')" title="Editorial Serif Theme">
+                        <div style="width:20px; height:20px; border-radius:3px; background:#7c2d12;"></div>
+                        <span>Editorial</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Document Themes</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="updatePageSetup('watermark', 'DRAFT')">💧 Watermark: DRAFT</button>
+                        <button type="button" class="word-tool-btn" wire:click="updatePageSetup('watermark', 'CONFIDENTIAL')">🔒 Watermark: CONFIDENTIAL</button>
+                        <button type="button" class="word-tool-btn" wire:click="updatePageSetup('watermark', '')">✕ Clear Watermark</button>
+                    </div>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="updatePageSetup('pageColor', '#ffffff')">⚪ White Page</button>
+                        <button type="button" class="word-tool-btn" wire:click="updatePageSetup('pageColor', '#fdfbf7')">📜 Cream / Sepia</button>
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('pagesetup')">🔲 Page Borders</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Page Background</span></div>
+            </div>
+
+        <!-- TAB: LAYOUT -->
+        @elseif ($activeTab === 'layout')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('pagesetup')" title="Margins Setup">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="1"/><line x1="8" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/></svg>
+                        <span>Margins ▾</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="updatePageSetup('orientation', '{{ ($pageSetup['orientation'] ?? 'portrait') === 'portrait' ? 'landscape' : 'portrait' }}')" title="Page Orientation">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
                         <span>{{ ucfirst($pageSetup['orientation'] ?? 'portrait') }}</span>
                     </button>
-                    <button type="button" class="word-btn-large" wire:click="openDialog('pagesetup')">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('pagesetup')" title="Paper Size">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
                         <span>Size: {{ $pageSetup['size'] ?? 'A4' }}</span>
                     </button>
@@ -495,7 +694,75 @@
                 <div class="word-group__footer"><span class="word-group__label">Page Setup</span></div>
             </div>
 
-        @elseif ($activeTab === 'review' || $activeTab === 'references')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="formatParagraph('indent-')">⇤ Decrease Indent</button>
+                        <button type="button" class="word-tool-btn" wire:click="formatParagraph('indent+')">⇥ Increase Indent</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertPageBreak">✂️ Insert Break</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Paragraph</span></div>
+            </div>
+
+        <!-- TAB: REFERENCES -->
+        @elseif ($activeTab === 'references')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="insertTableOfContents" title="Generate Automatic Table of Contents">
+                        <span style="font-size:20px;">📑</span>
+                        <span>Table of Contents</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Table of Contents</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('footnote')" title="Insert Footnote">
+                        <span style="font-size:18px;">⚓</span>
+                        <span>Insert Footnote</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Footnotes</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="runTool('sitasi')">📚 Insert Citation</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertBibliography">📜 Generate Bibliography</button>
+                        <button type="button" class="word-tool-btn" wire:click="runTool('cek-gap')">🔍 Analyze Literature Gap</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Citations &amp; Bibliography</span></div>
+            </div>
+
+        <!-- TAB: MAILINGS -->
+        @elseif ($activeTab === 'mailings')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('merge')" title="Start Mail Merge with CSV">
+                        <span style="font-size:20px;">✉️</span>
+                        <span>Start Merge</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Start Mail Merge</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('merge')">📂 Select CSV Data Source</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertMerge">➕ Insert Merge Field</button>
+                        <button type="button" class="word-tool-btn" wire:click="previewMerge">👁️ Preview Results</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Write &amp; Insert Fields</span></div>
+            </div>
+
+        <!-- TAB: REVIEW -->
+        @elseif ($activeTab === 'review')
             <div class="word-group">
                 <div class="word-group__content">
                     <button type="button" class="word-btn-large" wire:click="runSpellCheck">
@@ -516,23 +783,134 @@
 
             <div class="word-group">
                 <div class="word-group__content">
+                    <button type="button" class="word-tool-btn {{ $showComments ? 'active' : '' }}" wire:click="$toggle('showComments')">💬 Show Comments</button>
+                    <button type="button" class="word-tool-btn" wire:click="openDialog('comment')">➕ New Comment</button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Comments</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
                     <button type="button" class="word-tool-btn {{ $showRevisions ? 'active' : '' }}" wire:click="$toggle('showRevisions')">👁️ Track Changes</button>
                     <button type="button" class="word-tool-btn" style="color:#107c41;" wire:click="acceptAllRevisions">✓ Accept All</button>
                     <button type="button" class="word-tool-btn" style="color:#c50f1f;" wire:click="rejectAllRevisions">✕ Reject All</button>
                 </div>
-                <div class="word-group__footer"><span class="word-group__label">Tracking</span></div>
+                <div class="word-group__footer"><span class="word-group__label">Tracking &amp; Changes</span></div>
             </div>
 
-        @else
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-tool-btn {{ $showNavigation ? 'active' : '' }}" wire:click="$toggle('showNavigation')">🧭 Navigation Pane</button>
-                    <button type="button" class="word-tool-btn {{ $showRuler ? 'active' : '' }}" wire:click="$toggle('showRuler')">📏 Ruler</button>
-                    <button type="button" class="word-tool-btn" wire:click="zoomIn">Zoom +</button>
-                    <button type="button" class="word-tool-btn" wire:click="zoomOut">Zoom -</button>
-                    <button type="button" class="word-tool-btn" wire:click="setZoomLevel('100')">100%</button>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="aiElaborateBlock({{ $activeBlock }})">✨ AI Elaborate</button>
+                        <button type="button" class="word-tool-btn" wire:click="aiShortenBlock({{ $activeBlock }})">✂️ AI Shorten</button>
+                        <button type="button" class="word-tool-btn" wire:click="aiFixTone({{ $activeBlock }}, 'akademik')">🎓 Academic Tone</button>
+                    </div>
                 </div>
-                <div class="word-group__footer"><span class="word-group__label">View &amp; Zoom</span></div>
+                <div class="word-group__footer"><span class="word-group__label">Wordcraft AI</span></div>
+            </div>
+
+        <!-- TAB: VIEW -->
+        @elseif ($activeTab === 'view')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large {{ $viewMode === 'read' ? 'active' : '' }}" wire:click="$set('viewMode', 'read')">
+                        <span style="font-size:18px;">📖</span>
+                        <span>Read Mode</span>
+                    </button>
+                    <button type="button" class="word-btn-large {{ $viewMode === 'print' ? 'active' : '' }}" wire:click="$set('viewMode', 'print')">
+                        <span style="font-size:18px;">📄</span>
+                        <span>Print Layout</span>
+                    </button>
+                    <button type="button" class="word-btn-large {{ $viewMode === 'web' ? 'active' : '' }}" wire:click="$set('viewMode', 'web')">
+                        <span style="font-size:18px;">🌐</span>
+                        <span>Web Layout</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Views</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn {{ $showRuler ? 'active' : '' }}" wire:click="$toggle('showRuler')">📏 Ruler</button>
+                        <button type="button" class="word-tool-btn {{ $showGridlines ? 'active' : '' }}" wire:click="$toggle('showGridlines')">▦ Gridlines</button>
+                        <button type="button" class="word-tool-btn {{ $showNavigation ? 'active' : '' }}" wire:click="$toggle('showNavigation')">🧭 Navigation Pane</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Show</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="setZoomLevel('100')">
+                        <span style="font-weight:700; font-size:13px;">100%</span>
+                        <span>Normal</span>
+                    </button>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="zoomIn">🔍 Zoom In (+)</button>
+                        <button type="button" class="word-tool-btn" wire:click="zoomOut">🔍 Zoom Out (-)</button>
+                        <button type="button" class="word-tool-btn" wire:click="setZoomLevel('125')">Page Width (125%)</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Zoom</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="toggleZenMode" title="Focus Mode / Zen">
+                        <span style="font-size:18px;">🧘</span>
+                        <span>Focus</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="toggleDarkMode" title="Dark / Light Theme">
+                        <span style="font-size:18px;">{{ $darkMode ? '☀️' : '🌙' }}</span>
+                        <span>{{ $darkMode ? 'Light' : 'Dark' }}</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Immersive</span></div>
+            </div>
+
+        <!-- TAB: HELP -->
+        @elseif ($activeTab === 'help')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('shortcuts')" title="Keyboard Shortcuts HUD">
+                        <span style="font-size:18px;">⌨️</span>
+                        <span>Shortcuts</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="openDialog('palette')" title="Search All Commands (Ctrl+K)">
+                        <span style="font-size:18px;">⚡</span>
+                        <span>Commands</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Help &amp; Shortcuts</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openAssistant" title="Open AI Wordcraft Copilot">
+                        <span style="font-size:18px;">✨</span>
+                        <span>AI Assistant</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="runTool('cek-pedoman')" title="Check Guideline Compliance">
+                        <span style="font-size:18px;">🎯</span>
+                        <span>Pedoman</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Copilot &amp; Audit</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="toggleKpiDrawer('HEART')" title="Rate CSAT Satisfaction">
+                        <span style="font-size:18px;">⭐</span>
+                        <span>Feedback / CSAT</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="toggleKpiDrawer('RESOURCES')" title="18 UX KPIs Documentation &amp; Learning Guides">
+                        <span style="font-size:18px;">📖</span>
+                        <span>18 UX Guides</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Feedback &amp; 18 KPIs</span></div>
             </div>
         @endif
     </div>
