@@ -98,8 +98,8 @@ class NaskahStudioApp extends Component
         $this->assistantOpen = false;
         $this->kpiDrawerOpen = false;
 
-        // Inisialisasi dokumen handbook gaya Microsoft Word jika dokumen baru
-        if ($targetDocId === null && ($this->docTitle === 'Dokumen Tanpa Judul' || count($this->blocks) <= 2)) {
+        // Inisialisasi dokumen contoh handbook Microsoft Word hanya jika belum ada blok sama sekali
+        if ($targetDocId === null && empty($this->blocks)) {
             $this->loadSampleHandbook();
         }
 

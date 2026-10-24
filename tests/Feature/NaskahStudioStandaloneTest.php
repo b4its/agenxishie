@@ -419,4 +419,35 @@ it('paginates manuscript into separate physical sheets with authentic academic p
         ->assertSee('id="word-page-2"', false)
         ->assertSee('class="word-sheet-page-bottom"', false)
         ->assertSee('class="word-sheet-page-top"', false);
+
+    // Uji dokumen baru berukuran 1 halaman: jika hanya sedikit konten, tampilkan HANYA 1 halaman
+    $page->call('newDocument');
+    $paginatedSingle = $page->instance()->getPaginatedBlocks();
+    expect(count($paginatedSingle))->toBe(1)
+        ->and($paginatedSingle[0]['pageNumber'])->toBe(1);
+
+    $page->assertSee('Page 1 of 1', false)
+        ->assertDontSee('id="word-page-2"', false);
+
+    // Uji penambahan konten teks panjang melebihi kapasitas halaman: halaman berkembang dinamis tanpa batas
+    for ($i = 0; $i < 60; $i++) {
+        $page->call('insertParagraphAfter', 0);
+        $page->call('updateBlockText', 1, 'Paragraf naskah yang berisi teks deskripsi analisis untuk menguji pembagian halaman dinamis Microsoft Word yang berkembang luas tanpa batasan dua halaman.');
+    }
+    $paginatedMulti = $page->instance()->getPaginatedBlocks();
+    expect(count($paginatedMulti))->toBeGreaterThanOrEqual(4);
+
+    // Uji sinkronisasi HTML antar lembar: tidak boleh menyuntikkan pagebreak redundan secara sembarangan
+    $page->call('syncManuscriptPages', [
+        '<p>Paragraf di lembar pertama</p>',
+        '<p>Paragraf di lembar kedua</p>',
+    ]);
+    $blocksAfterSync = $page->get('blocks');
+    $pagebreakCount = count(array_filter($blocksAfterSync, fn ($b): bool => ($b['type'] ?? '') === 'pagebreak'));
+    expect($pagebreakCount)->toBe(0);
+
+    // Uji penyusutan kembali ke 1 halaman jika konten dihapus atau reset
+    $page->call('newDocument');
+    $paginatedReset = $page->instance()->getPaginatedBlocks();
+    expect(count($paginatedReset))->toBe(1);
 });

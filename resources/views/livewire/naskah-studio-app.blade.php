@@ -7,6 +7,7 @@
         revisionsOpen: @entangle('showRevisions'),
         assistantPane: @entangle('assistantOpen'),
         navTab: @entangle('navigationTab'),
+        activePage: 1,
         init() {
             window.addEventListener('keydown', (e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -212,11 +213,17 @@
             <!-- TAB: FILE -->
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="newDocument" title="Create New Document">
+                    <button type="button" class="word-btn-large" wire:click="newDocument" title="Create New Document (1 Page)">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
                             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
                         </svg>
                         <span>New</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="loadSampleHandbook" title="Load Sample Multi-Page Handbook">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+                        </svg>
+                        <span>Sample</span>
                     </button>
                     <button type="button" class="word-btn-large" wire:click="save" title="Save Document (Ctrl+S)">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -1137,10 +1144,20 @@
         <!-- ================================================================= -->
         <!-- CENTER CANVAS: SEPARATE PAGES (PDF VIEWER & MICROSOFT WORD STYLE) -->
         <!-- ================================================================= -->
-        <main class="word-canvas-area" style="zoom: {{ (int) $zoom / 100 }};">
+        <main class="word-canvas-area" style="zoom: {{ (int) $zoom / 100 }};"
+            @scroll.passive="
+                const sheets = $el.querySelectorAll('.word-paper-sheet');
+                const scrollPos = $el.scrollTop + 180;
+                sheets.forEach((sheet) => {
+                    if (sheet.offsetTop <= scrollPos) {
+                        const p = parseInt(sheet.getAttribute('data-page-number') || '1', 10);
+                        if (!isNaN(p)) { activePage = p; }
+                    }
+                });
+            ">
             <div id="word-manuscript-editor"
                 class="word-manuscript-container"
-                wire:ignore.self
+                wire:key="manuscript-canvas-{{ $pageCount }}"
                 x-data="{
                     syncAllPages() {
                         const pageEls = this.$el.querySelectorAll('.word-sheet-content');
@@ -1161,7 +1178,10 @@
                         $inBibliographySection = false;
                     @endphp
 
-                    <div class="word-paper-sheet" id="word-page-{{ $pageNumber }}" data-page-number="{{ $pageNumber }}"
+                    <div class="word-paper-sheet"
+                        wire:key="page-sheet-{{ $pageNumber }}"
+                        id="word-page-{{ $pageNumber }}"
+                        data-page-number="{{ $pageNumber }}"
                         style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ ($fontFamily === 'serif' ? 'var(--ms-font-serif)' : ($fontFamily === 'mono' ? 'var(--ms-font-mono)' : 'var(--ms-font-ui)')) }}; font-size: {{ $fontSize }}pt;">
 
                         <!-- Watermark if configured -->
@@ -1184,9 +1204,12 @@
 
                         <!-- Konten Lembar Halaman (Continuous Flow Inside Page) -->
                         <div class="word-sheet-content"
+                            wire:key="page-content-{{ $pageNumber }}"
                             id="word-page-content-{{ $pageNumber }}"
                             contenteditable="{{ $editingMode === 'viewing' ? 'false' : 'true' }}"
                             spellcheck="false"
+                            @keydown.ctrl.enter.prevent="$wire.insertPageBreak()"
+                            @keydown.meta.enter.prevent="$wire.insertPageBreak()"
                             @input.debounce.800ms="syncAllPages()"
                             @blur="syncAllPages()">
 
@@ -1566,7 +1589,7 @@
         <!-- Left: Page X of Y, Words, Proofing Language -->
         <div class="word-statusbar__left">
             <div class="word-status-item" wire:click="openDialog('stats')" title="Jump to page">
-                Page 1 of {{ $pageCount ?? 2 }}
+                <span x-text="'Page ' + activePage + ' of {{ $pageCount ?? 1 }}'">Page 1 of {{ $pageCount ?? 1 }}</span>
             </div>
             <div class="word-status-item" wire:click="openDialog('stats')" title="Word Count">
                 1 of {{ number_format($wordCount) }} words

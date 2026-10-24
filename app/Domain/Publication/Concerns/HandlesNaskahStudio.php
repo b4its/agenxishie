@@ -1250,7 +1250,8 @@ trait HandlesNaskahStudio
     }
 
     /**
-     * Membagi blok naskah ke dalam lembar halaman terpisah (konsep Microsoft Word & PDF viewer).
+     * Membagi blok naskah ke dalam lembar halaman dinamis tanpa batas
+     * berdasarkan kapasitas karakter/tinggi halaman A4 Microsoft Word atau pemisah halaman manual.
      *
      * @return array<int, array{pageNumber: int, isFirstPage: bool, blocks: array<int, array{index: int, block: array<string, mixed>>}}>
      */
@@ -1259,8 +1260,8 @@ trait HandlesNaskahStudio
         $pages = [];
         $currentPageBlocks = [];
         $currentEstimatedHeight = 0;
-        // Kapasitas tinggi perkiraan per lembar halaman A4 (dalam poin/pixel standar)
-        $pageCapacity = 780;
+        // Kapasitas tinggi visual area konten lembar A4 standar Word (~800px)
+        $pageCapacity = 800;
 
         foreach ($this->blocks as $index => $block) {
             $type = $block['type'] ?? 'paragraph';
@@ -1276,22 +1277,30 @@ trait HandlesNaskahStudio
             }
 
             $text = (string) ($block['text'] ?? '');
-            $textLength = mb_strlen(strip_tags($text));
+            $charCount = mb_strlen(strip_tags($text));
+            // Standar baris Word ~75-85 karakter per baris
+            $lines = max(1, (int) ceil($charCount / 80));
 
-            // Estimasi tinggi elemen naskah
+            // Estimasi tinggi elemen naskah dalam pixel
             $blockHeight = match ($type) {
-                'title' => 70,
-                'subtitle' => 45,
-                'heading' => ($block['level'] ?? 1) === 1 ? 55 : 42,
-                'quote' => 60,
-                'bullet', 'numbered' => 32,
-                'table' => 120,
-                'toc' => 160,
-                default => max(28, (int) (ceil($textLength / 85) * 22)),
+                'title' => 54 + ($lines * 32),
+                'subtitle' => 30 + ($lines * 22),
+                'heading' => match ((int) ($block['level'] ?? 1)) {
+                    1 => 44 + ($lines * 28),
+                    2 => 32 + ($lines * 24),
+                    default => 24 + ($lines * 20),
+                },
+                'quote' => 36 + ($lines * 22),
+                'bullet', 'numbered' => 10 + ($lines * 20),
+                'table' => max(90, count($block['table']['rows'] ?? []) * 32),
+                'toc' => max(100, count($block['table']['rows'] ?? []) * 26),
+                'callout' => 32 + ($lines * 22),
+                default => 12 + ($lines * 22),
             };
 
-            // Jika konten melebihi kapasitas lembar halaman dan sudah ada konten, pecah ke lembar berikutnya
-            if ($currentEstimatedHeight + $blockHeight > $pageCapacity && count($currentPageBlocks) >= 3) {
+            // Jika lembar saat ini sudah memiliki konten dan penambahan blok melebihi kapasitas,
+            // buat lembar halaman baru persis Microsoft Word
+            if ($currentEstimatedHeight > 0 && ($currentEstimatedHeight + $blockHeight) > $pageCapacity) {
                 $pages[] = $currentPageBlocks;
                 $currentPageBlocks = [];
                 $currentEstimatedHeight = 0;
@@ -1356,7 +1365,7 @@ trait HandlesNaskahStudio
                 continue;
             }
 
-            if (str_contains($class, 'word-page-break-marker') || str_contains($class, 'word-page-divider')) {
+            if (str_contains($class, 'word-page-break-marker') || str_contains($class, 'word-page-divider') || $tag === 'hr') {
                 $blocks[] = $this->model->newBlock('pagebreak', '');
 
                 continue;
@@ -1411,10 +1420,7 @@ trait HandlesNaskahStudio
     public function syncManuscriptPages(array $pageHtmlList): void
     {
         $allBlocks = [];
-        foreach ($pageHtmlList as $pIdx => $pageHtml) {
-            if ($pIdx > 0) {
-                $allBlocks[] = $this->model->newBlock('pagebreak', '');
-            }
+        foreach ($pageHtmlList as $pageHtml) {
             $pageBlocks = $this->parseHtmlToBlocks((string) $pageHtml);
             foreach ($pageBlocks as $b) {
                 $allBlocks[] = $b;
