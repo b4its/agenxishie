@@ -73,7 +73,7 @@ trait HandlesNaskahStudio
 
     public bool $showNavigation = true;
 
-    public bool $showRuler = false;
+    public bool $showRuler = true;
 
     public bool $showGridlines = false;
 
@@ -82,6 +82,8 @@ trait HandlesNaskahStudio
     public string $fontFamily = 'serif';
 
     public string $fontSize = '16';
+
+    public string $proofingLanguage = 'Indonesia (PUEBI)';
 
     public bool $darkMode = false;
 
@@ -821,6 +823,11 @@ trait HandlesNaskahStudio
             $this->blocks[$blockIndex]['table']['rows'][$rowIndex][$colIndex]['text'] = $text;
             $this->markDirty();
         }
+    }
+
+    public function tableUpdateCell(int $blockIndex, int $rowIndex, int $colIndex, string $text): void
+    {
+        $this->updateTableCell($blockIndex, $rowIndex, $colIndex, $text);
     }
 
     public function selectBlock(int $index): void
@@ -2162,16 +2169,38 @@ trait HandlesNaskahStudio
                 $text = '';
             }
 
+            // Ekstrak perataan teks (left, center, right, justify) sesuai format Word & LibreOffice
+            $align = 'left';
+            if ($node instanceof \DOMElement) {
+                if ($node->hasAttribute('align')) {
+                    $alignCandidate = strtolower((string) $node->getAttribute('align'));
+                    if (in_array($alignCandidate, ['left', 'center', 'right', 'justify'], true)) {
+                        $align = $alignCandidate;
+                    }
+                } elseif ($node->hasAttribute('style')) {
+                    $styleCandidate = strtolower((string) $node->getAttribute('style'));
+                    if (str_contains($styleCandidate, 'text-align: center') || str_contains($styleCandidate, 'text-align:center')) {
+                        $align = 'center';
+                    } elseif (str_contains($styleCandidate, 'text-align: right') || str_contains($styleCandidate, 'text-align:right')) {
+                        $align = 'right';
+                    } elseif (str_contains($styleCandidate, 'text-align: justify') || str_contains($styleCandidate, 'text-align:justify')) {
+                        $align = 'justify';
+                    }
+                }
+            }
+
+            $createdBlock = null;
+
             if (str_contains($class, 'word-subtitle-text')) {
-                $blocks[] = $this->model->newBlock('subtitle', $text);
+                $createdBlock = $this->model->newBlock('subtitle', $text);
             } elseif ($tag === 'h1' || str_contains($class, 'word-title-text')) {
-                $blocks[] = $this->model->newBlock('title', $text);
+                $createdBlock = $this->model->newBlock('title', $text);
             } elseif ($tag === 'h2' || str_contains($class, 'word-heading-1')) {
-                $blocks[] = $this->model->newBlock('heading', $text, 1);
+                $createdBlock = $this->model->newBlock('heading', $text, 1);
             } elseif ($tag === 'h3' || str_contains($class, 'word-heading-2')) {
-                $blocks[] = $this->model->newBlock('heading', $text, 2);
+                $createdBlock = $this->model->newBlock('heading', $text, 2);
             } elseif (in_array($tag, ['h4', 'h5', 'h6'], true) || str_contains($class, 'word-heading-3')) {
-                $blocks[] = $this->model->newBlock('heading', $text, 3);
+                $createdBlock = $this->model->newBlock('heading', $text, 3);
             } elseif ($tag === 'blockquote' || str_contains($class, 'word-quote-block')) {
                 $quoteP = $node->getElementsByTagName('p')->item(0);
                 if ($quoteP !== null) {
@@ -2181,16 +2210,16 @@ trait HandlesNaskahStudio
                     }
                     $text = trim($pInner);
                 }
-                $blocks[] = $this->model->newBlock('quote', $text);
+                $createdBlock = $this->model->newBlock('quote', $text);
             } elseif (str_contains($class, 'word-callout-box')) {
                 $clean = trim(preg_replace('/^[📌⚠️💡📐ℹ️\s]+/u', '', $node->textContent) ?? $node->textContent);
                 $cType = $node instanceof \DOMElement && $node->hasAttribute('data-callout-type') ? $node->getAttribute('data-callout-type') : 'info';
                 $block = $this->model->newBlock('callout', $clean);
                 $block['calloutType'] = $cType;
-                $blocks[] = $block;
+                $createdBlock = $block;
             } elseif (str_contains($class, 'word-footnote-block')) {
                 $clean = trim(preg_replace('/^⚓\s*Catatan Kaki:\s*/u', '', $node->textContent));
-                $blocks[] = $this->model->newBlock('footnote-ref', $clean);
+                $createdBlock = $this->model->newBlock('footnote-ref', $clean);
             } elseif ($tag === 'ul') {
                 foreach ($node->childNodes as $li) {
                     if ($li->nodeType === XML_ELEMENT_NODE && strtolower($li->nodeName) === 'li') {
@@ -2200,7 +2229,9 @@ trait HandlesNaskahStudio
                         }
                         $liText = trim($liInner);
                         if ($liText !== '') {
-                            $blocks[] = $this->model->newBlock('bullet', $liText);
+                            $liBlock = $this->model->newBlock('bullet', $liText);
+                            $liBlock['align'] = $align;
+                            $blocks[] = $liBlock;
                         }
                     }
                 }
@@ -2213,12 +2244,19 @@ trait HandlesNaskahStudio
                         }
                         $liText = trim($liInner);
                         if ($liText !== '') {
-                            $blocks[] = $this->model->newBlock('numbered', $liText);
+                            $liBlock = $this->model->newBlock('numbered', $liText);
+                            $liBlock['align'] = $align;
+                            $blocks[] = $liBlock;
                         }
                     }
                 }
             } else {
-                $blocks[] = $this->model->newBlock('paragraph', $text);
+                $createdBlock = $this->model->newBlock('paragraph', $text);
+            }
+
+            if ($createdBlock !== null) {
+                $createdBlock['align'] = $align;
+                $blocks[] = $createdBlock;
             }
         }
 
@@ -2498,6 +2536,14 @@ trait HandlesNaskahStudio
         $hits = 0;
         foreach ($this->blocks as $i => $block) {
             if (($block['type'] ?? '') === 'table') {
+                $rows = (array) ($block['table']['rows'] ?? []);
+                foreach ($rows as $r) {
+                    foreach ((array) $r as $c) {
+                        $cellText = (string) ($c['text'] ?? '');
+                        $hits += mb_substr_count(mb_strtolower($cellText), mb_strtolower($query));
+                    }
+                }
+
                 continue;
             }
 
@@ -2525,6 +2571,18 @@ trait HandlesNaskahStudio
         $replaced = 0;
         foreach ($this->blocks as $i => $block) {
             if (($block['type'] ?? '') === 'table') {
+                $rows = (array) ($block['table']['rows'] ?? []);
+                foreach ($rows as $r => $row) {
+                    foreach ((array) $row as $c => $cell) {
+                        $cellText = (string) ($cell['text'] ?? '');
+                        $count = mb_substr_count(mb_strtolower($cellText), mb_strtolower($find));
+                        if ($count > 0) {
+                            $this->blocks[$i]['table']['rows'][$r][$c]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $cellText);
+                            $replaced += $count;
+                        }
+                    }
+                }
+
                 continue;
             }
 
@@ -2540,6 +2598,7 @@ trait HandlesNaskahStudio
 
         $this->findResult = "Mengganti {$replaced} kemunculan.";
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     // =====================================================================

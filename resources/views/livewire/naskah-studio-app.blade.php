@@ -17,15 +17,104 @@
         showBlockCopilot: false,
         blockCopilotTop: 0,
         blockCopilotLeft: 0,
-        syncAllPages() {
-            const pageEls = document.querySelectorAll('.word-sheet-content');
-            const pageHtmls = [];
-            pageEls.forEach(el => pageHtmls.push(el.innerHTML));
-            if (pageHtmls.length > 0) {
-                $wire.syncManuscriptPages(pageHtmls);
+        syncAllPages(immediate = false) {
+            clearTimeout(this._syncTimer);
+            const doSync = () => {
+                const pageEls = document.querySelectorAll('.word-sheet-content');
+                const pageHtmls = [];
+                pageEls.forEach(el => pageHtmls.push(el.innerHTML));
+                if (pageHtmls.length > 0) {
+                    $wire.syncManuscriptPages(pageHtmls);
+                }
+            };
+            if (immediate) {
+                doSync();
+            } else {
+                this._syncTimer = setTimeout(doSync, 600);
             }
         },
         syncPages() {
+            this.syncAllPages(true);
+        },
+        applyBlockStyle(style) {
+            const sel = window.getSelection();
+            let blockEl = null;
+            if (sel && sel.anchorNode) {
+                blockEl = sel.anchorNode.nodeType === 1
+                    ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                    : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+            }
+            if (!blockEl && this.activeBlock !== null) {
+                blockEl = document.querySelector(`[data-block-index="${this.activeBlock}"]`);
+            }
+
+            if (blockEl) {
+                const innerHtml = blockEl.innerHTML;
+                let newTag = 'p';
+                let newClass = 'word-paragraph-text';
+
+                switch (style) {
+                    case 'heading1':
+                        newTag = 'h2';
+                        newClass = 'word-heading-1';
+                        break;
+                    case 'heading2':
+                        newTag = 'h3';
+                        newClass = 'word-heading-2';
+                        break;
+                    case 'heading3':
+                        newTag = 'h4';
+                        newClass = 'word-heading-3';
+                        break;
+                    case 'title':
+                        newTag = 'h1';
+                        newClass = 'word-title-text';
+                        break;
+                    case 'subtitle':
+                        newTag = 'p';
+                        newClass = 'word-subtitle-text';
+                        break;
+                    case 'quote':
+                        newTag = 'blockquote';
+                        newClass = 'word-quote-block';
+                        break;
+                    default:
+                        newTag = 'p';
+                        newClass = 'word-paragraph-text';
+                        break;
+                }
+
+                const newEl = document.createElement(newTag);
+                newEl.className = newClass;
+                if (style === 'quote') {
+                    newEl.innerHTML = `<p class="word-quote-text">${innerHtml}</p>`;
+                } else {
+                    newEl.innerHTML = innerHtml;
+                }
+
+                const blockIdx = blockEl.getAttribute('data-block-index');
+                if (blockIdx !== null) {
+                    newEl.setAttribute('data-block-index', blockIdx);
+                }
+
+                blockEl.replaceWith(newEl);
+                this.focusNode(newEl, true);
+                this.syncAllPages();
+            } else if (this.activeBlock !== null) {
+                $wire.applyStyle(this.activeBlock, style);
+            }
+        },
+        applyAlignment(align) {
+            const cmd = align === 'center' ? 'justifyCenter' : (align === 'right' ? 'justifyRight' : (align === 'justify' ? 'justifyFull' : 'justifyLeft'));
+            document.execCommand(cmd, false, null);
+            this.syncAllPages();
+        },
+        applyIndent(delta) {
+            if (delta > 0) {
+                document.execCommand('indent', false, null);
+            } else {
+                document.execCommand('outdent', false, null);
+            }
             this.syncAllPages();
         },
         updateActiveBlock(event) {
@@ -306,6 +395,15 @@
             if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 const anchor = sel.anchorNode;
 
+                // Bila di dalam sel tabel: Enter menyisipkan baris baru di dalam sel yang sama (Word / LibreOffice table behavior)
+                const cell = anchor?.nodeType === 1 ? anchor.closest('td, th') : anchor?.parentElement?.closest('td, th');
+                if (cell) {
+                    e.preventDefault();
+                    document.execCommand('insertLineBreak');
+                    this.syncAllPages();
+                    return;
+                }
+
                 // Bila di dalam Judul/Heading (H1, H2, H3, Judul Naskah)
                 const heading = anchor?.nodeType === 1
                     ? anchor.closest('h1, h2, h3, h4, .word-title-text, .word-subtitle-text, .word-heading-1, .word-heading-2, .word-heading-3')
@@ -386,9 +484,46 @@
             clearTimeout(this._inputTimer);
             this._inputTimer = setTimeout(() => this.syncAllPages(), 500);
 
-            // AutoFormat Microsoft Word & LibreOffice Writer (*, -, 1., >, #, ##, ###)
             const sel = window.getSelection();
             if (!sel || !sel.rangeCount) return;
+
+            // Smart Typography Auto-Replacement (Word & LibreOffice Writer: -- -> —, ... -> …, (c) -> ©)
+            if (sel.isCollapsed) {
+                const node = sel.anchorNode;
+                if (node && node.nodeType === Node.TEXT_NODE) {
+                    const textVal = node.textContent;
+                    const offset = sel.anchorOffset;
+                    const beforeText = textVal.slice(0, offset);
+
+                    const replacements = [
+                        { pattern: /--\s$/, replace: '— ' },
+                        { pattern: /\.\.\.\s$/, replace: '… ' },
+                        { pattern: /\([cC]\)\s$/, replace: '© ' },
+                        { pattern: /\([rR]\)\s$/, replace: '® ' },
+                        { pattern: /\([tT][mM]\)\s$/, replace: '™ ' },
+                        { pattern: /->\s$/, replace: '→ ' },
+                        { pattern: /<-\s$/, replace: '← ' },
+                        { pattern: /<=>\s$/, replace: '⇔ ' },
+                    ];
+
+                    for (const r of replacements) {
+                        if (r.pattern.test(beforeText)) {
+                            const newBeforeText = beforeText.replace(r.pattern, r.replace);
+                            const afterText = textVal.slice(offset);
+                            node.textContent = newBeforeText + afterText;
+                            const newOffset = newBeforeText.length;
+                            const newRange = document.createRange();
+                            newRange.setStart(node, newOffset);
+                            newRange.collapse(true);
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // AutoFormat Microsoft Word & LibreOffice Writer (*, -, 1., >, #, ##, ###)
             const anchor = sel.anchorNode;
             const p = anchor?.nodeType === 1 ? anchor.closest('p.word-paragraph-text') : anchor?.parentElement?.closest('p.word-paragraph-text');
             if (!p) return;
@@ -531,6 +666,24 @@
                     } else if (e.shiftKey && key === 'l') {
                         e.preventDefault();
                         this.format('insertUnorderedList');
+                    } else if (e.shiftKey && key === 'c') {
+                        // Word Format Painter Copy
+                        e.preventDefault();
+                        $wire.copyFormat(this.activeBlock);
+                        $wire.notify('Format Disalin', 'Gaya format disalin (Format Painter).', 'info');
+                    } else if (e.shiftKey && key === 'v') {
+                        // Word Format Painter Paste
+                        e.preventDefault();
+                        $wire.pasteFormat(this.activeBlock);
+                    } else if (key === 'h') {
+                        // Word Find & Replace
+                        e.preventDefault();
+                        $wire.openDialog('find');
+                    } else if (key === 'm' || e.code === 'Space') {
+                        // Word/LibreOffice Clear Direct Formatting
+                        e.preventDefault();
+                        document.execCommand('removeFormat', false, null);
+                        $wire.clearFormatting();
                     }
                 }
 
@@ -1050,17 +1203,17 @@
                             <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('insertUnorderedList'); syncAllPages();" title="Bullets">• ▾</button>
                             <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('insertOrderedList'); syncAllPages();" title="Numbering">1. ▾</button>
                             <button type="button" class="word-btn-square" wire:click="addBlock('bullet')" title="Multilevel List">▾</button>
-                            <button type="button" class="word-btn-square" wire:click="formatParagraph('indent-')" title="Decrease Indent">⇤</button>
-                            <button type="button" class="word-btn-square" wire:click="formatParagraph('indent+')" title="Increase Indent">⇥</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="applyIndent(-1)" title="Decrease Indent (Shift+Tab)">⇤</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="applyIndent(1)" title="Increase Indent (Tab)">⇥</button>
                             <button type="button" class="word-btn-square" wire:click="$toggle('showGridlines')" title="Show/Hide Marks (¶)">¶</button>
                         </div>
 
                         <!-- Row 2: Align Left, Center, Right, Justify, Spacing, Shading, Borders -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyLeft'); syncAllPages();" title="Align Left">⫷</button>
-                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyCenter'); syncAllPages();" title="Center">≡</button>
-                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyRight'); syncAllPages();" title="Align Right">⫸</button>
-                            <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyFull'); syncAllPages();" title="Justify">☷</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="applyAlignment('left')" title="Align Left (Ctrl+L)">⫷</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="applyAlignment('center')" title="Center (Ctrl+E)">≡</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="applyAlignment('right')" title="Align Right (Ctrl+R)">⫸</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent @click="applyAlignment('justify')" title="Justify (Ctrl+J)">☷</button>
                             <div style="position:relative;" x-data="{ openSpacing: false }">
                                 <button type="button" class="word-btn-square" @click="openSpacing = !openSpacing" title="Line Spacing (1.0, 1.15, 1.5, 2.0)">↕ ▾</button>
                                 <div x-show="openSpacing" @click.outside="openSpacing = false" style="position:absolute; left:0; top:24px; background:#ffffff; border:1px solid #e1dfdd; border-radius:4px; box-shadow:0 4px 16px rgba(0,0,0,0.12); width:135px; z-index:100; padding:4px 0; font-size:11.5px;">
@@ -1085,42 +1238,42 @@
                 <div class="word-group__content">
                     <div class="word-styles-gallery">
                         <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'paragraph' ? 'active' : '' }}"
-                            wire:click="applyStyle({{ $activeBlock }}, 'normal')" title="Normal">
+                            @mousedown.prevent @click="applyBlockStyle('normal')" title="Normal (Ctrl+Alt+0)">
                             <div class="word-style-tile__preview" style="font-family:var(--ms-font-ui); font-size:12px;">AaBbCcDd</div>
                             <div class="word-style-tile__name">Normal</div>
                         </div>
 
-                        <div class="word-style-tile" wire:click="applyStyle({{ $activeBlock }}, 'normal')" title="No Spacing">
+                        <div class="word-style-tile" @mousedown.prevent @click="applyBlockStyle('normal')" title="No Spacing">
                             <div class="word-style-tile__preview" style="font-family:var(--ms-font-ui); font-size:11px; letter-spacing:-0.5px;">AaBbCcDd</div>
                             <div class="word-style-tile__name">No Spacing</div>
                         </div>
 
                         <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'heading' && ($blocks[$activeBlock]['level'] ?? 1) === 1 ? 'active' : '' }}"
-                            wire:click="applyStyle({{ $activeBlock }}, 'heading1')" title="Heading 1">
+                            @mousedown.prevent @click="applyBlockStyle('heading1')" title="Heading 1 (Ctrl+Alt+1)">
                             <div class="word-style-tile__preview" style="color:var(--ms-blue-dark); font-weight:700; font-size:13px;">AaBbC</div>
                             <div class="word-style-tile__name">Heading 1</div>
                         </div>
 
                         <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'title' ? 'active' : '' }}"
-                            wire:click="applyStyle({{ $activeBlock }}, 'title')" title="Title">
+                            @mousedown.prevent @click="applyBlockStyle('title')" title="Title">
                             <div class="word-style-tile__preview" style="font-weight:800; font-size:14px; color:#111827;">AaBb</div>
                             <div class="word-style-tile__name">Title</div>
                         </div>
 
                         <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'heading' && ($blocks[$activeBlock]['level'] ?? 1) === 2 ? 'active' : '' }}"
-                            wire:click="applyStyle({{ $activeBlock }}, 'heading2')" title="Heading 2">
+                            @mousedown.prevent @click="applyBlockStyle('heading2')" title="Heading 2 (Ctrl+Alt+2)">
                             <div class="word-style-tile__preview" style="color:var(--ms-blue-heading); font-weight:600; font-size:12.5px;">AaBbCcD</div>
                             <div class="word-style-tile__name">Heading 2</div>
                         </div>
 
                         <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'subtitle' ? 'active' : '' }}"
-                            wire:click="applyStyle({{ $activeBlock }}, 'subtitle')" title="Subtitle">
+                            @mousedown.prevent @click="applyBlockStyle('subtitle')" title="Subtitle">
                             <div class="word-style-tile__preview" style="color:#6b7280; font-size:11.5px;">AaBbCcD</div>
                             <div class="word-style-tile__name">Subtitle</div>
                         </div>
 
                         <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'quote' ? 'active' : '' }}"
-                            wire:click="applyStyle({{ $activeBlock }}, 'quote')" title="Quote">
+                            @mousedown.prevent @click="applyBlockStyle('quote')" title="Quote">
                             <div class="word-style-tile__preview" style="color:#6b7280; font-style:italic; font-size:11.5px;">AaBbCcD</div>
                             <div class="word-style-tile__name">Quote</div>
                         </div>
@@ -1999,7 +2152,7 @@
                                         <ul class="word-bullet-list">
                                         @php $inBulletList = true; @endphp
                                     @endif
-                                    <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">{!! $text !!}</li>
+                                    <li id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">{!! $text !!}</li>
                                 @else
                                     @if ($inBulletList)
                                         </ul>
@@ -2011,7 +2164,7 @@
                                             <ol class="word-numbered-list">
                                             @php $inNumberedList = true; @endphp
                                         @endif
-                                        <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">{!! $text !!}</li>
+                                        <li id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">{!! $text !!}</li>
                                     @else
                                         @if ($inNumberedList)
                                             </ol>
@@ -2019,9 +2172,9 @@
                                         @endif
 
                                         @if ($type === 'title')
-                                            <h1 class="word-title-text" id="doc-title" data-block-index="{{ $index }}">{!! $text ?: 'The Open Studio Handbook' !!}</h1>
+                                            <h1 class="word-title-text" id="doc-title" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">{!! $text ?: 'The Open Studio Handbook' !!}</h1>
                                         @elseif ($type === 'subtitle')
-                                            <p class="word-subtitle-text" id="doc-subtitle" data-block-index="{{ $index }}">{!! $text !!}</p>
+                                            <p class="word-subtitle-text" id="doc-subtitle" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">{!! $text !!}</p>
                                         @elseif ($type === 'heading')
                                             @php
                                                 if (stripos($text, 'daftar pustaka') !== false || stripos($text, 'referensi') !== false || stripos($text, 'bibliography') !== false) {
@@ -2031,14 +2184,14 @@
                                                 }
                                             @endphp
                                             @if ($level === 1)
-                                                <h2 class="word-heading-1" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! $text !!}</h2>
+                                                <h2 class="word-heading-1" id="{{ $headingId }}" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">{!! $text !!}</h2>
                                             @elseif ($level === 2)
-                                                <h3 class="word-heading-2" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! $text !!}</h3>
+                                                <h3 class="word-heading-2" id="{{ $headingId }}" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">{!! $text !!}</h3>
                                             @else
-                                                <h4 class="word-heading-3" id="{{ $headingId }}" data-block-index="{{ $index }}">{!! $text !!}</h4>
+                                                <h4 class="word-heading-3" id="{{ $headingId }}" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">{!! $text !!}</h4>
                                             @endif
                                         @elseif ($type === 'quote')
-                                            <blockquote class="word-quote-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                            <blockquote class="word-quote-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">
                                                 <p class="word-quote-text">{!! $text !!}</p>
                                             </blockquote>
                                         @elseif ($type === 'toc')
@@ -2218,11 +2371,11 @@
                                             </div>
                                         @else
                                             @if ($inBibliographySection)
-                                                <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                                <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">
                                                     {!! $text !!}
                                                 </p>
                                             @else
-                                                <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
+                                                <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">
                                                     {!! $text !!}
                                                 </p>
                                             @endif
@@ -2589,7 +2742,7 @@
                 1 of {{ number_format($wordCount) }} words
             </div>
             <div class="word-status-item" wire:click="openDialog('spelling')" title="Proofing Language">
-                English (United States)
+                {{ $proofingLanguage ?? 'Indonesia (PUEBI)' }}
             </div>
             <div class="word-status-item" wire:click="openDialog('stats')" title="Status Aksesibilitas &amp; Statistik Dokumen (Waktu Sesi: {{ floor($sessionSeconds / 60) }}m, Kepatuhan: {{ $complianceAudit['score'] }}%)">
                 <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" style="color:#107c41;">
