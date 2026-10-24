@@ -264,10 +264,23 @@ trait HandlesNaskahStudio
             }
         }
 
-        $this->blocks = [
-            $this->model->newBlock('heading', 'Dokumen Tanpa Judul', 1),
-            $this->model->newBlock('paragraph', 'Mulai menulis di sini, atau muat naskah dari dokumen lokal maupun dari proyek Anda.'),
-        ];
+        if (empty($this->blocks)) {
+            $this->blocks = [
+                $this->model->newBlock('heading', 'The Open Studio Handbook', 1),
+                $this->model->newBlock('paragraph', 'How a small community of makers shares space, tools and time'),
+                $this->model->newBlock('paragraph', 'Every Thursday evening the old print shop on Alder Street fills with people who make things. Painters set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio: the routines that keep it pleasant, the tools we pool, and the small agreements that let thirty strangers become a crew.'),
+                $this->model->newBlock('heading', 'Why share a studio?', 2),
+                $this->model->newBlock('paragraph', "Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A ceramicist explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point."),
+                $this->model->newBlock('quote', 'A studio is a place where unfinished things are welcome.'),
+                $this->model->newBlock('heading', 'What we agree on', 2),
+                $this->model->newBlock('bullet', 'Clean as you go. Leave a table the way you would like to find it.'),
+                $this->model->newBlock('bullet', 'Label what is yours. Unlabelled supplies on the commons shelf are fair game.'),
+                $this->model->newBlock('bullet', 'Ask before you borrow. Even from the shelf, a quick note helps everyone keep track.'),
+                $this->model->newBlock('heading', 'Shared equipment', 2),
+                $this->model->newBlock('heading', 'Opening the studio', 2),
+                $this->model->newBlock('heading', 'Membership', 2),
+            ];
+        }
     }
 
     // =====================================================================

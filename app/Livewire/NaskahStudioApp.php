@@ -49,6 +49,25 @@ class NaskahStudioApp extends Component
     public bool $csatSubmitted = false;
 
     /**
+     * Microsoft Word UI & UX State.
+     */
+    public bool $autoSave = true;
+
+    public string $navigationTab = 'headings'; // 'headings', 'pages', 'results'
+
+    public string $navigationSearch = '';
+
+    public string $editingMode = 'editing'; // 'editing', 'reviewing', 'viewing'
+
+    public string $activeTaskPane = ''; // '', 'kpi', 'editor', 'comments', 'revisions', 'assistant', 'share'
+
+    public string $rulerUnit = 'in'; // 'in', 'cm'
+
+    public int $currentPage = 1;
+
+    public int $totalPages = 2;
+
+    /**
      * Panel Inspeksi 18 UX KPIs.
      */
     public bool $kpiDrawerOpen = false;
@@ -73,6 +92,12 @@ class NaskahStudioApp extends Component
 
         $this->sessionStartedAt = Carbon::now()->toIso8601String();
         $this->sessionSeconds = 0;
+        $this->showRuler = true;
+
+        // Inisialisasi dokumen handbook gaya Microsoft Word jika dokumen baru
+        if ($targetDocId === null && ($this->docTitle === 'Dokumen Tanpa Judul' || count($this->blocks) <= 2)) {
+            $this->loadSampleHandbook();
+        }
 
         // Muat proyek terbaru jika tersedia
         if ($this->sourceProjectId === null) {
@@ -81,6 +106,92 @@ class NaskahStudioApp extends Component
                 $this->sourceProjectId = $latest->id;
             }
         }
+    }
+
+    /**
+     * Muat struktur naskah contoh The Open Studio Handbook persis gaya Microsoft Word.
+     */
+    public function loadSampleHandbook(): void
+    {
+        $this->docTitle = 'The Open Studio Handbook';
+        $this->blocks = [
+            $this->model->newBlock('heading', 'The Open Studio Handbook', 1),
+            $this->model->newBlock('paragraph', 'How a small community of makers shares space, tools and time'),
+            $this->model->newBlock('paragraph', 'Every Thursday evening the old print shop on Alder Street fills with people who make things. Painters set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio: the routines that keep it pleasant, the tools we pool, and the small agreements that let thirty strangers become a crew.'),
+            $this->model->newBlock('heading', 'Why share a studio?', 2),
+            $this->model->newBlock('paragraph', "Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A ceramicist explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point."),
+            $this->model->newBlock('quote', 'A studio is a place where unfinished things are welcome.'),
+            $this->model->newBlock('heading', 'What we agree on', 2),
+            $this->model->newBlock('bullet', 'Clean as you go. Leave a table the way you would like to find it.'),
+            $this->model->newBlock('bullet', 'Label what is yours. Unlabelled supplies on the commons shelf are fair game.'),
+            $this->model->newBlock('bullet', 'Ask before you borrow. Even from the shelf, a quick note helps everyone keep track.'),
+            $this->model->newBlock('heading', 'Shared equipment', 2),
+            $this->model->newBlock('heading', 'Opening the studio', 2),
+            $this->model->newBlock('heading', 'Membership', 2),
+        ];
+    }
+
+    /**
+     * Toggle fitur AutoSave Microsoft Word.
+     */
+    public function toggleAutoSave(): void
+    {
+        $this->autoSave = ! $this->autoSave;
+        $this->notify('AutoSave', $this->autoSave ? 'AutoSave aktif.' : 'AutoSave dinonaktifkan.', 'info');
+    }
+
+    /**
+     * Ganti sub-tab panel navigasi dokumen.
+     */
+    public function setNavigationTab(string $tab): void
+    {
+        if (in_array($tab, ['headings', 'pages', 'results'], true)) {
+            $this->navigationTab = $tab;
+        }
+    }
+
+    /**
+     * Ganti mode sunting naskah (Editing, Reviewing, Viewing).
+     */
+    public function setEditingMode(string $mode): void
+    {
+        if (in_array($mode, ['editing', 'reviewing', 'viewing'], true)) {
+            $this->editingMode = $mode;
+        }
+    }
+
+    /**
+     * Buka Task Pane samping kanan gaya Microsoft Word.
+     */
+    public function openTaskPane(string $pane): void
+    {
+        $this->activeTaskPane = $pane;
+        if ($pane === 'kpi' || $pane === 'editor') {
+            $this->kpiDrawerOpen = true;
+        } elseif ($pane === 'comments') {
+            $this->showComments = true;
+        } elseif ($pane === 'revisions') {
+            $this->showRevisions = true;
+        } elseif ($pane === 'assistant') {
+            $this->assistantOpen = true;
+        }
+    }
+
+    /**
+     * Tutup Task Pane samping kanan.
+     */
+    public function closeTaskPane(): void
+    {
+        $this->activeTaskPane = '';
+        $this->kpiDrawerOpen = false;
+    }
+
+    /**
+     * Set level zoom dokumen.
+     */
+    public function setZoomLevel(string $zoom): void
+    {
+        $this->zoom = $zoom;
     }
 
     /**
