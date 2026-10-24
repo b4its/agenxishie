@@ -1,5 +1,9 @@
 {{-- Naskah Studio — Word processor web lengkap (menggabungkan WordCraft & LibreOffice Writer) --}}
 <x-filament-panels::page>
+    <!-- KaTeX math typesetting (CDN) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+
     <style>
         .ns-root {
             display: flex;
@@ -863,11 +867,12 @@
                         </div>
                     </div>
                     <div class="ns-group">
-                        <span class="ns-group__label">Tautan &amp; Catatan</span>
+                        <span class="ns-group__label">Simbol &amp; Rumus</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="openDialog('link')">&#128279; Tautan</button>
-                            <button type="button" class="ns-btn" wire:click="openDialog('footnote')">&#128278; Catatan Kaki</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('equation')">&#960; Rumus (LaTeX)</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('symbols')">&#937; Simbol Khusus</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('footnote')">&#128278; Catatan Kaki</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('link')">&#128279; Tautan</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1313,14 +1318,37 @@
 
                                 {{-- Render Catatan Kaki --}}
                                 @elseif ($type === 'footnote-ref')
-                                    <div style="border-top:1px solid #cbd5e1; padding-top:.3rem; margin-top:.5rem; font-size:.75rem; color:#475569;">
-                                        <strong style="color:#1e40af;">[Catatan Kaki]</strong> {{ $block['text'] ?? '' }}
+                                    <div style="border-top:1px solid #cbd5e1; padding-top:.3rem; margin-top:.5rem; font-size:.75rem; color:#475569; display:flex; align-items:center; justify-content:space-between;">
+                                        <div><strong style="color:#1e40af;">[Catatan Kaki]</strong> {{ $block['text'] ?? '' }}</div>
+                                        <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click.stop="removeBlock({{ $index }})" title="Hapus Catatan Kaki">&times;</button>
+                                    </div>
+
+                                {{-- Render Rumus LaTeX (Equation) --}}
+                                @elseif ($type === 'equation')
+                                    @php
+                                        $latex = (string) ($block['equation']['latex'] ?? $block['text'] ?? 'E = mc^2');
+                                        $caption = (string) ($block['equation']['caption'] ?? '');
+                                    @endphp
+                                    <div class="ns-equation-block" id="ns-block-{{ $index }}" style="user-select:none; margin:.65rem 0; padding:.65rem 1rem; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; display:flex; align-items:center; justify-content:center; position:relative; cursor:pointer;" wire:click="selectBlock({{ $index }})" wire:dblclick="editEquation({{ $index }})">
+                                        <div class="ns-equation-actions" style="position:absolute; right:.5rem; top:.5rem; display:flex; gap:.25rem;">
+                                            <button type="button" class="ns-block__btn" wire:click.stop="editEquation({{ $index }})" title="Edit Rumus LaTeX">✏️ Edit</button>
+                                            <button type="button" class="ns-block__btn" x-data="{ copied: false }" @click.stop="navigator.clipboard?.writeText(@js($latex)); copied = true; setTimeout(() => copied = false, 2000)" title="Salin Sintaks LaTeX">📋 <span x-text="copied ? 'Tersalin' : 'Salin'"></span></button>
+                                            <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click.stop="removeBlock({{ $index }})" title="Hapus Rumus">&times;</button>
+                                        </div>
+                                        <div class="ns-equation-render" style="font-family:'Cambria Math', KaTeX_Math, serif; font-size:1.15rem; text-align:center; color:#0f172a; margin:auto; padding:.25rem 3rem .25rem .5rem; overflow-x:auto;">
+                                            <span class="latex-math-render" data-latex="{{ $latex }}">{{ $latex }}</span>
+                                        </div>
+                                        @if ($caption !== '')
+                                            <div style="position:absolute; right:1rem; font-size:.85rem; font-weight:600; color:#64748b;">
+                                                ({{ trim($caption, '()') }})
+                                            </div>
+                                        @endif
                                     </div>
 
                                 {{-- Render Kotak Sorotan (Callout) --}}
                                 @elseif ($type === 'callout')
                                     @php $cType = $block['calloutType'] ?? 'info'; @endphp
-                                    <div class="ns-callout ns-callout--{{ $cType }}">
+                                    <div class="ns-callout ns-callout--{{ $cType }}" style="position:relative;">
                                         <span class="ns-callout__icon">
                                             @if($cType === 'warning') ⚠️ @elseif($cType === 'tip') 💡 @elseif($cType === 'success') ✅ @else 📌 @endif
                                         </span>
@@ -1332,6 +1360,7 @@
                                                 placeholder="Tulis catatan sorotan di sini..."
                                             >{{ $block['text'] ?? '' }}</textarea>
                                         </div>
+                                        <button type="button" class="ns-block__btn" style="color:#b91c1c; align-self:flex-start;" wire:click.stop="removeBlock({{ $index }})" title="Hapus Sorotan">&times;</button>
                                     </div>
 
                                 {{-- Render Blok Teks Biasa (Heading, Paragraph, Quote, Bullet, Numbered) --}}
@@ -1611,6 +1640,80 @@
                         <div class="ns-dialog__footer">
                             <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="insertTable">Sisipkan Tabel</button>
+                        </div>
+
+                    {{-- Dialog Editor Rumus Matematika (LaTeX) --}}
+                    @elseif ($dialog === 'equation')
+                        <div class="ns-dialog__header">
+                            <span>&#960; {{ $editingEquationIndex !== null ? 'Edit Rumus LaTeX' : 'Sisipkan Rumus Matematika (LaTeX)' }}</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body" style="display:flex; flex-direction:column; gap:.65rem;">
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem; display:block; margin-bottom:.25rem;">Pilih Templat Cepat (Presets):</label>
+                                <div style="display:flex; flex-wrap:wrap; gap:.25rem;">
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('quadratic')">Rumus ABC</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('pythagoras')">Pythagoras</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('gaussian')">Distribusi Normal</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('integral')">Integral Tentu</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('matrix')">Matriks 2x2</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('euler')">Identitas Euler</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('regression')">Regresi Berganda</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('einstein')">Massa-Energi (E=mc²)</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('taylor')">Deret Taylor</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('fourier')">Fourier</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem; display:block; margin-bottom:.2rem;">Sintaks Rumus LaTeX:</label>
+                                <textarea rows="3" class="ns-btn" style="font-family:ui-monospace, monospace; font-size:.75rem; width:100%; resize:vertical; text-align:left;" wire:model.live.debounce.250ms="equationLatex" placeholder="Contoh: x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}"></textarea>
+                            </div>
+                            <!-- Palet Simbol Cepat -->
+                            <div>
+                                <label style="font-weight:600; font-size:.62rem; color:#64748b; display:block; margin-bottom:.2rem;">Simbol &amp; Operator Cepat:</label>
+                                <div style="display:flex; flex-wrap:wrap; gap:.2rem; background:#f8fafc; padding:.3rem; border:1px solid #e2e8f0; border-radius:3px;">
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\pm')">±</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\times')">×</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\div')">÷</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\neq')">≠</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\approx')">≈</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\le')">≤</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\ge')">≥</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\alpha')">α</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\beta')">β</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\gamma')">γ</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\sigma')">σ</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\mu')">μ</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\pi')">π</button>
+                                    <button type="button" class="ns-btn" style="padding:.1rem .3rem; font-size:.65rem;" wire:click="appendEquationSymbol('\\infty')">∞</button>
+                                </div>
+                            </div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:.5rem;">
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem;">Penomoran (Keterangan):</label>
+                                    <input type="text" class="ns-btn" style="width:100%;" wire:model="equationCaption" placeholder="Contoh: (1) atau (2.1)" />
+                                </div>
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem;">Tampilan:</label>
+                                    <select class="ns-btn" style="width:100%;" wire:model="equationDisplay">
+                                        <option value="block">Blok Mandiri (Tengah)</option>
+                                        <option value="inline">Sebaris (Inline)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; padding:.4rem; text-align:center;">
+                                <span style="font-size:.58rem; color:#64748b; font-weight:700; display:block; margin-bottom:.2rem;">Pratinjau KaTeX:</span>
+                                <div style="font-family:'Cambria Math', KaTeX_Math, serif; font-size:1.15rem; min-height:28px; display:flex; align-items:center; justify-content:center;">
+                                    <span class="latex-math-render" data-latex="{{ $equationLatex }}">{{ $equationLatex }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer" style="display:flex; justify-content:space-between;">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
+                            <div style="display:flex; gap:.3rem;">
+                                <button type="button" class="ns-btn" wire:click="insertInlineEquation" title="Sisipkan sebaris ($)">Inline ($)</button>
+                                <button type="button" class="ns-btn ns-btn--primary" wire:click="insertEquation">{{ $editingEquationIndex !== null ? 'Perbarui Rumus' : 'Sisipkan Blok Persamaan' }}</button>
+                            </div>
                         </div>
 
                     {{-- Dialog Sisipkan Gambar --}}
@@ -1902,6 +2005,20 @@
                         @endforeach
                     </div>
 
+                    {{-- Quick Academic Copilot Tool Buttons --}}
+                    <div style="display:flex; flex-wrap:wrap; gap:.25rem; border-top:1px dashed #cbd5e1; padding-top:.35rem;">
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/poles')" title="Poles tata bahasa akademik">✍️ Poles</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/parafrase')" title="Parafrase akademik kalimat aktif">🔄 Parafrase</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/kembangkan')" title="Elaborasi dan kembangkan poin">⚡ Kembangkan</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/puebi')" title="Periksa ejaan dan PUEBI baku">🔍 PUEBI</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/abstrak')" title="Susun draf abstrak IMRAD">📜 Abstrak</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/metodologi')" title="Rancang struktur metodologi">📐 Metode</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/tabel-analisis')" title="Buat tabel komparasi analisis">📊 Tabel</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/terjemahkan')" title="Terjemahan akademik formal">🌐 Terjemahkan</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/rumus')" title="Rekomendasi formula LaTeX">π Rumus</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/cek-gap')" title="Audit gap riset & SOTA">🔬 Gap Riset</button>
+                    </div>
+
                     @if (count($activeTools) > 0)
                         <div style="display:flex; gap:.3rem; flex-wrap:wrap;">
                             @foreach ($activeTools as $activeTool)
@@ -1924,13 +2041,21 @@
                                 <span class="ns-msg__role">{{ $msg['role'] === 'user' ? 'Anda' : 'Xishie' }}@if(!empty($msg['command'])) · {{ ltrim($msg['command'], '/') }}@endif</span>
                                 <div>{{ $msg['content'] }}</div>
                                 @if (($msg['role'] ?? '') === 'assistant')
-                                    <div style="display:flex; gap:.3rem; margin-top:.4rem; border-top:1px dashed #cbd5e1; padding-top:.3rem;">
+                                    <div style="display:flex; gap:.3rem; margin-top:.4rem; border-top:1px dashed #cbd5e1; padding-top:.3rem; flex-wrap:wrap; align-items:center;">
                                         <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="insertAssistantResponse({{ $logIndex }})" title="Sisipkan ke naskah">
                                             ➕ Sisipkan
                                         </button>
                                         <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="replaceActiveBlockWithAssistant({{ $logIndex }})" title="Ganti blok aktif">
                                             🔄 Ganti Blok
                                         </button>
+                                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" x-data="{ copied: false }" @click="navigator.clipboard?.writeText(@js($msg['content'])); copied = true; setTimeout(() => copied = false, 2000)" title="Salin Jawaban">
+                                            📋 <span x-text="copied ? 'Tersalin' : 'Salin'"></span>
+                                        </button>
+                                    </div>
+                                    <div style="display:flex; flex-wrap:wrap; gap:.25rem; margin-top:.35rem;">
+                                        <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#ffffff;" wire:click="sendAssistantWithText('Jelaskan rekomendasi ini secara lebih mendalam dengan rincian operasional.')">💡 Perjelas Operasional</button>
+                                        <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#ffffff;" wire:click="sendAssistantWithText('Buatkan alternatif formulasi lain untuk kalimat/bagian ini.')">🔄 Alternatif Lain</button>
+                                        <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#ffffff;" wire:click="sendAssistantWithText('Buat formulasi kalimat yang lebih padat dan ringkas.')">✂️ Padatkan Versi</button>
                                     </div>
                                 @endif
                             </div>
@@ -1952,4 +2077,25 @@
         </button>
 
     </div>
+
+    <script>
+        function renderFilamentLatex() {
+            if (typeof katex === 'undefined') return;
+            document.querySelectorAll('.latex-math-render').forEach(el => {
+                if (el.querySelector('.katex')) return;
+                const tex = el.getAttribute('data-latex') || el.textContent || '';
+                if (tex.trim() !== '') {
+                    try {
+                        katex.render(tex, el, { throwOnError: false, displayMode: true });
+                    } catch (e) {}
+                }
+            });
+        }
+        document.addEventListener('DOMContentLoaded', () => renderFilamentLatex());
+        document.addEventListener('livewire:initialized', () => {
+            renderFilamentLatex();
+            Livewire.hook('morph.updated', () => setTimeout(renderFilamentLatex, 60));
+            Livewire.hook('commit', () => setTimeout(renderFilamentLatex, 60));
+        });
+    </script>
 </x-filament-panels::page>
