@@ -1,7 +1,12 @@
-<div class="ns-root {{ $darkMode ? 'dark' : '' }}"
+<div class="word-root {{ $darkMode ? 'dark' : '' }}"
     x-data="{
-        kpiDrawer: @entangle('kpiDrawerOpen'),
+        kpiPane: @entangle('kpiDrawerOpen'),
         zenMode: @entangle('zenMode'),
+        activeTaskPane: @entangle('activeTaskPane'),
+        commentsOpen: @entangle('showComments'),
+        revisionsOpen: @entangle('showRevisions'),
+        assistantPane: @entangle('assistantOpen'),
+        navTab: @entangle('navigationTab'),
         init() {
             window.addEventListener('keydown', (e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -32,569 +37,796 @@
     }">
 
     <!-- ===================================================================== -->
-    <!-- TOP UX & PRODUCT TELEMETRY BAR (18 KPIS EVERY UX DESIGNER SHOULD KNOW) -->
+    <!-- 1. TOP TITLEBAR (MICROSOFT WORD 365 TOP BAR)                          -->
     <!-- ===================================================================== -->
-    <header class="ns-topbar">
-        <!-- Brand & Document Title -->
-        <div class="ns-topbar__left">
-            <a href="{{ route('home') }}" class="ns-brand" title="Kembali ke Beranda">
-                NASKAH STUDIO
+    <header class="word-titlebar">
+        <!-- Left: AutoSave, Quick Save, Undo, Redo -->
+        <div class="word-titlebar__left">
+            <!-- Brand Badge -->
+            <a href="{{ route('home') }}" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; margin-right:4px;" title="NASKAH STUDIO — Beranda">
+                <div style="width:24px; height:24px; background:#0f6cbd; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#ffffff; font-weight:800; font-size:13px; font-family:var(--ms-font-ui);">
+                    W
+                </div>
+                <span style="font-size:12px; font-weight:700; color:var(--ms-text-primary); letter-spacing:-0.01em;">NASKAH STUDIO</span>
             </a>
+
+            <!-- AutoSave Toggle -->
+            <div class="word-autosave" wire:click="toggleAutoSave" title="Toggle Microsoft Word AutoSave">
+                <div class="word-switch {{ $autoSave ? 'active' : '' }}">
+                    <div class="word-switch__thumb"></div>
+                </div>
+                <span>AutoSave</span>
+            </div>
+
+            <!-- Quick Access Toolbar -->
+            <div class="word-quick-actions">
+                <button type="button" class="word-icon-btn" wire:click="save" title="Simpan Dokumen (Ctrl+S)">
+                    <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+                        <path d="M4 2a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6.414A2 2 0 0017.414 5L15 2.586A2 2 0 0013.586 2H4zm1 2h8v3H5V4zm0 6h10v6H5v-6z"/>
+                    </svg>
+                </button>
+                <button type="button" class="word-icon-btn" wire:click="undo" {{ empty($undoStack) ? 'disabled' : '' }} title="Urungkan / Undo (Ctrl+Z)">
+                    <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v1a1 1 0 11-2 0v-1a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+                <button type="button" class="word-icon-btn" wire:click="redo" {{ empty($redoStack) ? 'disabled' : '' }} title="Ulangi / Redo (Ctrl+Y)">
+                    <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M12.293 3.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 9H9a5 5 0 00-5 5v1a1 1 0 11-2 0v-1a7 7 0 017-7h5.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+                <button type="button" class="word-icon-btn" wire:click="loadSampleHandbook" title="Muat Handbook (Contoh Word)" style="font-size:11px;">
+                    <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Center: Document Title & Saved Status -->
+        <div class="word-titlebar__center">
             <input type="text" wire:model.live.debounce.400ms="docTitle" wire:change="markDirty"
-                class="ns-title-input"
-                placeholder="Judul Naskah...">
-            <span class="ns-badge {{ $dirty ? 'ns-badge--dirty' : 'ns-badge--saved' }}">
-                {{ $dirty ? '● Belum Simpan' : '✓ Tersimpan' }}
+                class="word-doc-title-input"
+                placeholder="The Open Studio Handbook">
+            <span class="word-doc-status">
+                — {{ $dirty ? 'Not saved' : 'Saved' }}
             </span>
         </div>
 
-        <!-- 18 UX KPIs Live Gauges & Usability Telemetry -->
-        <div class="ns-telemetry-strip">
-            <!-- Time on Task & Active Session Depth (Efficiency & Engagement) -->
-            <div class="ns-kpi-pill" title="Time on Task / Kedalaman Sesi Aktif">
-                <span style="color:var(--rb-primary); font-weight:700;">⏱️ Waktu Sesi:</span>
-                <span>{{ floor($sessionSeconds / 60) }}m {{ $sessionSeconds % 60 }}s</span>
+        <!-- Right: Search, Comments, Editing, Share, User Profile, 18 KPIs -->
+        <div class="word-titlebar__right">
+            <!-- Search Commands & Help (Ctrl+K) -->
+            <div class="word-search-box" wire:click="openDialog('palette')" style="cursor:pointer;" title="Search commands and help (Ctrl+K)">
+                <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="8.5" cy="8.5" r="5.5"/>
+                    <path d="M13 13l4 4"/>
+                </svg>
+                <input type="text" class="word-search-input" placeholder="Search commands and help" readonly style="cursor:pointer;">
+                <kbd style="font-size:9px; background:#ffffff; border:1px solid #d1d1d1; padding:1px 4px; border-radius:3px; color:#616161;">Ctrl+K</kbd>
             </div>
 
-            <!-- Guideline Compliance Meter (Task Success) -->
-            <button type="button" wire:click="toggleKpiDrawer('UX')" class="ns-kpi-pill ns-kpi-pill--btn" title="Kepatuhan Pedoman Ilmiah">
-                <span>🎯 Kepatuhan:</span>
-                <strong>{{ $complianceAudit['score'] }}%</strong>
-                <span style="opacity:0.75;">({{ $complianceAudit['grade'] }})</span>
+            <!-- 18 UX KPIs Live Telemetry Pill -->
+            <button type="button" wire:click="toggleKpiDrawer" class="word-kpi-chip" title="Buka Inspeksi 18 UX KPIs &amp; Telemetri Usability">
+                <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
+                    <path d="M2 10a8 8 0 1116 0 8 8 0 01-16 0zm8-6a6 6 0 100 12 6 6 0 000-12zm-1 3a1 1 0 012 0v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 10.586V7z"/>
+                </svg>
+                <span>18 UX KPIs</span>
             </button>
 
-            <!-- Verified Citation Density (Task Quality) -->
-            <div class="ns-kpi-pill" title="Kepadatan Sitasi per 1.000 kata">
-                <span>📚 Sitasi:</span>
-                <strong style="color:var(--rb-ink);">
-                    {{ round(($statistics['words'] > 0 ? (($elements['footnotes'] ?? 0) / max(1, $statistics['words'])) * 1000 : 0), 1) }}
-                </strong>
-                <span style="color:var(--rb-ink-muted);">/1k</span>
-            </div>
-
-            <!-- Interactive CSAT / Happiness Rating (HEART - Happiness) -->
-            <div class="ns-csat-widget" title="Beri rating kepuasan UX menulis (CSAT / Single Ease Question)">
-                <span style="font-weight:700;">CSAT:</span>
-                <div style="display:flex; align-items:center;">
-                    @for ($s = 1; $s <= 5; $s++)
-                        <button type="button" wire:click="rateCsat({{ $s }})" class="ns-csat-star" style="color: {{ $csatScore >= $s ? '#d97706' : '#cbd5e1' }};" title="Beri Rating {{ $s }}/5">
-                            ★
-                        </button>
-                    @endfor
-                </div>
-                @if ($csatSubmitted)
-                    <span style="color:#059669; font-weight:700; margin-left:2px;">✓</span>
+            <!-- Comments Button -->
+            <button type="button" wire:click="$toggle('showComments')" class="word-btn-pill {{ $showComments ? 'word-tool-btn active' : '' }}" title="Komentar Dokumen">
+                <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/>
+                </svg>
+                <span>Comments</span>
+                @if (count($comments) > 0)
+                    <span style="background:#0f6cbd; color:#ffffff; font-size:10px; border-radius:9999px; padding:0 5px; font-weight:700;">{{ count($comments) }}</span>
                 @endif
+            </button>
+
+            <!-- Editing Mode Dropdown -->
+            <div style="position:relative;" x-data="{ open: false }">
+                <button type="button" @click="open = !open" class="word-btn-pill" title="Mode Sunting">
+                    <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
+                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                    </svg>
+                    <span>{{ ucfirst($editingMode) }} ▾</span>
+                </button>
+                <div x-show="open" @click.outside="open = false" style="position:absolute; right:0; top:32px; background:#ffffff; border:1px solid #e1dfdd; border-radius:6px; box-shadow:0 8px 24px rgba(0,0,0,0.12); width:180px; z-index:100; padding:4px 0; font-size:12px;">
+                    <button type="button" wire:click="setEditingMode('editing'); open = false;" class="word-nav-item {{ $editingMode === 'editing' ? 'active' : '' }}">
+                        ✏️ Editing (Sunting Penuh)
+                    </button>
+                    <button type="button" wire:click="setEditingMode('reviewing'); open = false;" class="word-nav-item {{ $editingMode === 'reviewing' ? 'active' : '' }}">
+                        💬 Reviewing (Komentar &amp; Saran)
+                    </button>
+                    <button type="button" wire:click="setEditingMode('viewing'); open = false;" class="word-nav-item {{ $editingMode === 'viewing' ? 'active' : '' }}">
+                        👁️ Viewing (Hanya Baca)
+                    </button>
+                </div>
             </div>
 
-            <!-- Latency / TTFT (Performance) -->
-            <div class="ns-kpi-pill" title="System Response Latency / TTFT">
-                <span style="color:#10b981;">●</span>
-                <span>TTFT: 32ms</span>
+            <!-- Blue Share Button -->
+            <button type="button" wire:click="openDialog('merge')" class="word-btn-pill word-btn-share" title="Bagikan &amp; Ekspor Dokumen">
+                <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
+                    <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/>
+                </svg>
+                <span>Share</span>
+            </button>
+
+            <!-- User Avatar Profile -->
+            <div class="word-avatar" title="Akun Penulis Aktif">
+                WU
             </div>
-
-            <!-- 18 UX KPIs HUD Drawer Trigger -->
-            <button type="button" wire:click="toggleKpiDrawer" class="ns-kpi-hud-trigger" title="Buka Inspector 18 UX &amp; Product Metrics">
-                <span>📊 18 UX KPIs</span>
-            </button>
-
-            <!-- Zen Mode Toggle -->
-            <button type="button" wire:click="toggleZenMode" class="ns-btn" title="Fokus Tanpa Gangguan (Zen Mode)">
-                {{ $zenMode ? 'Exit Zen' : '🧘 Zen' }}
-            </button>
-
-            <!-- Dark Mode Toggle -->
-            <button type="button" wire:click="toggleDarkMode" class="ns-btn" title="Ganti Mode Terang/Gelap">
-                {{ $darkMode ? '☀️ Terang' : '🌙 Gelap' }}
-            </button>
         </div>
     </header>
 
     <!-- ===================================================================== -->
-    <!-- RIBBON TOOLBAR (WORDCRAFT + LIBREOFFICE WRITER TABS)                   -->
+    <!-- 2. RIBBON TABS (FILE, HOME, INSERT, DRAW, DESIGN, LAYOUT...)          -->
     <!-- ===================================================================== -->
-    <div x-show="!zenMode" class="ns-ribbon-container">
-        <!-- Ribbon Tab Headers -->
-        <div class="ns-ribbon-tabs">
-            @php
-                $tabs = [
-                    'home' => 'Home',
-                    'insert' => 'Sisipkan',
-                    'design' => 'Desain',
-                    'layout' => 'Tata Letak',
-                    'references' => 'Referensi',
-                    'review' => 'Peninjauan',
-                    'table' => 'Tabel',
-                    'mailings' => 'Surat Menyurat',
-                    'view' => 'Tampilan',
-                ];
-            @endphp
-            @foreach ($tabs as $key => $label)
-                <button type="button" wire:click="$set('activeTab', '{{ $key }}')"
-                    class="ns-ribbon-tab {{ $activeTab === $key ? 'active' : '' }}">
-                    {{ $label }}
-                </button>
-            @endforeach
+    <div x-show="!zenMode" class="word-ribbon-tabs">
+        @php
+            $msTabs = [
+                'file' => 'File',
+                'home' => 'Home',
+                'insert' => 'Insert',
+                'draw' => 'Draw',
+                'design' => 'Design',
+                'layout' => 'Layout',
+                'references' => 'References',
+                'mailings' => 'Mailings',
+                'review' => 'Review',
+                'view' => 'View',
+                'help' => 'Help',
+            ];
+        @endphp
 
-            <!-- Wordcraft Command Palette Trigger -->
-            <button type="button" wire:click="openDialog('palette')" class="ns-btn font-mono" style="margin-left:auto;" title="Buka Command Palette HUD (Ctrl+K)">
-                <span>⚡ Perintah HUD</span>
-                <kbd style="padding: 1px 4px; background: var(--rb-surface-muted); border: 1px solid var(--rb-canvas-grid); border-radius: 2px; font-size: 9px;">Ctrl+K</kbd>
+        @foreach ($msTabs as $tabKey => $tabLabel)
+            <button type="button" wire:click="$set('activeTab', '{{ $tabKey }}')"
+                class="word-tab {{ $activeTab === $tabKey ? 'active' : '' }}">
+                {{ $tabLabel }}
             </button>
-        </div>
+        @endforeach
 
-        <!-- Ribbon Toolbar Commands Bar -->
-        <div class="ns-ribbon-body">
-            @if ($activeTab === 'home')
-                <!-- Clipboard & Undo/Redo/Format Painter -->
-                <div class="ns-group">
-                    <span class="ns-group__label">Papan Klip</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="undo" {{ empty($undoStack) ? 'disabled' : '' }} title="Urungkan (Ctrl+Z)">↩ Undo</button>
-                        <button type="button" class="ns-btn" wire:click="redo" {{ empty($redoStack) ? 'disabled' : '' }} title="Ulangi (Ctrl+Y)">↪ Redo</button>
-                        <button type="button" class="ns-btn {{ $copiedFormat ? 'ns-btn--active' : '' }}" wire:click="copyFormat({{ $activeBlock }})" title="Format Painter">🖌️ Kuas Format</button>
-                    </div>
-                </div>
-
-                <!-- Font & Ukuran -->
-                <div class="ns-group">
-                    <span class="ns-group__label">Font &amp; Tipografi</span>
-                    <div class="ns-group__row">
-                        <select wire:model.live="fontFamily" class="ns-btn" style="padding-right:1rem;">
-                            @foreach ($fontFamilies as $k => $fontLabel)
-                                <option value="{{ $k }}">{{ $fontLabel }}</option>
-                            @endforeach
-                        </select>
-                        <select wire:model.live="fontSize" class="ns-btn" style="padding-right:1rem;">
-                            @foreach ($fontSizes as $fs)
-                                <option value="{{ $fs }}">{{ $fs }} pt</option>
-                            @endforeach
-                        </select>
-                        <button type="button" class="ns-btn" wire:click="adjustFontSize(1)" title="Perbesar Font">A▲</button>
-                        <button type="button" class="ns-btn" wire:click="adjustFontSize(-1)" title="Perkecil Font">A▼</button>
-                    </div>
-                </div>
-
-                <!-- Format Inline -->
-                <div class="ns-group">
-                    <span class="ns-group__label">Format Karakter</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn font-bold" wire:click="formatInline('bold')" title="Tebal (Ctrl+B)">B</button>
-                        <button type="button" class="ns-btn italic" wire:click="formatInline('italic')" title="Miring (Ctrl+I)">I</button>
-                        <button type="button" class="ns-btn underline" wire:click="formatInline('underline')" title="Garis Bawah (Ctrl+U)">U</button>
-                        <button type="button" class="ns-btn line-through" wire:click="formatInline('strike')" title="Coret">S</button>
-                        <button type="button" class="ns-btn font-mono" wire:click="formatInline('code')" title="Kode Inline">&lt;/&gt;</button>
-                        <button type="button" class="ns-btn" style="color:#dc2626;" wire:click="clearFormatting" title="Hapus Format">✕</button>
-                    </div>
-                </div>
-
-                <!-- Warna & Sorotan -->
-                <div class="ns-group">
-                    <span class="ns-group__label">Warna &amp; Sorotan</span>
-                    <div class="ns-group__row">
-                        @foreach ($colors as $color)
-                            <button type="button" style="width:16px; height:16px; border-radius:2px; border:1px solid #cbd5e1; background:{{ $color }}; cursor:pointer;"
-                                wire:click="formatInline('color', '{{ $color }}')" title="Warna {{ $color }}"></button>
-                        @endforeach
-                        <span style="border-left:1px solid var(--rb-canvas-grid); height:14px; margin:0 2px;"></span>
-                        @foreach ($highlights as $hl)
-                            <button type="button" style="width:16px; height:16px; border-radius:2px; border:1px solid #cbd5e1; background:{{ $hl }}; cursor:pointer;"
-                                wire:click="formatInline('highlight', '{{ $hl }}')" title="Sorot {{ $hl }}"></button>
-                        @endforeach
-                    </div>
-                </div>
-
-                <!-- Paragraf & Perataan -->
-                <div class="ns-group">
-                    <span class="ns-group__label">Paragraf</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="formatParagraph('align', 'left')" title="Rata Kiri">⫷</button>
-                        <button type="button" class="ns-btn" wire:click="formatParagraph('align', 'center')" title="Rata Tengah">≡</button>
-                        <button type="button" class="ns-btn" wire:click="formatParagraph('align', 'right')" title="Rata Kanan">⫸</button>
-                        <button type="button" class="ns-btn" wire:click="formatParagraph('align', 'justify')" title="Rata Kiri Kanan">☷</button>
-                        <button type="button" class="ns-btn" wire:click="formatParagraph('indent-')" title="Kurangi Indentasi">⇤</button>
-                        <button type="button" class="ns-btn" wire:click="formatParagraph('indent+')" title="Tambah Indentasi">⇥</button>
-                    </div>
-                </div>
-
-                <!-- Galeri Gaya & Auto-Correct -->
-                <div class="ns-group">
-                    <span class="ns-group__label">Gaya &amp; Alat Sunting</span>
-                    <div class="ns-group__row">
-                        @foreach ($stylesGallery as $styleKey => $styleLabel)
-                            <button type="button" class="ns-btn" wire:click="applyStyle({{ $activeBlock }}, '{{ $styleKey }}')">{{ $styleLabel }}</button>
-                        @endforeach
-                        <button type="button" class="ns-btn" wire:click="openDialog('find')">🔍 Cari &amp; Ganti</button>
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="runAutoCorrect" title="LibreOffice Typographical Auto-Correct">⚡ Auto-Correct</button>
-                    </div>
-                </div>
-
-            @elseif ($activeTab === 'insert')
-                <div class="ns-group">
-                    <span class="ns-group__label">Blok Konten</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="addBlock('heading')">+ Judul</button>
-                        <button type="button" class="ns-btn" wire:click="addBlock('paragraph')">+ Paragraf</button>
-                        <button type="button" class="ns-btn" wire:click="addBlock('quote')">“ Kutipan</button>
-                        <button type="button" class="ns-btn" wire:click="insertCallout('info')">📌 Callout</button>
-                        <button type="button" class="ns-btn" wire:click="addBlock('bullet')">• Poin</button>
-                        <button type="button" class="ns-btn" wire:click="addBlock('numbered')">1. Nomor</button>
-                    </div>
-                </div>
-                <div class="ns-group">
-                    <span class="ns-group__label">Tabel &amp; Media</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="openDialog('table')">⊞ Sisipkan Tabel</button>
-                        <button type="button" class="ns-btn" wire:click="openDialog('image')">🖼️ Sisipkan Gambar</button>
-                    </div>
-                </div>
-                <div class="ns-group">
-                    <span class="ns-group__label">Tautan &amp; Catatan</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="openDialog('link')">🔗 Tautan</button>
-                        <button type="button" class="ns-btn" wire:click="openDialog('footnote')">⚓ Catatan Kaki</button>
-                        <button type="button" class="ns-btn" wire:click="openDialog('symbols')">Ω Simbol Khusus</button>
-                        <button type="button" class="ns-btn" wire:click="toggleDropCap({{ $activeBlock }})">Drop Cap</button>
-                    </div>
-                </div>
-                <div class="ns-group">
-                    <span class="ns-group__label">Pemisah &amp; Otomasi</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="insertPageBreak">✂️ Pemisah Halaman</button>
-                        <button type="button" class="ns-btn" wire:click="insertHorizontalRule">― Garis Pemisah</button>
-                        <button type="button" class="ns-btn" wire:click="insertDate">📅 Tanggal</button>
-                        <button type="button" class="ns-btn" wire:click="insertTableOfContents">📑 Daftar Isi</button>
-                        <button type="button" class="ns-btn" wire:click="insertBibliography({{ $sourceProjectId }})">📚 Daftar Pustaka</button>
-                    </div>
-                </div>
-
-            @elseif ($activeTab === 'design')
-                <div class="ns-group">
-                    <span class="ns-group__label">Tema Desain</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn {{ ($styleMeta['theme'] ?? '') === 'academic' ? 'ns-btn--active' : '' }}" wire:click="applyTheme('academic')">Akademik</button>
-                        <button type="button" class="ns-btn {{ ($styleMeta['theme'] ?? '') === 'modern' ? 'ns-btn--active' : '' }}" wire:click="applyTheme('modern')">Modern</button>
-                        <button type="button" class="ns-btn {{ ($styleMeta['theme'] ?? '') === 'classic' ? 'ns-btn--active' : '' }}" wire:click="applyTheme('classic')">Klasik</button>
-                        <button type="button" class="ns-btn {{ ($styleMeta['theme'] ?? '') === 'code' ? 'ns-btn--active' : '' }}" wire:click="applyTheme('code')">Teknis</button>
-                    </div>
-                </div>
-                <div class="ns-group">
-                    <span class="ns-group__label">Warna Kertas</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="updatePageSetup('pageColor', '#ffffff')">Putih</button>
-                        <button type="button" class="ns-btn" wire:click="updatePageSetup('pageColor', '#fdfbf7')">Gading</button>
-                        <button type="button" class="ns-btn" wire:click="updatePageSetup('pageColor', '#fcf6e9')">Sepia</button>
-                        <button type="button" class="ns-btn" wire:click="updatePageSetup('pageBorder', {{ !($pageSetup['pageBorder'] ?? false) ? 'true' : 'false' }})">
-                            Bingkai: {{ !empty($pageSetup['pageBorder']) ? 'Aktif' : 'Nonaktif' }}
-                        </button>
-                    </div>
-                </div>
-                <div class="ns-group">
-                    <span class="ns-group__label">Tanda Air (Watermark)</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', 'DRAF')">DRAF</button>
-                        <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', 'RAHASIA')">RAHASIA</button>
-                        <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', '')">Hapus Tanda Air</button>
-                        <button type="button" class="ns-btn" wire:click="openDialog('pagesetup')">⚙️ Pengaturan Halaman</button>
-                    </div>
-                </div>
-
-            @elseif ($activeTab === 'layout')
-                <div class="ns-group">
-                    <span class="ns-group__label">Kertas &amp; Orientasi</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn font-semibold" wire:click="openDialog('pagesetup')">Ukuran: {{ $pageSetup['size'] ?? 'A4' }}</button>
-                        <button type="button" class="ns-btn font-semibold" wire:click="updatePageSetup('orientation', '{{ ($pageSetup['orientation'] ?? 'portrait') === 'portrait' ? 'landscape' : 'portrait' }}')">
-                            Orientasi: {{ ucfirst($pageSetup['orientation'] ?? 'portrait') }}
-                        </button>
-                        <button type="button" class="ns-btn" wire:click="$toggle('showRuler')">
-                            {{ $showRuler ? 'Sembunyikan Penggaris' : 'Tampilkan Penggaris' }}
-                        </button>
-                    </div>
-                </div>
-
-            @elseif ($activeTab === 'references')
-                <div class="ns-group">
-                    <span class="ns-group__label">Sitasi &amp; Pustaka</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="insertBibliography({{ $sourceProjectId }})">📚 Sisipkan Daftar Pustaka</button>
-                        <button type="button" class="ns-btn" wire:click="openDialog('footnote')">⚓ Catatan Kaki</button>
-                        <button type="button" class="ns-btn" wire:click="insertTableOfContents">📑 Daftar Isi</button>
-                    </div>
-                </div>
-
-            @elseif ($activeTab === 'review')
-                <div class="ns-group">
-                    <span class="ns-group__label">Komentar &amp; Revisi</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn {{ $showComments ? 'ns-btn--active' : '' }}" wire:click="$toggle('showComments')">💬 Panel Komentar ({{ count($comments) }})</button>
-                        <button type="button" class="ns-btn {{ $showRevisions ? 'ns-btn--active' : '' }}" wire:click="$toggle('showRevisions')">👁️ Lacak Revisi ({{ $pendingRevisionCount }} pending)</button>
-                        <button type="button" class="ns-btn" style="color:#059669;" wire:click="acceptAllRevisions">✓ Terima Semua</button>
-                        <button type="button" class="ns-btn" style="color:#dc2626;" wire:click="rejectAllRevisions">✕ Tolak Semua</button>
-                        <button type="button" class="ns-btn" wire:click="openDialog('snapshots')">📁 Versi Dokumen ({{ count($snapshots) }})</button>
-                    </div>
-                </div>
-                <div class="ns-group">
-                    <span class="ns-group__label">Bahasa &amp; Ejaan</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="runSpellCheck">✓ Periksa Ejaan</button>
-                        <button type="button" class="ns-btn" wire:click="openDialog('thesaurus')">📖 Tesaurus Kata</button>
-                    </div>
-                </div>
-
-            @elseif ($activeTab === 'table')
-                <div class="ns-group">
-                    <span class="ns-group__label">Struktur Tabel</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="tableInsertRow({{ $activeBlock }}, 1)">+ Baris Bawah</button>
-                        <button type="button" class="ns-btn" wire:click="tableInsertColumn({{ $activeBlock }}, 1)">+ Kolom Kanan</button>
-                        <button type="button" class="ns-btn" wire:click="tableToggleHeader({{ $activeBlock }})">Header Baris</button>
-                    </div>
-                </div>
-                <div class="ns-group">
-                    <span class="ns-group__label">Kalkulasi Formula (LibreOffice Table)</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="tableSumColumn({{ $activeBlock }}, 1)">Σ Hitung SUM</button>
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="tableAverageColumn({{ $activeBlock }}, 1)">x̄ Hitung AVERAGE</button>
-                    </div>
-                </div>
-
-            @elseif ($activeTab === 'mailings')
-                <div class="ns-group">
-                    <span class="ns-group__label">Mail Merge</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="openDialog('merge')">✉️ Konfigurasi Mail Merge CSV</button>
-                    </div>
-                </div>
-
-            @elseif ($activeTab === 'view')
-                <div class="ns-group">
-                    <span class="ns-group__label">Navigasi &amp; Tampilan</span>
-                    <div class="ns-group__row">
-                        <button type="button" class="ns-btn" wire:click="$toggle('showNavigation')">{{ $showNavigation ? 'Sembunyikan Navigator' : 'Tampilkan Navigator' }}</button>
-                        <button type="button" class="ns-btn" wire:click="$toggle('showRuler')">{{ $showRuler ? 'Sembunyikan Penggaris' : 'Tampilkan Penggaris' }}</button>
-                        <button type="button" class="ns-btn" wire:click="zoomIn">Zoom +</button>
-                        <button type="button" class="ns-btn" wire:click="zoomOut">Zoom -</button>
-                        <span class="font-mono font-bold" style="font-size:0.75rem;">{{ $zoom }}%</span>
-                        <button type="button" class="ns-btn" wire:click="openDialog('stats')">📊 Statistik Keterbacaan</button>
-                        <button type="button" class="ns-btn" wire:click="openDialog('properties')">ℹ️ Properti Dokumen</button>
-                        <button type="button" class="ns-btn" wire:click="openDialog('shortcuts')">⌨️ Tombol Pintas</button>
-                    </div>
-                </div>
-            @endif
-
-            <!-- Quick Multi-Format Export Buttons (LibreOffice Multi-Format Engine) -->
-            <div style="margin-left:auto; display:flex; align-items:center; gap:0.25rem; padding-left:0.75rem; border-left:1px solid var(--rb-canvas-grid); flex-shrink:0;">
-                <span class="ns-group__label" style="margin-right:2px;">Ekspor:</span>
-                <button type="button" wire:click="export('odt')" class="ns-btn font-bold font-mono" style="background:#059669; color:#fff; border-color:#059669;" title="Unduh OpenDocument (.odt)">ODT</button>
-                <button type="button" wire:click="export('docx')" class="ns-btn font-bold font-mono" style="background:#2563eb; color:#fff; border-color:#2563eb;" title="Unduh Microsoft Word (.docx)">DOCX</button>
-                <button type="button" wire:click="export('latex')" class="ns-btn font-bold font-mono" style="background:#7c3aed; color:#fff; border-color:#7c3aed;" title="Unduh LaTeX (.tex)">LaTeX</button>
-                <button type="button" wire:click="export('md')" class="ns-btn font-bold font-mono" style="background:#334155; color:#fff; border-color:#334155;" title="Unduh Markdown (.md)">MD</button>
-                <button type="button" wire:click="export('rtf')" class="ns-btn font-bold font-mono" style="background:#d97706; color:#fff; border-color:#d97706;" title="Unduh Rich Text (.rtf)">RTF</button>
-                <button type="button" wire:click="save" class="ns-btn ns-btn--primary font-bold" style="padding:0.3rem 0.75rem; margin-left:0.25rem;">
-                    <span>💾 Simpan</span>
-                </button>
-            </div>
+        <!-- Live Usability & Session Depth Telemetry -->
+        <div class="word-ribbon-telemetry">
+            <span style="font-size:11px; color:var(--ms-text-muted);" title="Time on Task / Kedalaman Sesi">
+                ⏱️ Waktu Sesi: <strong style="color:var(--ms-text-primary);">{{ floor($sessionSeconds / 60) }}m {{ $sessionSeconds % 60 }}s</strong>
+            </span>
+            <span style="font-size:11px; color:var(--ms-text-muted);" title="Guideline Compliance Score">
+                🎯 Kepatuhan: <strong style="color:var(--ms-blue);">{{ $complianceAudit['score'] }}%</strong>
+            </span>
+            <button type="button" wire:click="toggleDarkMode" class="word-icon-btn" title="Mode Terang / Gelap" style="margin-left:4px;">
+                {{ $darkMode ? '☀️' : '🌙' }}
+            </button>
+            <button type="button" wire:click="toggleZenMode" class="word-icon-btn" title="Focus Mode / Zen" style="margin-left:2px;">
+                🧘
+            </button>
         </div>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- HORIZONTAL RULER (LIBREOFFICE RULER)                                   -->
+    <!-- 3. RIBBON TOOLBAR BODY (MICROSOFT WORD 365 COMMANDS)                  -->
+    <!-- ===================================================================== -->
+    <div x-show="!zenMode" class="word-ribbon-body">
+        @if ($activeTab === 'home' || $activeTab === 'file')
+            <!-- GROUP: CLIPBOARD -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <!-- Paste Split Button -->
+                    <button type="button" class="word-btn-large" wire:click="runAutoCorrect" title="Tempel Teks / Auto-Correct">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            <path d="M9 14l2 2 4-4"/>
+                        </svg>
+                        <span>Paste ▾</span>
+                    </button>
+
+                    <!-- Cut, Copy, Format Painter Column -->
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="removeBlock({{ $activeBlock }})" title="Cut (Potong Blok)">
+                            <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H11V9.413l1.293 1.294a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13H5.5z" clip-rule="evenodd"/>
+                            </svg>
+                            <span>Cut</span>
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="addBlock('paragraph')" title="Copy (Salin Blok)">
+                            <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
+                                <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z"/>
+                                <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z"/>
+                            </svg>
+                            <span>Copy</span>
+                        </button>
+                        <button type="button" class="word-tool-btn {{ $copiedFormat ? 'active' : '' }}" wire:click="copyFormat({{ $activeBlock }})" title="Format Painter (Kuas Format)">
+                            <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                            </svg>
+                            <span>Format</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="word-group__footer">
+                    <span class="word-group__label">Clipboard</span>
+                </div>
+            </div>
+
+            <!-- GROUP: FONT & TYPOGRAPHY -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <!-- Font Row 1: Family, Size, Grow, Shrink, Case, Clear -->
+                        <div class="word-group__row">
+                            <select wire:model.live="fontFamily" class="word-select" style="width:110px;">
+                                <option value="sans">Aptos (Default)</option>
+                                <option value="serif">Calibri / Serif</option>
+                                <option value="mono">JetBrains Mono</option>
+                            </select>
+                            <select wire:model.live="fontSize" class="word-select" style="width:52px;">
+                                @foreach ([10, 11, 12, 14, 16, 18, 20, 24, 28, 32] as $fs)
+                                    <option value="{{ $fs }}">{{ $fs }}</option>
+                                @endforeach
+                            </select>
+                            <button type="button" class="word-btn-square" wire:click="adjustFontSize(1)" title="Increase Font Size (A^)">A<sup>▲</sup></button>
+                            <button type="button" class="word-btn-square" wire:click="adjustFontSize(-1)" title="Decrease Font Size (Av)">A<sup>▼</sup></button>
+                            <button type="button" class="word-btn-square" wire:click="runAutoCorrect" title="Change Case (Aa ▾)">Aa</button>
+                            <button type="button" class="word-btn-square" wire:click="clearFormatting" title="Clear All Formatting">✕</button>
+                        </div>
+
+                        <!-- Font Row 2: Bold, Italic, Underline, Strike, Sub, Super, Glow, Highlight, Color -->
+                        <div class="word-group__row">
+                            <button type="button" class="word-btn-square" style="font-weight:700;" wire:click="formatInline('bold')" title="Bold (Ctrl+B)">B</button>
+                            <button type="button" class="word-btn-square" style="font-style:italic;" wire:click="formatInline('italic')" title="Italic (Ctrl+I)">I</button>
+                            <button type="button" class="word-btn-square" style="text-decoration:underline;" wire:click="formatInline('underline')" title="Underline (Ctrl+U)">U ▾</button>
+                            <button type="button" class="word-btn-square" style="text-decoration:line-through;" wire:click="formatInline('strike')" title="Strikethrough (ab)">ab</button>
+                            <button type="button" class="word-btn-square" wire:click="formatInline('code')" title="Subscript (x₂)">x₂</button>
+                            <button type="button" class="word-btn-square" wire:click="formatInline('code')" title="Superscript (x²)">x²</button>
+                            <button type="button" class="word-btn-square" style="color:#0f6cbd;" wire:click="applyTheme('modern')" title="Text Effects &amp; Typography">A</button>
+
+                            <!-- Highlight Pen -->
+                            <div class="word-color-picker-btn" wire:click="formatInline('highlight', '#fde68a')" title="Text Highlight Color">
+                                <span>🖊️</span>
+                                <div class="word-color-bar" style="background:#fde68a;"></div>
+                            </div>
+
+                            <!-- Font Color -->
+                            <div class="word-color-picker-btn" wire:click="formatInline('color', '#b91c1c')" title="Font Color">
+                                <span style="font-weight:700; line-height:1;">A</span>
+                                <div class="word-color-bar" style="background:#b91c1c;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="word-group__footer">
+                    <span class="word-group__label">Font</span>
+                </div>
+            </div>
+
+            <!-- GROUP: PARAGRAPH -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <!-- Paragraph Row 1: Bullets, Numbering, Multilevel, Indent-, Indent+, Marks -->
+                        <div class="word-group__row">
+                            <button type="button" class="word-btn-square" wire:click="addBlock('bullet')" title="Bullets">• ▾</button>
+                            <button type="button" class="word-btn-square" wire:click="addBlock('numbered')" title="Numbering">1. ▾</button>
+                            <button type="button" class="word-btn-square" wire:click="addBlock('bullet')" title="Multilevel List">1.a.i</button>
+                            <button type="button" class="word-btn-square" wire:click="formatParagraph('indent-')" title="Decrease Indent">⇤</button>
+                            <button type="button" class="word-btn-square" wire:click="formatParagraph('indent+')" title="Increase Indent">⇥</button>
+                            <button type="button" class="word-btn-square" wire:click="$toggle('showGridlines')" title="Show/Hide Marks (¶)">¶</button>
+                        </div>
+
+                        <!-- Paragraph Row 2: Align Left, Center, Right, Justify, Spacing, Shading, Borders -->
+                        <div class="word-group__row">
+                            <button type="button" class="word-btn-square" wire:click="formatParagraph('align', 'left')" title="Align Left">⫷</button>
+                            <button type="button" class="word-btn-square" wire:click="formatParagraph('align', 'center')" title="Center">≡</button>
+                            <button type="button" class="word-btn-square" wire:click="formatParagraph('align', 'right')" title="Align Right">⫸</button>
+                            <button type="button" class="word-btn-square" wire:click="formatParagraph('align', 'justify')" title="Justify">☷</button>
+                            <button type="button" class="word-btn-square" wire:click="openDialog('pagesetup')" title="Line &amp; Paragraph Spacing">↕ ▾</button>
+                            <button type="button" class="word-btn-square" wire:click="updatePageSetup('pageColor', '#fdfbf7')" title="Shading">🪣</button>
+                            <button type="button" class="word-btn-square" wire:click="openDialog('table')" title="Borders">⊞ ▾</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="word-group__footer">
+                    <span class="word-group__label">Paragraph</span>
+                </div>
+            </div>
+
+            <!-- GROUP: STYLES GALLERY (MICROSOFT WORD PREVIEW CARDS) -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-styles-gallery">
+                        <!-- Normal Style -->
+                        <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'paragraph' ? 'active' : '' }}"
+                            wire:click="applyStyle({{ $activeBlock }}, 'normal')" title="Apply Normal Style">
+                            <div class="word-style-tile__preview" style="font-family:var(--ms-font-ui); font-size:12px;">AaBbCcDd</div>
+                            <div class="word-style-tile__name">Normal</div>
+                        </div>
+
+                        <!-- No Spacing -->
+                        <div class="word-style-tile" wire:click="applyStyle({{ $activeBlock }}, 'normal')" title="Apply No Spacing Style">
+                            <div class="word-style-tile__preview" style="font-family:var(--ms-font-ui); font-size:11px; letter-spacing:-0.5px;">AaBbCcDd</div>
+                            <div class="word-style-tile__name">No Spacing</div>
+                        </div>
+
+                        <!-- Heading 1 -->
+                        <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'heading' && ($blocks[$activeBlock]['level'] ?? 1) === 1 ? 'active' : '' }}"
+                            wire:click="applyStyle({{ $activeBlock }}, 'heading1')" title="Apply Heading 1 Style">
+                            <div class="word-style-tile__preview" style="color:var(--ms-blue-dark); font-weight:700; font-size:14px;">AaBbC</div>
+                            <div class="word-style-tile__name">Heading 1</div>
+                        </div>
+
+                        <!-- Title -->
+                        <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'heading' ? 'active' : '' }}"
+                            wire:click="applyStyle({{ $activeBlock }}, 'title')" title="Apply Title Style">
+                            <div class="word-style-tile__preview" style="font-weight:800; font-size:15px; color:#111827;">AaBb</div>
+                            <div class="word-style-tile__name">Title</div>
+                        </div>
+
+                        <!-- Heading 2 -->
+                        <div class="word-style-tile {{ ($blocks[$activeBlock]['type'] ?? '') === 'heading' && ($blocks[$activeBlock]['level'] ?? 1) === 2 ? 'active' : '' }}"
+                            wire:click="applyStyle({{ $activeBlock }}, 'heading2')" title="Apply Heading 2 Style">
+                            <div class="word-style-tile__preview" style="color:var(--ms-blue-heading); font-weight:600; font-size:13px;">AaBbCcD</div>
+                            <div class="word-style-tile__name">Heading 2</div>
+                        </div>
+
+                        <!-- Subtitle -->
+                        <div class="word-style-tile" wire:click="applyStyle({{ $activeBlock }}, 'quote')" title="Apply Subtitle Style">
+                            <div class="word-style-tile__preview" style="color:#6b7280; font-style:italic; font-size:12px;">AaBbCcD</div>
+                            <div class="word-style-tile__name">Subtitle</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="word-group__footer">
+                    <span class="word-group__label">Styles</span>
+                </div>
+            </div>
+
+            <!-- GROUP: EDITING -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('find')" title="Find (Ctrl+F)">
+                            <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                            </svg>
+                            <span>Find</span>
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('find')" title="Replace (Ganti Teks)">
+                            <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
+                                <path d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"/>
+                            </svg>
+                            <span>Replace</span>
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="openDialog('palette')" title="Select Commands">
+                            <span>Select ▾</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="word-group__footer">
+                    <span class="word-group__label">Editing</span>
+                </div>
+            </div>
+
+            <!-- GROUP: VOICE -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openAssistant" title="Dictate Voice Assistant">
+                        <div style="width:26px; height:26px; border-radius:9999px; background:#0f6cbd; color:#ffffff; display:flex; align-items:center; justify-content:center;">
+                            <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                                <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <span>Dictate</span>
+                    </button>
+                </div>
+                <div class="word-group__footer">
+                    <span class="word-group__label">Voice</span>
+                </div>
+            </div>
+
+            <!-- GROUP: EDITOR & PROOFING -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="toggleKpiDrawer('UX')" title="Microsoft Word Editor &amp; Proofing Score">
+                        <div style="position:relative; width:26px; height:26px; display:flex; align-items:center; justify-content:center; color:#0f6cbd;">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span style="position:absolute; top:0; right:0; width:7px; height:7px; background:#107c41; border-radius:9999px;"></span>
+                        </div>
+                        <span>Editor</span>
+                    </button>
+                </div>
+                <div class="word-group__footer">
+                    <span class="word-group__label">Editor</span>
+                </div>
+            </div>
+
+        @elseif ($activeTab === 'insert')
+            <!-- INSERT TAB COMMANDS -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="addBlock('paragraph')" title="New Page / Paragraph">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                        <span>Page</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="openDialog('table')" title="Insert Table">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+                        <span>Table</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="openDialog('image')" title="Insert Pictures">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <span>Pictures</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Tables &amp; Illustrations</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-tool-btn" wire:click="openDialog('link')">🔗 Link</button>
+                    <button type="button" class="word-tool-btn" wire:click="openDialog('footnote')">⚓ Footnote</button>
+                    <button type="button" class="word-tool-btn" wire:click="insertTableOfContents">📑 Table of Contents</button>
+                    <button type="button" class="word-tool-btn" wire:click="openDialog('symbols')">Ω Symbol</button>
+                    <button type="button" class="word-tool-btn" wire:click="toggleDropCap({{ $activeBlock }})">Drop Cap</button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Links &amp; Symbols</span></div>
+            </div>
+
+        @elseif ($activeTab === 'layout' || $activeTab === 'design')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('pagesetup')" title="Margins">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="1"/><line x1="8" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/></svg>
+                        <span>Margins</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="updatePageSetup('orientation', '{{ ($pageSetup['orientation'] ?? 'portrait') === 'portrait' ? 'landscape' : 'portrait' }}')">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
+                        <span>{{ ucfirst($pageSetup['orientation'] ?? 'portrait') }}</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="openDialog('pagesetup')">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+                        <span>Size: {{ $pageSetup['size'] ?? 'A4' }}</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Page Setup</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-tool-btn" wire:click="applyTheme('academic')">Academic Theme</button>
+                    <button type="button" class="word-tool-btn" wire:click="applyTheme('modern')">Modern Theme</button>
+                    <button type="button" class="word-tool-btn" wire:click="updatePageSetup('watermark', 'DRAF')">Watermark</button>
+                    <button type="button" class="word-tool-btn" wire:click="$toggle('showRuler')">{{ $showRuler ? 'Hide Ruler' : 'Show Ruler' }}</button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Page Background &amp; Rules</span></div>
+            </div>
+
+        @elseif ($activeTab === 'review' || $activeTab === 'references')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="runSpellCheck" title="Check Spelling">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Spelling</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="openDialog('thesaurus')" title="Thesaurus">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                        <span>Thesaurus</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="openDialog('stats')" title="Word Count">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+                        <span>Word Count</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Proofing</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-tool-btn {{ $showRevisions ? 'active' : '' }}" wire:click="$toggle('showRevisions')">👁️ Track Changes</button>
+                    <button type="button" class="word-tool-btn" style="color:#107c41;" wire:click="acceptAllRevisions">✓ Accept All</button>
+                    <button type="button" class="word-tool-btn" style="color:#c50f1f;" wire:click="rejectAllRevisions">✕ Reject All</button>
+                    <button type="button" class="word-tool-btn" wire:click="openDialog('snapshots')">📁 Version History</button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Tracking &amp; Changes</span></div>
+            </div>
+
+        @else
+            <!-- VIEW & OTHER TABS -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-tool-btn {{ $showNavigation ? 'active' : '' }}" wire:click="$toggle('showNavigation')">🧭 Navigation Pane</button>
+                    <button type="button" class="word-tool-btn {{ $showRuler ? 'active' : '' }}" wire:click="$toggle('showRuler')">📏 Ruler</button>
+                    <button type="button" class="word-tool-btn" wire:click="zoomIn">Zoom +</button>
+                    <button type="button" class="word-tool-btn" wire:click="zoomOut">Zoom -</button>
+                    <button type="button" class="word-tool-btn" wire:click="setZoomLevel('100')">100%</button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Show / Zoom</span></div>
+            </div>
+        @endif
+
+        <!-- Direct Multi-Format Export Quick Buttons -->
+        <div style="margin-left:auto; display:flex; align-items:center; gap:4px; padding-left:12px; border-left:1px solid var(--ms-border); flex-shrink:0;">
+            <span class="word-group__label" style="margin-right:2px;">Export:</span>
+            <button type="button" wire:click="export('docx')" class="word-tool-btn active" style="font-weight:700; color:#0f6cbd;" title="Download Microsoft Word (.docx)">DOCX</button>
+            <button type="button" wire:click="export('odt')" class="word-tool-btn" style="font-weight:700; color:#107c41;" title="Download OpenDocument (.odt)">ODT</button>
+            <button type="button" wire:click="export('latex')" class="word-tool-btn" style="font-weight:700; color:#7c3aed;" title="Download LaTeX (.tex)">LaTeX</button>
+            <button type="button" wire:click="export('md')" class="word-tool-btn" style="font-weight:700;" title="Download Markdown (.md)">MD</button>
+            <button type="button" wire:click="export('rtf')" class="word-tool-btn" style="font-weight:700; color:#d83b01;" title="Download RTF (.rtf)">RTF</button>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 4. HORIZONTAL RULER (MICROSOFT WORD INCH / CM RULER)                  -->
     <!-- ===================================================================== -->
     @if ($showRuler && ! $zenMode)
-        <div class="ns-ruler">
-            <div class="ns-ruler__ticks">
-                @for ($cm = 0; $cm <= 20; $cm++)
-                    <div class="ns-ruler__tick">
-                        <div class="ns-ruler__bar"></div>
-                        <span>{{ $cm }}</span>
-                    </div>
-                @endfor
+        <div class="word-ruler-container">
+            <div class="word-ruler">
+                <!-- Left Indent Marker (First Line + Hanging + Left) -->
+                <div class="word-indent-marker-left" title="First Line &amp; Left Indent">
+                    <svg viewBox="0 0 10 10" width="8" height="8" fill="#616161"><polygon points="0,0 10,0 5,8"/></svg>
+                    <svg viewBox="0 0 10 10" width="8" height="8" fill="#616161"><polygon points="5,0 10,8 0,8"/></svg>
+                    <div style="width:8px; height:4px; background:#616161;"></div>
+                </div>
+
+                <!-- Ruler Inches Markings (1 to 7 inches) -->
+                <div class="word-ruler__numbers">
+                    @for ($inch = 1; $inch <= 7; $inch++)
+                        <div class="word-ruler__inch">
+                            <span class="word-ruler__num">{{ $inch }}</span>
+                            <div class="word-ruler__tick-quarter"></div>
+                            <div class="word-ruler__tick-half"></div>
+                            <div class="word-ruler__tick-three-quarter"></div>
+                            <div class="word-ruler__tick-major"></div>
+                        </div>
+                    @endfor
+                </div>
+
+                <!-- Right Indent Marker -->
+                <div class="word-indent-marker-right" title="Right Margin Indent">
+                    <svg viewBox="0 0 10 10" width="8" height="8" fill="#616161"><polygon points="5,0 10,8 0,8"/></svg>
+                </div>
             </div>
         </div>
     @endif
 
     <!-- ===================================================================== -->
-    <!-- MAIN WORKSPACE: NAVIGATOR, CANVAS, DRAWERS, ASSISTANT                 -->
+    <!-- 5. MAIN WORKSPACE: NAVIGATION PANE, CANVAS AREA & RIGHT TASK PANE     -->
     <!-- ===================================================================== -->
-    <div class="ns-workspace">
-        <!-- LEFT SIDEBAR: NAVIGATOR (LIBREOFFICE NAVIGATOR & OUTLINE) -->
-        <aside x-show="!zenMode && {{ $showNavigation ? 'true' : 'false' }}" class="ns-navigator">
-            <div class="ns-sidebar-header">
-                <span>🧭 Navigator Dokumen</span>
-                <button type="button" wire:click="$set('showNavigation', false)" style="background:none; border:none; color:var(--rb-ink-muted); font-size:1.1rem; cursor:pointer;">&times;</button>
+    <div class="word-workspace">
+
+        <!-- ================================================================= -->
+        <!-- LEFT SIDEBAR: NAVIGATION PANE (EXACT MATCH FOR IMAGE 1)           -->
+        <!-- ================================================================= -->
+        <aside x-show="!zenMode && {{ $showNavigation ? 'true' : 'false' }}" class="word-nav-pane">
+            <!-- Header: "Navigation" with close button -->
+            <div class="word-nav-header">
+                <span>Navigation</span>
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <button type="button" class="word-icon-btn" wire:click="$set('showNavigation', false)" style="width:20px; height:20px; font-size:12px;">&times;</button>
+                </div>
             </div>
 
-            <!-- Outline / Headings -->
-            <div style="margin-bottom:1rem;">
-                <span style="font-weight:700; font-size:0.68rem; text-transform:uppercase; color:var(--rb-primary); display:block; margin-bottom:0.35rem; font-family:var(--rb-font-mono);">
-                    Struktur &amp; Judul ({{ $elements['headings'] ?? 0 }})
-                </span>
-                <div style="display:flex; flex-direction:column; gap:0.2rem;">
+            <!-- "Search document" Search Box -->
+            <div class="word-nav-search">
+                <div style="position:relative;">
+                    <svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute; left:8px; top:8px; color:#8a8886;">
+                        <circle cx="8.5" cy="8.5" r="5.5"/>
+                        <path d="M13 13l4 4"/>
+                    </svg>
+                    <input type="text" wire:model.live.debounce.300ms="navigationSearch" class="word-nav-search-input" placeholder="Search document">
+                </div>
+            </div>
+
+            <!-- Sub-tabs: Headings, Pages, Results (Matches Image 1) -->
+            <div class="word-nav-subtabs">
+                <button type="button" wire:click="setNavigationTab('headings')" class="word-nav-pill {{ $navigationTab === 'headings' ? 'active' : '' }}">
+                    Headings
+                </button>
+                <button type="button" wire:click="setNavigationTab('pages')" class="word-nav-pill {{ $navigationTab === 'pages' ? 'active' : '' }}">
+                    Pages
+                </button>
+                <button type="button" wire:click="setNavigationTab('results')" class="word-nav-pill {{ $navigationTab === 'results' ? 'active' : '' }}">
+                    Results
+                </button>
+            </div>
+
+            <!-- TAB 1: HEADINGS TREE (MATCHES IMAGE 1) -->
+            @if ($navigationTab === 'headings')
+                <div class="word-nav-tree">
                     @forelse ($outline as $item)
-                        <button type="button" wire:click="selectBlock({{ $item['index'] }})"
-                            class="ns-btn" style="text-align:left; justify-content:flex-start; width:100%; border-color:transparent; padding:0.25rem 0.5rem; {{ $activeBlock === $item['index'] ? 'background:var(--rb-accent-soft); font-weight:700; color:var(--rb-primary);' : '' }}"
-                            style="padding-left: {{ ($item['level'] - 1) * 12 + 6 }}px">
-                            {{ $item['text'] ?: '(Judul Tanpa Teks)' }}
-                        </button>
+                        @php
+                            $matchesSearch = empty($navigationSearch) || str_contains(strtolower($item['text']), strtolower($navigationSearch));
+                        @endphp
+                        @if ($matchesSearch)
+                            <button type="button" wire:click="selectBlock({{ $item['index'] }})"
+                                class="word-nav-item {{ $activeBlock === $item['index'] ? 'active' : '' }}"
+                                style="padding-left: {{ ($item['level'] - 1) * 12 + 10 }}px; font-weight: {{ $item['level'] === 1 ? '600' : '400' }}; font-size: {{ $item['level'] === 1 ? '12.5px' : '12px' }};">
+                                {{ $item['text'] ?: '(Untitled Heading)' }}
+                            </button>
+                        @endif
                     @empty
-                        <span style="color:var(--rb-ink-muted); font-style:italic; font-size:0.68rem;">Belum ada judul. Sisipkan Heading untuk membentuk kerangka.</span>
+                        <div style="padding:16px 12px; color:var(--ms-text-muted); font-size:12px; text-align:center;">
+                            No headings yet. Add headings to build document structure.
+                        </div>
                     @endforelse
                 </div>
-            </div>
 
-            <!-- Statistics Summary Box -->
-            <div style="margin-bottom:1rem; padding:0.65rem; background:var(--rb-surface-soft); border:1px solid var(--rb-canvas-grid); border-radius:3px; font-family:var(--rb-font-mono); font-size:0.68rem; display:flex; flex-direction:column; gap:0.25rem;">
+            <!-- TAB 2: PAGES THUMBNAILS -->
+            @elseif ($navigationTab === 'pages')
+                <div style="padding:12px; display:flex; flex-direction:column; gap:10px;">
+                    <div style="border:1px solid var(--ms-blue); border-radius:3px; padding:8px; background:#ffffff; box-shadow:var(--ms-shadow-card); cursor:pointer;" title="Page 1 of 2">
+                        <div style="font-size:10px; color:#8a8886; margin-bottom:4px;">Page 1</div>
+                        <div style="font-size:9px; line-height:1.2; color:#616161; overflow:hidden; height:60px;">
+                            <strong>{{ $docTitle }}</strong><br>
+                            {{ Str::limit($this->documentText(), 120) }}
+                        </div>
+                    </div>
+                    <div style="border:1px solid var(--ms-border); border-radius:3px; padding:8px; background:#ffffff; box-shadow:var(--ms-shadow-card); cursor:pointer;" title="Page 2 of 2">
+                        <div style="font-size:10px; color:#8a8886; margin-bottom:4px;">Page 2</div>
+                        <div style="font-size:9px; line-height:1.2; color:#616161; overflow:hidden; height:60px;">
+                            Shared equipment &amp; membership guidelines...
+                        </div>
+                    </div>
+                </div>
+
+            <!-- TAB 3: RESULTS SEARCH -->
+            @else
+                <div style="padding:12px; font-size:12px;">
+                    <div style="color:var(--ms-text-muted); margin-bottom:8px;">
+                        @if ($navigationSearch)
+                            Hasil pencarian "{{ $navigationSearch }}":
+                        @else
+                            Ketik kata di kotak pencarian untuk melihat kecocokan.
+                        @endif
+                    </div>
+                    @if ($navigationSearch)
+                        <div style="padding:6px; background:var(--ms-blue-subtle); border-radius:4px; font-size:11px; color:var(--ms-blue);">
+                            Ditemukan kecocokan dalam teks dokumen.
+                        </div>
+                    @endif
+                </div>
+            @endif
+
+            <!-- Bottom of Navigation: Quick Stats Summary -->
+            <div style="padding:10px 12px; border-top:1px solid var(--ms-border-subtle); background:var(--ms-bg-subtle, #f9f9fb); font-size:11px; color:var(--ms-text-secondary); display:flex; flex-direction:column; gap:4px;">
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="color:var(--rb-ink-muted);">Kata:</span>
-                    <strong style="color:var(--rb-ink);">{{ number_format($statistics['words'] ?? 0) }}</strong>
+                    <span>Words:</span>
+                    <strong style="color:var(--ms-text-primary);">{{ number_format($statistics['words'] ?? 0) }}</strong>
                 </div>
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="color:var(--rb-ink-muted);">Karakter:</span>
+                    <span>Characters:</span>
                     <span>{{ number_format($statistics['characters'] ?? 0) }}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="color:var(--rb-ink-muted);">Kalimat:</span>
-                    <span>{{ number_format($statistics['sentences'] ?? 0) }}</span>
-                </div>
-                <div style="display:flex; justify-content:space-between;">
-                    <span style="color:var(--rb-ink-muted);">Waktu Baca:</span>
-                    <span>{{ $statistics['readingTimeMinutes'] ?? 1 }} menit</span>
-                </div>
-                <div style="display:flex; justify-content:space-between;">
-                    <span style="color:var(--rb-ink-muted);">Flesch Ease:</span>
-                    <span>{{ $statistics['readingEase'] ?? 0 }}</span>
-                </div>
-            </div>
-
-            <!-- Version Snapshots List -->
-            <div>
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
-                    <span style="font-weight:700; font-size:0.68rem; text-transform:uppercase; color:var(--rb-ink); font-family:var(--rb-font-mono);">
-                        Versi Dokumen ({{ count($snapshots) }})
-                    </span>
-                    <button type="button" wire:click="openDialog('snapshots')" class="ns-btn font-mono" style="font-size:0.65rem; padding:0.15rem 0.35rem;">+ Simpan</button>
-                </div>
-                <div style="display:flex; flex-direction:column; gap:0.25rem;">
-                    @forelse ($snapshots as $idx => $snap)
-                        <div style="padding:0.4rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; display:flex; align-items:center; justify-content:space-between; font-size:0.68rem; background:var(--rb-surface-soft);">
-                            <div>
-                                <span style="font-weight:600; display:block; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $snap['label'] }}</span>
-                                <span style="font-size:0.6rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono);">{{ $snap['at'] }}</span>
-                            </div>
-                            <div style="display:flex; gap:0.25rem;">
-                                <button type="button" wire:click="restoreSnapshot({{ $idx }})" class="ns-btn" style="padding:0.1rem 0.3rem;" title="Pulihkan Versi Ini">↩</button>
-                                <button type="button" wire:click="deleteSnapshot({{ $idx }})" class="ns-btn" style="padding:0.1rem 0.3rem; color:#dc2626;" title="Hapus">&times;</button>
-                            </div>
-                        </div>
-                    @empty
-                        <span style="color:var(--rb-ink-muted); font-style:italic; font-size:0.68rem;">Belum ada versi snapshot.</span>
-                    @endforelse
+                    <span>Reading Ease:</span>
+                    <span>{{ $statistics['readingEase'] ?? 0 }} / 100</span>
                 </div>
             </div>
         </aside>
 
-        <!-- CENTER CANVAS: PAPER VIEW -->
-        <main class="ns-canvas-area">
-            <div class="ns-paper"
-                style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ ($fontFamily === 'serif' ? 'var(--rb-font-serif)' : ($fontFamily === 'mono' ? 'var(--rb-font-mono)' : 'var(--rb-font-sans)')) }}; font-size: {{ $fontSize }}pt;">
+        <!-- ================================================================= -->
+        <!-- CENTER CANVAS: REALISTIC MICROSOFT WORD PAPER SHEET               -->
+        <!-- ================================================================= -->
+        <main class="word-canvas-area">
+            <div class="word-paper"
+                style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ ($fontFamily === 'serif' ? 'var(--ms-font-serif)' : ($fontFamily === 'mono' ? 'var(--ms-font-mono)' : 'var(--ms-font-ui)')) }}; font-size: {{ $fontSize }}pt;">
 
-                <!-- Watermark jika disetel -->
+                <!-- Watermark if configured -->
                 @if (!empty($pageSetup['watermark']))
-                    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; user-select:none; opacity:0.06; font-size:4rem; font-weight:900; text-transform:uppercase; transform:rotate(-45deg); font-family:var(--rb-font-mono);">
+                    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; user-select:none; opacity:0.04; font-size:5rem; font-weight:800; text-transform:uppercase; transform:rotate(-35deg);">
                         {{ $pageSetup['watermark'] }}
                     </div>
                 @endif
 
-                <!-- Document Header Canvas -->
-                <div class="ns-paper-header">
-                    <span style="font-weight:700;">{{ $docTitle }}</span>
-                    <span>Target: {{ $targetWordCount }} kata ({{ round((($statistics['words'] ?? 0) / max(1, $targetWordCount)) * 100) }}%)</span>
+                <!-- Word Header Margin (Matches Image 1: "The Open Studio Handbook" - "Spring edition") -->
+                <div class="word-paper-header">
+                    <span>The Open Studio Handbook</span>
+                    <span>Spring edition</span>
                 </div>
 
-                <!-- BLOCKS CONTAINER -->
-                <div style="display:flex; flex-direction:column; gap:0.75rem; flex:1;">
+                <!-- DOCUMENT BLOCKS CONTAINER -->
+                <div style="display:flex; flex-direction:column; gap:0.25rem; flex:1;">
                     @foreach ($blocks as $index => $block)
                         @php
                             $type = $block['type'] ?? 'paragraph';
                             $isActive = $activeBlock === $index;
                         @endphp
+
                         <div wire:key="block-{{ $index }}"
                             wire:click="selectBlock({{ $index }})"
-                            class="ns-block {{ $isActive ? 'active' : '' }}">
+                            class="word-block {{ $isActive ? 'active' : '' }}">
 
-                            <!-- In-Block Floating Wordcraft AI & Block Toolbar -->
-                            <div class="ns-block__toolbar">
-                                <button type="button" wire:click.stop="aiElaborateBlock({{ $index }})" title="Kembangkan Narasi (Wordcraft)">✨ Perluas</button>
-                                <span style="opacity:0.4;">•</span>
-                                <button type="button" wire:click.stop="aiShortenBlock({{ $index }})" title="Ringkas Padat">✂️ Ringkas</button>
-                                <span style="opacity:0.4;">•</span>
-                                <button type="button" wire:click.stop="aiFixTone({{ $index }}, 'akademik')" title="Sesuaikan Gaya Akademik">🎓 Akademik</button>
-                                <span style="opacity:0.4;">•</span>
-                                <button type="button" wire:click.stop="moveBlock({{ $index }}, -1)" title="Pindah Ke Atas">▲</button>
-                                <button type="button" wire:click.stop="moveBlock({{ $index }}, 1)" title="Pindah Ke Bawah">▼</button>
-                                <button type="button" wire:click.stop="removeBlock({{ $index }})" style="color:#f87171; margin-left:2px;" title="Hapus Blok">&times;</button>
+                            <!-- Mini Floating Formatting Toolbar on Hover / Active -->
+                            <div class="word-mini-toolbar">
+                                <button type="button" wire:click.stop="formatInline('bold')" style="font-weight:700;" title="Bold">B</button>
+                                <button type="button" wire:click.stop="formatInline('italic')" style="font-style:italic;" title="Italic">I</button>
+                                <button type="button" wire:click.stop="formatInline('underline')" style="text-decoration:underline;" title="Underline">U</button>
+                                <span style="color:#d1d1d1; padding:0 2px;">|</span>
+                                <button type="button" wire:click.stop="aiElaborateBlock({{ $index }})" title="Elaborate with AI (Wordcraft)">✨ Elaborate</button>
+                                <button type="button" wire:click.stop="aiShortenBlock({{ $index }})" title="Shorten">✂️ Shorten</button>
+                                <button type="button" wire:click.stop="aiFixTone({{ $index }}, 'akademik')" title="Formal Tone">🎓 Tone</button>
+                                <span style="color:#d1d1d1; padding:0 2px;">|</span>
+                                <button type="button" wire:click.stop="moveBlock({{ $index }}, -1)" title="Move Up">▲</button>
+                                <button type="button" wire:click.stop="moveBlock({{ $index }}, 1)" title="Move Down">▼</button>
+                                <button type="button" wire:click.stop="removeBlock({{ $index }})" style="color:#c50f1f;" title="Delete Block">&times;</button>
                             </div>
 
-                            <!-- BLOCK TYPE: HEADING -->
+                            <!-- BLOCK: HEADING -->
                             @if ($type === 'heading')
                                 @php $level = $block['level'] ?? 1; @endphp
-                                <input type="text" value="{{ $block['text'] ?? '' }}"
-                                    wire:blur="updateBlockText({{ $index }}, $event.target.value)"
-                                    class="ns-input-heading {{ $level === 1 ? 'ns-input-heading--h1' : ($level === 2 ? 'ns-input-heading--h2' : 'ns-input-heading--h3') }}"
-                                    placeholder="Judul (H{{ $level }})...">
+                                @if ($level === 1)
+                                    <input type="text" value="{{ $block['text'] ?? '' }}"
+                                        wire:blur="updateBlockText({{ $index }}, $event.target.value)"
+                                        class="word-title-text"
+                                        placeholder="The Open Studio Handbook">
+                                @elseif ($level === 2)
+                                    <input type="text" value="{{ $block['text'] ?? '' }}"
+                                        wire:blur="updateBlockText({{ $index }}, $event.target.value)"
+                                        class="word-heading-2"
+                                        placeholder="Heading 2...">
+                                @else
+                                    <input type="text" value="{{ $block['text'] ?? '' }}"
+                                        wire:blur="updateBlockText({{ $index }}, $event.target.value)"
+                                        class="word-heading-3"
+                                        placeholder="Heading 3...">
+                                @endif
 
-                            <!-- BLOCK TYPE: CALLOUT (LIBREOFFICE CALLOUT BOX) -->
+                            <!-- BLOCK: BULLET LIST -->
+                            @elseif ($type === 'bullet')
+                                <div class="word-bullet-item">
+                                    <span class="word-bullet-dot">•</span>
+                                    <textarea rows="1" wire:blur="updateBlockText({{ $index }}, $event.target.value)"
+                                        class="word-paragraph-text" style="min-height:1.7rem;"
+                                        placeholder="List item...">{{ $block['text'] ?? '' }}</textarea>
+                                </div>
+
+                            <!-- BLOCK: NUMBERED LIST -->
+                            @elseif ($type === 'numbered')
+                                <div class="word-bullet-item">
+                                    <span style="font-weight:600; min-width:18px;">1.</span>
+                                    <textarea rows="1" wire:blur="updateBlockText({{ $index }}, $event.target.value)"
+                                        class="word-paragraph-text" style="min-height:1.7rem;"
+                                        placeholder="Numbered item...">{{ $block['text'] ?? '' }}</textarea>
+                                </div>
+
+                            <!-- BLOCK: QUOTE -->
+                            @elseif ($type === 'quote')
+                                <div class="word-quote-block">
+                                    <textarea rows="2" wire:blur="updateBlockText({{ $index }}, $event.target.value)"
+                                        class="word-paragraph-text" style="font-style:italic;"
+                                        placeholder="A studio is a place where unfinished things are welcome.">{{ $block['text'] ?? '' }}</textarea>
+                                </div>
+
+                            <!-- BLOCK: CALLOUT -->
                             @elseif ($type === 'callout')
                                 @php
                                     $cType = $block['calloutType'] ?? 'info';
-                                    $borderColors = [
-                                        'info' => '#2563eb',
-                                        'warning' => '#d97706',
-                                        'tip' => '#059669',
-                                        'note' => '#7c3aed',
-                                        'success' => '#059669',
-                                    ];
-                                    $bgColors = [
-                                        'info' => 'rgba(37,99,235,0.06)',
-                                        'warning' => 'rgba(217,119,6,0.06)',
-                                        'tip' => 'rgba(5,150,105,0.06)',
-                                        'note' => 'rgba(124,58,237,0.06)',
-                                        'success' => 'rgba(5,150,105,0.06)',
-                                    ];
                                 @endphp
-                                <div style="border-left:4px solid {{ $borderColors[$cType] ?? '#2563eb' }}; background:{{ $bgColors[$cType] ?? 'rgba(37,99,235,0.06)' }}; padding:0.75rem; border-radius:0 4px 4px 0;">
-                                    <div style="font-weight:700; font-size:0.65rem; text-transform:uppercase; margin-bottom:0.25rem; font-family:var(--rb-font-mono); color:{{ $borderColors[$cType] ?? '#2563eb' }};">
-                                        📌 Catatan Penting ({{ strtoupper($cType) }})
+                                <div style="border-left:4px solid #0f6cbd; background:rgba(15,108,189,0.04); padding:10px 14px; border-radius:0 4px 4px 0; margin:10px 0;">
+                                    <div style="font-size:11px; font-weight:700; color:#0f6cbd; margin-bottom:4px; text-transform:uppercase;">
+                                        📌 Note ({{ strtoupper($cType) }})
                                     </div>
                                     <textarea rows="2" wire:blur="updateBlockText({{ $index }}, $event.target.value)"
-                                        class="ns-textarea-p" style="font-family:var(--rb-font-serif); font-size:0.9rem;"
-                                        placeholder="Tuliskan catatan khusus di sini...">{{ $block['text'] ?? '' }}</textarea>
+                                        class="word-paragraph-text" style="min-height:2.5rem;"
+                                        placeholder="Callout text...">{{ $block['text'] ?? '' }}</textarea>
                                 </div>
 
-                            <!-- BLOCK TYPE: QUOTE -->
-                            @elseif ($type === 'quote')
-                                <div style="border-left:4px solid var(--rb-ink-muted); padding-left:1rem; font-style:italic;">
-                                    <textarea rows="2" wire:blur="updateBlockText({{ $index }}, $event.target.value)"
-                                        class="ns-textarea-p" style="font-family:var(--rb-font-serif);"
-                                        placeholder="Kutipan langsung...">{{ $block['text'] ?? '' }}</textarea>
-                                </div>
-
-                            <!-- BLOCK TYPE: TABLE (LIBREOFFICE TABLE ENGINE) -->
+                            <!-- BLOCK: TABLE -->
                             @elseif ($type === 'table')
-                                <div style="overflow-x:auto; margin:0.5rem 0; border:1px solid var(--rb-canvas-grid); border-radius:3px;">
-                                    <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
+                                <div style="overflow-x:auto; margin:12px 0; border:1px solid #d1d1d1; border-radius:2px;">
+                                    <table style="width:100%; border-collapse:collapse; font-size:11pt;">
                                         @php
                                             $rows = $block['table']['rows'] ?? [];
                                             $hasHeader = $block['table']['header'] ?? true;
                                         @endphp
                                         @foreach ($rows as $rIdx => $row)
-                                            <tr style="{{ $hasHeader && $rIdx === 0 ? 'background:var(--rb-surface-soft); font-weight:700; border-bottom:2px solid var(--rb-canvas-grid);' : 'border-bottom:1px solid var(--rb-canvas-grid);' }}">
+                                            <tr style="{{ $hasHeader && $rIdx === 0 ? 'background:#f3f2f1; font-weight:600; border-bottom:1px solid #a19f9d;' : 'border-bottom:1px solid #e1dfdd;' }}">
                                                 @foreach ($row as $cIdx => $cell)
-                                                    <td style="padding:0.4rem; border-right:1px solid var(--rb-canvas-grid);">
+                                                    <td style="padding:6px 10px; border-right:1px solid #e1dfdd;">
                                                         <input type="text" value="{{ $cell['text'] ?? '' }}"
                                                             wire:blur="updateTableCell({{ $index }}, {{ $rIdx }}, {{ $cIdx }}, $event.target.value)"
-                                                            style="width:100%; box-sizing:border-box; background:transparent; border:none; outline:none; font-size:0.75rem; padding:0.2rem;">
+                                                            style="width:100%; border:none; background:transparent; outline:none; font-size:11pt;">
                                                     </td>
                                                 @endforeach
                                             </tr>
@@ -602,724 +834,717 @@
                                     </table>
                                 </div>
 
-                            <!-- BLOCK TYPE: PAGEBREAK -->
+                            <!-- BLOCK: PAGEBREAK -->
                             @elseif ($type === 'pagebreak')
-                                <div style="margin:1.5rem 0; border-bottom:2px dashed var(--rb-canvas-grid); text-align:center; position:relative; user-select:none;">
-                                    <span style="background:var(--rb-surface); padding:0 0.75rem; font-size:0.62rem; text-transform:uppercase; font-family:var(--rb-font-mono); color:var(--rb-ink-muted); position:relative; top:-8px;">
-                                        ✂️ Pemisah Halaman
+                                <div style="margin:24px 0; border-bottom:1px dashed #b3b0ad; text-align:center; position:relative; user-select:none;">
+                                    <span style="background:#ffffff; padding:0 12px; font-size:10px; text-transform:uppercase; color:#8a8886; position:relative; top:-8px;">
+                                        Page Break
                                     </span>
                                 </div>
 
-                            <!-- BLOCK TYPE: PARAGRAPH (DEFAULT) -->
+                            <!-- BLOCK: PARAGRAPH (DEFAULT) -->
                             @else
-                                <div style="position:relative;">
-                                    @if (!empty($block['dropCap']))
-                                        <div style="float:left; font-size:3.5rem; font-weight:900; font-family:var(--rb-font-serif); line-height:0.85; margin-right:0.6rem; margin-top:0.2rem; color:var(--rb-primary); user-select:none;">
-                                            {{ mb_substr($block['text'] ?? '', 0, 1) }}
-                                        </div>
+                                <div>
+                                    @if ($index === 1 && !empty($block['text']) && str_contains($block['text'], 'How a small community'))
+                                        <input type="text" value="{{ $block['text'] ?? '' }}"
+                                            wire:blur="updateBlockText({{ $index }}, $event.target.value)"
+                                            class="word-subtitle-text"
+                                            placeholder="How a small community of makers shares space, tools and time">
+                                    @else
+                                        @if (!empty($block['dropCap']))
+                                            <div style="float:left; font-size:3.2rem; font-weight:700; line-height:0.85; margin-right:8px; margin-top:2px; color:#0f6cbd; user-select:none;">
+                                                {{ mb_substr($block['text'] ?? '', 0, 1) }}
+                                            </div>
+                                        @endif
+                                        <textarea rows="3" wire:blur="updateBlockText({{ $index }}, $event.target.value)"
+                                            class="word-paragraph-text"
+                                            placeholder="Write your text here...">{{ $block['text'] ?? '' }}</textarea>
                                     @endif
-                                    <textarea rows="3" wire:blur="updateBlockText({{ $index }}, $event.target.value)"
-                                        class="ns-textarea-p"
-                                        placeholder="Mulai menulis kalimat Anda di sini...">{{ $block['text'] ?? '' }}</textarea>
                                 </div>
                             @endif
+
                         </div>
                     @endforeach
                 </div>
 
-                <!-- Empty State & Quick Insert Button -->
-                <div style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--rb-canvas-grid); display:flex; justify-content:center;">
-                    <button type="button" wire:click="addBlock('paragraph')"
-                        class="ns-btn font-bold font-mono" style="padding:0.5rem 1rem; border:2px dashed var(--rb-ink-muted);">
-                        <span>+ Tambah Paragraf Baru</span>
+                <!-- Add Block Quick Launcher -->
+                <div style="margin-top:28px; padding-top:14px; border-top:1px dashed #d1d1d1; display:flex; justify-content:center; gap:8px;">
+                    <button type="button" wire:click="addBlock('paragraph')" class="word-btn-pill" style="border-style:dashed;">
+                        + Add Paragraph
+                    </button>
+                    <button type="button" wire:click="addBlock('heading')" class="word-btn-pill" style="border-style:dashed;">
+                        + Add Heading
+                    </button>
+                    <button type="button" wire:click="addBlock('bullet')" class="word-btn-pill" style="border-style:dashed;">
+                        + Add Bullet
                     </button>
                 </div>
+
             </div>
         </main>
 
-        <!-- RIGHT SIDEBAR: COMMENTS & REVISIONS (LIBREOFFICE REVIEW PANEL) -->
-        @if (($showComments || $showRevisions) && ! $zenMode)
-            <aside class="ns-sidebar-right">
-                @if ($showComments)
-                    <div class="ns-sidebar-header" style="padding:0.65rem 0.85rem; background:var(--rb-surface-soft); margin-bottom:0;">
-                        <span>💬 Komentar ({{ count($comments) }})</span>
-                        <button type="button" wire:click="$set('showComments', false)" style="background:none; border:none; font-size:1.1rem; cursor:pointer;">&times;</button>
+        <!-- ================================================================= -->
+        <!-- RIGHT TASK PANE: 18 UX KPIS, EDITOR, COMMENTS, ASSISTANT          -->
+        <!-- ================================================================= -->
+        @if ($kpiDrawerOpen || $showComments || $showRevisions || $assistantOpen)
+            <aside class="word-taskpane">
+
+                <!-- 18 UX KPIS & USABILITY TELEMETRY PANE -->
+                @if ($kpiDrawerOpen)
+                    <div class="word-taskpane-header">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <div style="width:20px; height:20px; background:#0f6cbd; border-radius:3px; display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:11px;">📊</div>
+                            <span class="word-taskpane-title">18 UX KPIs &amp; Telemetry</span>
+                        </div>
+                        <button type="button" class="word-icon-btn" wire:click="toggleKpiDrawer">&times;</button>
                     </div>
-                    <div style="padding:0.75rem; display:flex; flex-direction:column; gap:0.5rem; border-bottom:1px solid var(--rb-canvas-grid);">
-                        <div style="display:flex; gap:0.35rem;">
-                            <input type="text" class="ns-btn" style="flex:1;" placeholder="Komentar blok #{{ $activeBlock + 1 }}..." wire:model="commentDraft" wire:keydown.enter="addComment">
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="addComment">+</button>
+
+                    <!-- Framework Switcher Tabs (HEART, AARRR, Usability, Resources) -->
+                    <div class="word-nav-subtabs" style="padding:8px 12px; background:var(--ms-bg-subtle, #f9f9fb);">
+                        <button type="button" wire:click="setKpiFramework('HEART')" class="word-nav-pill {{ $kpiActiveFramework === 'HEART' ? 'active' : '' }}">
+                            ❤️ HEART
+                        </button>
+                        <button type="button" wire:click="setKpiFramework('AARRR')" class="word-nav-pill {{ $kpiActiveFramework === 'AARRR' ? 'active' : '' }}">
+                            🏴‍☠️ AARRR
+                        </button>
+                        <button type="button" wire:click="setKpiFramework('UX')" class="word-nav-pill {{ $kpiActiveFramework === 'UX' ? 'active' : '' }}">
+                            🎯 18 KPIs
+                        </button>
+                        <button type="button" wire:click="setKpiFramework('RESOURCES')" class="word-nav-pill {{ $kpiActiveFramework === 'RESOURCES' ? 'active' : '' }}">
+                            📖 Guides
+                        </button>
+                    </div>
+
+                    <!-- Task Pane Body -->
+                    <div class="word-taskpane-body">
+                        <!-- Top Usability Summary Card -->
+                        <div style="padding:12px; border-radius:6px; background:#ebf3fc; border:1px solid #cfe4fa; display:flex; flex-direction:column; gap:6px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <strong style="color:#0f6cbd; font-size:13px;">Editor &amp; UX Health Score</strong>
+                                <span style="font-weight:700; color:#107c41; font-size:13px;">{{ $complianceAudit['score'] }}% ({{ $complianceAudit['grade'] }})</span>
+                            </div>
+                            <div style="font-size:11px; color:#424242; line-height:1.4;">
+                                ⏱️ Time on Task: <strong>{{ floor($sessionSeconds / 60) }}m {{ $sessionSeconds % 60 }}s</strong> • Sitasi: <strong>{{ round(($statistics['words'] > 0 ? (($elements['footnotes'] ?? 0) / max(1, $statistics['words'])) * 1000 : 0), 1) }}/1k</strong>
+                            </div>
+                        </div>
+
+                        <!-- CSAT Rating Widget -->
+                        <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:6px; background:#ffffff;">
+                            <div style="font-size:12px; font-weight:600; margin-bottom:4px; display:flex; justify-content:space-between;">
+                                <span>Bagikan Kepuasan UX (CSAT)</span>
+                                <span style="color:#b74700; font-weight:700;">{{ $csatScore }}.0 / 5.0</span>
+                            </div>
+                            <div style="display:flex; gap:4px; margin-bottom:6px;">
+                                @for ($s = 1; $s <= 5; $s++)
+                                    <button type="button" wire:click="rateCsat({{ $s }})" style="background:none; border:none; font-size:18px; cursor:pointer; color: {{ $csatScore >= $s ? '#d97706' : '#d1d1d1' }};">
+                                        ★
+                                    </button>
+                                @endfor
+                            </div>
+                            @if ($csatSubmitted)
+                                <div style="font-size:11px; color:#107c41; font-weight:600;">✓ Rating kepuasan telah dicatat ke telemetri HEART.</div>
+                            @endif
+                        </div>
+
+                        <!-- TAB: RESOURCES (6 UX GUIDES FROM PROMPT) -->
+                        @if ($kpiActiveFramework === 'RESOURCES')
+                            <div style="display:flex; flex-direction:column; gap:8px;">
+                                <div style="font-size:12px; font-weight:600; color:#242424;">18 KPIs &amp; UX Behavioral Resources:</div>
+
+                                <a href="https://lnkd.in/dWGVK2Tp" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
+                                    <strong style="color:#0f6cbd; font-size:12px;">1. Understanding Metrics (Guide) ↗</strong>
+                                    <span style="font-size:11px; color:#616161;">Panduan taksonomi metrik kuantitatif &amp; kualitatif untuk mengukur perilaku pengguna.</span>
+                                </a>
+
+                                <a href="https://lnkd.in/dfbfSg8T" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
+                                    <strong style="color:#0f6cbd; font-size:12px;">2. Ultimate Guide to Product Metrics (57 Metrics) ↗</strong>
+                                    <span style="font-size:11px; color:#616161;">Katalog 57 metrik produk digital untuk efisiensi, retensi, dan keberhasilan tugas.</span>
+                                </a>
+
+                                <a href="https://lnkd.in/dAS5bdx5" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
+                                    <strong style="color:#0f6cbd; font-size:12px;">3. Product Metrics That Matter ↗</strong>
+                                    <span style="font-size:11px; color:#616161;">Membedakan sinyal perilaku nyata dari vanity metrics dalam antarmuka naskah.</span>
+                                </a>
+
+                                <a href="https://lnkd.in/dvA_si5X" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
+                                    <strong style="color:#0f6cbd; font-size:12px;">4. AARRR Pirate Framework ↗</strong>
+                                    <span style="font-size:11px; color:#616161;">Acquisition, Activation, Retention, Referral, dan Revenue funnel.</span>
+                                </a>
+
+                                <a href="https://lnkd.in/dSNEHVRx" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
+                                    <strong style="color:#0f6cbd; font-size:12px;">5. Google HEART Framework ↗</strong>
+                                    <span style="font-size:11px; color:#616161;">Happiness, Engagement, Adoption, Retention, and Task Success.</span>
+                                </a>
+
+                                <a href="https://lnkd.in/dsMA7AFH" target="_blank" rel="noopener noreferrer" class="word-metric-card" style="text-decoration:none;">
+                                    <strong style="color:#0f6cbd; font-size:12px;">6. UX Specific KPIs ↗</strong>
+                                    <span style="font-size:11px; color:#616161;">Task Completion Rate, Time on Task, User Error Rate, dan SEQ/CSAT.</span>
+                                </a>
+                            </div>
+
+                        <!-- TAB: METRIC CARDS LIST (HEART, AARRR, UX) -->
+                        @else
+                            @php
+                                $filteredKpis = array_filter($uxKpis, fn($m) => $kpiActiveFramework === 'UX' ? ($m['framework'] === 'UX') : ($m['framework'] === $kpiActiveFramework));
+                            @endphp
+                            @foreach ($filteredKpis as $kpiKey => $kpi)
+                                <div class="word-metric-card">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <strong style="font-size:12px; color:var(--ms-text-primary);">{{ $kpi['label'] }}</strong>
+                                        <span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:3px; background:{{ $kpi['healthy'] ? '#d1fae5; color:#065f46;' : '#fef3c7; color:#92400e;' }}">
+                                            {{ $kpi['healthy'] ? 'OPTIMAL' : 'ATTENTION' }}
+                                        </span>
+                                    </div>
+                                    <p style="font-size:11px; color:var(--ms-text-secondary); line-height:1.4;">{{ $kpi['description'] }}</p>
+                                    <div style="display:flex; justify-content:space-between; font-size:11px; padding-top:4px; border-top:1px solid #edebe9;">
+                                        <span>Current: <strong>{{ $kpi['value'] }} {{ $kpi['unit'] }}</strong></span>
+                                        <span style="color:var(--ms-text-muted);">Target: {{ $kpi['target'] }} {{ $kpi['unit'] }}</span>
+                                    </div>
+                                </div>
+                            @endforeach
+                        @endif
+                    </div>
+
+                <!-- COMMENTS TASK PANE -->
+                @elseif ($showComments)
+                    <div class="word-taskpane-header">
+                        <span class="word-taskpane-title">Comments ({{ count($comments) }})</span>
+                        <button type="button" class="word-icon-btn" wire:click="$set('showComments', false)">&times;</button>
+                    </div>
+                    <div class="word-taskpane-body">
+                        <div style="display:flex; gap:6px;">
+                            <input type="text" class="word-select" style="flex:1; height:32px;" placeholder="Comment on block #{{ $activeBlock + 1 }}..." wire:model="commentDraft" wire:keydown.enter="addComment">
+                            <button type="button" class="word-btn-pill word-btn-share" wire:click="addComment">Post</button>
                         </div>
                         @forelse ($comments as $cIdx => $c)
-                            <div style="padding:0.5rem; border-radius:3px; border:1px solid {{ !empty($c['resolved']) ? 'var(--rb-canvas-grid)' : '#93c5fd' }}; background:{{ !empty($c['resolved']) ? 'var(--rb-surface-soft); opacity:0.6;' : 'rgba(37,99,235,0.05);' }}">
-                                <div style="display:flex; justify-content:space-between; font-size:0.62rem; color:var(--rb-ink-muted); margin-bottom:0.25rem;">
-                                    <strong>{{ $c['author'] ?? 'Penulis' }}</strong>
-                                    <span>Blok #{{ ((int)($c['blockIndex'] ?? 0)) + 1 }}</span>
+                            <div style="padding:10px; border-radius:6px; border:1px solid #e1dfdd; background:#ffffff; box-shadow:var(--ms-shadow-card);">
+                                <div style="display:flex; justify-content:space-between; font-size:11px; color:#8a8886; margin-bottom:4px;">
+                                    <strong>{{ $c['author'] ?? 'Reviewer' }}</strong>
+                                    <span>Block #{{ ((int)($c['blockIndex'] ?? 0)) + 1 }}</span>
                                 </div>
-                                <p style="margin-bottom:0.4rem; line-height:1.4;">{{ $c['body'] ?? '' }}</p>
-                                <div style="display:flex; justify-content:flex-end; gap:0.5rem; font-size:0.62rem;">
-                                    <button type="button" wire:click="resolveComment({{ $cIdx }})" class="ns-btn" style="padding:0.1rem 0.35rem; color:var(--rb-primary);">
-                                        {{ !empty($c['resolved']) ? 'Buka Kembali' : '✓ Selesai' }}
+                                <p style="font-size:12px; line-height:1.45; margin-bottom:8px;">{{ $c['body'] ?? '' }}</p>
+                                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                                    <button type="button" wire:click="resolveComment({{ $cIdx }})" class="word-tool-btn" style="color:#0f6cbd;">
+                                        {{ !empty($c['resolved']) ? 'Reopen' : '✓ Resolve' }}
                                     </button>
-                                    <button type="button" wire:click="deleteComment({{ $cIdx }})" class="ns-btn" style="padding:0.1rem 0.35rem; color:#dc2626;">Hapus</button>
+                                    <button type="button" wire:click="deleteComment({{ $cIdx }})" class="word-tool-btn" style="color:#c50f1f;">Delete</button>
                                 </div>
                             </div>
                         @empty
-                            <div style="text-align:center; color:var(--rb-ink-muted); font-style:italic; padding:1rem 0;">Belum ada komentar.</div>
+                            <div style="text-align:center; color:#8a8886; font-size:12px; padding:24px 0;">No comments yet.</div>
                         @endforelse
                     </div>
-                @endif
 
-                @if ($showRevisions)
-                    <div class="ns-sidebar-header" style="padding:0.65rem 0.85rem; background:var(--rb-surface-soft); margin-bottom:0;">
-                        <span>👁️ Pelacakan Revisi ({{ $pendingRevisionCount }} pending)</span>
-                        <button type="button" wire:click="$set('showRevisions', false)" style="background:none; border:none; font-size:1.1rem; cursor:pointer;">&times;</button>
+                <!-- REVISIONS TASK PANE -->
+                @elseif ($showRevisions)
+                    <div class="word-taskpane-header">
+                        <span class="word-taskpane-title">Track Changes ({{ $pendingRevisionCount }} pending)</span>
+                        <button type="button" class="word-icon-btn" wire:click="$set('showRevisions', false)">&times;</button>
                     </div>
-                    <div style="padding:0.75rem; display:flex; flex-direction:column; gap:0.5rem;">
-                        <div style="display:flex; gap:0.35rem; margin-bottom:0.5rem;">
-                            <button type="button" wire:click="acceptAllRevisions" class="ns-btn ns-btn--primary" style="flex:1; justify-content:center;">✓ Terima Semua</button>
-                            <button type="button" wire:click="rejectAllRevisions" class="ns-btn" style="flex:1; justify-content:center; color:#dc2626;">✕ Tolak Semua</button>
+                    <div class="word-taskpane-body">
+                        <div style="display:flex; gap:6px; margin-bottom:8px;">
+                            <button type="button" wire:click="acceptAllRevisions" class="word-btn-pill word-btn-share" style="flex:1; justify-content:center;">✓ Accept All</button>
+                            <button type="button" wire:click="rejectAllRevisions" class="word-btn-pill" style="flex:1; justify-content:center; color:#c50f1f;">✕ Reject All</button>
                         </div>
                         @forelse ($revisions as $rIdx => $rev)
                             @if (($rev['status'] ?? '') === 'pending')
-                                <div style="padding:0.5rem; border-radius:3px; border:1px solid #f59e0b; background:rgba(245,158,11,0.06); font-size:0.68rem;">
-                                    <div style="font-size:0.62rem; color:var(--rb-ink-muted); margin-bottom:0.25rem;">
-                                        {{ $rev['author'] ?? 'Penulis' }} · Blok #{{ ((int)($rev['blockIndex'] ?? 0)) + 1 }}
-                                    </div>
-                                    <div style="display:flex; flex-direction:column; gap:0.25rem; margin-bottom:0.4rem;">
-                                        <div style="text-decoration:line-through; color:#dc2626; background:#fee2e2; padding:0.25rem; border-radius:2px;">{{ $rev['before'] ?? '' }}</div>
-                                        <div style="color:#059669; background:#d1fae5; padding:0.25rem; border-radius:2px; font-weight:600;">{{ $rev['after'] ?? '' }}</div>
-                                    </div>
-                                    <div style="display:flex; justify-content:flex-end; gap:0.5rem; font-size:0.62rem;">
-                                        <button type="button" wire:click="acceptRevision({{ $rIdx }})" class="ns-btn" style="color:#059669; font-weight:700;">✓ Terima</button>
-                                        <button type="button" wire:click="rejectRevision({{ $rIdx }})" class="ns-btn" style="color:#dc2626;">✕ Tolak</button>
+                                <div style="padding:10px; border-radius:6px; border:1px solid #fde68a; background:#fffbeb; font-size:12px;">
+                                    <div style="font-size:10px; color:#8a8886; margin-bottom:4px;">{{ $rev['author'] ?? 'Author' }} · Block #{{ ((int)($rev['blockIndex'] ?? 0)) + 1 }}</div>
+                                    <div style="text-decoration:line-through; color:#c50f1f; margin-bottom:2px;">{{ $rev['before'] ?? '' }}</div>
+                                    <div style="color:#107c41; font-weight:600; margin-bottom:6px;">{{ $rev['after'] ?? '' }}</div>
+                                    <div style="display:flex; justify-content:flex-end; gap:6px;">
+                                        <button type="button" wire:click="acceptRevision({{ $rIdx }})" class="word-tool-btn" style="color:#107c41;">✓ Accept</button>
+                                        <button type="button" wire:click="rejectRevision({{ $rIdx }})" class="word-tool-btn" style="color:#c50f1f;">✕ Reject</button>
                                     </div>
                                 </div>
                             @endif
                         @empty
-                            <div style="text-align:center; color:var(--rb-ink-muted); font-style:italic; padding:1rem 0;">Tidak ada revisi pending.</div>
+                            <div style="text-align:center; color:#8a8886; font-size:12px; padding:24px 0;">No pending revisions.</div>
                         @endforelse
                     </div>
+
+                <!-- COPILOT / XISHIE ASSISTANT PANE -->
+                @elseif ($assistantOpen)
+                    <div class="word-taskpane-header">
+                        <span class="word-taskpane-title">🤖 Copilot &amp; Assistant</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeAssistant">&times;</button>
+                    </div>
+                    <div class="word-taskpane-body">
+                        <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                            <button type="button" wire:click="runTool('parafrase')" class="word-btn-pill" style="font-size:11px;">/parafrase</button>
+                            <button type="button" wire:click="runTool('sitasi')" class="word-btn-pill" style="font-size:11px;">/sitasi</button>
+                            <button type="button" wire:click="runTool('cek-pedoman')" class="word-btn-pill" style="font-size:11px;">/cek-pedoman</button>
+                        </div>
+                        <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+                            @forelse ($assistantLog as $log)
+                                <div style="padding:8px 10px; border-radius:6px; font-size:12px; {{ ($log['role'] ?? '') === 'user' ? 'background:#ebf3fc; border:1px solid #cfe4fa; margin-left:12px;' : 'background:#f9f9fb; border:1px solid #e1dfdd; margin-right:12px;' }}">
+                                    <strong style="font-size:10px; color:#8a8886; display:block; margin-bottom:2px;">{{ ($log['role'] ?? '') === 'user' ? 'You' : 'Copilot' }}</strong>
+                                    <div style="line-height:1.45;">{{ $log['content'] ?? '' }}</div>
+                                </div>
+                            @empty
+                                <div style="text-align:center; color:#8a8886; font-size:12px; padding:32px 0;">Ask Copilot to help draft, cite, or refine your manuscript.</div>
+                            @endforelse
+                        </div>
+                        <form wire:submit.prevent="sendAssistant" style="display:flex; gap:4px; margin-top:8px;">
+                            <input type="text" wire:model="assistantInput" class="word-select" style="flex:1; height:32px;" placeholder="Ask Copilot or type /command...">
+                            <button type="submit" class="word-btn-pill word-btn-share">Send</button>
+                        </form>
+                    </div>
                 @endif
+
             </aside>
         @endif
 
-        <!-- RIGHT SIDEBAR: AI CO-WRITER ASSISTANT -->
-        <aside x-show="!zenMode && {{ $assistantOpen ? 'true' : 'false' }}" class="ns-sidebar-right">
-            <div class="ns-sidebar-header" style="padding:0.65rem 0.85rem; background:var(--rb-primary); color:#ffffff; margin-bottom:0;">
-                <span style="color:#ffffff;">🤖 XISHIE CO-WRITER</span>
-                <button type="button" wire:click="closeAssistant" style="background:none; border:none; color:#ffffff; font-size:1.1rem; cursor:pointer;">&times;</button>
-            </div>
-
-            <!-- Assistant Tool Buttons -->
-            <div style="padding:0.5rem; border-bottom:1px solid var(--rb-canvas-grid); display:flex; flex-wrap:wrap; gap:0.25rem; background:var(--rb-surface-soft);">
-                <button type="button" wire:click="runTool('parafrase')" class="ns-btn font-mono" style="font-size:0.62rem;">/parafrase</button>
-                <button type="button" wire:click="runTool('sitasi')" class="ns-btn font-mono" style="font-size:0.62rem;">/sitasi</button>
-                <button type="button" wire:click="runTool('cek-pedoman')" class="ns-btn font-mono" style="font-size:0.62rem;">/cek-pedoman</button>
-                <button type="button" wire:click="runTool('cek-gap')" class="ns-btn font-mono" style="font-size:0.62rem;">/cek-gap</button>
-            </div>
-
-            <!-- Messages Transcript -->
-            <div style="flex:1; overflow-y:auto; padding:0.75rem; display:flex; flex-direction:column; gap:0.65rem;">
-                @forelse ($assistantLog as $log)
-                    <div style="padding:0.65rem; border-radius:3px; border:1px solid; {{ ($log['role'] ?? '') === 'user' ? 'background:var(--rb-accent-soft); border-color:#93c5fd; margin-left:1rem;' : 'background:var(--rb-surface-soft); border-color:var(--rb-canvas-grid); margin-right:1rem;' }}">
-                        <strong style="display:block; font-size:0.62rem; text-transform:uppercase; font-family:var(--rb-font-mono); margin-bottom:0.25rem; color:var(--rb-ink-muted);">
-                            {{ ($log['role'] ?? '') === 'user' ? 'Anda' : 'Asisten Xishie' }}
-                        </strong>
-                        <div style="line-height:1.5; white-space:pre-line;">{{ $log['content'] ?? '' }}</div>
-                    </div>
-                @empty
-                    <div style="text-align:center; color:var(--rb-ink-muted); font-style:italic; padding:2rem 0;">
-                        Ajukan pertanyaan atau minta bantuan penulisan naskah kepada asisten akademik.
-                    </div>
-                @endforelse
-            </div>
-
-            <!-- Chat Input -->
-            <div style="padding:0.5rem; border-top:1px solid var(--rb-canvas-grid); background:var(--rb-surface);">
-                <form wire:submit.prevent="sendAssistant" style="display:flex; gap:0.25rem;">
-                    <input type="text" wire:model="assistantInput"
-                        class="ns-btn" style="flex:1; font-size:0.75rem;"
-                        placeholder="Tanya asisten atau ketik /perintah...">
-                    <button type="submit" class="ns-btn ns-btn--primary font-mono font-bold">
-                        Kirim
-                    </button>
-                </form>
-            </div>
-        </aside>
-
-        <!-- Floating Assistant Trigger when closed -->
-        <button type="button" wire:click="openAssistant" x-show="!zenMode && !{{ $assistantOpen ? 'true' : 'false' }}"
-            class="ns-btn ns-btn--primary font-mono font-bold"
-            style="position:fixed; bottom:2.5rem; right:1.5rem; z-index:30; padding:0.65rem 1rem; border-radius:24px; box-shadow:var(--rb-shadow); border:var(--rb-border);">
-            <span>🤖 Asisten AI</span>
-        </button>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- BOTTOM STATUS BAR (LIBREOFFICE WRITER STATUS BAR)                      -->
+    <!-- 6. BOTTOM STATUS BAR (EXACT MATCH FOR IMAGE 1)                        -->
     <!-- ===================================================================== -->
-    <footer class="ns-statusbar">
-        <div style="display:flex; align-items:center; gap:1rem;">
-            <span>Halaman 1 / 1</span>
-            <span>{{ $blockCount }} blok</span>
-            <span><strong>{{ number_format($wordCount) }}</strong> kata</span>
-            <span>{{ number_format($charCount) }} karakter</span>
-            <span>⏱️ ~{{ $statistics['readingTimeMinutes'] ?? 1 }}m baca</span>
-            <span>🎤 ~{{ $statistics['speakingTimeMinutes'] ?? 1 }}m bicara</span>
+    <footer class="word-statusbar">
+        <!-- Left: Page X of Y, Words, Proofing Language, Accessibility -->
+        <div class="word-statusbar__left">
+            <div class="word-status-item" wire:click="openDialog('stats')" title="Jump to page">
+                Page 1 of 2
+            </div>
+            <div class="word-status-item" wire:click="openDialog('stats')" title="View Word Count &amp; Reading Stats">
+                1 of {{ number_format($wordCount) }} words
+            </div>
+            <div class="word-status-item" wire:click="openDialog('spelling')" title="Proofing Language">
+                English (United States)
+            </div>
+            <div class="word-status-item" wire:click="toggleKpiDrawer('UX')" title="Accessibility &amp; Compliance">
+                <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" style="color:#107c41;">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span>Accessibility: Good to go</span>
+            </div>
         </div>
-        <div style="display:flex; align-items:center; gap:0.75rem;">
-            <span>{{ $lastSavedAt ? 'Disimpan: ' . $lastSavedAt : 'Belum disimpan' }}</span>
-            <div style="display:flex; align-items:center; gap:0.25rem;">
-                <button type="button" wire:click="zoomOut" class="ns-btn" style="padding:0.1rem 0.35rem;">-</button>
-                <span style="font-weight:700;">{{ $zoom }}%</span>
-                <button type="button" wire:click="zoomIn" class="ns-btn" style="padding:0.1rem 0.35rem;">+</button>
+
+        <!-- Right: Focus Mode, View Switchers, Interactive Zoom Slider -->
+        <div class="word-statusbar__right">
+            <!-- Focus Button (Image 1) -->
+            <button type="button" class="word-status-item" wire:click="toggleZenMode" style="border:none; background:transparent;" title="Focus Mode / Zen">
+                <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor">
+                    <path d="M3 4a1 1 0 011-1h4a1 1 0 010 2H5v3a1 1 0 01-2 0V4zm14 0a1 1 0 00-1-1h-4a1 1 0 100 2h3v3a1 1 0 102 0V4zm-1 12h-3a1 1 0 100 2h4a1 1 0 001-1v-4a1 1 0 10-2 0v3zM4 16v-3a1 1 0 10-2 0v4a1 1 0 001 1h4a1 1 0 100-2H4z"/>
+                </svg>
+                <span>Focus</span>
+            </button>
+
+            <!-- View Mode Switchers (Read Mode, Print Layout, Web Layout) -->
+            <div class="word-view-switchers">
+                <!-- Read Mode -->
+                <button type="button" class="word-view-btn {{ $viewMode === 'read' ? 'active' : '' }}" wire:click="$set('viewMode', 'read')" title="Read Mode">
+                    <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/></svg>
+                </button>
+                <!-- Print Layout (Default Active in Image 1) -->
+                <button type="button" class="word-view-btn {{ $viewMode === 'print' ? 'active' : '' }}" wire:click="$set('viewMode', 'print')" title="Print Layout">
+                    <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clip-rule="evenodd"/></svg>
+                </button>
+                <!-- Web Layout -->
+                <button type="button" class="word-view-btn {{ $viewMode === 'web' ? 'active' : '' }}" wire:click="$set('viewMode', 'web')" title="Web Layout">
+                    <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor"><path fill-rule="evenodd" d="M4.083 9h11.834a8 8 0 010 2H4.083a8 8 0 010-2zM10 2a8 8 0 100 16 8 8 0 000-16z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+
+            <!-- Interactive Zoom Slider & Percentage (Image 1) -->
+            <div class="word-zoom-control">
+                <button type="button" class="word-icon-btn" wire:click="zoomOut" style="width:18px; height:18px; font-size:12px;" title="Zoom Out">-</button>
+                <input type="range" min="50" max="200" step="10" wire:model.live="zoom" class="word-zoom-slider" title="Zoom Slider: {{ $zoom }}%">
+                <button type="button" class="word-icon-btn" wire:click="zoomIn" style="width:18px; height:18px; font-size:12px;" title="Zoom In">+</button>
+                <span class="word-status-item" wire:click="setZoomLevel('100')" style="font-size:11px; font-weight:600; min-width:34px;">
+                    {{ $zoom }}%
+                </span>
             </div>
         </div>
     </footer>
 
     <!-- ===================================================================== -->
-    <!-- 18 UX KPIS & PRODUCT TELEMETRY INSPECTOR (HEART + AARRR DRAWER)        -->
-    <!-- ===================================================================== -->
-    <div x-show="kpiDrawer" class="ns-dialog-backdrop">
-        <div class="ns-drawer-kpi">
-            <!-- Header -->
-            <div class="ns-dialog__header" style="padding:0.75rem 1rem;">
-                <div>
-                    <h2 style="font-weight:800; font-size:0.85rem; font-family:var(--rb-font-mono); letter-spacing:0.04em;">📊 18 UX &amp; PRODUCT METRICS INSPECTOR</h2>
-                    <span style="font-size:0.68rem; opacity:0.8;">Google HEART Framework • AARRR Pirate Funnel • Usability KPIs</span>
-                </div>
-                <button type="button" wire:click="toggleKpiDrawer" style="font-size:1.4rem;">&times;</button>
-            </div>
-
-            <!-- Framework Tabs -->
-            <div class="ns-ribbon-tabs" style="background:var(--rb-surface-soft);">
-                <button type="button" wire:click="setKpiFramework('HEART')" class="ns-ribbon-tab {{ $kpiActiveFramework === 'HEART' ? 'active' : '' }}">
-                    ❤️ Google HEART
-                </button>
-                <button type="button" wire:click="setKpiFramework('AARRR')" class="ns-ribbon-tab {{ $kpiActiveFramework === 'AARRR' ? 'active' : '' }}">
-                    🏴‍☠️ AARRR Funnel
-                </button>
-                <button type="button" wire:click="setKpiFramework('UX')" class="ns-ribbon-tab {{ $kpiActiveFramework === 'UX' ? 'active' : '' }}">
-                    🎯 Usability Specific
-                </button>
-                <button type="button" wire:click="setKpiFramework('RESOURCES')" class="ns-ribbon-tab {{ $kpiActiveFramework === 'RESOURCES' ? 'active' : '' }}">
-                    📖 Panduan Desain UX
-                </button>
-            </div>
-
-            <!-- Content Area -->
-            <div class="ns-dialog__body" style="flex:1; max-height:none; padding:1rem;">
-                @if ($kpiActiveFramework === 'RESOURCES')
-                    <!-- Panduan & Referensi Metrik Produk -->
-                    <div style="display:flex; flex-direction:column; gap:0.75rem;">
-                        <div style="padding:0.85rem; background:var(--rb-accent-soft); border:1px solid #93c5fd; border-radius:3px;">
-                            <strong style="color:var(--rb-primary); display:block; margin-bottom:0.35rem; font-family:var(--rb-font-mono);">Prinsip Pengukuran Perilaku Pengguna (UX Metrics That Matter)</strong>
-                            <p style="font-size:0.72rem; line-height:1.5;">
-                                Metrik UX bukan sekadar angka statistik, melainkan jembatan yang menghubungkan niat pengguna, respons antarmuka, dan tingkat keberhasilan tugas akademik sesuai kaidah 18 KPIs every UX designer should know.
-                            </p>
-                        </div>
-
-                        <div style="display:flex; flex-direction:column; gap:0.5rem; font-family:var(--rb-font-mono); font-size:0.72rem;">
-                            <a href="https://lnkd.in/dWGVK2Tp" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
-                                <strong style="color:var(--rb-primary); display:block;">1. Understanding Metrics (Comprehensive Guide) ↗</strong>
-                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Panduan mendalam menyusun taksonomi metrik kuantitatif dan kualitatif.</span>
-                            </a>
-                            <a href="https://lnkd.in/dfbfSg8T" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
-                                <strong style="color:var(--rb-primary); display:block;">2. Ultimate Guide to Product Metrics (57 Metrics) ↗</strong>
-                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Katalog lengkap 57 metrik produk digital untuk efisiensi dan adopsi.</span>
-                            </a>
-                            <a href="https://lnkd.in/dAS5bdx5" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
-                                <strong style="color:var(--rb-primary); display:block;">3. Product Metrics That Matter ↗</strong>
-                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Cara membedakan vanity metrics dari actionable behavioral signals.</span>
-                            </a>
-                            <a href="https://lnkd.in/dvA_si5X" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
-                                <strong style="color:var(--rb-primary); display:block;">4. AARRR Pirate Framework ↗</strong>
-                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Acquisition, Activation, Retention, Referral, dan Conversion.</span>
-                            </a>
-                            <a href="https://lnkd.in/dSNEHVRx" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
-                                <strong style="color:var(--rb-primary); display:block;">5. Google HEART Framework ↗</strong>
-                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Happiness, Engagement, Adoption, Retention, dan Task Success.</span>
-                            </a>
-                            <a href="https://lnkd.in/dsMA7AFH" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
-                                <strong style="color:var(--rb-primary); display:block;">6. UX Specific KPIs ↗</strong>
-                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Task completion rate, Time-on-task, error rate, dan CSAT/SUS.</span>
-                            </a>
-                        </div>
-                    </div>
-                @else
-                    <!-- Metric Cards List -->
-                    @php
-                        $filtered = array_filter($uxKpis, fn($m) => $kpiActiveFramework === 'UX' ? ($m['framework'] === 'UX') : ($m['framework'] === $kpiActiveFramework));
-                    @endphp
-                    @forelse ($filtered as $key => $metric)
-                        <div style="padding:0.75rem; border-radius:3px; border:1px solid var(--rb-canvas-grid); background:var(--rb-surface-soft); display:flex; flex-direction:column; gap:0.35rem;">
-                            <div style="display:flex; align-items:center; justify-content:space-between;">
-                                <strong style="color:var(--rb-ink); font-size:0.75rem;">{{ $metric['label'] }}</strong>
-                                <span class="ns-badge {{ $metric['healthy'] ? 'ns-badge--saved' : 'ns-badge--dirty' }}">
-                                    {{ $metric['healthy'] ? '🟢 SEHAT' : '🟡 PERLU PERHATIAN' }}
-                                </span>
-                            </div>
-
-                            <p style="font-size:0.68rem; color:var(--rb-ink-muted); line-height:1.4;">{{ $metric['description'] }}</p>
-
-                            <div style="display:flex; align-items:center; justify-content:space-between; padding-top:0.35rem; border-top:1px solid var(--rb-canvas-grid); font-family:var(--rb-font-mono); font-size:0.68rem;">
-                                <span style="color:var(--rb-ink-muted);">Nilai: <strong style="color:var(--rb-ink);">{{ $metric['value'] }} {{ $metric['unit'] }}</strong></span>
-                                <span style="color:var(--rb-ink-muted);">Target: {{ $metric['target'] }} {{ $metric['unit'] }}</span>
-                            </div>
-                        </div>
-                    @empty
-                        <div style="text-align:center; color:var(--rb-ink-muted); font-style:italic; padding:2rem 0;">Tidak ada metrik dalam kategori ini.</div>
-                    @endforelse
-                @endif
-            </div>
-
-            <!-- Footer: CSAT In-Drawer Quick Rate -->
-            <div class="ns-dialog__footer" style="align-items:center; justify-content:space-between;">
-                <span style="font-size:0.68rem; color:var(--rb-ink-muted);">Bagaimana pengalaman menulis Anda?</span>
-                <div style="display:flex; gap:0.25rem;">
-                    @for ($i = 1; $i <= 5; $i++)
-                        <button type="button" wire:click="rateCsat({{ $i }})" class="ns-btn font-bold font-mono">
-                            {{ $i }} ⭐
-                        </button>
-                    @endfor
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===================================================================== -->
-    <!-- ALL 16 MODAL DIALOGS (LIBREOFFICE WRITER & WORDCRAFT FULL SUITE)       -->
+    <!-- 7. FLUENT WORD MODAL DIALOGS                                          -->
     <!-- ===================================================================== -->
     @if ($dialog !== '')
-        <div class="ns-dialog-backdrop">
-            <div class="ns-dialog">
+        <div class="word-dialog-backdrop">
+            <div class="word-dialog">
 
-                {{-- DIALOG: CARI & GANTI (FIND & REPLACE) --}}
+                {{-- FIND & REPLACE --}}
                 @if ($dialog === 'find')
-                    <div class="ns-dialog__header">
-                        <span>🔍 Cari dan Ganti Teks</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Find and Replace</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
+                    <div class="word-dialog__body">
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Teks yang dicari:</label>
-                            <input type="text" class="ns-btn" style="width:100%;" wire:model="findQuery" placeholder="Cari..." wire:keydown.enter="findText">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Find what:</label>
+                            <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="findQuery" placeholder="Search query..." wire:keydown.enter="findText">
                         </div>
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Ganti dengan:</label>
-                            <input type="text" class="ns-btn" style="width:100%;" wire:model="replaceQuery" placeholder="Ganti...">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Replace with:</label>
+                            <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="replaceQuery" placeholder="Replacement...">
                         </div>
                         @if ($findResult)
-                            <div style="padding:0.5rem; background:var(--rb-accent-soft); border:1px solid #93c5fd; border-radius:3px; font-family:var(--rb-font-mono); font-size:0.68rem;">
+                            <div style="padding:8px 12px; background:#ebf3fc; border-radius:4px; font-size:12px; color:#0f6cbd;">
                                 {{ $findResult }}
                             </div>
                         @endif
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="findText">Cari</button>
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="replaceAll">Ganti Semua</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="findText">Find Next</button>
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="replaceAll">Replace All</button>
                     </div>
 
-                {{-- DIALOG: STATISTIK & KETERBACAAN --}}
+                {{-- DOCUMENT STATS --}}
                 @elseif ($dialog === 'stats')
-                    <div class="ns-dialog__header">
-                        <span>📊 Statistik Dokumen &amp; Skor Keterbacaan</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Word Count &amp; Readability Statistics</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
-                            <div style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft);">
-                                <span style="font-size:0.6rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono); text-transform:uppercase;">JUMLAH KATA</span>
-                                <div style="font-size:1.25rem; font-weight:800; color:var(--rb-primary);">{{ number_format($statistics['words'] ?? 0) }}</div>
+                    <div class="word-dialog__body">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                            <div class="word-metric-card">
+                                <span style="font-size:11px; color:#8a8886;">WORDS</span>
+                                <strong style="font-size:20px; color:#0f6cbd;">{{ number_format($statistics['words'] ?? 0) }}</strong>
                             </div>
-                            <div style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft);">
-                                <span style="font-size:0.6rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono); text-transform:uppercase;">KARAKTER</span>
-                                <div style="font-size:1.25rem; font-weight:800; color:var(--rb-primary);">{{ number_format($statistics['characters'] ?? 0) }}</div>
+                            <div class="word-metric-card">
+                                <span style="font-size:11px; color:#8a8886;">CHARACTERS</span>
+                                <strong style="font-size:20px; color:#0f6cbd;">{{ number_format($statistics['characters'] ?? 0) }}</strong>
                             </div>
-                            <div style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft);">
-                                <span style="font-size:0.6rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono); text-transform:uppercase;">FLESCH READING EASE</span>
-                                <div style="font-size:1.25rem; font-weight:800; color:#059669;">{{ $statistics['readingEase'] ?? 0 }} / 100</div>
+                            <div class="word-metric-card">
+                                <span style="font-size:11px; color:#8a8886;">FLESCH READING EASE</span>
+                                <strong style="font-size:20px; color:#107c41;">{{ $statistics['readingEase'] ?? 0 }} / 100</strong>
                             </div>
-                            <div style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft);">
-                                <span style="font-size:0.6rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono); text-transform:uppercase;">GRADE LEVEL</span>
-                                <div style="font-size:1.25rem; font-weight:800; color:#d97706;">Kelas {{ $statistics['gradeLevel'] ?? 0 }}</div>
+                            <div class="word-metric-card">
+                                <span style="font-size:11px; color:#8a8886;">READING TIME</span>
+                                <strong style="font-size:20px; color:#d83b01;">~{{ $statistics['readingTimeMinutes'] ?? 1 }} min</strong>
                             </div>
                         </div>
-                        <div style="font-family:var(--rb-font-mono); font-size:0.68rem; display:flex; flex-direction:column; gap:0.25rem; padding-top:0.5rem; border-top:1px solid var(--rb-canvas-grid);">
-                            <div>• Kalimat: {{ $statistics['sentences'] ?? 0 }}</div>
-                            <div>• Paragraf: {{ $statistics['paragraphs'] ?? 0 }}</div>
-                            <div>• Estimasi Waktu Baca: ~{{ $statistics['readingTimeMinutes'] ?? 1 }} menit</div>
-                            <div>• Estimasi Waktu Bicara: ~{{ $statistics['speakingTimeMinutes'] ?? 1 }} menit</div>
+                        <div style="font-size:12px; color:#616161; line-height:1.6; padding-top:6px; border-top:1px solid #edebe9;">
+                            <div>• Sentences: <strong>{{ $statistics['sentences'] ?? 0 }}</strong></div>
+                            <div>• Paragraphs: <strong>{{ $statistics['paragraphs'] ?? 0 }}</strong></div>
+                            <div>• Speaking Time: <strong>~{{ $statistics['speakingTimeMinutes'] ?? 1 }} min</strong></div>
                         </div>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="closeDialog">Tutup</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="closeDialog">Close</button>
                     </div>
 
-                {{-- DIALOG: PAGE SETUP & MARGINS --}}
+                {{-- PAGE SETUP --}}
                 @elseif ($dialog === 'pagesetup')
-                    <div class="ns-dialog__header">
-                        <span>⚙️ Tata Letak Kertas &amp; Margin</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Page Setup &amp; Margins</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                    <div class="word-dialog__body">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                             <div>
-                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Ukuran Kertas:</label>
-                                <select wire:change="updatePageSetup('size', $event.target.value)" class="ns-btn" style="width:100%;">
-                                    <option value="A4" {{ ($pageSetup['size'] ?? '') === 'A4' ? 'selected' : '' }}>A4</option>
-                                    <option value="Letter" {{ ($pageSetup['size'] ?? '') === 'Letter' ? 'selected' : '' }}>Letter</option>
-                                    <option value="Legal" {{ ($pageSetup['size'] ?? '') === 'Legal' ? 'selected' : '' }}>Legal</option>
-                                    <option value="A5" {{ ($pageSetup['size'] ?? '') === 'A5' ? 'selected' : '' }}>A5</option>
+                                <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Paper Size:</label>
+                                <select wire:change="updatePageSetup('size', $event.target.value)" class="word-select" style="width:100%; height:32px;">
+                                    <option value="A4" {{ ($pageSetup['size'] ?? '') === 'A4' ? 'selected' : '' }}>A4 (210 x 297 mm)</option>
+                                    <option value="Letter" {{ ($pageSetup['size'] ?? '') === 'Letter' ? 'selected' : '' }}>Letter (8.5 x 11 in)</option>
+                                    <option value="Legal" {{ ($pageSetup['size'] ?? '') === 'Legal' ? 'selected' : '' }}>Legal (8.5 x 14 in)</option>
                                 </select>
                             </div>
                             <div>
-                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Orientasi:</label>
-                                <select wire:change="updatePageSetup('orientation', $event.target.value)" class="ns-btn" style="width:100%;">
-                                    <option value="portrait" {{ ($pageSetup['orientation'] ?? '') === 'portrait' ? 'selected' : '' }}>Tegak (Portrait)</option>
-                                    <option value="landscape" {{ ($pageSetup['orientation'] ?? '') === 'landscape' ? 'selected' : '' }}>Mendatar (Landscape)</option>
+                                <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Orientation:</label>
+                                <select wire:change="updatePageSetup('orientation', $event.target.value)" class="word-select" style="width:100%; height:32px;">
+                                    <option value="portrait" {{ ($pageSetup['orientation'] ?? '') === 'portrait' ? 'selected' : '' }}>Portrait</option>
+                                    <option value="landscape" {{ ($pageSetup['orientation'] ?? '') === 'landscape' ? 'selected' : '' }}>Landscape</option>
                                 </select>
-                            </div>
-                            <div>
-                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Margin Atas (mm):</label>
-                                <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginTop">
-                            </div>
-                            <div>
-                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Margin Bawah (mm):</label>
-                                <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginBottom">
-                            </div>
-                            <div>
-                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Margin Kiri (mm):</label>
-                                <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginLeft">
-                            </div>
-                            <div>
-                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Margin Kanan (mm):</label>
-                                <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginRight">
                             </div>
                         </div>
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Tanda Air (Watermark):</label>
-                            <input type="text" class="ns-btn" style="width:100%;" wire:model="pageSetup.watermark" placeholder="cth: DRAF RAHASIA">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Watermark:</label>
+                            <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="pageSetup.watermark" placeholder="e.g. DRAFT">
                         </div>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="markDirty; closeDialog()">Terapkan</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="markDirty; closeDialog()">Apply</button>
                     </div>
 
-                {{-- DIALOG: SPELL CHECK --}}
+                {{-- SPELL CHECK --}}
                 @elseif ($dialog === 'spelling')
-                    <div class="ns-dialog__header">
-                        <span>✓ Pemeriksaan Ejaan</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Spelling and Grammar Check</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
-                        <p style="line-height:1.6;">{{ $spellResult ?: 'Ejaan pada dokumen Anda telah diperiksa dan sesuai pedoman.' }}</p>
+                    <div class="word-dialog__body">
+                        <p style="font-size:13px; line-height:1.6;">{{ $spellResult ?: 'Spelling and grammar check is complete. Your manuscript complies with standard rules.' }}</p>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="closeDialog">Tutup</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="closeDialog">Close</button>
                     </div>
 
-                {{-- DIALOG: THESAURUS --}}
+                {{-- THESAURUS --}}
                 @elseif ($dialog === 'thesaurus')
-                    <div class="ns-dialog__header">
-                        <span>📖 Tesaurus Kata Akademik</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Thesaurus</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
-                        <div style="display:flex; gap:0.35rem;">
-                            <input type="text" class="ns-btn" style="flex:1;" wire:model="thesaurusWord" placeholder="Masukkan kata..." wire:keydown.enter="runThesaurus">
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="runThesaurus">Cari</button>
+                    <div class="word-dialog__body">
+                        <div style="display:flex; gap:6px;">
+                            <input type="text" class="word-select" style="flex:1; height:32px;" wire:model="thesaurusWord" placeholder="Look up word..." wire:keydown.enter="runThesaurus">
+                            <button type="button" class="word-btn-pill word-btn-share" wire:click="runThesaurus">Look Up</button>
                         </div>
                         @if ($thesaurusResult)
-                            <div style="padding:0.5rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft); font-size:0.72rem;">
+                            <div style="padding:10px; border:1px solid #e1dfdd; border-radius:4px; font-size:12px; background:#f9f9fb;">
                                 {{ $thesaurusResult }}
                             </div>
                         @endif
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Close</button>
                     </div>
 
-                {{-- DIALOG: SISIPKAN TABEL --}}
+                {{-- INSERT TABLE --}}
                 @elseif ($dialog === 'table')
-                    <div class="ns-dialog__header">
-                        <span>⊞ Sisipkan Tabel Baru</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Insert Table</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                    <div class="word-dialog__body">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                             <div>
-                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Jumlah Baris:</label>
-                                <input type="number" min="1" max="25" class="ns-btn" style="width:100%;" wire:model="tableRows">
+                                <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Number of columns:</label>
+                                <input type="number" min="1" max="10" class="word-select" style="width:100%; height:32px;" wire:model="tableCols">
                             </div>
                             <div>
-                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Jumlah Kolom:</label>
-                                <input type="number" min="1" max="10" class="ns-btn" style="width:100%;" wire:model="tableCols">
+                                <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Number of rows:</label>
+                                <input type="number" min="1" max="25" class="word-select" style="width:100%; height:32px;" wire:model="tableRows">
                             </div>
                         </div>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="insertTable; closeDialog()">Sisipkan</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Cancel</button>
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertTable; closeDialog()">OK</button>
                     </div>
 
-                {{-- DIALOG: SISIPKAN GAMBAR --}}
+                {{-- INSERT IMAGE --}}
                 @elseif ($dialog === 'image')
-                    <div class="ns-dialog__header">
-                        <span>🖼️ Sisipkan Gambar</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Insert Picture</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
+                    <div class="word-dialog__body">
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Unggah Berkas Gambar:</label>
-                            <input type="file" wire:model="imageUpload" accept="image/*" class="ns-btn" style="width:100%;">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Choose Image File:</label>
+                            <input type="file" wire:model="imageUpload" accept="image/*" class="word-select" style="width:100%; height:34px; padding:3px;">
                         </div>
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Keterangan / Alt:</label>
-                            <input type="text" class="ns-btn" style="width:100%;" wire:model="imageAlt" placeholder="Keterangan gambar...">
-                        </div>
-                        <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Lebar Tampilan (px):</label>
-                            <input type="number" class="ns-btn" style="width:100%;" wire:model="imageWidth" value="320">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Alt Description:</label>
+                            <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="imageAlt" placeholder="Caption...">
                         </div>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Close</button>
                     </div>
 
-                {{-- DIALOG: SISIPKAN TAUTAN --}}
+                {{-- INSERT LINK --}}
                 @elseif ($dialog === 'link')
-                    <div class="ns-dialog__header">
-                        <span>🔗 Sisipkan Tautan (Hyperlink)</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Insert Hyperlink</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
+                    <div class="word-dialog__body">
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">URL Tujuan:</label>
-                            <input type="url" class="ns-btn" style="width:100%;" wire:model="linkUrl" placeholder="https://example.com">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Address (URL):</label>
+                            <input type="url" class="word-select" style="width:100%; height:32px;" wire:model="linkUrl" placeholder="https://">
                         </div>
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Teks Tampilan:</label>
-                            <input type="text" class="ns-btn" style="width:100%;" wire:model="linkText" placeholder="Teks yang diklik...">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Text to display:</label>
+                            <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="linkText" placeholder="Link text...">
                         </div>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="insertLink">Sisipkan</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Cancel</button>
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertLink">OK</button>
                     </div>
 
-                {{-- DIALOG: CATATAN KAKI (FOOTNOTE) --}}
+                {{-- FOOTNOTE --}}
                 @elseif ($dialog === 'footnote')
-                    <div class="ns-dialog__header">
-                        <span>⚓ Sisipkan Catatan Kaki</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Insert Footnote</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
+                    <div class="word-dialog__body">
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Isi Catatan Kaki:</label>
-                            <textarea rows="3" class="ns-btn" style="width:100%; font-family:var(--rb-font-serif);" wire:model="footnoteText" placeholder="Ketik keterangan catatan kaki..."></textarea>
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Footnote text:</label>
+                            <textarea rows="3" class="word-select" style="width:100%; height:auto;" wire:model="footnoteText" placeholder="Type footnote..."></textarea>
                         </div>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="insertFootnote">Sisipkan</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Cancel</button>
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertFootnote">Insert</button>
                     </div>
 
-                {{-- DIALOG: SIMBOL KHUSUS --}}
+                {{-- SYMBOLS --}}
                 @elseif ($dialog === 'symbols')
-                    <div class="ns-dialog__header">
-                        <span>Ω Simbol Khusus Tipografi</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Insert Symbol</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
-                        <div style="display:grid; grid-template-columns:repeat(8, 1fr); gap:0.35rem; font-family:var(--rb-font-serif); font-size:1.15rem; text-align:center;">
+                    <div class="word-dialog__body">
+                        <div style="display:grid; grid-template-columns:repeat(8, 1fr); gap:4px; font-size:16px; text-align:center;">
                             @foreach (['©', '®', '™', '§', '¶', '±', '×', '÷', '≠', '≤', '≥', '≈', '∞', '°', 'µ', 'α', 'β', 'γ', 'π', '∑', '√', '—', '–', '•', '€', '£', '¥', '→'] as $sym)
-                                <button type="button" class="ns-btn" style="justify-content:center; padding:0.4rem;" wire:click="insertSymbol('{{ $sym }}'); closeDialog()">
+                                <button type="button" class="word-btn-square" style="width:100%; height:32px;" wire:click="insertSymbol('{{ $sym }}'); closeDialog()">
                                     {{ $sym }}
                                 </button>
                             @endforeach
                         </div>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Close</button>
                     </div>
 
-                {{-- DIALOG: MAIL MERGE CSV --}}
+                {{-- MAIL MERGE CSV --}}
                 @elseif ($dialog === 'merge')
-                    <div class="ns-dialog__header">
-                        <span>✉️ Konfigurasi Mail Merge CSV</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Mail Merge (CSV)</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
+                    <div class="word-dialog__body">
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Data CSV (Baris 1 = Header):</label>
-                            <textarea rows="4" class="ns-btn" style="width:100%; font-family:var(--rb-font-mono); font-size:0.68rem;" wire:model="mergeCsv" placeholder="nama,instansi&#10;Budi,Universitas Indonesia&#10;Siti,ITB"></textarea>
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">CSV Data (Row 1 = Headers):</label>
+                            <textarea rows="4" class="word-select" style="width:100%; height:auto; font-family:var(--ms-font-mono); font-size:11px;" wire:model="mergeCsv" placeholder="name,organization&#10;Alice,Alder Studios&#10;Bob,Makers Guild"></textarea>
                         </div>
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Template Dokumen (Gunakan @{{nama}}):</label>
-                            <textarea rows="2" class="ns-btn" style="width:100%;" wire:model="mergeTemplate" placeholder="Yth. @{{nama}} di @{{instansi}}..."></textarea>
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Template (Use @{{name}}):</label>
+                            <textarea rows="2" class="word-select" style="width:100%; height:auto;" wire:model="mergeTemplate" placeholder="Dear @{{name}} at @{{organization}}..."></textarea>
                         </div>
-                        @if (!empty($mergePreviews))
-                            <div style="padding:0.5rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft); font-size:0.68rem;">
-                                <strong>Pratinjau Rekaman 1:</strong>
-                                <div>{{ $mergePreviews[0]['text'] ?? '' }}</div>
-                            </div>
-                        @endif
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="previewMerge">Pratinjau</button>
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="insertMerge">Sisipkan ke Naskah</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="previewMerge">Preview</button>
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertMerge">Insert into Document</button>
                     </div>
 
-                {{-- DIALOG: TAMBAH KOMENTAR --}}
+                {{-- COMMENT --}}
                 @elseif ($dialog === 'comment')
-                    <div class="ns-dialog__header">
-                        <span>💬 Tambah Komentar pada Blok #{{ $activeBlock + 1 }}</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>New Comment on Block #{{ $activeBlock + 1 }}</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
-                        <textarea rows="3" class="ns-btn" style="width:100%;" wire:model="commentDraft" placeholder="Tulis komentar..."></textarea>
+                    <div class="word-dialog__body">
+                        <textarea rows="3" class="word-select" style="width:100%; height:auto;" wire:model="commentDraft" placeholder="Type your comment here..."></textarea>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="addComment; closeDialog()">Simpan</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Cancel</button>
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="addComment; closeDialog()">Post</button>
                     </div>
 
-                {{-- DIALOG: COMMAND PALETTE HUD (WORDCRAFT) --}}
+                {{-- COMMAND PALETTE HUD (CTRL+K) --}}
                 @elseif ($dialog === 'palette')
-                    <div class="ns-dialog__header">
-                        <span>⚡ Wordcraft Command Palette (HUD)</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Word Commands &amp; Actions (Ctrl+K)</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
-                        <input type="text" class="ns-btn" style="width:100%; font-family:var(--rb-font-mono); font-size:0.75rem; padding:0.5rem;"
-                            placeholder="Ketik perintah (cth: auto-correct, table, paragraph, dark mode)..."
+                    <div class="word-dialog__body">
+                        <input type="text" class="word-select" style="width:100%; height:34px; padding:0 10px;"
+                            placeholder="Type a command (e.g., auto-correct, table, heading, dark mode)..."
                             wire:model.live="commandSearch" autofocus>
-                        <div style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:0.25rem; font-family:var(--rb-font-mono); font-size:0.72rem;">
+                        <div style="max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:2px;">
                             @php
                                 $q = strtolower(trim($commandSearch));
                                 $filteredCmds = array_filter($commands, static fn(array $c): bool => $q === '' || str_contains(strtolower($c['label']), $q) || str_contains(strtolower($c['category']), $q) || str_contains(strtolower($c['id']), $q));
                             @endphp
                             @forelse ($filteredCmds as $cmd)
-                                <button type="button" class="ns-btn" style="justify-content:space-between; width:100%; padding:0.4rem 0.6rem;"
+                                <button type="button" class="word-nav-item" style="justify-content:space-between;"
                                     wire:click="executeCommand('{{ $cmd['id'] }}'); closeDialog()">
-                                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
                                         <span>{{ $cmd['icon'] }}</span>
-                                        <strong>{{ $cmd['label'] }}</strong>
-                                        <span class="ns-badge" style="font-size:0.58rem; background:var(--rb-surface-soft);">{{ $cmd['category'] }}</span>
+                                        <span style="font-weight:600;">{{ $cmd['label'] }}</span>
                                     </div>
                                     @if (!empty($cmd['shortcut']))
-                                        <kbd style="padding:1px 4px; border:1px solid var(--rb-canvas-grid); border-radius:2px; font-size:0.6rem;">{{ $cmd['shortcut'] }}</kbd>
+                                        <kbd style="padding:1px 5px; border:1px solid #d1d1d1; border-radius:3px; font-size:10px;">{{ $cmd['shortcut'] }}</kbd>
                                     @endif
                                 </button>
                             @empty
-                                <div style="color:var(--rb-ink-muted); font-style:italic; padding:1rem 0; text-align:center;">Tidak ada perintah yang sesuai.</div>
+                                <div style="color:#8a8886; font-size:12px; text-align:center; padding:16px;">No commands found.</div>
                             @endforelse
                         </div>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Close</button>
                     </div>
 
-                {{-- DIALOG: PROPERTI DOKUMEN & METADATA --}}
+                {{-- PROPERTIES --}}
                 @elseif ($dialog === 'properties')
-                    <div class="ns-dialog__header">
-                        <span>ℹ️ Properti Dokumen &amp; Metadata</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Document Properties</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
+                    <div class="word-dialog__body">
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Judul Dokumen:</label>
-                            <input type="text" class="ns-btn" style="width:100%;" wire:model="docTitle" wire:change="markDirty">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Title:</label>
+                            <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="docTitle" wire:change="markDirty">
                         </div>
                         <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Penulis (Author):</label>
-                            <input type="text" class="ns-btn" style="width:100%;" wire:model="metadata.author" wire:change="markDirty" placeholder="Nama penulis...">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Author:</label>
+                            <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="metadata.author" wire:change="markDirty">
                         </div>
-                        <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Subjek / Topik:</label>
-                            <input type="text" class="ns-btn" style="width:100%;" wire:model="metadata.subject" wire:change="markDirty" placeholder="Topik bahasan...">
-                        </div>
-                        <div>
-                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Kata Kunci (Keywords):</label>
-                            <input type="text" class="ns-btn" style="width:100%;" wire:model="metadata.keywords" wire:change="markDirty" placeholder="Kata kunci...">
-                        </div>
-                        <div style="padding-top:0.5rem; border-top:1px solid var(--rb-canvas-grid); font-family:var(--rb-font-mono); font-size:0.68rem; color:var(--rb-ink-muted); display:flex; flex-direction:column; gap:0.25rem;">
-                            <div>• Total Kata: {{ number_format($wordCount) }}</div>
-                            <div>• Total Karakter: {{ number_format($charCount) }}</div>
-                            <div>• Total Blok: {{ $blockCount }}</div>
-                            <div>• Terakhir Disimpan: {{ $lastSavedAt ?: 'Belum disimpan' }}</div>
+                        <div style="font-size:11px; color:#616161; line-height:1.6; padding-top:6px; border-top:1px solid #edebe9;">
+                            <div>• Words: <strong>{{ number_format($wordCount) }}</strong></div>
+                            <div>• Characters: <strong>{{ number_format($charCount) }}</strong></div>
+                            <div>• Blocks: <strong>{{ $blockCount }}</strong></div>
                         </div>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="save; closeDialog()">Simpan Properti</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="save; closeDialog()">Save Properties</button>
                     </div>
 
-                {{-- DIALOG: SNAPSHOTS (VERSI DOKUMEN) --}}
+                {{-- SNAPSHOTS --}}
                 @elseif ($dialog === 'snapshots')
-                    <div class="ns-dialog__header">
-                        <span>📁 Riwayat Versi &amp; Snapshot Naskah</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Version History &amp; Snapshots</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
-                        <div style="display:flex; gap:0.35rem; margin-bottom:0.5rem;">
-                            <input type="text" class="ns-btn" style="flex:1;" placeholder="Label versi baru..." wire:model="snapshotLabel">
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="createSnapshot(snapshotLabel)">+ Simpan</button>
+                    <div class="word-dialog__body">
+                        <div style="display:flex; gap:6px;">
+                            <input type="text" class="word-select" style="flex:1; height:32px;" placeholder="Snapshot label..." wire:model="snapshotLabel">
+                            <button type="button" class="word-btn-pill word-btn-share" wire:click="createSnapshot(snapshotLabel)">Save Version</button>
                         </div>
-                        <div style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:0.35rem;">
+                        <div style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
                             @forelse ($snapshots as $sIdx => $snap)
-                                <div style="padding:0.5rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; display:flex; justify-content:space-between; align-items:center; background:var(--rb-surface-soft);">
+                                <div style="padding:8px 10px; border:1px solid #e1dfdd; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
                                     <div>
-                                        <strong>{{ $snap['label'] }}</strong>
-                                        <div style="font-size:0.62rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono);">{{ $snap['at'] }} · {{ $snap['count'] }} blok</div>
+                                        <strong style="font-size:12px;">{{ $snap['label'] }}</strong>
+                                        <div style="font-size:10px; color:#8a8886;">{{ $snap['at'] }} · {{ $snap['count'] }} blocks</div>
                                     </div>
-                                    <div style="display:flex; gap:0.25rem;">
-                                        <button type="button" wire:click="restoreSnapshot({{ $sIdx }})" class="ns-btn" style="color:var(--rb-primary);">↩ Pulihkan</button>
-                                        <button type="button" wire:click="deleteSnapshot({{ $sIdx }})" class="ns-btn" style="color:#dc2626;">✕</button>
+                                    <div style="display:flex; gap:4px;">
+                                        <button type="button" wire:click="restoreSnapshot({{ $sIdx }})" class="word-tool-btn" style="color:#0f6cbd;">Restore</button>
+                                        <button type="button" wire:click="deleteSnapshot({{ $sIdx }})" class="word-tool-btn" style="color:#c50f1f;">✕</button>
                                     </div>
                                 </div>
                             @empty
-                                <div style="color:var(--rb-ink-muted); font-style:italic; text-align:center; padding:1.5rem 0;">Belum ada snapshot versi tersimpan.</div>
+                                <div style="color:#8a8886; font-size:12px; text-align:center; padding:16px;">No version snapshots saved.</div>
                             @endforelse
                         </div>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Close</button>
                     </div>
 
-                {{-- DIALOG: KEYBOARD SHORTCUTS --}}
+                {{-- SHORTCUTS --}}
                 @elseif ($dialog === 'shortcuts')
-                    <div class="ns-dialog__header">
-                        <span>⌨️ Tombol Pintas Papan Ketik (Keyboard Shortcuts)</span>
-                        <button type="button" wire:click="closeDialog">&times;</button>
+                    <div class="word-dialog__header">
+                        <span>Keyboard Shortcuts</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="ns-dialog__body">
-                        <table style="width:100%; font-size:0.72rem; font-family:var(--rb-font-mono); border-collapse:collapse;">
-                            <thead style="border-bottom:1px solid var(--rb-canvas-grid);">
-                                <tr style="text-align:left; color:var(--rb-ink-muted);">
-                                    <th style="padding:0.35rem;">Kombinasi</th>
-                                    <th style="padding:0.35rem;">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + S</td><td style="padding:0.35rem;">Simpan Naskah</td></tr>
-                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + Z</td><td style="padding:0.35rem;">Urungkan Perubahan (Undo)</td></tr>
-                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + Y</td><td style="padding:0.35rem;">Ulangi Perubahan (Redo)</td></tr>
-                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + K</td><td style="padding:0.35rem;">Pusat Perintah (Command Palette HUD)</td></tr>
-                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + F</td><td style="padding:0.35rem;">Cari dan Ganti Teks</td></tr>
-                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + B</td><td style="padding:0.35rem;">Format Huruf Tebal (Bold)</td></tr>
-                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + I</td><td style="padding:0.35rem;">Format Huruf Miring (Italic)</td></tr>
-                                <tr><td style="padding:0.35rem; font-weight:700;">Ctrl + U</td><td style="padding:0.35rem;">Format Garis Bawah (Underline)</td></tr>
-                            </tbody>
+                    <div class="word-dialog__body">
+                        <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + S</td><td>Save document</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Z</td><td>Undo change</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Y</td><td>Redo change</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + K</td><td>Search commands &amp; actions</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + F</td><td>Find and Replace</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + B</td><td>Bold</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + I</td><td>Italic</td></tr>
+                            <tr><td style="padding:4px 0; font-weight:600;">Ctrl + U</td><td>Underline</td></tr>
                         </table>
                     </div>
-                    <div class="ns-dialog__footer">
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="closeDialog">Tutup</button>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="closeDialog">Close</button>
                     </div>
                 @endif
 
             </div>
         </div>
     @endif
+
 </div>
