@@ -16,6 +16,10 @@
                 }
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                     e.preventDefault();
+                    const pageEls = document.querySelectorAll('.word-sheet-content');
+                    const pageHtmls = [];
+                    pageEls.forEach(el => pageHtmls.push(el.innerHTML));
+                    $wire.syncManuscriptPages(pageHtmls);
                     $wire.save();
                 }
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -61,7 +65,7 @@
 
             <!-- Quick Access Toolbar (Save, Undo, Redo, Down Arrow) -->
             <div class="word-quick-actions">
-                <button type="button" class="word-icon-btn" wire:click="save" title="Save Document (Ctrl+S)">
+                <button type="button" class="word-icon-btn" @click="const pageEls = document.querySelectorAll('.word-sheet-content'); const pageHtmls = []; pageEls.forEach(el => pageHtmls.push(el.innerHTML)); $wire.syncManuscriptPages(pageHtmls);" wire:click="save" title="Save Document (Ctrl+S)">
                     <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor">
                         <path d="M4 2a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6.414A2 2 0 0017.414 5L15 2.586A2 2 0 0013.586 2H4zm1 2h8v3H5V4zm0 6h10v6H5v-6z"/>
                     </svg>
@@ -225,7 +229,7 @@
                         </svg>
                         <span>Sample</span>
                     </button>
-                    <button type="button" class="word-btn-large" wire:click="save" title="Save Document (Ctrl+S)">
+                    <button type="button" class="word-btn-large" @click="const pageEls = document.querySelectorAll('.word-sheet-content'); const pageHtmls = []; pageEls.forEach(el => pageHtmls.push(el.innerHTML)); $wire.syncManuscriptPages(pageHtmls);" wire:click="save" title="Save Document (Ctrl+S)">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
                             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
                         </svg>
@@ -1179,7 +1183,7 @@
                     @endphp
 
                     <div class="word-paper-sheet"
-                        wire:key="page-sheet-{{ $pageNumber }}"
+                        wire:key="page-sheet-{{ $pageNumber }}-v{{ $editorRevision }}-p{{ $pageCount }}"
                         id="word-page-{{ $pageNumber }}"
                         data-page-number="{{ $pageNumber }}"
                         style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ ($fontFamily === 'serif' ? 'var(--ms-font-serif)' : ($fontFamily === 'mono' ? 'var(--ms-font-mono)' : 'var(--ms-font-ui)')) }}; font-size: {{ $fontSize }}pt;">
@@ -1204,7 +1208,8 @@
 
                         <!-- Konten Lembar Halaman (Continuous Flow Inside Page) -->
                         <div class="word-sheet-content"
-                            wire:key="page-content-{{ $pageNumber }}"
+                            wire:key="page-content-{{ $pageNumber }}-v{{ $editorRevision }}-p{{ $pageCount }}"
+                            wire:ignore
                             id="word-page-content-{{ $pageNumber }}"
                             contenteditable="{{ $editingMode === 'viewing' ? 'false' : 'true' }}"
                             spellcheck="false"
@@ -1228,17 +1233,7 @@
                                         <ul class="word-bullet-list">
                                         @php $inBulletList = true; @endphp
                                     @endif
-                                    <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                        @if (str_contains($text, 'Clean as you go'))
-                                            <strong>Clean as you go.</strong> Leave a table the way you would like to find it.
-                                        @elseif (str_contains($text, 'Label what is yours'))
-                                            <strong>Label what is yours.</strong> Unlabelled supplies on the commons shelf are fair game (Anderson, 2020).
-                                        @elseif (str_contains($text, 'Ask before you borrow'))
-                                            <strong>Ask before you borrow.</strong> Even from the shelf, a quick note helps everyone keep track.
-                                        @else
-                                            {!! e($text) !!}
-                                        @endif
-                                    </li>
+                                    <li id="word-block-{{ $index }}" data-block-index="{{ $index }}">{!! $text !!}</li>
                                 @else
                                     @if ($inBulletList)
                                         </ul>
@@ -1326,17 +1321,11 @@
                                         @else
                                             @if ($inBibliographySection)
                                                 <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                                    {!! nl2br(e($text)) !!}
+                                                    {!! $text !!}
                                                 </p>
                                             @else
                                                 <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}">
-                                                    @if ($index === 2 && str_contains($text, 'pleasant'))
-                                                        Every Thursday evening the old print shop on Alder Street fills with people who make things. <strong>Painters</strong> set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio (Gauntlett, 2018): the routines that keep it <span class="word-spell-squiggle" title="Spelling: pleasant">pleasant</span>, the tools we pool, and the small agreements that let thirty strangers become a crew (Sennett, 2019).
-                                                    @elseif ($index === 4 && str_contains($text, 'ceramicist'))
-                                                        Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A <span class="word-spell-squiggle" title="Spelling: ceramicist">ceramicist</span> explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point.
-                                                    @else
-                                                        {!! nl2br(e($text)) !!}
-                                                    @endif
+                                                    {!! $text !!}
                                                 </p>
                                             @endif
                                         @endif

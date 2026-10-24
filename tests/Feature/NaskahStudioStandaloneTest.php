@@ -451,3 +451,47 @@ it('paginates manuscript into separate physical sheets with authentic academic p
     $paginatedReset = $page->instance()->getPaginatedBlocks();
     expect(count($paginatedReset))->toBe(1);
 });
+
+it('persists typed and edited text seamlessly without text loss or hardcoded string overrides', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    $initialRev = $page->get('editorRevision');
+
+    // 1. Uji pengeditan paragraf: teks baru harus tersimpan persis dan tidak ditimpa teks bawaan template
+    $page->call('syncManuscriptPages', [
+        '<h1 class="word-title-text">Judul Baru Hasil Editan Penulis</h1>'.
+        '<p class="word-paragraph-text">Teks paragraf baru yang diketik oleh pengguna, tidak boleh hilang atau berbalik ke handbook bawaan.</p>',
+    ]);
+
+    $blocks = $page->get('blocks');
+    expect($blocks[0]['text'])->toBe('Judul Baru Hasil Editan Penulis')
+        ->and($blocks[1]['text'])->toBe('Teks paragraf baru yang diketik oleh pengguna, tidak boleh hilang atau berbalik ke handbook bawaan.');
+
+    // syncManuscriptPages tidak boleh menaikkan editorRevision agar Livewire tidak menimpa DOM contenteditable saat pengguna mengetik
+    expect($page->get('editorRevision'))->toBe($initialRev);
+
+    // Pastikan teks hasil editan terlihat di HTML yang dirender
+    $page->assertSee('Judul Baru Hasil Editan Penulis', false)
+        ->assertSee('Teks paragraf baru yang diketik oleh pengguna', false);
+
+    // 2. Uji teks format kaya (bold, italic, tags) dipertahankan tanpa hilang
+    $page->call('syncManuscriptPages', [
+        '<p class="word-paragraph-text">Paragraf dengan kata <strong>tebal</strong> dan <em>miring</em> serta catatan.</p>',
+    ]);
+    $richBlocks = $page->get('blocks');
+    expect($richBlocks[0]['text'])->toContain('<strong>tebal</strong>')
+        ->and($richBlocks[0]['text'])->toContain('<em>miring</em>');
+
+    // 3. Uji teks polos langsung tanpa tag p tetap tersimpan sebagai paragraf
+    $page->call('syncManuscriptPages', [
+        'Teks polos langsung diketik tanpa tag pembungkus HTML',
+    ]);
+    $rawBlocks = $page->get('blocks');
+    expect(count($rawBlocks))->toBeGreaterThanOrEqual(1)
+        ->and($rawBlocks[0]['text'])->toBe('Teks polos langsung diketik tanpa tag pembungkus HTML');
+
+    // 4. Tindakan struktural (seperti newDocument, loadSampleHandbook, applyStyle) menaikkan editorRevision
+    $page->call('newDocument');
+    expect($page->get('editorRevision'))->toBeGreaterThan($initialRev);
+});

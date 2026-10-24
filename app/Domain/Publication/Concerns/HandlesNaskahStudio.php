@@ -51,6 +51,8 @@ trait HandlesNaskahStudio
 
     public bool $dirty = false;
 
+    public int $editorRevision = 1;
+
     public ?string $lastSavedAt = null;
 
     // ===== Sumber dokumen =====
@@ -280,14 +282,14 @@ trait HandlesNaskahStudio
         $this->blocks = [
             $this->model->newBlock('title', 'The Open Studio Handbook'),
             $this->model->newBlock('subtitle', 'How a small community of makers shares space, tools and time'),
-            $this->model->newBlock('paragraph', 'Every Thursday evening the old print shop on Alder Street fills with people who make things. Painters set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio: the routines that keep it pleasant, the tools we pool, and the small agreements that let thirty strangers become a crew.'),
+            $this->model->newBlock('paragraph', 'Every Thursday evening the old print shop on Alder Street fills with people who make things. <strong>Painters</strong> set up by the north windows, letterpress regulars claim the back room, and somebody always brings bread. This handbook collects what we have learned about running a shared studio: the routines that keep it <span class="word-spell-squiggle" title="Spelling: pleasant">pleasant</span>, the tools we pool, and the small agreements that let thirty strangers become a crew.'),
             $this->model->newBlock('heading', 'Why share a studio?', 1),
-            $this->model->newBlock('paragraph', "Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A ceramicist explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point."),
+            $this->model->newBlock('paragraph', "Rent is the obvious reason, but it is not the best one. A shared room puts your work next to work you would never have seen otherwise. A <span class=\"word-spell-squiggle\" title=\"Spelling: ceramicist\">ceramicist</span> explains glaze chemistry to a comic artist; a photographer borrows a weaver's loom for a still life. The cross-talk is the point."),
             $this->model->newBlock('quote', 'A studio is a place where unfinished things are welcome.'),
             $this->model->newBlock('heading', 'What we agree on', 2),
-            $this->model->newBlock('bullet', 'Clean as you go. Leave a table the way you would like to find it.'),
-            $this->model->newBlock('bullet', 'Label what is yours. Unlabelled supplies on the commons shelf are fair game.'),
-            $this->model->newBlock('bullet', 'Ask before you borrow. Even from the shelf, a quick note helps everyone keep track.'),
+            $this->model->newBlock('bullet', '<strong>Clean as you go.</strong> Leave a table the way you would like to find it.'),
+            $this->model->newBlock('bullet', '<strong>Label what is yours.</strong> Unlabelled supplies on the commons shelf are fair game (Anderson, 2020).'),
+            $this->model->newBlock('bullet', '<strong>Ask before you borrow.</strong> Even from the shelf, a quick note helps everyone keep track.'),
             $this->model->newBlock('pagebreak', ''),
             $this->model->newBlock('heading', 'Shared equipment', 1),
             $this->model->newBlock('paragraph', 'All heavy machinery requires an initial safety orientation with a studio steward before independent use. Clean ink rollers immediately with mineral spirits, never leave paper cutters unlatched, and report any dull blades or frayed electrical cords on the maintenance clipboard by the sink.'),
@@ -303,6 +305,7 @@ trait HandlesNaskahStudio
         ];
         $this->activeBlock = 0;
         $this->dirty = false;
+        $this->editorRevision++;
     }
 
     // =====================================================================
@@ -440,6 +443,7 @@ trait HandlesNaskahStudio
         ];
         $this->dirty = false;
         $this->activeBlock = 0;
+        $this->editorRevision++;
     }
 
     // =====================================================================
@@ -469,6 +473,7 @@ trait HandlesNaskahStudio
         $this->redoStack[] = $this->blocks;
         $this->blocks = array_pop($this->undoStack) ?? [];
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function redo(): void
@@ -480,6 +485,7 @@ trait HandlesNaskahStudio
         $this->undoStack[] = $this->blocks;
         $this->blocks = array_pop($this->redoStack) ?? [];
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function copyFormat(int $index): void
@@ -641,6 +647,7 @@ trait HandlesNaskahStudio
             $this->blocks[$index]['text'] = $reply;
             $this->blocks[$index]['runs'] = [];
             $this->dirty = true;
+            $this->editorRevision++;
             $this->notify('Nada diubah', 'Nada bahasa disesuaikan ke '.$tone.'.', 'success');
         }
     }
@@ -657,6 +664,7 @@ trait HandlesNaskahStudio
         $this->blocks[] = $this->model->normalizeBlock($block);
         $this->activeBlock = count($this->blocks) - 1;
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function removeBlock(int $index): void
@@ -669,6 +677,7 @@ trait HandlesNaskahStudio
         $this->blocks = array_values($this->blocks);
         $this->activeBlock = max(0, min($this->activeBlock, count($this->blocks) - 1));
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function moveBlock(int $index, int $direction): void
@@ -682,6 +691,7 @@ trait HandlesNaskahStudio
         [$this->blocks[$index], $this->blocks[$target]] = [$this->blocks[$target], $this->blocks[$index]];
         $this->activeBlock = $target;
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function duplicateBlock(int $index): void
@@ -692,6 +702,7 @@ trait HandlesNaskahStudio
 
         array_splice($this->blocks, $index + 1, 0, [$this->blocks[$index]]);
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function updateBlockText(int $index, string $text): void
@@ -734,6 +745,7 @@ trait HandlesNaskahStudio
         $newBlock = $this->model->newBlock('paragraph', '');
         array_splice($this->blocks, $index + 1, 0, [$newBlock]);
         $this->activeBlock = $index + 1;
+        $this->editorRevision++;
         $this->markDirty();
     }
 
@@ -742,6 +754,7 @@ trait HandlesNaskahStudio
         if (count($this->blocks) > 1 && isset($this->blocks[$index])) {
             array_splice($this->blocks, $index, 1);
             $this->activeBlock = max(0, $index - 1);
+            $this->editorRevision++;
             $this->markDirty();
         }
     }
@@ -766,6 +779,7 @@ trait HandlesNaskahStudio
 
         $this->blocks[$index]['type'] = $type;
         $this->blocks[$index]['level'] = $level;
+        $this->editorRevision++;
         $this->markDirty();
     }
 
@@ -1081,6 +1095,7 @@ trait HandlesNaskahStudio
     {
         $this->blocks[] = $this->model->normalizeBlock(['type' => 'pagebreak']);
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function insertHorizontalRule(): void
@@ -1352,12 +1367,21 @@ trait HandlesNaskahStudio
 
         $blocks = [];
         foreach ($root->childNodes as $node) {
+            // Tangkap teks langsung yang tidak dibungkus elemen HTML (misal saat mengetik bebas)
+            if ($node->nodeType === XML_TEXT_NODE) {
+                $rawText = trim($node->textContent);
+                if ($rawText !== '') {
+                    $blocks[] = $this->model->newBlock('paragraph', $rawText);
+                }
+
+                continue;
+            }
+
             if ($node->nodeType !== XML_ELEMENT_NODE) {
                 continue;
             }
 
             $tag = strtolower($node->nodeName);
-            $text = trim($node->textContent);
             $class = (string) ($node instanceof \DOMElement ? $node->getAttribute('class') : '');
 
             // Abaikan header, footer, atau pembungkus sheet visual
@@ -1369,6 +1393,16 @@ trait HandlesNaskahStudio
                 $blocks[] = $this->model->newBlock('pagebreak', '');
 
                 continue;
+            }
+
+            // Ambil inner HTML atau teks anak elemen dengan menjaga format tebal/miring/tanda
+            $innerHtml = '';
+            foreach ($node->childNodes as $child) {
+                $innerHtml .= $dom->saveHTML($child);
+            }
+            $text = trim($innerHtml);
+            if ($text === '<br>' || $text === '<br/>' || $text === '<br />') {
+                $text = '';
             }
 
             if (str_contains($class, 'word-subtitle-text')) {
@@ -1389,7 +1423,11 @@ trait HandlesNaskahStudio
             } elseif ($tag === 'ul') {
                 foreach ($node->childNodes as $li) {
                     if ($li->nodeType === XML_ELEMENT_NODE && strtolower($li->nodeName) === 'li') {
-                        $liText = trim($li->textContent);
+                        $liInner = '';
+                        foreach ($li->childNodes as $lc) {
+                            $liInner .= $dom->saveHTML($lc);
+                        }
+                        $liText = trim($liInner);
                         if ($liText !== '') {
                             $blocks[] = $this->model->newBlock('bullet', $liText);
                         }
@@ -1398,7 +1436,11 @@ trait HandlesNaskahStudio
             } elseif ($tag === 'ol') {
                 foreach ($node->childNodes as $li) {
                     if ($li->nodeType === XML_ELEMENT_NODE && strtolower($li->nodeName) === 'li') {
-                        $liText = trim($li->textContent);
+                        $liInner = '';
+                        foreach ($li->childNodes as $lc) {
+                            $liInner .= $dom->saveHTML($lc);
+                        }
+                        $liText = trim($liInner);
                         if ($liText !== '') {
                             $blocks[] = $this->model->newBlock('numbered', $liText);
                         }
@@ -1429,9 +1471,14 @@ trait HandlesNaskahStudio
 
         if (! empty($allBlocks)) {
             $this->blocks = $allBlocks;
-            $this->statistics = $this->model->computeStatistics($this->blocks);
-            $this->markDirty();
+        } else {
+            $this->blocks = [
+                $this->model->newBlock('paragraph', ''),
+            ];
         }
+
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+        $this->markDirty();
     }
 
     /**
@@ -2373,6 +2420,7 @@ trait HandlesNaskahStudio
         $paginatedPages = $this->getPaginatedBlocks();
 
         return [
+            'editorRevision' => $this->editorRevision,
             'renderBlocks' => $blocks,
             'paginatedPages' => $paginatedPages,
             'pageCount' => max(1, count($paginatedPages)),
