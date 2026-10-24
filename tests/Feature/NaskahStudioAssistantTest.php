@@ -471,3 +471,28 @@ it('automatically captures active block text for /poles and /puebi when project 
     $page->call('runTool', '/rumus kuadrat');
     expect($page->get('equationLatex'))->toContain('\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}');
 });
+
+it('renders prominent copilot ribbon button and detailed stats dialog with academic compliance', function (): void {
+    $response = $this->get('/studio');
+    $response->assertOk()
+        ->assertSee("wire:click=\"toggleTaskPane('assistant')\"", false)
+        ->assertSee('Copilot')
+        ->assertSee('Xishie Assistant');
+
+    // Test stats dialog
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook')
+        ->call('openDialog', 'stats');
+
+    $page->assertSee('Word Count &amp; Readability Statistics', false)
+        ->assertSee('WORDS', false)
+        ->assertSee('CHARACTERS', false)
+        ->assertSee('FLESCH READING EASE', false)
+        ->assertSee('Academic Compliance', false);
+
+    // Test welcome page showcases Xishie Assistant & AI Copilot as user feature
+    $welcome = $this->get('/');
+    $welcome->assertOk()
+        ->assertSee('Xishie Assistant &amp; AI Copilot', false)
+        ->assertSee('Asisten cerdas telaah naskah interaktif');
+});
