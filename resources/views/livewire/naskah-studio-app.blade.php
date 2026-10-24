@@ -200,7 +200,7 @@
             </div>
 
             <!-- Solid Blue Share Button (Matches Image 1) -->
-            <button type="button" wire:click="openDialog('merge')" class="word-btn-pill word-btn-share" title="Share &amp; Export Document">
+            <button type="button" wire:click="openDialog('share')" class="word-btn-pill word-btn-share" title="Share &amp; Export Document">
                 <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor">
                     <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/>
                 </svg>
@@ -337,9 +337,12 @@
                     <div class="word-group__col">
                         <!-- Row 1: Font Family, Size, Grow, Shrink, Case, Clear -->
                         <div class="word-group__row">
-                            <select wire:model.live="fontFamily" class="word-select" style="width:105px;">
+                            <select wire:model.live="fontFamily" class="word-select" style="width:115px;">
                                 <option value="sans">Aptos</option>
-                                <option value="serif">Calibri</option>
+                                <option value="calibri">Calibri</option>
+                                <option value="times">Times New Roman</option>
+                                <option value="arial">Arial</option>
+                                <option value="serif">Source Serif 4</option>
                                 <option value="mono">JetBrains Mono</option>
                             </select>
                             <select wire:model.live="fontSize" class="word-select" style="width:48px;">
@@ -402,7 +405,15 @@
                             <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyCenter'); syncAllPages();" title="Center">≡</button>
                             <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyRight'); syncAllPages();" title="Align Right">⫸</button>
                             <button type="button" class="word-btn-square" @mousedown.prevent @click="document.execCommand('justifyFull'); syncAllPages();" title="Justify">☷</button>
-                            <button type="button" class="word-btn-square" wire:click="openDialog('pagesetup')" title="Line Spacing">↕ ▾</button>
+                            <div style="position:relative;" x-data="{ openSpacing: false }">
+                                <button type="button" class="word-btn-square" @click="openSpacing = !openSpacing" title="Line Spacing (1.0, 1.15, 1.5, 2.0)">↕ ▾</button>
+                                <div x-show="openSpacing" @click.outside="openSpacing = false" style="position:absolute; left:0; top:24px; background:#ffffff; border:1px solid #e1dfdd; border-radius:4px; box-shadow:0 4px 16px rgba(0,0,0,0.12); width:135px; z-index:100; padding:4px 0; font-size:11.5px;">
+                                    <button type="button" wire:click="setLineSpacing('1.0'); openSpacing = false;" class="word-nav-item {{ (string)($pageSetup['lineSpacing'] ?? '1.5') === '1' || ($pageSetup['lineSpacing'] ?? '') == 1.0 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.0 Single</button>
+                                    <button type="button" wire:click="setLineSpacing('1.15'); openSpacing = false;" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 1.15 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.15 Normal</button>
+                                    <button type="button" wire:click="setLineSpacing('1.5'); openSpacing = false;" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 1.5 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.5 Academic (DIKTI)</button>
+                                    <button type="button" wire:click="setLineSpacing('2.0'); openSpacing = false;" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 2.0 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">2.0 Double</button>
+                                </div>
+                            </div>
                             <button type="button" class="word-btn-square" wire:click="updatePageSetup('pageColor', '#fdfbf7')" title="Shading">🪣</button>
                             <button type="button" class="word-btn-square" wire:click="openDialog('table')" title="Borders">⊞ ▾</button>
                         </div>
@@ -480,15 +491,62 @@
             </div>
 
             <!-- GROUP: VOICE -->
-            <div class="word-group">
+            <div class="word-group" x-data="{
+                listening: false,
+                recognition: null,
+                init() {
+                    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    if (SpeechRec) {
+                        this.recognition = new SpeechRec();
+                        this.recognition.continuous = true;
+                        this.recognition.interimResults = true;
+                        this.recognition.lang = 'id-ID';
+                        this.recognition.onresult = (event) => {
+                            let transcript = '';
+                            for (let i = event.resultIndex; i < event.results.length; i++) {
+                                if (event.results[i].isFinal) {
+                                    transcript += event.results[i][0].transcript + ' ';
+                                }
+                            }
+                            if (transcript) {
+                                document.execCommand('insertText', false, transcript);
+                                syncAllPages();
+                            }
+                        };
+                        this.recognition.onerror = () => {
+                            this.listening = false;
+                        };
+                        this.recognition.onend = () => {
+                            this.listening = false;
+                        };
+                    }
+                },
+                toggle() {
+                    if (!this.recognition) {
+                        $wire.openAssistant();
+                        return;
+                    }
+                    if (this.listening) {
+                        this.recognition.stop();
+                        this.listening = false;
+                    } else {
+                        try {
+                            this.recognition.start();
+                            this.listening = true;
+                        } catch (err) {
+                            $wire.openAssistant();
+                        }
+                    }
+                }
+            }">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="openAssistant" title="Dictate Voice Assistant">
-                        <div style="width:24px; height:24px; border-radius:9999px; background:#0f6cbd; color:#ffffff; display:flex; align-items:center; justify-content:center;">
+                    <button type="button" class="word-btn-large" :class="{ 'active': listening }" @click="toggle()" :title="listening ? 'Mendengarkan ucapan... (Klik untuk berhenti)' : 'Dictate / Dikte Suara (Web Speech API / AI)'">
+                        <div style="width:24px; height:24px; border-radius:9999px; background:#0f6cbd; color:#ffffff; display:flex; align-items:center; justify-content:center; transition:all 0.2s;" :style="listening ? 'background:#dc2626; animation:pulse 1.2s infinite;' : ''">
                             <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
                                 <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"/>
                             </svg>
                         </div>
-                        <span>Dictate</span>
+                        <span x-text="listening ? 'Mendengar' : 'Dictate'">Dictate</span>
                     </button>
                 </div>
                 <div class="word-group__footer">
@@ -1180,13 +1238,26 @@
                         $inBulletList = false;
                         $inNumberedList = false;
                         $inBibliographySection = false;
+
+                        $fontFamilyCss = match ($fontFamily) {
+                            'calibri' => 'var(--ms-font-calibri)',
+                            'times' => 'var(--ms-font-times)',
+                            'arial' => 'var(--ms-font-arial)',
+                            'serif' => 'var(--ms-font-serif)',
+                            'mono' => 'var(--ms-font-mono)',
+                            default => 'var(--ms-font-aptos)',
+                        };
+                        $padTop = max(12, min(50, (float)($pageSetup['marginTop'] ?? 25.4)));
+                        $padRight = max(12, min(50, (float)($pageSetup['marginRight'] ?? 25.4)));
+                        $padBottom = max(12, min(50, (float)($pageSetup['marginBottom'] ?? 25.4)));
+                        $padLeft = max(12, min(50, (float)($pageSetup['marginLeft'] ?? 25.4)));
                     @endphp
 
                     <div class="word-paper-sheet"
                         wire:key="page-sheet-{{ $pageNumber }}-v{{ $editorRevision }}-p{{ $pageCount }}"
                         id="word-page-{{ $pageNumber }}"
                         data-page-number="{{ $pageNumber }}"
-                        style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ ($fontFamily === 'serif' ? 'var(--ms-font-serif)' : ($fontFamily === 'mono' ? 'var(--ms-font-mono)' : 'var(--ms-font-ui)')) }}; font-size: {{ $fontSize }}pt;">
+                        style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ $fontFamilyCss }}; font-size: {{ $fontSize }}pt; padding: {{ $padTop }}mm {{ $padRight }}mm {{ $padBottom }}mm {{ $padLeft }}mm;">
 
                         <!-- Watermark if configured -->
                         @if (!empty($pageSetup['watermark']))
@@ -1211,6 +1282,7 @@
                             wire:key="page-content-{{ $pageNumber }}-v{{ $editorRevision }}-p{{ $pageCount }}"
                             wire:ignore
                             id="word-page-content-{{ $pageNumber }}"
+                            style="line-height: {{ $pageSetup['lineSpacing'] ?? '1.5' }};"
                             contenteditable="{{ $editingMode === 'viewing' ? 'false' : 'true' }}"
                             spellcheck="false"
                             @keydown.ctrl.enter.prevent="$wire.insertPageBreak()"
@@ -1700,10 +1772,11 @@
                 {{-- PAGE SETUP --}}
                 @elseif ($dialog === 'pagesetup')
                     <div class="word-dialog__header">
-                        <span>Page Setup &amp; Margins</span>
+                        <span>Page Setup, Margins &amp; Spacing</span>
                         <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="word-dialog__body">
+                    <div class="word-dialog__body" style="display:flex; flex-direction:column; gap:12px;">
+                        <!-- Paper Size & Orientation -->
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                             <div>
                                 <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Paper Size:</label>
@@ -1721,9 +1794,64 @@
                                 </select>
                             </div>
                         </div>
+
+                        <!-- Margins Presets -->
                         <div>
-                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Watermark:</label>
-                            <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="pageSetup.watermark" placeholder="e.g. DRAFT">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:6px;">Margin Presets:</label>
+                            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+                                <button type="button" class="word-tool-btn" wire:click="setMarginsPreset('normal')" style="justify-content:center; text-align:center; padding:6px 4px; font-size:11px;">
+                                    Normal (1 in)
+                                </button>
+                                <button type="button" class="word-tool-btn" wire:click="setMarginsPreset('dikti')" style="justify-content:center; text-align:center; padding:6px 4px; font-size:11px; font-weight:700; color:#0f6cbd;">
+                                    DIKTI (4-4-3-3)
+                                </button>
+                                <button type="button" class="word-tool-btn" wire:click="setMarginsPreset('narrow')" style="justify-content:center; text-align:center; padding:6px 4px; font-size:11px;">
+                                    Narrow (12.7mm)
+                                </button>
+                                <button type="button" class="word-tool-btn" wire:click="setMarginsPreset('moderate')" style="justify-content:center; text-align:center; padding:6px 4px; font-size:11px;">
+                                    Moderate
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Direct Margins (Top, Bottom, Left, Right in mm) -->
+                        <div>
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Custom Margins (mm):</label>
+                            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+                                <div>
+                                    <span style="font-size:10px; color:var(--ms-text-muted);">Top (Atas):</span>
+                                    <input type="number" min="10" max="60" class="word-select" style="width:100%; height:28px;" wire:model="pageSetup.marginTop">
+                                </div>
+                                <div>
+                                    <span style="font-size:10px; color:var(--ms-text-muted);">Bottom (Bawah):</span>
+                                    <input type="number" min="10" max="60" class="word-select" style="width:100%; height:28px;" wire:model="pageSetup.marginBottom">
+                                </div>
+                                <div>
+                                    <span style="font-size:10px; color:var(--ms-text-muted);">Left (Kiri):</span>
+                                    <input type="number" min="10" max="60" class="word-select" style="width:100%; height:28px;" wire:model="pageSetup.marginLeft">
+                                </div>
+                                <div>
+                                    <span style="font-size:10px; color:var(--ms-text-muted);">Right (Kanan):</span>
+                                    <input type="number" min="10" max="60" class="word-select" style="width:100%; height:28px;" wire:model="pageSetup.marginRight">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Line Spacing & Watermark -->
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Line Spacing (Jarak Baris):</label>
+                                <select wire:change="setLineSpacing($event.target.value)" class="word-select" style="width:100%; height:32px;">
+                                    <option value="1.0" {{ ($pageSetup['lineSpacing'] ?? 1.5) == 1.0 ? 'selected' : '' }}>1.0 (Single)</option>
+                                    <option value="1.15" {{ ($pageSetup['lineSpacing'] ?? 1.5) == 1.15 ? 'selected' : '' }}>1.15 (Normal Word)</option>
+                                    <option value="1.5" {{ ($pageSetup['lineSpacing'] ?? 1.5) == 1.5 ? 'selected' : '' }}>1.5 (Academic / DIKTI)</option>
+                                    <option value="2.0" {{ ($pageSetup['lineSpacing'] ?? 1.5) == 2.0 ? 'selected' : '' }}>2.0 (Double)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Watermark:</label>
+                                <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="pageSetup.watermark" placeholder="e.g. DRAFT / RAHASIA">
+                            </div>
                         </div>
                     </div>
                     <div class="word-dialog__footer">
@@ -1902,6 +2030,99 @@
                     </div>
                     <div class="word-dialog__footer">
                         <button type="button" class="word-btn-pill" wire:click="closeDialog">Close</button>
+                    </div>
+
+                {{-- SHARE & EXPORT DIALOG --}}
+                @elseif ($dialog === 'share')
+                    <div class="word-dialog__header">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="width:24px; height:24px; border-radius:4px; background:#0f6cbd; color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">W</div>
+                            <span style="font-weight:700; font-size:14px;">Share — {{ $docTitle }}</span>
+                        </div>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
+                    </div>
+                    <div class="word-dialog__body" style="display:flex; flex-direction:column; gap:16px;">
+                        <!-- Share Link Box -->
+                        <div x-data="{ copied: false }">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:6px; color:var(--ms-text-primary);">Tautan Bagikan Dokumen (Share Link):</label>
+                            <div style="display:flex; gap:6px;">
+                                <input type="text" readonly :value="window.location.href" class="word-select" style="flex:1; height:34px; padding:0 8px; font-family:var(--ms-font-mono); font-size:11.5px; background:var(--ms-bg-subtle, #f3f2f1);" id="share-link-input">
+                                <button type="button" class="word-btn-pill word-btn-share"
+                                    @click="
+                                        navigator.clipboard.writeText(window.location.href);
+                                        copied = true;
+                                        setTimeout(() => copied = false, 2500);
+                                    "
+                                    style="min-width:90px; height:34px;">
+                                    <span x-show="!copied">📋 Salin Tautan</span>
+                                    <span x-show="copied" style="color:#ffffff;">✓ Tersalin!</span>
+                                </button>
+                            </div>
+                            <div style="font-size:11px; color:var(--ms-text-muted); margin-top:4px;">
+                                Siapa pun yang memiliki tautan dapat mengakses naskah ini.
+                            </div>
+                        </div>
+
+                        <!-- Direct Export & Download Options -->
+                        <div>
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:8px; color:var(--ms-text-primary);">Ekspor &amp; Unduh Cepat:</label>
+                            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;">
+                                <button type="button" class="word-tool-btn" wire:click="export('docx')" style="justify-content:center; padding:10px 8px; flex-direction:column; gap:4px; height:auto; border:1px solid var(--ms-border);">
+                                    <span style="font-weight:800; color:#0f6cbd; font-size:14px;">DOCX</span>
+                                    <span style="font-size:11px;">Microsoft Word</span>
+                                </button>
+                                <button type="button" class="word-tool-btn" wire:click="export('pdf')" style="justify-content:center; padding:10px 8px; flex-direction:column; gap:4px; height:auto; border:1px solid var(--ms-border);">
+                                    <span style="font-weight:800; color:#c50f1f; font-size:14px;">PDF</span>
+                                    <span style="font-size:11px;">Dokumen Cetak</span>
+                                </button>
+                                <button type="button" class="word-tool-btn" wire:click="export('odt')" style="justify-content:center; padding:10px 8px; flex-direction:column; gap:4px; height:auto; border:1px solid var(--ms-border);">
+                                    <span style="font-weight:800; color:#107c41; font-size:14px;">ODT</span>
+                                    <span style="font-size:11px;">LibreOffice Writer</span>
+                                </button>
+                                <button type="button" class="word-tool-btn" wire:click="export('latex')" style="justify-content:center; padding:10px 8px; flex-direction:column; gap:4px; height:auto; border:1px solid var(--ms-border);">
+                                    <span style="font-weight:800; color:#7c2d12; font-size:14px;">LaTeX</span>
+                                    <span style="font-size:11px;">Artikel Ilmiah</span>
+                                </button>
+                                <button type="button" class="word-tool-btn" wire:click="export('md')" style="justify-content:center; padding:10px 8px; flex-direction:column; gap:4px; height:auto; border:1px solid var(--ms-border);">
+                                    <span style="font-weight:800; color:#475569; font-size:14px;">MD</span>
+                                    <span style="font-size:11px;">Markdown</span>
+                                </button>
+                                <button type="button" class="word-tool-btn" wire:click="export('rtf')" style="justify-content:center; padding:10px 8px; flex-direction:column; gap:4px; height:auto; border:1px solid var(--ms-border);">
+                                    <span style="font-weight:800; color:#0891b2; font-size:14px;">RTF</span>
+                                    <span style="font-size:11px;">Rich Text Format</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Collaborators List -->
+                        <div style="border-top:1px solid var(--ms-border-subtle); padding-top:12px;">
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:8px; color:var(--ms-text-primary);">Kolaborator &amp; Penulis:</label>
+                            <div style="display:flex; flex-direction:column; gap:6px;">
+                                <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; background:var(--ms-bg-subtle, #f9f9fb); border-radius:4px;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <div class="word-avatar" style="width:24px; height:24px; font-size:11px;">WU</div>
+                                        <div>
+                                            <div style="font-size:12px; font-weight:600; color:var(--ms-text-primary);">Penulis (Anda)</div>
+                                            <div style="font-size:10px; color:var(--ms-text-muted);">Pemilik Dokumen</div>
+                                        </div>
+                                    </div>
+                                    <span style="font-size:11px; color:#107c41; font-weight:600;">Aktif</span>
+                                </div>
+                                <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; background:var(--ms-bg-subtle, #f9f9fb); border-radius:4px;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <div style="width:24px; height:24px; border-radius:9999px; background:#0f6cbd; color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">AI</div>
+                                        <div>
+                                            <div style="font-size:12px; font-weight:600; color:var(--ms-text-primary);">Xishie Wordcraft Assistant</div>
+                                            <div style="font-size:10px; color:var(--ms-text-muted);">Copilot &amp; Proofreader</div>
+                                        </div>
+                                    </div>
+                                    <span style="font-size:11px; color:#0f6cbd; font-weight:600;">Tersedia</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Tutup</button>
                     </div>
 
                 {{-- MAIL MERGE CSV --}}

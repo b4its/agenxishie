@@ -128,6 +128,7 @@ trait HandlesNaskahStudio
         'pageColor' => '#ffffff',
         'pageBorder' => false,
         'watermark' => '',
+        'lineSpacing' => 1.5,
     ];
 
     /**
@@ -539,6 +540,51 @@ trait HandlesNaskahStudio
     public function updatePageSetup(string $key, mixed $value): void
     {
         $this->pageSetup[$key] = $value;
+        $this->dirty = true;
+    }
+
+    public function setLineSpacing(float|string $spacing): void
+    {
+        $val = (float) $spacing;
+        $this->pageSetup['lineSpacing'] = $val;
+        $this->formatAllBlocks('lineSpacing', $val);
+        $this->dirty = true;
+    }
+
+    public function setMarginsPreset(string $preset): void
+    {
+        match ($preset) {
+            'narrow' => [
+                $this->pageSetup['marginTop'] = 12.7,
+                $this->pageSetup['marginRight'] = 12.7,
+                $this->pageSetup['marginBottom'] = 12.7,
+                $this->pageSetup['marginLeft'] = 12.7,
+            ],
+            'moderate' => [
+                $this->pageSetup['marginTop'] = 25.4,
+                $this->pageSetup['marginRight'] = 19.1,
+                $this->pageSetup['marginBottom'] = 25.4,
+                $this->pageSetup['marginLeft'] = 19.1,
+            ],
+            'wide' => [
+                $this->pageSetup['marginTop'] = 25.4,
+                $this->pageSetup['marginRight'] = 50.8,
+                $this->pageSetup['marginBottom'] = 25.4,
+                $this->pageSetup['marginLeft'] = 50.8,
+            ],
+            'dikti' => [
+                $this->pageSetup['marginTop'] = 40.0,
+                $this->pageSetup['marginRight'] = 30.0,
+                $this->pageSetup['marginBottom'] = 30.0,
+                $this->pageSetup['marginLeft'] = 40.0,
+            ],
+            default => [
+                $this->pageSetup['marginTop'] = 25.4,
+                $this->pageSetup['marginRight'] = 25.4,
+                $this->pageSetup['marginBottom'] = 25.4,
+                $this->pageSetup['marginLeft'] = 25.4,
+            ],
+        };
         $this->dirty = true;
     }
 
@@ -2175,6 +2221,7 @@ trait HandlesNaskahStudio
             ['id' => 'file.export.rtf', 'label' => 'Ekspor ke RTF', 'category' => 'Ekspor', 'icon' => '📄'],
             ['id' => 'file.export.md', 'label' => 'Ekspor ke Markdown', 'category' => 'Ekspor', 'icon' => '📑'],
             ['id' => 'file.export.txt', 'label' => 'Ekspor ke Teks Polos', 'category' => 'Ekspor', 'icon' => '📃'],
+            ['id' => 'file.share', 'label' => 'Bagikan Naskah & Unduh Cepat (Share)', 'category' => 'Berkas', 'icon' => '📤'],
             ['id' => 'file.stats', 'label' => 'Statistik & Skor Keterbacaan', 'category' => 'Berkas', 'icon' => '📊'],
             ['id' => 'file.pagesetup', 'label' => 'Pengaturan Margin & Kertas', 'category' => 'Tata Letak', 'icon' => '⚙️'],
             ['id' => 'file.properties', 'label' => 'Properti Dokumen & Metadata', 'category' => 'Berkas', 'icon' => 'ℹ️'],
@@ -2233,6 +2280,7 @@ trait HandlesNaskahStudio
             'file.export.rtf' => $this->export('rtf'),
             'file.export.md' => $this->export('md'),
             'file.export.txt' => $this->export('txt'),
+            'file.share' => $this->openDialog('share'),
             'file.stats' => $this->openDialog('stats'),
             'file.pagesetup' => $this->openDialog('pagesetup'),
             'file.properties' => $this->openDialog('properties'),

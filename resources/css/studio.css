@@ -41,8 +41,23 @@
     --ms-status-error: #c50f1f;
 
     --ms-font-ui: 'Aptos', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', Roboto, sans-serif;
+    --ms-font-aptos: 'Aptos', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', Roboto, sans-serif;
+    --ms-font-calibri: 'Calibri', 'Candara', 'Segoe UI', -apple-system, sans-serif;
+    --ms-font-times: 'Times New Roman', 'Times', 'Source Serif 4', serif;
+    --ms-font-arial: 'Arial', 'Helvetica', -apple-system, sans-serif;
     --ms-font-serif: 'Source Serif 4', 'Cambria', 'Georgia', serif;
     --ms-font-mono: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.08);
+    }
 }
 
 .dark {

@@ -527,3 +527,46 @@ it('manages citation sources and generates dynamic academic bibliography and toc
     }
     expect($hasBibHeading)->toBeTrue();
 });
+
+it('supports share dialog, academic margin presets, and dynamic line spacing', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class)
+        ->call('loadSampleHandbook');
+
+    // 1. Uji Share Dialog via openDialog dan Command Palette
+    $page->call('openDialog', 'share')
+        ->assertSee('Share — The Open Studio Handbook')
+        ->assertSee('Tautan Bagikan Dokumen')
+        ->assertSee('DOCX')
+        ->assertSee('PDF')
+        ->assertSee('LaTeX');
+
+    $page->call('closeDialog');
+    expect($page->get('dialog'))->toBe('');
+
+    $page->call('executeCommand', 'file.share');
+    expect($page->get('dialog'))->toBe('share');
+
+    // 2. Uji Margin Presets (Standar DIKTI 4-4-3-3 cm dan Normal 1 inch)
+    $page->call('setMarginsPreset', 'dikti');
+    $setup = $page->get('pageSetup');
+    expect((float) $setup['marginTop'])->toBe(40.0)
+        ->and((float) $setup['marginRight'])->toBe(30.0)
+        ->and((float) $setup['marginBottom'])->toBe(30.0)
+        ->and((float) $setup['marginLeft'])->toBe(40.0);
+
+    $page->call('setMarginsPreset', 'normal');
+    $setupNormal = $page->get('pageSetup');
+    expect((float) $setupNormal['marginTop'])->toBe(25.4)
+        ->and((float) $setupNormal['marginRight'])->toBe(25.4);
+
+    // 3. Uji Line Spacing akademik
+    $page->call('setLineSpacing', '1.5');
+    expect((float) $page->get('pageSetup')['lineSpacing'])->toBe(1.5);
+
+    $page->call('setLineSpacing', '2.0');
+    expect((float) $page->get('pageSetup')['lineSpacing'])->toBe(2.0);
+
+    // 4. Uji Font Family typography
+    $page->set('fontFamily', 'times');
+    expect($page->get('fontFamily'))->toBe('times');
+});
