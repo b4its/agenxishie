@@ -1941,6 +1941,28 @@ trait HandlesNaskahStudio
             return [];
         }
 
+        // 1. Bersihkan elemen inline KaTeX (<span class="katex">...<annotation encoding="application/x-tex">...</annotation>...</span>)
+        // Kembalikan ke format murni $formula$ agar tidak mengotori teks naskah dengan ratusan span/mathml
+        $xpath = new \DOMXPath($dom);
+        $katexSpans = [];
+        foreach ($xpath->query('.//span[contains(@class, "katex")]', $root) as $span) {
+            $katexSpans[] = $span;
+        }
+        foreach ($katexSpans as $span) {
+            if ($span->parentNode === null) {
+                continue;
+            }
+            $ann = $xpath->query('.//annotation[@encoding="application/x-tex"]', $span)->item(0);
+            $tex = $ann instanceof \DOMNode ? trim($ann->textContent) : '';
+            if ($tex === '' && $span instanceof \DOMElement && $span->hasAttribute('data-latex')) {
+                $tex = trim($span->getAttribute('data-latex'));
+            }
+            if ($tex !== '') {
+                $replacement = $dom->createTextNode('$'.$tex.'$');
+                $span->parentNode->replaceChild($replacement, $span);
+            }
+        }
+
         $blocks = [];
         foreach ($root->childNodes as $node) {
             // Tangkap teks langsung yang tidak dibungkus elemen HTML (misal saat mengetik bebas)

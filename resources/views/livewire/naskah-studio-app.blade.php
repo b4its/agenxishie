@@ -1,7 +1,6 @@
 <div class="word-root {{ $darkMode ? 'dark' : '' }}"
     style="position: relative;"
     x-data="{
-        kpiPane: @entangle('kpiDrawerOpen'),
         zenMode: @entangle('zenMode'),
         activeTaskPane: @entangle('activeTaskPane'),
         commentsOpen: @entangle('showComments'),
