@@ -108,22 +108,116 @@
             this.copilotMenuOpen = false;
             $wire.runTool(tool, textToUse);
         },
+        focusNode(node, atEnd = false) {
+            if (!node) return;
+            node.focus();
+            const sel = window.getSelection();
+            if (!sel) return;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            range.collapse(!atEnd);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        },
+        sanitizePastedHtml(rawHtml) {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(rawHtml, 'text/html');
+
+                const removeSelectors = ['script', 'style', 'meta', 'link', 'xml', 'o\\:p'];
+                removeSelectors.forEach(sel => {
+                    doc.querySelectorAll(sel).forEach(el => el.remove());
+                });
+
+                const allowedTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'BR', 'A', 'SUB', 'SUP'];
+
+                const sanitizeNode = (node) => {
+                    if (node.nodeType === Node.COMMENT_NODE) {
+                        node.remove();
+                        return;
+                    }
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        const tagName = node.tagName.toUpperCase();
+                        if (!allowedTags.includes(tagName)) {
+                            while (node.firstChild) {
+                                node.parentNode.insertBefore(node.firstChild, node);
+                            }
+                            node.remove();
+                            return;
+                        }
+
+                        const attrs = Array.from(node.attributes);
+                        attrs.forEach(attr => {
+                            const name = attr.name.toLowerCase();
+                            if (!['href', 'src', 'alt', 'colspan', 'rowspan'].includes(name)) {
+                                node.removeAttribute(name);
+                            }
+                        });
+
+                        if (tagName === 'P') {
+                            node.className = 'word-paragraph-text';
+                        } else if (tagName === 'H1') {
+                            node.className = 'word-title-text';
+                        } else if (tagName === 'H2') {
+                            node.className = 'word-heading-1';
+                        } else if (tagName === 'H3') {
+                            node.className = 'word-heading-2';
+                        } else if (tagName === 'H4') {
+                            node.className = 'word-heading-3';
+                        } else if (tagName === 'UL') {
+                            node.className = 'word-bullet-list';
+                        } else if (tagName === 'OL') {
+                            node.className = 'word-numbered-list';
+                        } else if (tagName === 'BLOCKQUOTE') {
+                            node.className = 'word-quote-block';
+                        }
+
+                        Array.from(node.childNodes).forEach(sanitizeNode);
+                    }
+                };
+
+                Array.from(doc.body.childNodes).forEach(sanitizeNode);
+                return doc.body.innerHTML.trim();
+            } catch (err) {
+                return '';
+            }
+        },
         handlePaste(e) {
             const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
-            if (!items) return;
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) {
-                    const blob = items[i].getAsFile();
-                    if (!blob) continue;
-                    e.preventDefault();
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const dataUrl = event.target.result;
-                        $wire.insertImageUrl(dataUrl, 'Gambar dari Tangkapan Layar (Clipboard)', 480, 'center');
-                    };
-                    reader.readAsDataURL(blob);
-                    return;
+            if (items) {
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const blob = items[i].getAsFile();
+                        if (!blob) continue;
+                        e.preventDefault();
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            const dataUrl = event.target.result;
+                            $wire.insertImageUrl(dataUrl, 'Gambar dari Tangkapan Layar (Clipboard)', 480, 'center');
+                        };
+                        reader.readAsDataURL(blob);
+                        return;
+                    }
                 }
+            }
+
+            // Microsoft Word / LibreOffice "Match Destination Formatting" (Sesuaikan Format Naskah)
+            const html = (e.clipboardData || window.clipboardData)?.getData('text/html');
+            const text = (e.clipboardData || window.clipboardData)?.getData('text/plain');
+
+            if (html) {
+                e.preventDefault();
+                const clean = this.sanitizePastedHtml(html);
+                if (clean) {
+                    document.execCommand('insertHTML', false, clean);
+                } else if (text) {
+                    document.execCommand('insertText', false, text);
+                }
+                this.syncAllPages();
+            } else if (text) {
+                e.preventDefault();
+                document.execCommand('insertText', false, text);
+                this.syncAllPages();
             }
         },
         handleDrop(e) {
@@ -141,31 +235,322 @@
                 reader.readAsDataURL(file);
             }
         },
+        handleContentKeydown(e) {
+            const sel = window.getSelection();
+            if (!sel || !sel.rangeCount) return;
+
+            // 1. TAB & SHIFT+TAB: Navigasi tabel dan indentasi tanpa kehilangan fokus
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const anchor = sel.anchorNode;
+                const cell = anchor?.nodeType === 1 ? anchor.closest('td, th') : anchor?.parentElement?.closest('td, th');
+
+                if (cell) {
+                    const table = cell.closest('table');
+                    if (table) {
+                        const cells = Array.from(table.querySelectorAll('td, th'));
+                        const idx = cells.indexOf(cell);
+                        if (e.shiftKey) {
+                            if (idx > 0) {
+                                this.focusNode(cells[idx - 1], true);
+                            }
+                        } else {
+                            if (idx < cells.length - 1) {
+                                this.focusNode(cells[idx + 1], true);
+                            } else {
+                                // Sel terakhir tabel: Tambah baris baru secara otomatis (Word & LibreOffice)
+                                const lastRow = table.rows[table.rows.length - 1];
+                                const colCount = lastRow.cells.length;
+                                const tbody = table.querySelector('tbody') || table;
+                                const newRow = document.createElement('tr');
+                                newRow.style.borderBottom = '1px solid #e1dfdd';
+                                for (let c = 0; c < colCount; c++) {
+                                    const newTd = document.createElement('td');
+                                    newTd.style.padding = '6px 10px';
+                                    newTd.style.borderRight = '1px solid #e1dfdd';
+                                    newTd.innerHTML = '<br>';
+                                    newRow.appendChild(newTd);
+                                }
+                                tbody.appendChild(newRow);
+                                this.focusNode(newRow.cells[0], true);
+                                this.syncAllPages();
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                // Pada daftar butir: Tab menjorok ke dalam, Shift+Tab keluar
+                const li = anchor?.nodeType === 1 ? anchor.closest('li') : anchor?.parentElement?.closest('li');
+                if (li) {
+                    if (e.shiftKey) {
+                        document.execCommand('outdent', false, null);
+                    } else {
+                        document.execCommand('indent', false, null);
+                    }
+                    this.syncAllPages();
+                    return;
+                }
+
+                // Teks umum: Sisipkan 4 spasi non-breaking (tab stop Word) tanpa memindahkan fokus keluar
+                if (e.shiftKey) {
+                    document.execCommand('outdent', false, null);
+                } else {
+                    document.execCommand('insertText', false, '\u00a0\u00a0\u00a0\u00a0');
+                }
+                this.syncAllPages();
+                return;
+            }
+
+            // 2. ENTER: Alur alami judul ke paragraf normal & keluar dari butir daftar kosong
+            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                const anchor = sel.anchorNode;
+
+                // Bila di dalam Judul/Heading (H1, H2, H3, Judul Naskah)
+                const heading = anchor?.nodeType === 1
+                    ? anchor.closest('h1, h2, h3, h4, .word-title-text, .word-subtitle-text, .word-heading-1, .word-heading-2, .word-heading-3')
+                    : anchor?.parentElement?.closest('h1, h2, h3, h4, .word-title-text, .word-subtitle-text, .word-heading-1, .word-heading-2, .word-heading-3');
+
+                if (heading) {
+                    e.preventDefault();
+                    const range = sel.getRangeAt(0);
+                    const preRange = range.cloneRange();
+                    preRange.selectNodeContents(heading);
+                    preRange.setEnd(range.endContainer, range.endOffset);
+                    const preText = preRange.toString();
+
+                    const postRange = range.cloneRange();
+                    postRange.selectNodeContents(heading);
+                    postRange.setStart(range.endContainer, range.endOffset);
+                    const postText = postRange.toString();
+
+                    const newP = document.createElement('p');
+                    newP.className = 'word-paragraph-text';
+                    newP.innerHTML = postText ? postText : '<br>';
+
+                    if (postText) {
+                        heading.textContent = preText;
+                    }
+
+                    heading.insertAdjacentElement('afterend', newP);
+                    this.focusNode(newP, false);
+                    this.syncAllPages();
+                    return;
+                }
+
+                // Bila di dalam butir daftar kosong: Enter mengakhiri daftar dan kembali ke paragraf normal
+                const li = anchor?.nodeType === 1 ? anchor.closest('li') : anchor?.parentElement?.closest('li');
+                if (li && (!li.textContent.trim() || li.textContent === '')) {
+                    e.preventDefault();
+                    const list = li.closest('ul, ol');
+                    if (list) {
+                        const newP = document.createElement('p');
+                        newP.className = 'word-paragraph-text';
+                        newP.innerHTML = '<br>';
+                        li.remove();
+                        if (list.children.length === 0) {
+                            list.replaceWith(newP);
+                        } else {
+                            list.insertAdjacentElement('afterend', newP);
+                        }
+                        this.focusNode(newP, false);
+                        this.syncAllPages();
+                        return;
+                    }
+                }
+            }
+
+            // 3. BACKSPACE: Menghapus blok kosong dan memindahkan kursor ke blok sebelumnya dengan halus
+            if (e.key === 'Backspace') {
+                const anchor = sel.anchorNode;
+                const block = anchor?.nodeType === 1
+                    ? anchor.closest('p, h1, h2, h3, h4, li, blockquote')
+                    : anchor?.parentElement?.closest('p, h1, h2, h3, h4, li, blockquote');
+
+                if (block) {
+                    const text = block.textContent;
+                    if (!text || text.trim() === '' || block.innerHTML === '<br>') {
+                        const prev = block.previousElementSibling;
+                        if (prev && !prev.classList.contains('word-sheet-header')) {
+                            e.preventDefault();
+                            block.remove();
+                            this.focusNode(prev, true);
+                            this.syncAllPages();
+                            return;
+                        }
+                    }
+                }
+            }
+        },
+        handleContentInput(e) {
+            clearTimeout(this._inputTimer);
+            this._inputTimer = setTimeout(() => this.syncAllPages(), 500);
+
+            // AutoFormat Microsoft Word & LibreOffice Writer (*, -, 1., >, #, ##, ###)
+            const sel = window.getSelection();
+            if (!sel || !sel.rangeCount) return;
+            const anchor = sel.anchorNode;
+            const p = anchor?.nodeType === 1 ? anchor.closest('p.word-paragraph-text') : anchor?.parentElement?.closest('p.word-paragraph-text');
+            if (!p) return;
+
+            const text = p.textContent || '';
+            if (/^(\*|-)\s/.test(text)) {
+                const clean = text.replace(/^(\*|-)\s/, '');
+                const ul = document.createElement('ul');
+                ul.className = 'word-bullet-list';
+                const li = document.createElement('li');
+                li.innerHTML = clean ? clean : '<br>';
+                ul.appendChild(li);
+                p.replaceWith(ul);
+                this.focusNode(li, true);
+                this.syncAllPages();
+                return;
+            }
+
+            if (/^1\.\s/.test(text)) {
+                const clean = text.replace(/^1\.\s/, '');
+                const ol = document.createElement('ol');
+                ol.className = 'word-numbered-list';
+                const li = document.createElement('li');
+                li.innerHTML = clean ? clean : '<br>';
+                ol.appendChild(li);
+                p.replaceWith(ol);
+                this.focusNode(li, true);
+                this.syncAllPages();
+                return;
+            }
+
+            if (/^>\s/.test(text)) {
+                const clean = text.replace(/^>\s/, '');
+                const bq = document.createElement('blockquote');
+                bq.className = 'word-quote-block';
+                const quoteP = document.createElement('p');
+                quoteP.className = 'word-quote-text';
+                quoteP.innerHTML = clean ? clean : '<br>';
+                bq.appendChild(quoteP);
+                p.replaceWith(bq);
+                this.focusNode(quoteP, true);
+                this.syncAllPages();
+                return;
+            }
+
+            if (/^###\s/.test(text)) {
+                const clean = text.replace(/^###\s/, '');
+                const h4 = document.createElement('h4');
+                h4.className = 'word-heading-3';
+                h4.innerHTML = clean ? clean : '<br>';
+                p.replaceWith(h4);
+                this.focusNode(h4, true);
+                this.syncAllPages();
+                return;
+            }
+
+            if (/^##\s/.test(text)) {
+                const clean = text.replace(/^##\s/, '');
+                const h3 = document.createElement('h3');
+                h3.className = 'word-heading-2';
+                h3.innerHTML = clean ? clean : '<br>';
+                p.replaceWith(h3);
+                this.focusNode(h3, true);
+                this.syncAllPages();
+                return;
+            }
+
+            if (/^#\s/.test(text)) {
+                const clean = text.replace(/^#\s/, '');
+                const h2 = document.createElement('h2');
+                h2.className = 'word-heading-1';
+                h2.innerHTML = clean ? clean : '<br>';
+                p.replaceWith(h2);
+                this.focusNode(h2, true);
+                this.syncAllPages();
+                return;
+            }
+        },
         init() {
             window.addEventListener('keydown', (e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-                    e.preventDefault();
-                    $wire.openDialog('palette');
+                const isCtrl = e.ctrlKey || e.metaKey;
+
+                // Pintasan Keyboard Microsoft Word & LibreOffice Writer
+                if (isCtrl && !e.altKey) {
+                    const key = e.key.toLowerCase();
+                    if (key === 'k') {
+                        e.preventDefault();
+                        $wire.openDialog('palette');
+                    } else if (key === 's') {
+                        e.preventDefault();
+                        const pageEls = document.querySelectorAll('.word-sheet-content');
+                        const pageHtmls = [];
+                        pageEls.forEach(el => pageHtmls.push(el.innerHTML));
+                        $wire.save(pageHtmls);
+                    } else if (key === 'z') {
+                        e.preventDefault();
+                        $wire.undo();
+                    } else if (key === 'y') {
+                        e.preventDefault();
+                        $wire.redo();
+                    } else if (key === 'f') {
+                        e.preventDefault();
+                        $wire.openDialog('find');
+                    } else if (key === 'b') {
+                        e.preventDefault();
+                        this.format('bold');
+                    } else if (key === 'i') {
+                        e.preventDefault();
+                        this.format('italic');
+                    } else if (key === 'u') {
+                        e.preventDefault();
+                        this.format('underline');
+                    } else if (key === 'e') {
+                        e.preventDefault();
+                        this.format('justifyCenter');
+                    } else if (key === 'l' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.format('justifyLeft');
+                    } else if (key === 'r') {
+                        e.preventDefault();
+                        this.format('justifyRight');
+                    } else if (key === 'j') {
+                        e.preventDefault();
+                        this.format('justifyFull');
+                    } else if (e.key === '1') {
+                        e.preventDefault();
+                        $wire.setLineSpacing(1.0);
+                    } else if (e.key === '2') {
+                        e.preventDefault();
+                        $wire.setLineSpacing(2.0);
+                    } else if (e.key === '5') {
+                        e.preventDefault();
+                        $wire.setLineSpacing(1.5);
+                    } else if (e.key === '[') {
+                        e.preventDefault();
+                        $wire.adjustFontSize(-1);
+                    } else if (e.key === ']') {
+                        e.preventDefault();
+                        $wire.adjustFontSize(1);
+                    } else if (e.shiftKey && key === 'l') {
+                        e.preventDefault();
+                        this.format('insertUnorderedList');
+                    }
                 }
-                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-                    e.preventDefault();
-                    const pageEls = document.querySelectorAll('.word-sheet-content');
-                    const pageHtmls = [];
-                    pageEls.forEach(el => pageHtmls.push(el.innerHTML));
-                    $wire.save(pageHtmls);
+
+                // Format Heading & Normal Style Word: Ctrl+Alt+1, 2, 3, 0
+                if (isCtrl && e.altKey) {
+                    if (e.key === '1') {
+                        e.preventDefault();
+                        this.format('formatBlock', '<h2>');
+                    } else if (e.key === '2') {
+                        e.preventDefault();
+                        this.format('formatBlock', '<h3>');
+                    } else if (e.key === '3') {
+                        e.preventDefault();
+                        this.format('formatBlock', '<h4>');
+                    } else if (e.key === '0') {
+                        e.preventDefault();
+                        this.format('formatBlock', '<p>');
+                    }
                 }
-                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-                    e.preventDefault();
-                    $wire.undo();
-                }
-                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-                    e.preventDefault();
-                    $wire.redo();
-                }
-                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
-                    e.preventDefault();
-                    $wire.openDialog('find');
-                }
+
                 if (e.altKey && (e.key === '=' || e.key === '+')) {
                     e.preventDefault();
                     $wire.openDialog('equation');
@@ -1587,6 +1972,7 @@
                             style="line-height: {{ $pageSetup['lineSpacing'] ?? '1.5' }};"
                             contenteditable="{{ $editingMode === 'viewing' ? 'false' : 'true' }}"
                             spellcheck="false"
+                            @keydown="handleContentKeydown($event)"
                             @keydown.ctrl.enter.prevent="$wire.insertPageBreak()"
                             @keydown.meta.enter.prevent="$wire.insertPageBreak()"
                             @paste="handlePaste($event)"
@@ -1595,7 +1981,7 @@
                             @click="updateActiveBlock($event)"
                             @focusin="updateActiveBlock($event)"
                             @keyup="updateActiveBlock($event)"
-                            @input.debounce.800ms="syncAllPages()"
+                            @input="handleContentInput($event)"
                             @blur="syncAllPages()">
 
                             @foreach ($pageBlocks as $item)
