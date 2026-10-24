@@ -20,6 +20,12 @@ enum SlashCommand: string
     case POLES = '/poles';
     case RUMUS = '/rumus';
     case GAMBAR = '/gambar';
+    case ABSTRAK = '/abstrak';
+    case METODOLOGI = '/metodologi';
+    case TABEL_ANALISIS = '/tabel-analisis';
+    case TERJEMAHKAN = '/terjemahkan';
+    case PUEBI = '/puebi';
+    case KEMBANGKAN = '/kembangkan';
 
     public function description(): string
     {
@@ -34,6 +40,12 @@ enum SlashCommand: string
             self::POLES => 'Poles kalimat dengan tata bahasa akademik baku dan kohesif.',
             self::RUMUS => 'Rekomendasikan atau siapkan rumus matematika dalam format LaTeX.',
             self::GAMBAR => 'Panduan dan generator diagram ilmiah serta penyisipan gambar.',
+            self::ABSTRAK => 'Susun draf abstrak akademik terstruktur berformat IMRAD.',
+            self::METODOLOGI => 'Rancang struktur dan instrumen bab metodologi penelitian.',
+            self::TABEL_ANALISIS => 'Buat tabel matriks komparasi data dan evaluasi empiris.',
+            self::TERJEMAHKAN => 'Terjemahkan teks ke dalam Bahasa Inggris akademik formal.',
+            self::PUEBI => 'Audit dan koreksi tata bahasa, ejaan, dan tanda baca sesuai PUEBI.',
+            self::KEMBANGKAN => 'Elaborasi dan kembangkan poin gagasan menjadi paragraf utuh.',
         };
     }
 
@@ -48,8 +60,24 @@ enum SlashCommand: string
     public static function tryParse(string $input): ?self
     {
         $trimmed = trim($input);
-        $firstToken = explode(' ', $trimmed)[0] ?? '';
+        $firstToken = mb_strtolower(explode(' ', $trimmed)[0] ?? '');
 
-        return self::tryFrom(mb_strtolower($firstToken));
+        if ($firstToken === '/perbaiki-ejaan') {
+            return self::PUEBI;
+        }
+        if ($firstToken === '/metode') {
+            return self::METODOLOGI;
+        }
+        if ($firstToken === '/ringkaskan') {
+            return self::RINGKAS;
+        }
+        if (in_array($firstToken, ['/latex', '/equation'], true)) {
+            return self::RUMUS;
+        }
+        if ($firstToken === '/diagram') {
+            return self::GAMBAR;
+        }
+
+        return self::tryFrom($firstToken);
     }
 }
