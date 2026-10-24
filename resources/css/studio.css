@@ -1,57 +1,73 @@
 /* =============================================================================
-   NASKAH STUDIO — Standalone Academic Word Processor & UX Telemetry Suite
-   Self-contained Neo-Brutalist Retro-Blueprint Design System
+   MICROSOFT WORD FLUENT DESIGN SYSTEM — NASKAH STUDIO
+   Modeled after modern Microsoft Word 365 / Word for Mac & Windows 11
+   Complete with Ribbon, Navigation Pane, Paper Canvas, Ruler & Telemetry
    ============================================================================= */
 
 :root {
-    --rb-ink: #0F172A;
-    --rb-ink-soft: #334155;
-    --rb-ink-muted: #64748B;
-    --rb-primary: #1E40AF;
-    --rb-primary-hover: #1D4ED8;
-    --rb-secondary: #2563EB;
-    --rb-accent: #60A5FA;
-    --rb-accent-soft: #DBEAFE;
-    --rb-surface: #FFFFFF;
-    --rb-surface-soft: #F8FAFC;
-    --rb-surface-muted: #F1F5F9;
-    --rb-canvas: #E2E8F0;
-    --rb-blueprint: #F0F6FF;
-    --rb-canvas-grid: #CBD5E1;
-    --rb-border: 2px solid #0F172A;
-    --rb-border-soft: 1px solid #CBD5E1;
-    --rb-shadow: 4px 4px 0px #0F172A;
-    --rb-shadow-lg: 8px 8px 0px #0F172A;
-    --rb-shadow-sm: 2px 2px 0px #0F172A;
-    --rb-status-pass: #059669;
-    --rb-status-alert: #DC2626;
-    --rb-status-hitl: #D97706;
-    --rb-font-display: 'Space Grotesk', system-ui, sans-serif;
-    --rb-font-mono: 'JetBrains Mono', monospace;
-    --rb-font-serif: 'Source Serif 4', Georgia, serif;
-    --rb-font-sans: 'Inter', system-ui, sans-serif;
+    /* Fluent Microsoft Office Palette */
+    --ms-blue: #0f6cbd;
+    --ms-blue-hover: #115ea3;
+    --ms-blue-active: #0c3b5e;
+    --ms-blue-subtle: #ebf3fc;
+    --ms-blue-border: #cfe4fa;
+    --ms-blue-dark: #1f4e78;
+    --ms-blue-heading: #2e75b6;
+
+    --ms-bg-app: #f3f2f1;
+    --ms-bg-canvas: #eaeaea;
+    --ms-bg-ribbon: #ffffff;
+    --ms-bg-ribbon-subtle: #f9f9fb;
+    --ms-bg-surface: #ffffff;
+    --ms-bg-hover: #f0f0f0;
+    --ms-bg-active: #e5e5e5;
+    --ms-bg-selected: #e1dfdd;
+
+    --ms-border: #e1dfdd;
+    --ms-border-subtle: #edebe9;
+    --ms-border-strong: #8a8886;
+
+    --ms-text-primary: #242424;
+    --ms-text-secondary: #616161;
+    --ms-text-muted: #8a8886;
+    --ms-text-disabled: #a19f9d;
+
+    --ms-shadow-paper: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+    --ms-shadow-flyout: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+    --ms-shadow-card: 0 1px 4px rgba(0, 0, 0, 0.06);
+
+    --ms-status-success: #107c41;
+    --ms-status-warning: #b74700;
+    --ms-status-error: #c50f1f;
+
+    --ms-font-ui: 'Aptos', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', Roboto, sans-serif;
+    --ms-font-serif: 'Source Serif 4', 'Cambria', 'Georgia', serif;
+    --ms-font-mono: 'JetBrains Mono', 'Consolas', monospace;
 }
 
 .dark {
-    --rb-ink: #F8FAFC;
-    --rb-ink-soft: #CBD5E1;
-    --rb-ink-muted: #94A3B8;
-    --rb-primary: #3B82F6;
-    --rb-primary-hover: #60A5FA;
-    --rb-secondary: #60A5FA;
-    --rb-accent: #93C5FD;
-    --rb-accent-soft: #1E293B;
-    --rb-surface: #0F172A;
-    --rb-surface-soft: #1E293B;
-    --rb-surface-muted: #334155;
-    --rb-canvas: #020617;
-    --rb-blueprint: #0B0F19;
-    --rb-canvas-grid: #334155;
-    --rb-border: 2px solid #94A3B8;
-    --rb-border-soft: 1px solid #334155;
-    --rb-shadow: 4px 4px 0px #020617;
-    --rb-shadow-lg: 8px 8px 0px #020617;
-    --rb-shadow-sm: 2px 2px 0px #020617;
+    --ms-bg-app: #1f1f1f;
+    --ms-bg-canvas: #181818;
+    --ms-bg-ribbon: #252526;
+    --ms-bg-ribbon-subtle: #2d2d2d;
+    --ms-bg-surface: #252526;
+    --ms-bg-hover: #333333;
+    --ms-bg-active: #3a3a3a;
+    --ms-bg-selected: #444444;
+
+    --ms-border: #3e3e42;
+    --ms-border-subtle: #333333;
+    --ms-border-strong: #666666;
+
+    --ms-text-primary: #f3f3f3;
+    --ms-text-secondary: #cccccc;
+    --ms-text-muted: #999999;
+    --ms-text-disabled: #666666;
+
+    --ms-shadow-paper: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --ms-blue-subtle: #1e3a5f;
+    --ms-blue-border: #2563eb;
+    --ms-blue-heading: #60a5fa;
 }
 
 *, *::before, *::after {
@@ -64,631 +80,1313 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    font-family: var(--rb-font-sans);
-    background-color: var(--rb-blueprint);
-    color: var(--rb-ink);
+    font-family: var(--ms-font-ui);
+    background-color: var(--ms-bg-app);
+    color: var(--ms-text-primary);
     overflow: hidden;
+    -webkit-font-smoothing: antialiased;
 }
 
-/* Studio Root Layout */
-.ns-root {
+/* =============================================================================
+   ROOT LAYOUT CONTAINER
+   ============================================================================= */
+.word-root {
     display: flex;
     flex-direction: column;
     height: 100vh;
     width: 100vw;
     overflow: hidden;
-    background-color: var(--rb-blueprint);
-    color: var(--rb-ink);
+    background-color: var(--ms-bg-app);
+    color: var(--ms-text-primary);
 }
 
-/* Top Telemetry & Header Bar */
-.ns-topbar {
+/* =============================================================================
+   1. TOP TITLE BAR (QUICK ACCESS, AUTOSAVE, TITLE, SEARCH, SHARE)
+   ============================================================================= */
+.word-titlebar {
+    height: 48px;
+    background: var(--ms-bg-ribbon);
+    border-bottom: 1px solid var(--ms-border-subtle);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.5rem 1rem;
-    background: var(--rb-surface);
-    border-bottom: var(--rb-border);
+    padding: 0 12px;
     flex-shrink: 0;
-    z-index: 40;
-    gap: 0.75rem;
-    height: 52px;
-}
-
-.ns-topbar__left {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-shrink: 0;
-}
-
-.ns-brand {
-    font-family: var(--rb-font-mono);
-    font-weight: 800;
-    font-size: 0.78rem;
-    letter-spacing: 0.06em;
-    padding: 0.35rem 0.65rem;
-    background: var(--rb-primary);
-    color: #ffffff;
-    border: var(--rb-border);
-    box-shadow: var(--rb-shadow-sm);
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    white-space: nowrap;
-}
-.ns-brand:hover {
-    background: var(--rb-primary-hover);
-}
-
-.ns-title-input {
-    font-family: var(--rb-font-display);
-    font-weight: 700;
-    font-size: 0.9rem;
-    border: 1px solid transparent;
-    border-bottom: 1.5px solid var(--rb-canvas-grid);
-    background: transparent;
-    color: var(--rb-ink);
-    padding: 0.2rem 0.4rem;
-    width: 220px;
-    max-width: 320px;
-    outline: none;
-    transition: all 0.15s;
-}
-.ns-title-input:hover {
-    border-bottom-color: var(--rb-ink);
-}
-.ns-title-input:focus {
-    border-bottom-color: var(--rb-primary);
-    background: var(--rb-surface-soft);
-}
-
-.ns-badge {
-    font-family: var(--rb-font-mono);
-    font-size: 0.62rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    padding: 0.2rem 0.45rem;
-    border-radius: 2px;
-    border: 1px solid;
-    display: inline-flex;
-    align-items: center;
-    white-space: nowrap;
-}
-.ns-badge--saved {
-    background: #ecfdf5;
-    color: #065f46;
-    border-color: #34d399;
-}
-.dark .ns-badge--saved {
-    background: rgba(6, 95, 70, 0.3);
-    color: #a7f3d0;
-    border-color: #059669;
-}
-.ns-badge--dirty {
-    background: #fffbeb;
-    color: #92400e;
-    border-color: #f59e0b;
-}
-.dark .ns-badge--dirty {
-    background: rgba(146, 64, 14, 0.3);
-    color: #fde68a;
-    border-color: #d97706;
-}
-
-.ns-telemetry-strip {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    overflow-x: auto;
-    font-family: var(--rb-font-mono);
-    font-size: 0.68rem;
-    flex-wrap: nowrap;
-}
-
-.ns-kpi-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 3px;
-    background: var(--rb-surface-soft);
-    border: var(--rb-border-soft);
-    color: var(--rb-ink);
-    white-space: nowrap;
-    text-decoration: none;
-    font-size: 0.68rem;
-    cursor: default;
-}
-.ns-kpi-pill--btn {
-    cursor: pointer;
-    background: var(--rb-surface-soft);
-    transition: all 0.12s;
-}
-.ns-kpi-pill--btn:hover {
-    background: var(--rb-surface-muted);
-    border-color: var(--rb-ink);
-}
-
-.ns-csat-widget {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    background: #fffbeb;
-    color: #92400e;
-    border: 1px solid #fde68a;
-    padding: 0.2rem 0.45rem;
-    border-radius: 3px;
-}
-.dark .ns-csat-widget {
-    background: rgba(146, 64, 14, 0.2);
-    color: #fde68a;
-    border-color: #78350f;
-}
-.ns-csat-star {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font-size: 0.85rem;
-    line-height: 1;
-    padding: 0 1px;
-    transition: transform 0.1s;
-}
-.ns-csat-star:hover {
-    transform: scale(1.3);
-}
-
-.ns-kpi-hud-trigger {
-    background: var(--rb-primary);
-    color: #ffffff;
-    font-family: var(--rb-font-mono);
-    font-weight: 700;
-    font-size: 0.68rem;
-    padding: 0.28rem 0.6rem;
-    border-radius: 3px;
-    border: 1px solid var(--rb-primary);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    transition: all 0.12s;
-    white-space: nowrap;
-}
-.ns-kpi-hud-trigger:hover {
-    background: var(--rb-primary-hover);
-}
-
-/* Ribbon Container & Tabs */
-.ns-ribbon-container {
-    background: var(--rb-surface-soft);
-    border-bottom: var(--rb-border);
-    flex-shrink: 0;
-    z-index: 30;
-    display: flex;
-    flex-direction: column;
-}
-
-.ns-ribbon-tabs {
-    display: flex;
-    align-items: center;
-    gap: 0.2rem;
-    padding: 0.25rem 0.75rem 0 0.75rem;
-    border-bottom: 1px solid var(--rb-canvas-grid);
-    overflow-x: auto;
-    font-size: 0.75rem;
-}
-
-.ns-ribbon-tab {
-    padding: 0.35rem 0.75rem;
-    border: none;
-    border-bottom: 2.5px solid transparent;
-    background: transparent;
-    color: var(--rb-ink-muted);
-    font-weight: 600;
-    font-size: 0.75rem;
-    cursor: pointer;
-    transition: all 0.12s;
-    white-space: nowrap;
-}
-.ns-ribbon-tab:hover {
-    color: var(--rb-ink);
-}
-.ns-ribbon-tab.active {
-    color: var(--rb-primary);
-    border-bottom-color: var(--rb-primary);
-    font-weight: 700;
-    background: var(--rb-surface);
-}
-
-.ns-ribbon-body {
-    padding: 0.4rem 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: var(--rb-surface);
-    overflow-x: auto;
-    min-height: 48px;
-    border-bottom: 1px solid var(--rb-border-soft);
-}
-
-.ns-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    padding-right: 0.65rem;
-    border-right: 1px solid var(--rb-canvas-grid);
-    flex-shrink: 0;
-}
-.ns-group:last-child {
-    border-right: none;
-}
-.ns-group__label {
-    font-family: var(--rb-font-mono);
-    font-size: 0.55rem;
-    text-transform: uppercase;
-    color: var(--rb-ink-muted);
-    font-weight: 700;
-    letter-spacing: 0.05em;
+    z-index: 50;
     user-select: none;
-}
-.ns-group__row {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    flex-wrap: nowrap;
+    gap: 12px;
 }
 
-.ns-btn {
-    border: 1px solid var(--rb-canvas-grid);
-    background: var(--rb-surface);
-    color: var(--rb-ink);
-    font-size: 0.68rem;
-    font-weight: 600;
-    padding: 0.25rem 0.48rem;
-    border-radius: 3px;
-    cursor: pointer;
+.word-titlebar__left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex-shrink: 0;
+}
+
+/* AutoSave Switch */
+.word-autosave {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
-    line-height: 1.2;
-    transition: all 0.12s;
-    white-space: nowrap;
-    text-decoration: none;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ms-text-primary);
+    cursor: pointer;
 }
-.ns-btn:hover {
-    background: var(--rb-surface-muted);
-    border-color: var(--rb-ink);
+
+.word-switch {
+    width: 32px;
+    height: 18px;
+    background: #c8c6c4;
+    border-radius: 9999px;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
 }
-.ns-btn:disabled {
-    opacity: 0.45;
+
+.word-switch.active {
+    background: var(--ms-status-success);
+}
+
+.word-switch__thumb {
+    width: 14px;
+    height: 14px;
+    background: #ffffff;
+    border-radius: 9999px;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.15s ease-in-out;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.word-switch.active .word-switch__thumb {
+    transform: translateX(14px);
+}
+
+/* Quick Access Icons */
+.word-quick-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.word-icon-btn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    color: var(--ms-text-primary);
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.1s;
+}
+
+.word-icon-btn:hover {
+    background-color: var(--ms-bg-hover);
+}
+
+.word-icon-btn:disabled {
+    opacity: 0.35;
     cursor: not-allowed;
 }
-.ns-btn--primary {
-    background: var(--rb-primary);
-    color: #ffffff;
-    border-color: var(--rb-primary);
-}
-.ns-btn--primary:hover {
-    background: var(--rb-primary-hover);
-}
-.ns-btn--active {
-    background: var(--rb-accent-soft);
-    color: var(--rb-primary);
-    border-color: var(--rb-secondary);
-    font-weight: 700;
+
+/* Center Document Title */
+.word-titlebar__center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
-/* Horizontal Ruler */
-.ns-ruler {
-    background: var(--rb-surface-muted);
-    border-bottom: 1px solid var(--rb-canvas-grid);
-    height: 20px;
+.word-doc-title-input {
+    font-family: var(--ms-font-ui);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ms-text-primary);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    padding: 3px 8px;
+    text-align: center;
+    outline: none;
+    max-width: 440px;
+    transition: all 0.12s;
+}
+
+.word-doc-title-input:hover {
+    border-color: var(--ms-border);
+    background: var(--ms-bg-hover);
+}
+
+.word-doc-title-input:focus {
+    border-color: var(--ms-blue);
+    background: var(--ms-bg-surface);
+    box-shadow: 0 0 0 1px var(--ms-blue);
+}
+
+.word-doc-status {
+    font-size: 12px;
+    color: var(--ms-text-muted);
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+/* Titlebar Right Section (Search, Comments, Editing, Share, Avatar, KPIs) */
+.word-titlebar__right {
     display: flex;
     align-items: center;
-    padding: 0 2rem;
-    font-family: var(--rb-font-mono);
-    font-size: 8px;
-    color: var(--rb-ink-muted);
-    user-select: none;
-    overflow: hidden;
+    gap: 8px;
     flex-shrink: 0;
 }
-.ns-ruler__ticks {
-    width: 100%;
+
+.word-search-box {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 6px;
+    background: var(--ms-bg-subtle, #f3f2f1);
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    padding: 4px 12px;
+    width: 220px;
+    height: 28px;
+    font-size: 12px;
+    color: var(--ms-text-secondary);
+    transition: all 0.12s;
 }
-.ns-ruler__tick {
+
+.word-search-box:focus-within {
+    border-color: var(--ms-blue);
+    background: #ffffff;
+    box-shadow: 0 0 0 1px var(--ms-blue);
+    width: 260px;
+}
+
+.word-search-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 12px;
+    color: var(--ms-text-primary);
+    width: 100%;
+}
+
+.word-search-input::placeholder {
+    color: var(--ms-text-muted);
+}
+
+.word-btn-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--ms-border);
+    background: var(--ms-bg-surface);
+    color: var(--ms-text-primary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.1s;
+    height: 28px;
+}
+
+.word-btn-pill:hover {
+    background-color: var(--ms-bg-hover);
+    border-color: var(--ms-border-strong);
+}
+
+.word-btn-share {
+    background-color: var(--ms-blue);
+    border-color: var(--ms-blue);
+    color: #ffffff;
+    font-weight: 600;
+    padding: 4px 14px;
+    border-radius: 4px;
+}
+
+.word-btn-share:hover {
+    background-color: var(--ms-blue-hover);
+    border-color: var(--ms-blue-hover);
+}
+
+.word-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 9999px;
+    background: #0078d4;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    user-select: none;
+}
+
+/* =============================================================================
+   2. RIBBON TABS BAR
+   ============================================================================= */
+.word-ribbon-tabs {
+    display: flex;
+    align-items: center;
+    background: var(--ms-bg-ribbon);
+    padding: 0 8px;
+    border-bottom: 1px solid var(--ms-border);
+    overflow-x: auto;
+    scrollbar-width: none;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.word-ribbon-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.word-tab {
+    padding: 6px 12px 8px 12px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ms-text-secondary);
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+    transition: color 0.1s;
+}
+
+.word-tab:hover {
+    color: var(--ms-text-primary);
+    background-color: var(--ms-bg-hover);
+}
+
+.word-tab.active {
+    color: var(--ms-text-primary);
+    font-weight: 600;
+}
+
+.word-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 8px;
+    right: 8px;
+    height: 2.5px;
+    background: var(--ms-blue);
+    border-radius: 2px 2px 0 0;
+}
+
+/* Telemetry Pills in Ribbon Header */
+.word-ribbon-telemetry {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-right: 6px;
+}
+
+.word-kpi-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    background: var(--ms-blue-subtle);
+    border: 1px solid var(--ms-blue-border);
+    color: var(--ms-blue);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all 0.1s;
+}
+
+.word-kpi-chip:hover {
+    background: #dbeafe;
+    border-color: var(--ms-blue);
+}
+
+/* =============================================================================
+   3. RIBBON TOOLBAR BODY (MICROSOFT WORD COMMANDS)
+   ============================================================================= */
+.word-ribbon-body {
+    background: var(--ms-bg-ribbon-subtle);
+    border-bottom: 1px solid var(--ms-border);
+    display: flex;
+    align-items: stretch;
+    padding: 4px 8px;
+    gap: 4px;
+    overflow-x: auto;
+    min-height: 84px;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.word-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 0 6px;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.word-group + .word-group::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 4px;
+    bottom: 4px;
+    width: 1px;
+    background-color: var(--ms-border);
+}
+
+.word-group__content {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.word-group__col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.word-group__row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.word-group__footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding-top: 2px;
+}
+
+.word-group__label {
+    font-size: 10px;
+    color: var(--ms-text-muted);
+    font-weight: 500;
+    text-align: center;
+    letter-spacing: 0.01em;
+}
+
+/* Word Large Split Buttons (e.g. Paste, Dictate, Editor) */
+.word-btn-large {
     display: flex;
     flex-direction: column;
     align-items: center;
-}
-.ns-ruler__bar {
-    width: 1px;
-    height: 6px;
-    background: var(--rb-canvas-grid);
+    justify-content: center;
+    padding: 4px 8px;
+    min-width: 46px;
+    height: 56px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ms-text-primary);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    gap: 3px;
+    transition: all 0.1s;
 }
 
-/* Main Workspace */
-.ns-workspace {
+.word-btn-large:hover {
+    background: var(--ms-bg-hover);
+    border-color: var(--ms-border);
+}
+
+.word-btn-large:active {
+    background: var(--ms-bg-active);
+}
+
+.word-btn-large svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* Small Tool Buttons (e.g. Cut, Copy, Format Painter) */
+.word-tool-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    height: 24px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ms-text-primary);
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.1s;
+}
+
+.word-tool-btn:hover {
+    background: var(--ms-bg-hover);
+    border-color: var(--ms-border);
+}
+
+.word-tool-btn.active {
+    background: var(--ms-bg-selected);
+    border-color: var(--ms-border-strong);
+}
+
+.word-tool-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* Compact Square Buttons (B, I, U, ab, x2, etc.) */
+.word-btn-square {
+    width: 26px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ms-text-primary);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.1s;
+}
+
+.word-btn-square:hover {
+    background: var(--ms-bg-hover);
+    border-color: var(--ms-border);
+}
+
+.word-btn-square.active {
+    background: #cfe4fa;
+    color: var(--ms-blue-active);
+    border-color: var(--ms-blue);
+    font-weight: 700;
+}
+
+/* Select Dropdowns (Font family, size) */
+.word-select {
+    height: 24px;
+    border: 1px solid var(--ms-border);
+    border-radius: 3px;
+    background: var(--ms-bg-surface);
+    color: var(--ms-text-primary);
+    font-size: 11.5px;
+    font-family: var(--ms-font-ui);
+    padding: 0 6px;
+    outline: none;
+    cursor: pointer;
+}
+
+.word-select:hover {
+    border-color: var(--ms-border-strong);
+}
+
+.word-select:focus {
+    border-color: var(--ms-blue);
+}
+
+/* Color Split Pickers */
+.word-color-picker-btn {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 24px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.word-color-picker-btn:hover {
+    background: var(--ms-bg-hover);
+    border-color: var(--ms-border);
+}
+
+.word-color-bar {
+    width: 14px;
+    height: 3px;
+    border-radius: 1px;
+    margin-top: 1px;
+}
+
+/* =============================================================================
+   4. STYLES GALLERY (MICROSOFT WORD ICONIC QUICK STYLES TILES)
+   ============================================================================= */
+.word-styles-gallery {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+    max-width: 440px;
+    scrollbar-width: none;
+}
+
+.word-styles-gallery::-webkit-scrollbar {
+    display: none;
+}
+
+.word-style-tile {
+    width: 68px;
+    height: 54px;
+    border: 1px solid var(--ms-border);
+    border-radius: 3px;
+    background: var(--ms-bg-surface);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px;
+    cursor: pointer;
+    transition: all 0.1s;
+    flex-shrink: 0;
+}
+
+.word-style-tile:hover {
+    border-color: var(--ms-blue);
+    background: var(--ms-bg-hover);
+}
+
+.word-style-tile.active {
+    border-color: var(--ms-blue);
+    background: var(--ms-blue-subtle);
+    box-shadow: 0 0 0 1px var(--ms-blue);
+}
+
+.word-style-tile__preview {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.word-style-tile__name {
+    font-size: 9.5px;
+    color: var(--ms-text-secondary);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+/* =============================================================================
+   5. HORIZONTAL RULER (WORD RULER WITH INCH/CM TICKS & INDENT MARKERS)
+   ============================================================================= */
+.word-ruler-container {
+    height: 22px;
+    background: var(--ms-bg-app);
+    border-bottom: 1px solid var(--ms-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.word-ruler {
+    width: 850px;
+    max-width: 850px;
+    height: 100%;
+    background: #ffffff;
+    border-left: 1px solid var(--ms-border);
+    border-right: 1px solid var(--ms-border);
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+}
+
+.dark .word-ruler {
+    background: #252526;
+}
+
+.word-ruler__numbers {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    position: relative;
+}
+
+.word-ruler__inch {
+    flex: 1;
+    height: 100%;
+    position: relative;
+    border-right: 1px solid transparent;
+}
+
+.word-ruler__num {
+    position: absolute;
+    right: 3px;
+    top: 2px;
+    font-size: 9px;
+    font-family: var(--ms-font-ui);
+    color: var(--ms-text-muted);
+}
+
+.word-ruler__tick-major {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 1px;
+    height: 7px;
+    background: #b3b0ad;
+}
+
+.word-ruler__tick-half {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 1px;
+    height: 5px;
+    background: #d2d0ce;
+}
+
+.word-ruler__tick-quarter {
+    position: absolute;
+    left: 25%;
+    bottom: 0;
+    width: 1px;
+    height: 3px;
+    background: #edebe9;
+}
+
+.word-ruler__tick-three-quarter {
+    position: absolute;
+    left: 75%;
+    bottom: 0;
+    width: 1px;
+    height: 3px;
+    background: #edebe9;
+}
+
+/* Indent Markers */
+.word-indent-marker-left {
+    position: absolute;
+    left: 48px;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    width: 10px;
+    margin-left: -5px;
+    z-index: 10;
+    cursor: ew-resize;
+}
+
+.word-indent-marker-right {
+    position: absolute;
+    right: 48px;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 10px;
+    margin-right: -5px;
+    z-index: 10;
+    cursor: ew-resize;
+}
+
+/* =============================================================================
+   6. MAIN WORKSPACE (NAVIGATION PANE, CANVAS AREA, TASK PANES)
+   ============================================================================= */
+.word-workspace {
     flex: 1;
     display: flex;
     flex-direction: row;
     overflow: hidden;
     position: relative;
-    background-color: var(--rb-canvas);
+    background-color: var(--ms-bg-canvas);
 }
 
-/* Navigator Left Sidebar */
-.ns-navigator {
-    width: 280px;
-    min-width: 280px;
-    max-width: 280px;
-    background: var(--rb-surface);
-    border-right: var(--rb-border);
+/* =============================================================================
+   7. NAVIGATION PANE (LEFT SIDEBAR - HEADINGS, PAGES, RESULTS)
+   ============================================================================= */
+.word-nav-pane {
+    width: 260px;
+    min-width: 260px;
+    max-width: 320px;
+    background: var(--ms-bg-surface);
+    border-right: 1px solid var(--ms-border);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    padding: 0.85rem;
-    font-size: 0.75rem;
     flex-shrink: 0;
     z-index: 20;
+    user-select: none;
 }
 
-.ns-sidebar-header {
+.word-nav-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--rb-canvas-grid);
-    margin-bottom: 0.75rem;
-    font-family: var(--rb-font-mono);
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 0.72rem;
+    padding: 10px 14px 6px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ms-text-primary);
 }
 
-/* Canvas Area & Realistic Paper */
-.ns-canvas-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 2rem 1.5rem 4rem 1.5rem;
-    display: flex;
-    justify-content: center;
-    background-color: var(--rb-canvas);
-    background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px);
-    background-size: 16px 16px;
-}
-.dark .ns-canvas-area {
-    background-image: radial-gradient(rgba(248, 250, 252, 0.08) 1px, transparent 1px);
+.word-nav-search {
+    padding: 4px 12px 10px 12px;
 }
 
-.ns-paper {
-    background: #ffffff;
-    color: #0f172a;
-    border: var(--rb-border);
-    box-shadow: var(--rb-shadow-lg);
+.word-nav-search-input {
     width: 100%;
-    max-width: 860px;
-    min-height: 1100px;
-    padding: 3.5rem 4rem;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    margin-bottom: 3rem;
-    transition: transform 0.15s ease-out;
-}
-.dark .ns-paper {
-    background: #0f172a;
-    color: #f8fafc;
-}
-
-.ns-paper-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 0.75rem;
-    margin-bottom: 1.5rem;
-    border-bottom: 1px solid #e2e8f0;
-    font-family: var(--rb-font-mono);
-    font-size: 0.7rem;
-    color: #94a3b8;
-}
-
-/* Blocks inside Paper */
-.ns-block {
-    position: relative;
+    padding: 5px 8px 5px 28px;
+    border: 1px solid var(--ms-border);
     border-radius: 4px;
-    padding: 0.5rem;
-    margin-bottom: 0.65rem;
-    border: 1.5px solid transparent;
+    font-size: 12px;
+    outline: none;
+    background: var(--ms-bg-subtle, #f9f9fb);
+    color: var(--ms-text-primary);
     transition: all 0.12s;
 }
-.ns-block:hover {
-    border-color: #cbd5e1;
-}
-.ns-block.active {
-    border-color: #2563eb;
-    background: rgba(37, 99, 235, 0.03);
+
+.word-nav-search-input:focus {
+    border-color: var(--ms-blue);
+    background: #ffffff;
+    box-shadow: 0 0 0 1px var(--ms-blue);
 }
 
-.ns-block__toolbar {
-    position: absolute;
-    top: -14px;
-    right: 8px;
-    display: none;
-    align-items: center;
-    gap: 0.3rem;
-    background: #0f172a;
-    color: #ffffff;
-    border-radius: 3px;
-    padding: 0.15rem 0.5rem;
-    font-family: var(--rb-font-mono);
-    font-size: 0.65rem;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    z-index: 25;
-}
-.ns-block:hover .ns-block__toolbar,
-.ns-block.active .ns-block__toolbar {
+.word-nav-subtabs {
     display: flex;
+    align-items: center;
+    padding: 0 12px 6px 12px;
+    gap: 4px;
+    border-bottom: 1px solid var(--ms-border-subtle);
 }
 
-.ns-block__toolbar button {
-    background: transparent;
+.word-nav-pill {
+    padding: 4px 10px;
+    border-radius: 9999px;
     border: none;
-    color: #ffffff;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ms-text-secondary);
     cursor: pointer;
-    font-size: 0.65rem;
-    padding: 0 2px;
+    transition: all 0.1s;
 }
-.ns-block__toolbar button:hover {
+
+.word-nav-pill:hover {
+    background: var(--ms-bg-hover);
+    color: var(--ms-text-primary);
+}
+
+.word-nav-pill.active {
+    background: #d0e2ff;
+    color: var(--ms-blue);
+    font-weight: 600;
+}
+
+.dark .word-nav-pill.active {
+    background: #1e3a5f;
     color: #93c5fd;
 }
 
-.ns-input-heading {
-    width: 100%;
-    box-sizing: border-box;
-    background: transparent;
-    border: none;
-    outline: none;
-    font-family: var(--rb-font-display);
-    font-weight: 800;
-    color: inherit;
-    padding: 0;
-    line-height: 1.25;
+.word-nav-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
 }
-.ns-input-heading--h1 { font-size: 1.85rem; }
-.ns-input-heading--h2 { font-size: 1.45rem; }
-.ns-input-heading--h3 { font-size: 1.2rem; }
 
-.ns-textarea-p {
+.word-nav-item {
+    display: flex;
+    align-items: center;
     width: 100%;
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    color: var(--ms-text-primary);
+    cursor: pointer;
+    line-height: 1.35;
+    transition: background 0.1s;
+}
+
+.word-nav-item:hover {
+    background: var(--ms-bg-hover);
+}
+
+.word-nav-item.active {
+    background: var(--ms-blue-subtle);
+    color: var(--ms-blue);
+    font-weight: 600;
+}
+
+/* =============================================================================
+   8. CANVAS AREA & REALISTIC WORD PAPER
+   ============================================================================= */
+.word-canvas-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 20px 60px 20px;
+    display: flex;
+    justify-content: center;
+    background-color: var(--ms-bg-canvas);
+}
+
+.word-paper {
+    background: #ffffff;
+    color: #242424;
+    width: 100%;
+    max-width: 850px;
+    min-height: 1100px;
+    padding: 54px 72px; /* 1-inch standard Word margins */
+    box-shadow: var(--ms-shadow-paper);
+    position: relative;
+    display: flex;
+    flex-direction: column;
     box-sizing: border-box;
+    margin-bottom: 40px;
+    border-radius: 1px;
+    transition: transform 0.15s ease-out;
+}
+
+.dark .word-paper {
+    background: #1e1e1e;
+    color: #f3f3f3;
+}
+
+/* Word Realistic Header Margin */
+.word-paper-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 11px;
+    color: #707070;
+    user-select: none;
+}
+
+.dark .word-paper-header {
+    border-bottom-color: #333333;
+    color: #999999;
+}
+
+/* Word Blocks inside Paper */
+.word-block {
+    position: relative;
+    padding: 3px 6px;
+    margin-bottom: 10px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    transition: border-color 0.1s, background-color 0.1s;
+}
+
+.word-block:hover {
+    border-color: #e5e5e5;
+}
+
+.word-block.active {
+    border-color: #cfe4fa;
+    background-color: rgba(15, 108, 189, 0.02);
+}
+
+/* Mini Word Floating Formatting Toolbar */
+.word-mini-toolbar {
+    position: absolute;
+    top: -34px;
+    right: 8px;
+    display: none;
+    align-items: center;
+    gap: 3px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--ms-border);
+    border-radius: 6px;
+    padding: 3px 6px;
+    box-shadow: var(--ms-shadow-flyout);
+    z-index: 30;
+    user-select: none;
+}
+
+.dark .word-mini-toolbar {
+    background: rgba(37, 37, 38, 0.96);
+}
+
+.word-block:hover .word-mini-toolbar,
+.word-block.active .word-mini-toolbar {
+    display: flex;
+}
+
+.word-mini-toolbar button {
     background: transparent;
     border: none;
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-size: 11px;
+    color: var(--ms-text-primary);
+    cursor: pointer;
+}
+
+.word-mini-toolbar button:hover {
+    background: var(--ms-bg-hover);
+    color: var(--ms-blue);
+}
+
+/* Typographic Elements inside Paper */
+.word-title-text {
+    font-size: 28pt;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
+    margin-bottom: 6px;
     outline: none;
-    font-family: inherit;
-    font-size: inherit;
-    color: inherit;
-    padding: 0;
-    line-height: 1.7;
+    border: none;
+    background: transparent;
+    width: 100%;
+}
+
+.dark .word-title-text {
+    color: #f9fafb;
+}
+
+.word-subtitle-text {
+    font-size: 13.5pt;
+    color: #4b5563;
+    line-height: 1.45;
+    margin-bottom: 18px;
+    outline: none;
+    border: none;
+    background: transparent;
+    width: 100%;
+}
+
+.dark .word-subtitle-text {
+    color: #9ca3af;
+}
+
+.word-heading-1 {
+    font-size: 20pt;
+    font-weight: 600;
+    color: var(--ms-blue-dark);
+    line-height: 1.3;
+    margin-top: 18px;
+    margin-bottom: 10px;
+    outline: none;
+    border: none;
+    background: transparent;
+    width: 100%;
+}
+
+.word-heading-2 {
+    font-size: 15.5pt;
+    font-weight: 600;
+    color: var(--ms-blue-heading);
+    line-height: 1.35;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    outline: none;
+    border: none;
+    background: transparent;
+    width: 100%;
+}
+
+.word-heading-3 {
+    font-size: 13pt;
+    font-weight: 600;
+    color: var(--ms-blue-dark);
+    margin-top: 12px;
+    margin-bottom: 6px;
+    outline: none;
+    border: none;
+    background: transparent;
+    width: 100%;
+}
+
+.word-paragraph-text {
+    font-size: 11.5pt;
+    line-height: 1.68;
+    color: #242424;
+    outline: none;
+    border: none;
+    background: transparent;
+    width: 100%;
     resize: vertical;
     min-height: 4.5rem;
 }
 
-/* Right Sidebar (Review / Assistant) */
-.ns-sidebar-right {
-    width: 320px;
-    min-width: 320px;
-    max-width: 320px;
-    background: var(--rb-surface);
-    border-left: var(--rb-border);
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    font-size: 0.75rem;
-    flex-shrink: 0;
-    z-index: 20;
+.dark .word-paragraph-text {
+    color: #e5e5e5;
 }
 
-/* Bottom Status Bar */
-.ns-statusbar {
-    background: var(--rb-surface);
-    border-top: var(--rb-border);
-    padding: 0.35rem 1rem;
+/* Authentic Word Squiggly Underlines */
+.word-spell-squiggle {
+    text-decoration: underline wavy #e02424 1.5px;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.word-grammar-squiggle {
+    text-decoration: underline wavy #2563eb 1.5px;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+/* Bullet list item */
+.word-bullet-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 11.5pt;
+    line-height: 1.68;
+    margin-left: 18px;
+    margin-bottom: 6px;
+}
+
+.word-bullet-dot {
+    font-size: 16px;
+    line-height: 1;
+    margin-top: 4px;
+    color: #242424;
+}
+
+/* Callout & Quote */
+.word-quote-block {
+    border-left: 3px solid var(--ms-blue);
+    padding: 8px 16px;
+    margin: 14px 0;
+    font-style: italic;
+    color: #4b5563;
+    font-size: 12pt;
+    line-height: 1.6;
+}
+
+.dark .word-quote-block {
+    color: #cbd5e1;
+}
+
+/* =============================================================================
+   9. BOTTOM STATUS BAR (PAGE X OF Y, WORDS, PROOFING, FOCUS, ZOOM)
+   ============================================================================= */
+.word-statusbar {
+    height: 26px;
+    background: var(--ms-bg-ribbon);
+    border-top: 1px solid var(--ms-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-family: var(--rb-font-mono);
-    font-size: 0.68rem;
-    color: var(--rb-ink-soft);
+    padding: 0 12px;
+    font-size: 11px;
+    color: var(--ms-text-secondary);
     user-select: none;
     flex-shrink: 0;
-    z-index: 30;
-    height: 32px;
+    z-index: 40;
 }
 
-/* Modals & Dialogs */
-.ns-dialog-backdrop {
+.word-statusbar__left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.word-status-item {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 4px;
+    border-radius: 2px;
+}
+
+.word-status-item:hover {
+    background: var(--ms-bg-hover);
+    color: var(--ms-text-primary);
+}
+
+.word-statusbar__right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.word-view-switchers {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.word-view-btn {
+    width: 22px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    border-radius: 2px;
+    color: var(--ms-text-secondary);
+    cursor: pointer;
+}
+
+.word-view-btn:hover {
+    background: var(--ms-bg-hover);
+    color: var(--ms-text-primary);
+}
+
+.word-view-btn.active {
+    background: var(--ms-bg-selected);
+    color: var(--ms-blue);
+}
+
+.word-zoom-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.word-zoom-slider {
+    width: 90px;
+    height: 4px;
+    accent-color: var(--ms-blue);
+    cursor: pointer;
+}
+
+/* =============================================================================
+   10. TASK PANE (RIGHT SIDEBAR - 18 UX KPIS, EDITOR, COMMENTS, ASSISTANT)
+   ============================================================================= */
+.word-taskpane {
+    width: 360px;
+    min-width: 360px;
+    max-width: 440px;
+    background: var(--ms-bg-surface);
+    border-left: 1px solid var(--ms-border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+    z-index: 30;
+    box-shadow: -2px 0 8px rgba(0,0,0,0.05);
+}
+
+.word-taskpane-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--ms-border-subtle);
+    background: var(--ms-bg-surface);
+}
+
+.word-taskpane-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ms-text-primary);
+}
+
+.word-taskpane-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Metric Card in Task Pane */
+.word-metric-card {
+    border: 1px solid var(--ms-border);
+    border-radius: 6px;
+    background: var(--ms-bg-subtle, #f9f9fb);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.12s;
+}
+
+.word-metric-card:hover {
+    border-color: var(--ms-blue);
+    box-shadow: var(--ms-shadow-card);
+}
+
+/* Dialog Modals */
+.word-dialog-backdrop {
     position: fixed;
     inset: 0;
     z-index: 100;
-    background: rgba(15, 23, 42, 0.65);
+    background: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1rem;
+    padding: 16px;
 }
 
-.ns-dialog {
-    background: var(--rb-surface);
-    border: var(--rb-border);
-    box-shadow: var(--rb-shadow);
+.word-dialog {
+    background: var(--ms-bg-surface);
+    border: 1px solid var(--ms-border);
+    box-shadow: var(--ms-shadow-flyout);
     width: 100%;
-    max-width: 560px;
-    border-radius: 4px;
+    max-width: 540px;
+    border-radius: 6px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    font-size: 0.75rem;
-    max-height: 85vh;
 }
 
-.ns-dialog__header {
-    background: var(--rb-primary);
-    color: #ffffff;
-    padding: 0.55rem 0.85rem;
+.word-dialog__header {
+    padding: 12px 18px;
+    background: var(--ms-bg-surface);
+    border-bottom: 1px solid var(--ms-border-subtle);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-family: var(--rb-font-mono);
-    font-weight: 700;
-    font-size: 0.75rem;
-}
-.ns-dialog__header button {
-    background: transparent;
-    border: none;
-    color: #ffffff;
-    font-size: 1.1rem;
-    cursor: pointer;
-    line-height: 1;
+    font-weight: 600;
+    font-size: 14px;
 }
 
-.ns-dialog__body {
-    padding: 1rem;
-    max-height: 65vh;
-    overflow-y: auto;
+.word-dialog__body {
+    padding: 18px;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    color: var(--rb-ink);
+    gap: 12px;
+    max-height: 70vh;
+    overflow-y: auto;
+    font-size: 13px;
 }
 
-.ns-dialog__footer {
-    padding: 0.55rem 0.85rem;
-    border-top: 1px solid var(--rb-canvas-grid);
+.word-dialog__footer {
+    padding: 12px 18px;
+    background: var(--ms-bg-subtle, #f9f9fb);
+    border-top: 1px solid var(--ms-border-subtle);
     display: flex;
     justify-content: flex-end;
-    gap: 0.5rem;
-    background: var(--rb-surface-soft);
-}
-
-/* 18 UX KPIs HUD Drawer */
-.ns-drawer-kpi {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    max-width: 660px;
-    background: var(--rb-surface);
-    border-left: var(--rb-border);
-    box-shadow: -6px 0 24px rgba(0,0,0,0.3);
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    gap: 8px;
 }
