@@ -1,4 +1,4 @@
-<div class="flex-1 flex flex-col min-h-screen {{ $darkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900' }} font-sans selection:bg-blue-200 selection:text-blue-900"
+<div class="ns-root {{ $darkMode ? 'dark' : '' }}"
     x-data="{
         kpiDrawer: @entangle('kpiDrawerOpen'),
         zenMode: @entangle('zenMode'),
@@ -31,177 +31,80 @@
         }
     }">
 
-    <style>
-        .ns-btn {
-            border: 1px solid #cbd5e1;
-            background: #ffffff;
-            color: #0f172a;
-            font-size: .68rem;
-            font-weight: 600;
-            padding: .25rem .5rem;
-            border-radius: 3px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: .3rem;
-            line-height: 1.2;
-            transition: all .12s;
-        }
-        .dark .ns-btn {
-            background: #1e293b;
-            color: #f8fafc;
-            border-color: #334155;
-        }
-        .ns-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
-        .dark .ns-btn:hover { background: #334155; border-color: #64748b; }
-        .ns-btn--primary { background: #1e40af; color: #ffffff; border-color: #1e40af; }
-        .ns-btn--primary:hover { background: #1d4ed8; }
-        .dark .ns-btn--primary { background: #2563eb; border-color: #2563eb; }
-        .ns-btn--active { background: #eff6ff; color: #1d4ed8; border-color: #3b82f6; font-weight: 700; }
-        .dark .ns-btn--active { background: #1e3a8a; color: #bfdbfe; border-color: #60a5fa; }
-        .ns-group {
-            display: flex;
-            flex-direction: column;
-            gap: .25rem;
-            padding-right: .65rem;
-            border-right: 1px solid #e2e8f0;
-        }
-        .dark .ns-group { border-right-color: #334155; }
-        .ns-group:last-child { border-right: none; }
-        .ns-group__label {
-            font-family: var(--rb-font-mono, monospace);
-            font-size: .55rem;
-            letter-spacing: .06em;
-            text-transform: uppercase;
-            color: #64748b;
-            font-weight: 700;
-        }
-        .dark .ns-group__label { color: #94a3b8; }
-        .ns-group__row { display: flex; gap: .25rem; flex-wrap: wrap; align-items: center; }
-
-        .ns-dialog-backdrop {
-            position: fixed; inset: 0; z-index: 50;
-            background: rgba(15, 23, 42, 0.65);
-            backdrop-filter: blur(2px);
-            display: flex; align-items: center; justify-content: center;
-            padding: 1rem;
-        }
-        .ns-dialog {
-            background: #ffffff;
-            border: 2px solid #0f172a;
-            box-shadow: 6px 6px 0px #0f172a;
-            width: 100%; max-width: 540px;
-            border-radius: 4px;
-            overflow: hidden;
-            display: flex; flex-direction: column;
-            font-size: .75rem;
-        }
-        .dark .ns-dialog {
-            background: #0f172a;
-            border-color: #94a3b8;
-            box-shadow: 6px 6px 0px #020617;
-            color: #f8fafc;
-        }
-        .ns-dialog__header {
-            background: #1e40af; color: #ffffff;
-            padding: .6rem .85rem;
-            display: flex; justify-content: space-between; align-items: center;
-            font-family: var(--rb-font-mono, monospace);
-            font-weight: 700; font-size: .75rem;
-        }
-        .dark .ns-dialog__header { background: #1e3a8a; }
-        .ns-dialog__body {
-            padding: 1rem;
-            max-height: 70vh;
-            overflow-y: auto;
-            display: flex; flex-direction: column; gap: .75rem;
-        }
-        .ns-dialog__footer {
-            padding: .6rem .85rem;
-            border-top: 1px solid #e2e8f0;
-            display: flex; justify-content: flex-end; gap: .5rem;
-            background: #f8fafc;
-        }
-        .dark .ns-dialog__footer {
-            background: #1e293b;
-            border-top-color: #334155;
-        }
-    </style>
-
     <!-- ===================================================================== -->
     <!-- TOP UX & PRODUCT TELEMETRY BAR (18 KPIS EVERY UX DESIGNER SHOULD KNOW) -->
     <!-- ===================================================================== -->
-    <header class="border-b-2 border-slate-900 bg-white dark:bg-slate-900 shadow-sm z-30 sticky top-0 px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+    <header class="ns-topbar">
         <!-- Brand & Document Title -->
-        <div class="flex items-center space-x-3">
-            <a href="{{ route('home') }}" class="font-extrabold tracking-wider font-mono px-2 py-1 bg-blue-700 text-white border-2 border-slate-900 shadow-[2px_2px_0px_#0f172a] hover:bg-blue-800 transition">
+        <div class="ns-topbar__left">
+            <a href="{{ route('home') }}" class="ns-brand" title="Kembali ke Beranda">
                 NASKAH STUDIO
             </a>
             <input type="text" wire:model.live.debounce.400ms="docTitle" wire:change="markDirty"
-                class="font-semibold text-sm border-b border-transparent hover:border-slate-400 focus:border-blue-600 focus:outline-none bg-transparent px-1 py-0.5 max-w-xs sm:max-w-md truncate"
+                class="ns-title-input"
                 placeholder="Judul Naskah...">
-            <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border {{ $dirty ? 'border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200' : 'border-emerald-400 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200' }}">
+            <span class="ns-badge {{ $dirty ? 'ns-badge--dirty' : 'ns-badge--saved' }}">
                 {{ $dirty ? '● Belum Simpan' : '✓ Tersimpan' }}
             </span>
         </div>
 
         <!-- 18 UX KPIs Live Gauges & Usability Telemetry -->
-        <div class="flex items-center flex-wrap gap-2 text-[11px] font-mono">
+        <div class="ns-telemetry-strip">
             <!-- Time on Task & Active Session Depth (Efficiency & Engagement) -->
-            <div class="flex items-center space-x-1.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-300 dark:border-slate-700" title="Time on Task / Kedalaman Sesi Aktif">
-                <span class="text-blue-600 dark:text-blue-400 font-bold">⏱️ Waktu Sesi:</span>
+            <div class="ns-kpi-pill" title="Time on Task / Kedalaman Sesi Aktif">
+                <span style="color:var(--rb-primary); font-weight:700;">⏱️ Waktu Sesi:</span>
                 <span>{{ floor($sessionSeconds / 60) }}m {{ $sessionSeconds % 60 }}s</span>
             </div>
 
             <!-- Guideline Compliance Meter (Task Success) -->
-            <button type="button" wire:click="toggleKpiDrawer('UX')" class="flex items-center space-x-1.5 px-2 py-1 rounded border transition {{ $complianceAudit['score'] >= 85 ? 'bg-emerald-50 text-emerald-900 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300' }}" title="Kepatuhan Pedoman Ilmiah">
+            <button type="button" wire:click="toggleKpiDrawer('UX')" class="ns-kpi-pill ns-kpi-pill--btn" title="Kepatuhan Pedoman Ilmiah">
                 <span>🎯 Kepatuhan:</span>
                 <strong>{{ $complianceAudit['score'] }}%</strong>
-                <span class="text-[10px] opacity-75">({{ $complianceAudit['grade'] }})</span>
+                <span style="opacity:0.75;">({{ $complianceAudit['grade'] }})</span>
             </button>
 
             <!-- Verified Citation Density (Task Quality) -->
-            <div class="hidden sm:flex items-center space-x-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-300 dark:border-slate-700" title="Kepadatan Sitasi per 1.000 kata">
+            <div class="ns-kpi-pill" title="Kepadatan Sitasi per 1.000 kata">
                 <span>📚 Sitasi:</span>
-                <span class="font-bold text-slate-900 dark:text-slate-100">
+                <strong style="color:var(--rb-ink);">
                     {{ round(($statistics['words'] > 0 ? (($elements['footnotes'] ?? 0) / max(1, $statistics['words'])) * 1000 : 0), 1) }}
-                </span>
-                <span class="text-[10px] text-slate-500">/1k</span>
+                </strong>
+                <span style="color:var(--rb-ink-muted);">/1k</span>
             </div>
 
             <!-- Interactive CSAT / Happiness Rating (HEART - Happiness) -->
-            <div class="flex items-center space-x-1 bg-amber-50 dark:bg-amber-950/30 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200">
-                <span class="text-[10px] font-sans font-bold">CSAT:</span>
-                <div class="flex items-center space-x-0.5">
+            <div class="ns-csat-widget" title="Beri rating kepuasan UX menulis (CSAT / Single Ease Question)">
+                <span style="font-weight:700;">CSAT:</span>
+                <div style="display:flex; align-items:center;">
                     @for ($s = 1; $s <= 5; $s++)
-                        <button type="button" wire:click="rateCsat({{ $s }})" class="hover:scale-125 transition {{ $csatScore >= $s ? 'text-amber-500 font-bold' : 'text-slate-300 dark:text-slate-600' }}" title="Beri Rating {{ $s }}/5">
+                        <button type="button" wire:click="rateCsat({{ $s }})" class="ns-csat-star" style="color: {{ $csatScore >= $s ? '#d97706' : '#cbd5e1' }};" title="Beri Rating {{ $s }}/5">
                             ★
                         </button>
                     @endfor
                 </div>
                 @if ($csatSubmitted)
-                    <span class="text-[9px] text-emerald-600 font-bold ml-0.5">✓</span>
+                    <span style="color:#059669; font-weight:700; margin-left:2px;">✓</span>
                 @endif
             </div>
 
             <!-- Latency / TTFT (Performance) -->
-            <div class="hidden md:flex items-center space-x-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300">
-                <span class="text-emerald-500">●</span>
+            <div class="ns-kpi-pill" title="System Response Latency / TTFT">
+                <span style="color:#10b981;">●</span>
                 <span>TTFT: 32ms</span>
             </div>
 
             <!-- 18 UX KPIs HUD Drawer Trigger -->
-            <button type="button" wire:click="toggleKpiDrawer" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-1 rounded border border-blue-800 shadow-sm transition flex items-center space-x-1">
+            <button type="button" wire:click="toggleKpiDrawer" class="ns-kpi-hud-trigger" title="Buka Inspector 18 UX &amp; Product Metrics">
                 <span>📊 18 UX KPIs</span>
             </button>
 
             <!-- Zen Mode Toggle -->
-            <button type="button" wire:click="toggleZenMode" class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Fokus Tanpa Gangguan">
+            <button type="button" wire:click="toggleZenMode" class="ns-btn" title="Fokus Tanpa Gangguan (Zen Mode)">
                 {{ $zenMode ? 'Exit Zen' : '🧘 Zen' }}
             </button>
 
             <!-- Dark Mode Toggle -->
-            <button type="button" wire:click="toggleDarkMode" class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Ganti Mode Terang/Gelap">
+            <button type="button" wire:click="toggleDarkMode" class="ns-btn" title="Ganti Mode Terang/Gelap">
                 {{ $darkMode ? '☀️ Terang' : '🌙 Gelap' }}
             </button>
         </div>
@@ -210,9 +113,9 @@
     <!-- ===================================================================== -->
     <!-- RIBBON TOOLBAR (WORDCRAFT + LIBREOFFICE WRITER TABS)                   -->
     <!-- ===================================================================== -->
-    <div x-show="!zenMode" class="bg-slate-50 dark:bg-slate-900 border-b-2 border-slate-900 z-20 transition-all duration-200">
+    <div x-show="!zenMode" class="ns-ribbon-container">
         <!-- Ribbon Tab Headers -->
-        <div class="flex items-center space-x-1 px-4 pt-1 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold overflow-x-auto">
+        <div class="ns-ribbon-tabs">
             @php
                 $tabs = [
                     'home' => 'Home',
@@ -228,20 +131,20 @@
             @endphp
             @foreach ($tabs as $key => $label)
                 <button type="button" wire:click="$set('activeTab', '{{ $key }}')"
-                    class="px-3 py-1.5 border-b-2 transition {{ $activeTab === $key ? 'border-blue-600 text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-slate-800' : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200' }}">
+                    class="ns-ribbon-tab {{ $activeTab === $key ? 'active' : '' }}">
                     {{ $label }}
                 </button>
             @endforeach
 
             <!-- Wordcraft Command Palette Trigger -->
-            <button type="button" wire:click="openDialog('palette')" class="ml-auto font-mono text-[11px] px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 flex items-center space-x-1">
-                <span>Perintah HUD</span>
-                <kbd class="px-1 py-0.2 bg-white dark:bg-slate-900 border rounded text-[9px]">Ctrl+K</kbd>
+            <button type="button" wire:click="openDialog('palette')" class="ns-btn font-mono" style="margin-left:auto;" title="Buka Command Palette HUD (Ctrl+K)">
+                <span>⚡ Perintah HUD</span>
+                <kbd style="padding: 1px 4px; background: var(--rb-surface-muted); border: 1px solid var(--rb-canvas-grid); border-radius: 2px; font-size: 9px;">Ctrl+K</kbd>
             </button>
         </div>
 
         <!-- Ribbon Toolbar Commands Bar -->
-        <div class="p-2 px-4 flex flex-wrap items-center gap-3 text-xs bg-white dark:bg-slate-850">
+        <div class="ns-ribbon-body">
             @if ($activeTab === 'home')
                 <!-- Clipboard & Undo/Redo/Format Painter -->
                 <div class="ns-group">
@@ -257,12 +160,12 @@
                 <div class="ns-group">
                     <span class="ns-group__label">Font &amp; Tipografi</span>
                     <div class="ns-group__row">
-                        <select wire:model.live="fontFamily" class="border rounded px-2 py-0.5 text-xs bg-white dark:bg-slate-800 dark:border-slate-700">
+                        <select wire:model.live="fontFamily" class="ns-btn" style="padding-right:1rem;">
                             @foreach ($fontFamilies as $k => $fontLabel)
                                 <option value="{{ $k }}">{{ $fontLabel }}</option>
                             @endforeach
                         </select>
-                        <select wire:model.live="fontSize" class="border rounded px-2 py-0.5 text-xs bg-white dark:bg-slate-800 dark:border-slate-700">
+                        <select wire:model.live="fontSize" class="ns-btn" style="padding-right:1rem;">
                             @foreach ($fontSizes as $fs)
                                 <option value="{{ $fs }}">{{ $fs }} pt</option>
                             @endforeach
@@ -281,7 +184,7 @@
                         <button type="button" class="ns-btn underline" wire:click="formatInline('underline')" title="Garis Bawah (Ctrl+U)">U</button>
                         <button type="button" class="ns-btn line-through" wire:click="formatInline('strike')" title="Coret">S</button>
                         <button type="button" class="ns-btn font-mono" wire:click="formatInline('code')" title="Kode Inline">&lt;/&gt;</button>
-                        <button type="button" class="ns-btn text-red-600" wire:click="clearFormatting" title="Hapus Format">✕</button>
+                        <button type="button" class="ns-btn" style="color:#dc2626;" wire:click="clearFormatting" title="Hapus Format">✕</button>
                     </div>
                 </div>
 
@@ -290,12 +193,12 @@
                     <span class="ns-group__label">Warna &amp; Sorotan</span>
                     <div class="ns-group__row">
                         @foreach ($colors as $color)
-                            <button type="button" style="width:16px; height:16px; border-radius:2px; border:1px solid #cbd5e1; background:{{ $color }};"
+                            <button type="button" style="width:16px; height:16px; border-radius:2px; border:1px solid #cbd5e1; background:{{ $color }}; cursor:pointer;"
                                 wire:click="formatInline('color', '{{ $color }}')" title="Warna {{ $color }}"></button>
                         @endforeach
-                        <span class="border-l border-slate-300 dark:border-slate-700 h-4 mx-0.5"></span>
+                        <span style="border-left:1px solid var(--rb-canvas-grid); height:14px; margin:0 2px;"></span>
                         @foreach ($highlights as $hl)
-                            <button type="button" style="width:16px; height:16px; border-radius:2px; border:1px solid #cbd5e1; background:{{ $hl }};"
+                            <button type="button" style="width:16px; height:16px; border-radius:2px; border:1px solid #cbd5e1; background:{{ $hl }}; cursor:pointer;"
                                 wire:click="formatInline('highlight', '{{ $hl }}')" title="Sorot {{ $hl }}"></button>
                         @endforeach
                     </div>
@@ -426,8 +329,8 @@
                     <div class="ns-group__row">
                         <button type="button" class="ns-btn {{ $showComments ? 'ns-btn--active' : '' }}" wire:click="$toggle('showComments')">💬 Panel Komentar ({{ count($comments) }})</button>
                         <button type="button" class="ns-btn {{ $showRevisions ? 'ns-btn--active' : '' }}" wire:click="$toggle('showRevisions')">👁️ Lacak Revisi ({{ $pendingRevisionCount }} pending)</button>
-                        <button type="button" class="ns-btn text-emerald-700" wire:click="acceptAllRevisions">✓ Terima Semua</button>
-                        <button type="button" class="ns-btn text-red-600" wire:click="rejectAllRevisions">✕ Tolak Semua</button>
+                        <button type="button" class="ns-btn" style="color:#059669;" wire:click="acceptAllRevisions">✓ Terima Semua</button>
+                        <button type="button" class="ns-btn" style="color:#dc2626;" wire:click="rejectAllRevisions">✕ Tolak Semua</button>
                         <button type="button" class="ns-btn" wire:click="openDialog('snapshots')">📁 Versi Dokumen ({{ count($snapshots) }})</button>
                     </div>
                 </div>
@@ -472,7 +375,7 @@
                         <button type="button" class="ns-btn" wire:click="$toggle('showRuler')">{{ $showRuler ? 'Sembunyikan Penggaris' : 'Tampilkan Penggaris' }}</button>
                         <button type="button" class="ns-btn" wire:click="zoomIn">Zoom +</button>
                         <button type="button" class="ns-btn" wire:click="zoomOut">Zoom -</button>
-                        <span class="font-mono font-bold text-xs">{{ $zoom }}%</span>
+                        <span class="font-mono font-bold" style="font-size:0.75rem;">{{ $zoom }}%</span>
                         <button type="button" class="ns-btn" wire:click="openDialog('stats')">📊 Statistik Keterbacaan</button>
                         <button type="button" class="ns-btn" wire:click="openDialog('properties')">ℹ️ Properti Dokumen</button>
                         <button type="button" class="ns-btn" wire:click="openDialog('shortcuts')">⌨️ Tombol Pintas</button>
@@ -481,14 +384,14 @@
             @endif
 
             <!-- Quick Multi-Format Export Buttons (LibreOffice Multi-Format Engine) -->
-            <div class="ml-auto flex items-center space-x-1 pl-3 border-l border-slate-300 dark:border-slate-700">
-                <span class="text-[10px] uppercase font-mono font-bold text-slate-500">Ekspor:</span>
-                <button type="button" wire:click="export('odt')" class="px-2 py-0.5 rounded font-bold font-mono text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white" title="Unduh OpenDocument (.odt)">ODT</button>
-                <button type="button" wire:click="export('docx')" class="px-2 py-0.5 rounded font-bold font-mono text-[11px] bg-blue-600 hover:bg-blue-700 text-white" title="Unduh Microsoft Word (.docx)">DOCX</button>
-                <button type="button" wire:click="export('latex')" class="px-2 py-0.5 rounded font-bold font-mono text-[11px] bg-purple-600 hover:bg-purple-700 text-white" title="Unduh LaTeX (.tex)">LaTeX</button>
-                <button type="button" wire:click="export('md')" class="px-2 py-0.5 rounded font-bold font-mono text-[11px] bg-slate-700 hover:bg-slate-800 text-white" title="Unduh Markdown (.md)">MD</button>
-                <button type="button" wire:click="export('rtf')" class="px-2 py-0.5 rounded font-bold font-mono text-[11px] bg-amber-600 hover:bg-amber-700 text-white" title="Unduh Rich Text (.rtf)">RTF</button>
-                <button type="button" wire:click="save" class="ml-2 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded border border-emerald-900 shadow-sm flex items-center space-x-1">
+            <div style="margin-left:auto; display:flex; align-items:center; gap:0.25rem; padding-left:0.75rem; border-left:1px solid var(--rb-canvas-grid); flex-shrink:0;">
+                <span class="ns-group__label" style="margin-right:2px;">Ekspor:</span>
+                <button type="button" wire:click="export('odt')" class="ns-btn font-bold font-mono" style="background:#059669; color:#fff; border-color:#059669;" title="Unduh OpenDocument (.odt)">ODT</button>
+                <button type="button" wire:click="export('docx')" class="ns-btn font-bold font-mono" style="background:#2563eb; color:#fff; border-color:#2563eb;" title="Unduh Microsoft Word (.docx)">DOCX</button>
+                <button type="button" wire:click="export('latex')" class="ns-btn font-bold font-mono" style="background:#7c3aed; color:#fff; border-color:#7c3aed;" title="Unduh LaTeX (.tex)">LaTeX</button>
+                <button type="button" wire:click="export('md')" class="ns-btn font-bold font-mono" style="background:#334155; color:#fff; border-color:#334155;" title="Unduh Markdown (.md)">MD</button>
+                <button type="button" wire:click="export('rtf')" class="ns-btn font-bold font-mono" style="background:#d97706; color:#fff; border-color:#d97706;" title="Unduh Rich Text (.rtf)">RTF</button>
+                <button type="button" wire:click="save" class="ns-btn ns-btn--primary font-bold" style="padding:0.3rem 0.75rem; margin-left:0.25rem;">
                     <span>💾 Simpan</span>
                 </button>
             </div>
@@ -499,11 +402,11 @@
     <!-- HORIZONTAL RULER (LIBREOFFICE RULER)                                   -->
     <!-- ===================================================================== -->
     @if ($showRuler && ! $zenMode)
-        <div class="bg-slate-200 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 h-6 flex items-center px-8 font-mono text-[9px] text-slate-600 dark:text-slate-400 select-none overflow-hidden">
-            <div class="w-full flex justify-between items-center relative">
+        <div class="ns-ruler">
+            <div class="ns-ruler__ticks">
                 @for ($cm = 0; $cm <= 20; $cm++)
-                    <div class="flex flex-col items-center">
-                        <div class="h-2 w-px bg-slate-400 dark:bg-slate-600"></div>
+                    <div class="ns-ruler__tick">
+                        <div class="ns-ruler__bar"></div>
                         <span>{{ $cm }}</span>
                     </div>
                 @endfor
@@ -514,100 +417,103 @@
     <!-- ===================================================================== -->
     <!-- MAIN WORKSPACE: NAVIGATOR, CANVAS, DRAWERS, ASSISTANT                 -->
     <!-- ===================================================================== -->
-    <div class="flex-1 flex overflow-hidden relative">
+    <div class="ns-workspace">
         <!-- LEFT SIDEBAR: NAVIGATOR (LIBREOFFICE NAVIGATOR & OUTLINE) -->
-        <aside x-show="!zenMode && {{ $showNavigation ? 'true' : 'false' }}"
-            class="w-72 bg-white dark:bg-slate-900 border-r-2 border-slate-900 flex flex-col shrink-0 overflow-y-auto p-3 text-xs z-10">
-            <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800 mb-3">
-                <span class="font-bold uppercase tracking-wider font-mono text-slate-700 dark:text-slate-300">🧭 Navigator Dokumen</span>
-                <button type="button" wire:click="$set('showNavigation', false)" class="text-slate-400 hover:text-slate-600">&times;</button>
+        <aside x-show="!zenMode && {{ $showNavigation ? 'true' : 'false' }}" class="ns-navigator">
+            <div class="ns-sidebar-header">
+                <span>🧭 Navigator Dokumen</span>
+                <button type="button" wire:click="$set('showNavigation', false)" style="background:none; border:none; color:var(--rb-ink-muted); font-size:1.1rem; cursor:pointer;">&times;</button>
             </div>
 
             <!-- Outline / Headings -->
-            <div class="mb-4">
-                <span class="font-bold text-[11px] uppercase tracking-wide text-blue-700 dark:text-blue-400 block mb-1">Struktur &amp; Judul ({{ $elements['headings'] ?? 0 }})</span>
-                <div class="space-y-1">
+            <div style="margin-bottom:1rem;">
+                <span style="font-weight:700; font-size:0.68rem; text-transform:uppercase; color:var(--rb-primary); display:block; margin-bottom:0.35rem; font-family:var(--rb-font-mono);">
+                    Struktur &amp; Judul ({{ $elements['headings'] ?? 0 }})
+                </span>
+                <div style="display:flex; flex-direction:column; gap:0.2rem;">
                     @forelse ($outline as $item)
                         <button type="button" wire:click="selectBlock({{ $item['index'] }})"
-                            class="w-full text-left truncate py-1 px-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition {{ $activeBlock === $item['index'] ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 font-semibold' : '' }}"
+                            class="ns-btn" style="text-align:left; justify-content:flex-start; width:100%; border-color:transparent; padding:0.25rem 0.5rem; {{ $activeBlock === $item['index'] ? 'background:var(--rb-accent-soft); font-weight:700; color:var(--rb-primary);' : '' }}"
                             style="padding-left: {{ ($item['level'] - 1) * 12 + 6 }}px">
                             {{ $item['text'] ?: '(Judul Tanpa Teks)' }}
                         </button>
                     @empty
-                        <span class="text-slate-400 italic text-[11px]">Belum ada judul. Sisipkan Heading untuk membentuk kerangka.</span>
+                        <span style="color:var(--rb-ink-muted); font-style:italic; font-size:0.68rem;">Belum ada judul. Sisipkan Heading untuk membentuk kerangka.</span>
                     @endforelse
                 </div>
             </div>
 
-            <!-- Statistics Summary -->
-            <div class="mb-4 p-2.5 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 font-mono text-[11px] space-y-1">
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Kata:</span>
-                    <strong class="text-slate-900 dark:text-slate-100">{{ number_format($statistics['words'] ?? 0) }}</strong>
+            <!-- Statistics Summary Box -->
+            <div style="margin-bottom:1rem; padding:0.65rem; background:var(--rb-surface-soft); border:1px solid var(--rb-canvas-grid); border-radius:3px; font-family:var(--rb-font-mono); font-size:0.68rem; display:flex; flex-direction:column; gap:0.25rem;">
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--rb-ink-muted);">Kata:</span>
+                    <strong style="color:var(--rb-ink);">{{ number_format($statistics['words'] ?? 0) }}</strong>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Karakter:</span>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--rb-ink-muted);">Karakter:</span>
                     <span>{{ number_format($statistics['characters'] ?? 0) }}</span>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Kalimat:</span>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--rb-ink-muted);">Kalimat:</span>
                     <span>{{ number_format($statistics['sentences'] ?? 0) }}</span>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Waktu Baca:</span>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--rb-ink-muted);">Waktu Baca:</span>
                     <span>{{ $statistics['readingTimeMinutes'] ?? 1 }} menit</span>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Flesch Ease:</span>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--rb-ink-muted);">Flesch Ease:</span>
                     <span>{{ $statistics['readingEase'] ?? 0 }}</span>
                 </div>
             </div>
 
             <!-- Version Snapshots List -->
             <div>
-                <div class="flex items-center justify-between mb-1">
-                    <span class="font-bold text-[11px] uppercase tracking-wide text-slate-700 dark:text-slate-300">Versi Dokumen ({{ count($snapshots) }})</span>
-                    <button type="button" wire:click="openDialog('snapshots')" class="text-blue-600 hover:underline text-[10px]">+ Simpan</button>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
+                    <span style="font-weight:700; font-size:0.68rem; text-transform:uppercase; color:var(--rb-ink); font-family:var(--rb-font-mono);">
+                        Versi Dokumen ({{ count($snapshots) }})
+                    </span>
+                    <button type="button" wire:click="openDialog('snapshots')" class="ns-btn font-mono" style="font-size:0.65rem; padding:0.15rem 0.35rem;">+ Simpan</button>
                 </div>
-                <div class="space-y-1">
+                <div style="display:flex; flex-direction:column; gap:0.25rem;">
                     @forelse ($snapshots as $idx => $snap)
-                        <div class="p-1.5 rounded border border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                        <div style="padding:0.4rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; display:flex; align-items:center; justify-content:space-between; font-size:0.68rem; background:var(--rb-surface-soft);">
                             <div>
-                                <span class="font-semibold block truncate max-w-[120px]">{{ $snap['label'] }}</span>
-                                <span class="text-[9px] text-slate-400 font-mono">{{ $snap['at'] }}</span>
+                                <span style="font-weight:600; display:block; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $snap['label'] }}</span>
+                                <span style="font-size:0.6rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono);">{{ $snap['at'] }}</span>
                             </div>
-                            <div class="flex space-x-1">
-                                <button type="button" wire:click="restoreSnapshot({{ $idx }})" class="text-blue-600 hover:underline" title="Pulihkan Versi Ini">↩</button>
-                                <button type="button" wire:click="deleteSnapshot({{ $idx }})" class="text-red-500 hover:underline" title="Hapus">&times;</button>
+                            <div style="display:flex; gap:0.25rem;">
+                                <button type="button" wire:click="restoreSnapshot({{ $idx }})" class="ns-btn" style="padding:0.1rem 0.3rem;" title="Pulihkan Versi Ini">↩</button>
+                                <button type="button" wire:click="deleteSnapshot({{ $idx }})" class="ns-btn" style="padding:0.1rem 0.3rem; color:#dc2626;" title="Hapus">&times;</button>
                             </div>
                         </div>
                     @empty
-                        <span class="text-slate-400 italic text-[11px]">Belum ada versi snapshot.</span>
+                        <span style="color:var(--rb-ink-muted); font-style:italic; font-size:0.68rem;">Belum ada versi snapshot.</span>
                     @endforelse
                 </div>
             </div>
         </aside>
 
         <!-- CENTER CANVAS: PAPER VIEW -->
-        <main class="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-slate-200/70 dark:bg-slate-950 transition-all duration-200">
-            <div class="bg-white dark:bg-slate-900 shadow-[8px_8px_0px_#0f172a] border-2 border-slate-900 w-full max-w-4xl min-h-[900px] p-8 sm:p-14 relative flex flex-col transition-all duration-200"
+        <main class="ns-canvas-area">
+            <div class="ns-paper"
                 style="background-color: {{ $pageSetup['pageColor'] ?? '#ffffff' }}; font-family: {{ ($fontFamily === 'serif' ? 'var(--rb-font-serif)' : ($fontFamily === 'mono' ? 'var(--rb-font-mono)' : 'var(--rb-font-sans)')) }}; font-size: {{ $fontSize }}pt;">
 
                 <!-- Watermark jika disetel -->
                 @if (!empty($pageSetup['watermark']))
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-5 text-6xl font-black uppercase transform -rotate-45 font-mono">
+                    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; user-select:none; opacity:0.06; font-size:4rem; font-weight:900; text-transform:uppercase; transform:rotate(-45deg); font-family:var(--rb-font-mono);">
                         {{ $pageSetup['watermark'] }}
                     </div>
                 @endif
 
                 <!-- Document Header Canvas -->
-                <div class="mb-6 pb-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
-                    <span>{{ $docTitle }}</span>
+                <div class="ns-paper-header">
+                    <span style="font-weight:700;">{{ $docTitle }}</span>
                     <span>Target: {{ $targetWordCount }} kata ({{ round((($statistics['words'] ?? 0) / max(1, $targetWordCount)) * 100) }}%)</span>
                 </div>
 
                 <!-- BLOCKS CONTAINER -->
-                <div class="space-y-4 flex-1">
+                <div style="display:flex; flex-direction:column; gap:0.75rem; flex:1;">
                     @foreach ($blocks as $index => $block)
                         @php
                             $type = $block['type'] ?? 'paragraph';
@@ -615,85 +521,80 @@
                         @endphp
                         <div wire:key="block-{{ $index }}"
                             wire:click="selectBlock({{ $index }})"
-                            class="group relative rounded p-2 transition border {{ $isActive ? 'border-blue-500 bg-blue-50/20 dark:bg-blue-950/20' : 'border-transparent hover:border-slate-300 dark:hover:border-slate-700' }}">
+                            class="ns-block {{ $isActive ? 'active' : '' }}">
 
-                            <!-- In-Block Floating Wordcraft AI & Block Toolbar (Tampil Saat Hover atau Aktif) -->
-                            <div class="absolute -top-3.5 right-2 hidden group-hover:flex items-center space-x-1 bg-slate-900 text-white rounded px-2 py-0.5 text-[10px] font-mono shadow-md z-10">
-                                <button type="button" wire:click.stop="aiElaborateBlock({{ $index }})" class="hover:text-blue-300" title="Kembangkan Narasi (Wordcraft)">✨ Perluas</button>
-                                <span class="opacity-40">•</span>
-                                <button type="button" wire:click.stop="aiShortenBlock({{ $index }})" class="hover:text-blue-300" title="Ringkas Padat">✂️ Ringkas</button>
-                                <span class="opacity-40">•</span>
-                                <button type="button" wire:click.stop="aiFixTone({{ $index }}, 'akademik')" class="hover:text-blue-300" title="Sesuaikan Gaya Akademik">🎓 Akademik</button>
-                                <span class="opacity-40">•</span>
-                                <button type="button" wire:click.stop="moveBlock({{ $index }}, -1)" class="hover:text-slate-300" title="Pindah Ke Atas">▲</button>
-                                <button type="button" wire:click.stop="moveBlock({{ $index }}, 1)" class="hover:text-slate-300" title="Pindah Ke Bawah">▼</button>
-                                <button type="button" wire:click.stop="removeBlock({{ $index }})" class="hover:text-red-300 ml-1" title="Hapus Blok">&times;</button>
+                            <!-- In-Block Floating Wordcraft AI & Block Toolbar -->
+                            <div class="ns-block__toolbar">
+                                <button type="button" wire:click.stop="aiElaborateBlock({{ $index }})" title="Kembangkan Narasi (Wordcraft)">✨ Perluas</button>
+                                <span style="opacity:0.4;">•</span>
+                                <button type="button" wire:click.stop="aiShortenBlock({{ $index }})" title="Ringkas Padat">✂️ Ringkas</button>
+                                <span style="opacity:0.4;">•</span>
+                                <button type="button" wire:click.stop="aiFixTone({{ $index }}, 'akademik')" title="Sesuaikan Gaya Akademik">🎓 Akademik</button>
+                                <span style="opacity:0.4;">•</span>
+                                <button type="button" wire:click.stop="moveBlock({{ $index }}, -1)" title="Pindah Ke Atas">▲</button>
+                                <button type="button" wire:click.stop="moveBlock({{ $index }}, 1)" title="Pindah Ke Bawah">▼</button>
+                                <button type="button" wire:click.stop="removeBlock({{ $index }})" style="color:#f87171; margin-left:2px;" title="Hapus Blok">&times;</button>
                             </div>
 
                             <!-- BLOCK TYPE: HEADING -->
                             @if ($type === 'heading')
                                 @php $level = $block['level'] ?? 1; @endphp
-                                @if ($level === 1)
-                                    <input type="text" value="{{ $block['text'] ?? '' }}"
-                                        wire:blur="updateBlockText({{ $index }}, $event.target.value)"
-                                        class="w-full font-black text-2xl sm:text-3xl text-slate-900 dark:text-slate-100 bg-transparent border-0 focus:ring-0 p-0 font-sans tracking-tight"
-                                        placeholder="Judul Utama (H1)...">
-                                @elseif ($level === 2)
-                                    <input type="text" value="{{ $block['text'] ?? '' }}"
-                                        wire:blur="updateBlockText({{ $index }}, $event.target.value)"
-                                        class="w-full font-bold text-xl sm:text-2xl text-slate-900 dark:text-slate-100 bg-transparent border-0 focus:ring-0 p-0 font-sans tracking-tight"
-                                        placeholder="Sub Judul (H2)...">
-                                @else
-                                    <input type="text" value="{{ $block['text'] ?? '' }}"
-                                        wire:blur="updateBlockText({{ $index }}, $event.target.value)"
-                                        class="w-full font-bold text-lg text-slate-900 dark:text-slate-100 bg-transparent border-0 focus:ring-0 p-0 font-sans"
-                                        placeholder="Sub Sub Judul (H3)...">
-                                @endif
+                                <input type="text" value="{{ $block['text'] ?? '' }}"
+                                    wire:blur="updateBlockText({{ $index }}, $event.target.value)"
+                                    class="ns-input-heading {{ $level === 1 ? 'ns-input-heading--h1' : ($level === 2 ? 'ns-input-heading--h2' : 'ns-input-heading--h3') }}"
+                                    placeholder="Judul (H{{ $level }})...">
 
                             <!-- BLOCK TYPE: CALLOUT (LIBREOFFICE CALLOUT BOX) -->
                             @elseif ($type === 'callout')
                                 @php
                                     $cType = $block['calloutType'] ?? 'info';
-                                    $themeMap = [
-                                        'info' => 'bg-blue-50 border-blue-600 text-blue-950 dark:bg-blue-950/40 dark:text-blue-100',
-                                        'warning' => 'bg-amber-50 border-amber-600 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100',
-                                        'tip' => 'bg-emerald-50 border-emerald-600 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100',
-                                        'note' => 'bg-purple-50 border-purple-600 text-purple-950 dark:bg-purple-950/40 dark:text-purple-100',
-                                        'success' => 'bg-emerald-50 border-emerald-600 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100',
+                                    $borderColors = [
+                                        'info' => '#2563eb',
+                                        'warning' => '#d97706',
+                                        'tip' => '#059669',
+                                        'note' => '#7c3aed',
+                                        'success' => '#059669',
+                                    ];
+                                    $bgColors = [
+                                        'info' => 'rgba(37,99,235,0.06)',
+                                        'warning' => 'rgba(217,119,6,0.06)',
+                                        'tip' => 'rgba(5,150,105,0.06)',
+                                        'note' => 'rgba(124,58,237,0.06)',
+                                        'success' => 'rgba(5,150,105,0.06)',
                                     ];
                                 @endphp
-                                <div class="border-l-4 p-3 rounded-r {{ $themeMap[$cType] ?? $themeMap['info'] }}">
-                                    <div class="font-bold text-xs uppercase tracking-wider mb-1 font-mono">
+                                <div style="border-left:4px solid {{ $borderColors[$cType] ?? '#2563eb' }}; background:{{ $bgColors[$cType] ?? 'rgba(37,99,235,0.06)' }}; padding:0.75rem; border-radius:0 4px 4px 0;">
+                                    <div style="font-weight:700; font-size:0.65rem; text-transform:uppercase; margin-bottom:0.25rem; font-family:var(--rb-font-mono); color:{{ $borderColors[$cType] ?? '#2563eb' }};">
                                         📌 Catatan Penting ({{ strtoupper($cType) }})
                                     </div>
                                     <textarea rows="2" wire:blur="updateBlockText({{ $index }}, $event.target.value)"
-                                        class="w-full bg-transparent border-0 focus:ring-0 p-0 resize-none font-serif text-sm leading-relaxed"
+                                        class="ns-textarea-p" style="font-family:var(--rb-font-serif); font-size:0.9rem;"
                                         placeholder="Tuliskan catatan khusus di sini...">{{ $block['text'] ?? '' }}</textarea>
                                 </div>
 
                             <!-- BLOCK TYPE: QUOTE -->
                             @elseif ($type === 'quote')
-                                <div class="border-l-4 border-slate-400 pl-4 italic text-slate-700 dark:text-slate-300">
+                                <div style="border-left:4px solid var(--rb-ink-muted); padding-left:1rem; font-style:italic;">
                                     <textarea rows="2" wire:blur="updateBlockText({{ $index }}, $event.target.value)"
-                                        class="w-full bg-transparent border-0 focus:ring-0 p-0 resize-none font-serif leading-relaxed"
+                                        class="ns-textarea-p" style="font-family:var(--rb-font-serif);"
                                         placeholder="Kutipan langsung...">{{ $block['text'] ?? '' }}</textarea>
                                 </div>
 
                             <!-- BLOCK TYPE: TABLE (LIBREOFFICE TABLE ENGINE) -->
                             @elseif ($type === 'table')
-                                <div class="overflow-x-auto my-2 border border-slate-300 dark:border-slate-700 rounded shadow-sm">
-                                    <table class="w-full border-collapse text-xs">
+                                <div style="overflow-x:auto; margin:0.5rem 0; border:1px solid var(--rb-canvas-grid); border-radius:3px;">
+                                    <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
                                         @php
                                             $rows = $block['table']['rows'] ?? [];
                                             $hasHeader = $block['table']['header'] ?? true;
                                         @endphp
                                         @foreach ($rows as $rIdx => $row)
-                                            <tr class="{{ $hasHeader && $rIdx === 0 ? 'bg-slate-100 dark:bg-slate-800 font-bold border-b-2 border-slate-400' : 'border-b border-slate-200 dark:border-slate-800' }}">
+                                            <tr style="{{ $hasHeader && $rIdx === 0 ? 'background:var(--rb-surface-soft); font-weight:700; border-bottom:2px solid var(--rb-canvas-grid);' : 'border-bottom:1px solid var(--rb-canvas-grid);' }}">
                                                 @foreach ($row as $cIdx => $cell)
-                                                    <td class="p-2 border-r border-slate-200 dark:border-slate-800">
+                                                    <td style="padding:0.4rem; border-right:1px solid var(--rb-canvas-grid);">
                                                         <input type="text" value="{{ $cell['text'] ?? '' }}"
                                                             wire:blur="updateTableCell({{ $index }}, {{ $rIdx }}, {{ $cIdx }}, $event.target.value)"
-                                                            class="w-full bg-transparent border-0 focus:ring-1 focus:ring-blue-500 p-0.5 text-xs">
+                                                            style="width:100%; box-sizing:border-box; background:transparent; border:none; outline:none; font-size:0.75rem; padding:0.2rem;">
                                                     </td>
                                                 @endforeach
                                             </tr>
@@ -703,20 +604,22 @@
 
                             <!-- BLOCK TYPE: PAGEBREAK -->
                             @elseif ($type === 'pagebreak')
-                                <div class="my-6 border-b-2 border-dashed border-slate-400 text-center relative select-none">
-                                    <span class="bg-white dark:bg-slate-900 px-3 text-[10px] uppercase font-mono text-slate-500 relative -top-2">Pemisah Halaman</span>
+                                <div style="margin:1.5rem 0; border-bottom:2px dashed var(--rb-canvas-grid); text-align:center; position:relative; user-select:none;">
+                                    <span style="background:var(--rb-surface); padding:0 0.75rem; font-size:0.62rem; text-transform:uppercase; font-family:var(--rb-font-mono); color:var(--rb-ink-muted); position:relative; top:-8px;">
+                                        ✂️ Pemisah Halaman
+                                    </span>
                                 </div>
 
                             <!-- BLOCK TYPE: PARAGRAPH (DEFAULT) -->
                             @else
-                                <div class="relative">
+                                <div style="position:relative;">
                                     @if (!empty($block['dropCap']))
-                                        <div class="float-left text-5xl font-black font-serif leading-none mr-2.5 mt-1 text-blue-700 select-none">
+                                        <div style="float:left; font-size:3.5rem; font-weight:900; font-family:var(--rb-font-serif); line-height:0.85; margin-right:0.6rem; margin-top:0.2rem; color:var(--rb-primary); user-select:none;">
                                             {{ mb_substr($block['text'] ?? '', 0, 1) }}
                                         </div>
                                     @endif
                                     <textarea rows="3" wire:blur="updateBlockText({{ $index }}, $event.target.value)"
-                                        class="w-full bg-transparent border-0 focus:ring-0 p-0 resize-y leading-relaxed text-slate-800 dark:text-slate-200"
+                                        class="ns-textarea-p"
                                         placeholder="Mulai menulis kalimat Anda di sini...">{{ $block['text'] ?? '' }}</textarea>
                                 </div>
                             @endif
@@ -725,76 +628,76 @@
                 </div>
 
                 <!-- Empty State & Quick Insert Button -->
-                <div class="mt-8 pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-center">
+                <div style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--rb-canvas-grid); display:flex; justify-content:center;">
                     <button type="button" wire:click="addBlock('paragraph')"
-                        class="px-4 py-2 border-2 border-dashed border-slate-400 hover:border-blue-600 hover:text-blue-600 rounded font-bold text-xs transition flex items-center space-x-1.5">
+                        class="ns-btn font-bold font-mono" style="padding:0.5rem 1rem; border:2px dashed var(--rb-ink-muted);">
                         <span>+ Tambah Paragraf Baru</span>
                     </button>
                 </div>
             </div>
         </main>
 
-        <!-- RIGHT DRAWER: COMMENTS & REVISIONS (LIBREOFFICE REVIEW PANEL) -->
+        <!-- RIGHT SIDEBAR: COMMENTS & REVISIONS (LIBREOFFICE REVIEW PANEL) -->
         @if (($showComments || $showRevisions) && ! $zenMode)
-            <aside class="w-80 bg-white dark:bg-slate-900 border-l-2 border-slate-900 flex flex-col shrink-0 overflow-y-auto text-xs z-15">
+            <aside class="ns-sidebar-right">
                 @if ($showComments)
-                    <div class="p-3 bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 flex justify-between items-center font-bold font-mono">
+                    <div class="ns-sidebar-header" style="padding:0.65rem 0.85rem; background:var(--rb-surface-soft); margin-bottom:0;">
                         <span>💬 Komentar ({{ count($comments) }})</span>
-                        <button type="button" wire:click="$set('showComments', false)">&times;</button>
+                        <button type="button" wire:click="$set('showComments', false)" style="background:none; border:none; font-size:1.1rem; cursor:pointer;">&times;</button>
                     </div>
-                    <div class="p-3 space-y-2 border-b border-slate-200 dark:border-slate-800">
-                        <div class="flex space-x-1">
-                            <input type="text" class="flex-1 border rounded px-2 py-1 text-xs" placeholder="Komentar untuk blok #{{ $activeBlock + 1 }}..." wire:model="commentDraft" wire:keydown.enter="addComment">
+                    <div style="padding:0.75rem; display:flex; flex-direction:column; gap:0.5rem; border-bottom:1px solid var(--rb-canvas-grid);">
+                        <div style="display:flex; gap:0.35rem;">
+                            <input type="text" class="ns-btn" style="flex:1;" placeholder="Komentar blok #{{ $activeBlock + 1 }}..." wire:model="commentDraft" wire:keydown.enter="addComment">
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="addComment">+</button>
                         </div>
                         @forelse ($comments as $cIdx => $c)
-                            <div class="p-2 rounded border {{ !empty($c['resolved']) ? 'bg-slate-50 opacity-60 border-slate-200' : 'bg-blue-50/40 border-blue-200' }}">
-                                <div class="flex justify-between text-[10px] text-slate-500 mb-1">
+                            <div style="padding:0.5rem; border-radius:3px; border:1px solid {{ !empty($c['resolved']) ? 'var(--rb-canvas-grid)' : '#93c5fd' }}; background:{{ !empty($c['resolved']) ? 'var(--rb-surface-soft); opacity:0.6;' : 'rgba(37,99,235,0.05);' }}">
+                                <div style="display:flex; justify-content:space-between; font-size:0.62rem; color:var(--rb-ink-muted); margin-bottom:0.25rem;">
                                     <strong>{{ $c['author'] ?? 'Penulis' }}</strong>
                                     <span>Blok #{{ ((int)($c['blockIndex'] ?? 0)) + 1 }}</span>
                                 </div>
-                                <p class="mb-2 leading-normal">{{ $c['body'] ?? '' }}</p>
-                                <div class="flex justify-end space-x-2 text-[10px]">
-                                    <button type="button" wire:click="resolveComment({{ $cIdx }})" class="text-blue-600 hover:underline">
+                                <p style="margin-bottom:0.4rem; line-height:1.4;">{{ $c['body'] ?? '' }}</p>
+                                <div style="display:flex; justify-content:flex-end; gap:0.5rem; font-size:0.62rem;">
+                                    <button type="button" wire:click="resolveComment({{ $cIdx }})" class="ns-btn" style="padding:0.1rem 0.35rem; color:var(--rb-primary);">
                                         {{ !empty($c['resolved']) ? 'Buka Kembali' : '✓ Selesai' }}
                                     </button>
-                                    <button type="button" wire:click="deleteComment({{ $cIdx }})" class="text-red-500 hover:underline">Hapus</button>
+                                    <button type="button" wire:click="deleteComment({{ $cIdx }})" class="ns-btn" style="padding:0.1rem 0.35rem; color:#dc2626;">Hapus</button>
                                 </div>
                             </div>
                         @empty
-                            <div class="text-center text-slate-400 italic py-4">Belum ada komentar.</div>
+                            <div style="text-align:center; color:var(--rb-ink-muted); font-style:italic; padding:1rem 0;">Belum ada komentar.</div>
                         @endforelse
                     </div>
                 @endif
 
                 @if ($showRevisions)
-                    <div class="p-3 bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 flex justify-between items-center font-bold font-mono">
+                    <div class="ns-sidebar-header" style="padding:0.65rem 0.85rem; background:var(--rb-surface-soft); margin-bottom:0;">
                         <span>👁️ Pelacakan Revisi ({{ $pendingRevisionCount }} pending)</span>
-                        <button type="button" wire:click="$set('showRevisions', false)">&times;</button>
+                        <button type="button" wire:click="$set('showRevisions', false)" style="background:none; border:none; font-size:1.1rem; cursor:pointer;">&times;</button>
                     </div>
-                    <div class="p-3 space-y-2">
-                        <div class="flex space-x-1 mb-2">
-                            <button type="button" wire:click="acceptAllRevisions" class="flex-1 ns-btn ns-btn--primary justify-center text-[10px]">✓ Terima Semua</button>
-                            <button type="button" wire:click="rejectAllRevisions" class="flex-1 ns-btn justify-center text-[10px]">✕ Tolak Semua</button>
+                    <div style="padding:0.75rem; display:flex; flex-direction:column; gap:0.5rem;">
+                        <div style="display:flex; gap:0.35rem; margin-bottom:0.5rem;">
+                            <button type="button" wire:click="acceptAllRevisions" class="ns-btn ns-btn--primary" style="flex:1; justify-content:center;">✓ Terima Semua</button>
+                            <button type="button" wire:click="rejectAllRevisions" class="ns-btn" style="flex:1; justify-content:center; color:#dc2626;">✕ Tolak Semua</button>
                         </div>
                         @forelse ($revisions as $rIdx => $rev)
                             @if (($rev['status'] ?? '') === 'pending')
-                                <div class="p-2 rounded border border-amber-300 bg-amber-50/40 text-[11px]">
-                                    <div class="text-[10px] text-slate-500 mb-1">
+                                <div style="padding:0.5rem; border-radius:3px; border:1px solid #f59e0b; background:rgba(245,158,11,0.06); font-size:0.68rem;">
+                                    <div style="font-size:0.62rem; color:var(--rb-ink-muted); margin-bottom:0.25rem;">
                                         {{ $rev['author'] ?? 'Penulis' }} · Blok #{{ ((int)($rev['blockIndex'] ?? 0)) + 1 }}
                                     </div>
-                                    <div class="space-y-1 mb-2">
-                                        <div class="line-through text-red-600 bg-red-50 p-1 rounded">{{ $rev['before'] ?? '' }}</div>
-                                        <div class="text-emerald-700 bg-emerald-50 p-1 rounded font-semibold">{{ $rev['after'] ?? '' }}</div>
+                                    <div style="display:flex; flex-direction:column; gap:0.25rem; margin-bottom:0.4rem;">
+                                        <div style="text-decoration:line-through; color:#dc2626; background:#fee2e2; padding:0.25rem; border-radius:2px;">{{ $rev['before'] ?? '' }}</div>
+                                        <div style="color:#059669; background:#d1fae5; padding:0.25rem; border-radius:2px; font-weight:600;">{{ $rev['after'] ?? '' }}</div>
                                     </div>
-                                    <div class="flex justify-end space-x-2 text-[10px]">
-                                        <button type="button" wire:click="acceptRevision({{ $rIdx }})" class="text-emerald-700 font-bold hover:underline">✓ Terima</button>
-                                        <button type="button" wire:click="rejectRevision({{ $rIdx }})" class="text-red-600 hover:underline">✕ Tolak</button>
+                                    <div style="display:flex; justify-content:flex-end; gap:0.5rem; font-size:0.62rem;">
+                                        <button type="button" wire:click="acceptRevision({{ $rIdx }})" class="ns-btn" style="color:#059669; font-weight:700;">✓ Terima</button>
+                                        <button type="button" wire:click="rejectRevision({{ $rIdx }})" class="ns-btn" style="color:#dc2626;">✕ Tolak</button>
                                     </div>
                                 </div>
                             @endif
                         @empty
-                            <div class="text-center text-slate-400 italic py-4">Tidak ada revisi pending.</div>
+                            <div style="text-align:center; color:var(--rb-ink-muted); font-style:italic; padding:1rem 0;">Tidak ada revisi pending.</div>
                         @endforelse
                     </div>
                 @endif
@@ -802,44 +705,43 @@
         @endif
 
         <!-- RIGHT SIDEBAR: AI CO-WRITER ASSISTANT -->
-        <aside x-show="!zenMode && {{ $assistantOpen ? 'true' : 'false' }}"
-            class="w-80 bg-white dark:bg-slate-900 border-l-2 border-slate-900 flex flex-col shrink-0 overflow-hidden text-xs z-10">
-            <div class="p-3 bg-blue-700 text-white font-mono font-bold flex justify-between items-center">
-                <span>🤖 XISHIE CO-WRITER</span>
-                <button type="button" wire:click="closeAssistant" class="text-white hover:text-slate-200">&times;</button>
+        <aside x-show="!zenMode && {{ $assistantOpen ? 'true' : 'false' }}" class="ns-sidebar-right">
+            <div class="ns-sidebar-header" style="padding:0.65rem 0.85rem; background:var(--rb-primary); color:#ffffff; margin-bottom:0;">
+                <span style="color:#ffffff;">🤖 XISHIE CO-WRITER</span>
+                <button type="button" wire:click="closeAssistant" style="background:none; border:none; color:#ffffff; font-size:1.1rem; cursor:pointer;">&times;</button>
             </div>
 
             <!-- Assistant Tool Buttons -->
-            <div class="p-2 border-b border-slate-200 dark:border-slate-800 flex flex-wrap gap-1 bg-slate-50 dark:bg-slate-800/50">
-                <button type="button" wire:click="runTool('parafrase')" class="px-2 py-1 bg-white dark:bg-slate-700 border rounded font-semibold text-[10px]">/parafrase</button>
-                <button type="button" wire:click="runTool('sitasi')" class="px-2 py-1 bg-white dark:bg-slate-700 border rounded font-semibold text-[10px]">/sitasi</button>
-                <button type="button" wire:click="runTool('cek-pedoman')" class="px-2 py-1 bg-white dark:bg-slate-700 border rounded font-semibold text-[10px]">/cek-pedoman</button>
-                <button type="button" wire:click="runTool('cek-gap')" class="px-2 py-1 bg-white dark:bg-slate-700 border rounded font-semibold text-[10px]">/cek-gap</button>
+            <div style="padding:0.5rem; border-bottom:1px solid var(--rb-canvas-grid); display:flex; flex-wrap:wrap; gap:0.25rem; background:var(--rb-surface-soft);">
+                <button type="button" wire:click="runTool('parafrase')" class="ns-btn font-mono" style="font-size:0.62rem;">/parafrase</button>
+                <button type="button" wire:click="runTool('sitasi')" class="ns-btn font-mono" style="font-size:0.62rem;">/sitasi</button>
+                <button type="button" wire:click="runTool('cek-pedoman')" class="ns-btn font-mono" style="font-size:0.62rem;">/cek-pedoman</button>
+                <button type="button" wire:click="runTool('cek-gap')" class="ns-btn font-mono" style="font-size:0.62rem;">/cek-gap</button>
             </div>
 
             <!-- Messages Transcript -->
-            <div class="flex-1 overflow-y-auto p-3 space-y-3">
+            <div style="flex:1; overflow-y:auto; padding:0.75rem; display:flex; flex-direction:column; gap:0.65rem;">
                 @forelse ($assistantLog as $log)
-                    <div class="rounded p-2.5 {{ ($log['role'] ?? '') === 'user' ? 'bg-blue-50 dark:bg-blue-950/40 border border-blue-200 text-blue-950 dark:text-blue-200 ml-4' : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mr-4' }}">
-                        <strong class="block font-bold text-[10px] uppercase font-mono mb-1 text-slate-500">
+                    <div style="padding:0.65rem; border-radius:3px; border:1px solid; {{ ($log['role'] ?? '') === 'user' ? 'background:var(--rb-accent-soft); border-color:#93c5fd; margin-left:1rem;' : 'background:var(--rb-surface-soft); border-color:var(--rb-canvas-grid); margin-right:1rem;' }}">
+                        <strong style="display:block; font-size:0.62rem; text-transform:uppercase; font-family:var(--rb-font-mono); margin-bottom:0.25rem; color:var(--rb-ink-muted);">
                             {{ ($log['role'] ?? '') === 'user' ? 'Anda' : 'Asisten Xishie' }}
                         </strong>
-                        <div class="leading-relaxed whitespace-pre-line">{{ $log['content'] ?? '' }}</div>
+                        <div style="line-height:1.5; white-space:pre-line;">{{ $log['content'] ?? '' }}</div>
                     </div>
                 @empty
-                    <div class="text-center text-slate-400 italic py-8">
+                    <div style="text-align:center; color:var(--rb-ink-muted); font-style:italic; padding:2rem 0;">
                         Ajukan pertanyaan atau minta bantuan penulisan naskah kepada asisten akademik.
                     </div>
                 @endforelse
             </div>
 
             <!-- Chat Input -->
-            <div class="p-2 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                <form wire:submit.prevent="sendAssistant" class="flex space-x-1">
+            <div style="padding:0.5rem; border-top:1px solid var(--rb-canvas-grid); background:var(--rb-surface);">
+                <form wire:submit.prevent="sendAssistant" style="display:flex; gap:0.25rem;">
                     <input type="text" wire:model="assistantInput"
-                        class="flex-1 border rounded px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                        class="ns-btn" style="flex:1; font-size:0.75rem;"
                         placeholder="Tanya asisten atau ketik /perintah...">
-                    <button type="submit" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold font-mono">
+                    <button type="submit" class="ns-btn ns-btn--primary font-mono font-bold">
                         Kirim
                     </button>
                 </form>
@@ -848,7 +750,8 @@
 
         <!-- Floating Assistant Trigger when closed -->
         <button type="button" wire:click="openAssistant" x-show="!zenMode && !{{ $assistantOpen ? 'true' : 'false' }}"
-            class="fixed bottom-10 right-6 z-30 bg-blue-700 hover:bg-blue-800 text-white border-2 border-slate-900 shadow-[4px_4px_0px_#0f172a] rounded-full p-3 transition flex items-center space-x-2 font-mono font-bold text-xs">
+            class="ns-btn ns-btn--primary font-mono font-bold"
+            style="position:fixed; bottom:2.5rem; right:1.5rem; z-index:30; padding:0.65rem 1rem; border-radius:24px; box-shadow:var(--rb-shadow); border:var(--rb-border);">
             <span>🤖 Asisten AI</span>
         </button>
     </div>
@@ -856,8 +759,8 @@
     <!-- ===================================================================== -->
     <!-- BOTTOM STATUS BAR (LIBREOFFICE WRITER STATUS BAR)                      -->
     <!-- ===================================================================== -->
-    <footer class="bg-slate-100 dark:bg-slate-900 border-t border-slate-300 dark:border-slate-800 px-4 py-1.5 flex flex-wrap items-center justify-between text-[11px] font-mono text-slate-600 dark:text-slate-400 select-none z-20">
-        <div class="flex items-center space-x-4">
+    <footer class="ns-statusbar">
+        <div style="display:flex; align-items:center; gap:1rem;">
             <span>Halaman 1 / 1</span>
             <span>{{ $blockCount }} blok</span>
             <span><strong>{{ number_format($wordCount) }}</strong> kata</span>
@@ -865,12 +768,12 @@
             <span>⏱️ ~{{ $statistics['readingTimeMinutes'] ?? 1 }}m baca</span>
             <span>🎤 ~{{ $statistics['speakingTimeMinutes'] ?? 1 }}m bicara</span>
         </div>
-        <div class="flex items-center space-x-3">
+        <div style="display:flex; align-items:center; gap:0.75rem;">
             <span>{{ $lastSavedAt ? 'Disimpan: ' . $lastSavedAt : 'Belum disimpan' }}</span>
-            <div class="flex items-center space-x-1">
-                <button type="button" wire:click="zoomOut" class="hover:text-blue-600 font-bold">-</button>
-                <span>{{ $zoom }}%</span>
-                <button type="button" wire:click="zoomIn" class="hover:text-blue-600 font-bold">+</button>
+            <div style="display:flex; align-items:center; gap:0.25rem;">
+                <button type="button" wire:click="zoomOut" class="ns-btn" style="padding:0.1rem 0.35rem;">-</button>
+                <span style="font-weight:700;">{{ $zoom }}%</span>
+                <button type="button" wire:click="zoomIn" class="ns-btn" style="padding:0.1rem 0.35rem;">+</button>
             </div>
         </div>
     </footer>
@@ -878,69 +781,69 @@
     <!-- ===================================================================== -->
     <!-- 18 UX KPIS & PRODUCT TELEMETRY INSPECTOR (HEART + AARRR DRAWER)        -->
     <!-- ===================================================================== -->
-    <div x-show="kpiDrawer" class="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm flex justify-end transition-opacity">
-        <div class="w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl border-l-4 border-slate-900 flex flex-col overflow-hidden text-xs">
+    <div x-show="kpiDrawer" class="ns-dialog-backdrop">
+        <div class="ns-drawer-kpi">
             <!-- Header -->
-            <div class="p-4 bg-slate-900 text-white flex justify-between items-center border-b-2 border-slate-800">
+            <div class="ns-dialog__header" style="padding:0.75rem 1rem;">
                 <div>
-                    <h2 class="font-extrabold text-sm tracking-wider font-mono">📊 18 UX &amp; PRODUCT METRICS INSPECTOR</h2>
-                    <span class="text-[11px] opacity-75">Google HEART Framework • AARRR Pirate Funnel • Usability KPIs</span>
+                    <h2 style="font-weight:800; font-size:0.85rem; font-family:var(--rb-font-mono); letter-spacing:0.04em;">📊 18 UX &amp; PRODUCT METRICS INSPECTOR</h2>
+                    <span style="font-size:0.68rem; opacity:0.8;">Google HEART Framework • AARRR Pirate Funnel • Usability KPIs</span>
                 </div>
-                <button type="button" wire:click="toggleKpiDrawer" class="text-white hover:text-slate-300 font-bold text-lg">&times;</button>
+                <button type="button" wire:click="toggleKpiDrawer" style="font-size:1.4rem;">&times;</button>
             </div>
 
             <!-- Framework Tabs -->
-            <div class="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-4 pt-2 font-mono text-xs font-bold gap-2">
-                <button type="button" wire:click="setKpiFramework('HEART')" class="px-3 py-2 border-b-2 transition {{ $kpiActiveFramework === 'HEART' ? 'border-blue-600 text-blue-600 bg-white dark:bg-slate-900' : 'border-transparent text-slate-500' }}">
+            <div class="ns-ribbon-tabs" style="background:var(--rb-surface-soft);">
+                <button type="button" wire:click="setKpiFramework('HEART')" class="ns-ribbon-tab {{ $kpiActiveFramework === 'HEART' ? 'active' : '' }}">
                     ❤️ Google HEART
                 </button>
-                <button type="button" wire:click="setKpiFramework('AARRR')" class="px-3 py-2 border-b-2 transition {{ $kpiActiveFramework === 'AARRR' ? 'border-blue-600 text-blue-600 bg-white dark:bg-slate-900' : 'border-transparent text-slate-500' }}">
+                <button type="button" wire:click="setKpiFramework('AARRR')" class="ns-ribbon-tab {{ $kpiActiveFramework === 'AARRR' ? 'active' : '' }}">
                     🏴‍☠️ AARRR Funnel
                 </button>
-                <button type="button" wire:click="setKpiFramework('UX')" class="px-3 py-2 border-b-2 transition {{ $kpiActiveFramework === 'UX' ? 'border-blue-600 text-blue-600 bg-white dark:bg-slate-900' : 'border-transparent text-slate-500' }}">
+                <button type="button" wire:click="setKpiFramework('UX')" class="ns-ribbon-tab {{ $kpiActiveFramework === 'UX' ? 'active' : '' }}">
                     🎯 Usability Specific
                 </button>
-                <button type="button" wire:click="setKpiFramework('RESOURCES')" class="px-3 py-2 border-b-2 transition {{ $kpiActiveFramework === 'RESOURCES' ? 'border-blue-600 text-blue-600 bg-white dark:bg-slate-900' : 'border-transparent text-slate-500' }}">
+                <button type="button" wire:click="setKpiFramework('RESOURCES')" class="ns-ribbon-tab {{ $kpiActiveFramework === 'RESOURCES' ? 'active' : '' }}">
                     📖 Panduan Desain UX
                 </button>
             </div>
 
             <!-- Content Area -->
-            <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div class="ns-dialog__body" style="flex:1; max-height:none; padding:1rem;">
                 @if ($kpiActiveFramework === 'RESOURCES')
                     <!-- Panduan & Referensi Metrik Produk -->
-                    <div class="space-y-4">
-                        <div class="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded">
-                            <strong class="text-blue-900 dark:text-blue-300 font-bold block mb-1">Prinsip Pengukuran Perilaku Pengguna (UX Metrics That Matter)</strong>
-                            <p class="text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">
-                                Metrik UX bukan sekadar angka statistik, melainkan jembatan yang menghubungkan niat pengguna, respons antarmuka, dan tingkat keberhasilan tugas akademik.
+                    <div style="display:flex; flex-direction:column; gap:0.75rem;">
+                        <div style="padding:0.85rem; background:var(--rb-accent-soft); border:1px solid #93c5fd; border-radius:3px;">
+                            <strong style="color:var(--rb-primary); display:block; margin-bottom:0.35rem; font-family:var(--rb-font-mono);">Prinsip Pengukuran Perilaku Pengguna (UX Metrics That Matter)</strong>
+                            <p style="font-size:0.72rem; line-height:1.5;">
+                                Metrik UX bukan sekadar angka statistik, melainkan jembatan yang menghubungkan niat pengguna, respons antarmuka, dan tingkat keberhasilan tugas akademik sesuai kaidah 18 KPIs every UX designer should know.
                             </p>
                         </div>
 
-                        <div class="grid grid-cols-1 gap-2.5 font-mono text-[11px]">
-                            <a href="https://lnkd.in/dWGVK2Tp" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition block">
-                                <strong class="text-blue-600 block">1. Understanding Metrics (Comprehensive Guide) ↗</strong>
-                                <span class="text-slate-500 text-[10px]">Panduan mendalam menyusun taksonomi metrik kuantitatif dan kualitatif.</span>
+                        <div style="display:flex; flex-direction:column; gap:0.5rem; font-family:var(--rb-font-mono); font-size:0.72rem;">
+                            <a href="https://lnkd.in/dWGVK2Tp" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
+                                <strong style="color:var(--rb-primary); display:block;">1. Understanding Metrics (Comprehensive Guide) ↗</strong>
+                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Panduan mendalam menyusun taksonomi metrik kuantitatif dan kualitatif.</span>
                             </a>
-                            <a href="https://lnkd.in/dfbfSg8T" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition block">
-                                <strong class="text-blue-600 block">2. Ultimate Guide to Product Metrics (57 Metrics) ↗</strong>
-                                <span class="text-slate-500 text-[10px]">Katalog lengkap 57 metrik produk digital untuk efisiensi dan adopsi.</span>
+                            <a href="https://lnkd.in/dfbfSg8T" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
+                                <strong style="color:var(--rb-primary); display:block;">2. Ultimate Guide to Product Metrics (57 Metrics) ↗</strong>
+                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Katalog lengkap 57 metrik produk digital untuk efisiensi dan adopsi.</span>
                             </a>
-                            <a href="https://lnkd.in/dAS5bdx5" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition block">
-                                <strong class="text-blue-600 block">3. Product Metrics That Matter ↗</strong>
-                                <span class="text-slate-500 text-[10px]">Cara membedakan vanity metrics dari actionable behavioral signals.</span>
+                            <a href="https://lnkd.in/dAS5bdx5" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
+                                <strong style="color:var(--rb-primary); display:block;">3. Product Metrics That Matter ↗</strong>
+                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Cara membedakan vanity metrics dari actionable behavioral signals.</span>
                             </a>
-                            <a href="https://lnkd.in/dvA_si5X" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition block">
-                                <strong class="text-blue-600 block">4. AARRR Pirate Framework ↗</strong>
-                                <span class="text-slate-500 text-[10px]">Acquisition, Activation, Retention, Referral, dan Conversion.</span>
+                            <a href="https://lnkd.in/dvA_si5X" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
+                                <strong style="color:var(--rb-primary); display:block;">4. AARRR Pirate Framework ↗</strong>
+                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Acquisition, Activation, Retention, Referral, dan Conversion.</span>
                             </a>
-                            <a href="https://lnkd.in/dSNEHVRx" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition block">
-                                <strong class="text-blue-600 block">5. Google HEART Framework ↗</strong>
-                                <span class="text-slate-500 text-[10px]">Happiness, Engagement, Adoption, Retention, dan Task Success.</span>
+                            <a href="https://lnkd.in/dSNEHVRx" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
+                                <strong style="color:var(--rb-primary); display:block;">5. Google HEART Framework ↗</strong>
+                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Happiness, Engagement, Adoption, Retention, dan Task Success.</span>
                             </a>
-                            <a href="https://lnkd.in/dsMA7AFH" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition block">
-                                <strong class="text-blue-600 block">6. UX Specific KPIs ↗</strong>
-                                <span class="text-slate-500 text-[10px]">Task completion rate, Time-on-task, error rate, dan CSAT/SUS.</span>
+                            <a href="https://lnkd.in/dsMA7AFH" target="_blank" rel="noopener noreferrer" style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; text-decoration:none; color:inherit; background:var(--rb-surface-soft); display:block;">
+                                <strong style="color:var(--rb-primary); display:block;">6. UX Specific KPIs ↗</strong>
+                                <span style="color:var(--rb-ink-muted); font-size:0.65rem;">Task completion rate, Time-on-task, error rate, dan CSAT/SUS.</span>
                             </a>
                         </div>
                     </div>
@@ -950,33 +853,33 @@
                         $filtered = array_filter($uxKpis, fn($m) => $kpiActiveFramework === 'UX' ? ($m['framework'] === 'UX') : ($m['framework'] === $kpiActiveFramework));
                     @endphp
                     @forelse ($filtered as $key => $metric)
-                        <div class="p-3 rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 shadow-sm flex flex-col space-y-1.5">
-                            <div class="flex items-center justify-between">
-                                <span class="font-bold text-slate-800 dark:text-slate-200">{{ $metric['label'] }}</span>
-                                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold {{ $metric['healthy'] ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' }}">
+                        <div style="padding:0.75rem; border-radius:3px; border:1px solid var(--rb-canvas-grid); background:var(--rb-surface-soft); display:flex; flex-direction:column; gap:0.35rem;">
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <strong style="color:var(--rb-ink); font-size:0.75rem;">{{ $metric['label'] }}</strong>
+                                <span class="ns-badge {{ $metric['healthy'] ? 'ns-badge--saved' : 'ns-badge--dirty' }}">
                                     {{ $metric['healthy'] ? '🟢 SEHAT' : '🟡 PERLU PERHATIAN' }}
                                 </span>
                             </div>
 
-                            <p class="text-[11px] text-slate-500 leading-normal">{{ $metric['description'] }}</p>
+                            <p style="font-size:0.68rem; color:var(--rb-ink-muted); line-height:1.4;">{{ $metric['description'] }}</p>
 
-                            <div class="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 font-mono text-[11px]">
-                                <span class="text-slate-500">Nilai Saat Ini: <strong class="text-slate-900 dark:text-slate-100">{{ $metric['value'] }} {{ $metric['unit'] }}</strong></span>
-                                <span class="text-slate-400">Target: {{ $metric['target'] }} {{ $metric['unit'] }}</span>
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding-top:0.35rem; border-top:1px solid var(--rb-canvas-grid); font-family:var(--rb-font-mono); font-size:0.68rem;">
+                                <span style="color:var(--rb-ink-muted);">Nilai: <strong style="color:var(--rb-ink);">{{ $metric['value'] }} {{ $metric['unit'] }}</strong></span>
+                                <span style="color:var(--rb-ink-muted);">Target: {{ $metric['target'] }} {{ $metric['unit'] }}</span>
                             </div>
                         </div>
                     @empty
-                        <div class="text-center text-slate-400 italic py-8">Tidak ada metrik dalam kategori ini.</div>
+                        <div style="text-align:center; color:var(--rb-ink-muted); font-style:italic; padding:2rem 0;">Tidak ada metrik dalam kategori ini.</div>
                     @endforelse
                 @endif
             </div>
 
             <!-- Footer: CSAT In-Drawer Quick Rate -->
-            <div class="p-3 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400">Bagaimana pengalaman menulis Anda?</span>
-                <div class="flex space-x-1">
+            <div class="ns-dialog__footer" style="align-items:center; justify-content:space-between;">
+                <span style="font-size:0.68rem; color:var(--rb-ink-muted);">Bagaimana pengalaman menulis Anda?</span>
+                <div style="display:flex; gap:0.25rem;">
                     @for ($i = 1; $i <= 5; $i++)
-                        <button type="button" wire:click="rateCsat({{ $i }})" class="px-2 py-1 bg-white dark:bg-slate-700 border rounded hover:bg-amber-100 font-bold">
+                        <button type="button" wire:click="rateCsat({{ $i }})" class="ns-btn font-bold font-mono">
                             {{ $i }} ⭐
                         </button>
                     @endfor
@@ -1000,15 +903,15 @@
                     </div>
                     <div class="ns-dialog__body">
                         <div>
-                            <label class="block font-semibold mb-1">Teks yang dicari:</label>
-                            <input type="text" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="findQuery" placeholder="Cari..." wire:keydown.enter="findText">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Teks yang dicari:</label>
+                            <input type="text" class="ns-btn" style="width:100%;" wire:model="findQuery" placeholder="Cari..." wire:keydown.enter="findText">
                         </div>
                         <div>
-                            <label class="block font-semibold mb-1">Ganti dengan:</label>
-                            <input type="text" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="replaceQuery" placeholder="Ganti...">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Ganti dengan:</label>
+                            <input type="text" class="ns-btn" style="width:100%;" wire:model="replaceQuery" placeholder="Ganti...">
                         </div>
                         @if ($findResult)
-                            <div class="p-2 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 rounded font-mono text-xs">
+                            <div style="padding:0.5rem; background:var(--rb-accent-soft); border:1px solid #93c5fd; border-radius:3px; font-family:var(--rb-font-mono); font-size:0.68rem;">
                                 {{ $findResult }}
                             </div>
                         @endif
@@ -1025,25 +928,25 @@
                         <button type="button" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="ns-dialog__body">
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="p-3 border rounded bg-slate-50 dark:bg-slate-800">
-                                <span class="text-[10px] text-slate-500 font-mono">JUMLAH KATA</span>
-                                <div class="text-xl font-extrabold text-blue-700 dark:text-blue-400">{{ number_format($statistics['words'] ?? 0) }}</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                            <div style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft);">
+                                <span style="font-size:0.6rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono); text-transform:uppercase;">JUMLAH KATA</span>
+                                <div style="font-size:1.25rem; font-weight:800; color:var(--rb-primary);">{{ number_format($statistics['words'] ?? 0) }}</div>
                             </div>
-                            <div class="p-3 border rounded bg-slate-50 dark:bg-slate-800">
-                                <span class="text-[10px] text-slate-500 font-mono">KARAKTER</span>
-                                <div class="text-xl font-extrabold text-blue-700 dark:text-blue-400">{{ number_format($statistics['characters'] ?? 0) }}</div>
+                            <div style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft);">
+                                <span style="font-size:0.6rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono); text-transform:uppercase;">KARAKTER</span>
+                                <div style="font-size:1.25rem; font-weight:800; color:var(--rb-primary);">{{ number_format($statistics['characters'] ?? 0) }}</div>
                             </div>
-                            <div class="p-3 border rounded bg-slate-50 dark:bg-slate-800">
-                                <span class="text-[10px] text-slate-500 font-mono">FLESCH READING EASE</span>
-                                <div class="text-xl font-extrabold text-emerald-600">{{ $statistics['readingEase'] ?? 0 }} / 100</div>
+                            <div style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft);">
+                                <span style="font-size:0.6rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono); text-transform:uppercase;">FLESCH READING EASE</span>
+                                <div style="font-size:1.25rem; font-weight:800; color:#059669;">{{ $statistics['readingEase'] ?? 0 }} / 100</div>
                             </div>
-                            <div class="p-3 border rounded bg-slate-50 dark:bg-slate-800">
-                                <span class="text-[10px] text-slate-500 font-mono">GRADE LEVEL</span>
-                                <div class="text-xl font-extrabold text-amber-600">Kelas {{ $statistics['gradeLevel'] ?? 0 }}</div>
+                            <div style="padding:0.65rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft);">
+                                <span style="font-size:0.6rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono); text-transform:uppercase;">GRADE LEVEL</span>
+                                <div style="font-size:1.25rem; font-weight:800; color:#d97706;">Kelas {{ $statistics['gradeLevel'] ?? 0 }}</div>
                             </div>
                         </div>
-                        <div class="font-mono text-xs space-y-1 pt-2 border-t border-slate-200 dark:border-slate-800">
+                        <div style="font-family:var(--rb-font-mono); font-size:0.68rem; display:flex; flex-direction:column; gap:0.25rem; padding-top:0.5rem; border-top:1px solid var(--rb-canvas-grid);">
                             <div>• Kalimat: {{ $statistics['sentences'] ?? 0 }}</div>
                             <div>• Paragraf: {{ $statistics['paragraphs'] ?? 0 }}</div>
                             <div>• Estimasi Waktu Baca: ~{{ $statistics['readingTimeMinutes'] ?? 1 }} menit</div>
@@ -1061,10 +964,10 @@
                         <button type="button" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="ns-dialog__body">
-                        <div class="grid grid-cols-2 gap-2">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
                             <div>
-                                <label class="block font-semibold mb-1">Ukuran Kertas:</label>
-                                <select wire:change="updatePageSetup('size', $event.target.value)" class="w-full border p-1 rounded bg-slate-50 dark:bg-slate-800">
+                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Ukuran Kertas:</label>
+                                <select wire:change="updatePageSetup('size', $event.target.value)" class="ns-btn" style="width:100%;">
                                     <option value="A4" {{ ($pageSetup['size'] ?? '') === 'A4' ? 'selected' : '' }}>A4</option>
                                     <option value="Letter" {{ ($pageSetup['size'] ?? '') === 'Letter' ? 'selected' : '' }}>Letter</option>
                                     <option value="Legal" {{ ($pageSetup['size'] ?? '') === 'Legal' ? 'selected' : '' }}>Legal</option>
@@ -1072,32 +975,32 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block font-semibold mb-1">Orientasi:</label>
-                                <select wire:change="updatePageSetup('orientation', $event.target.value)" class="w-full border p-1 rounded bg-slate-50 dark:bg-slate-800">
+                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Orientasi:</label>
+                                <select wire:change="updatePageSetup('orientation', $event.target.value)" class="ns-btn" style="width:100%;">
                                     <option value="portrait" {{ ($pageSetup['orientation'] ?? '') === 'portrait' ? 'selected' : '' }}>Tegak (Portrait)</option>
                                     <option value="landscape" {{ ($pageSetup['orientation'] ?? '') === 'landscape' ? 'selected' : '' }}>Mendatar (Landscape)</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block font-semibold mb-1">Margin Atas (mm):</label>
-                                <input type="number" class="w-full border p-1 rounded bg-slate-50 dark:bg-slate-800" wire:model="pageSetup.marginTop">
+                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Margin Atas (mm):</label>
+                                <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginTop">
                             </div>
                             <div>
-                                <label class="block font-semibold mb-1">Margin Bawah (mm):</label>
-                                <input type="number" class="w-full border p-1 rounded bg-slate-50 dark:bg-slate-800" wire:model="pageSetup.marginBottom">
+                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Margin Bawah (mm):</label>
+                                <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginBottom">
                             </div>
                             <div>
-                                <label class="block font-semibold mb-1">Margin Kiri (mm):</label>
-                                <input type="number" class="w-full border p-1 rounded bg-slate-50 dark:bg-slate-800" wire:model="pageSetup.marginLeft">
+                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Margin Kiri (mm):</label>
+                                <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginLeft">
                             </div>
                             <div>
-                                <label class="block font-semibold mb-1">Margin Kanan (mm):</label>
-                                <input type="number" class="w-full border p-1 rounded bg-slate-50 dark:bg-slate-800" wire:model="pageSetup.marginRight">
+                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Margin Kanan (mm):</label>
+                                <input type="number" class="ns-btn" style="width:100%;" wire:model="pageSetup.marginRight">
                             </div>
                         </div>
                         <div>
-                            <label class="block font-semibold mb-1">Tanda Air (Watermark):</label>
-                            <input type="text" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="pageSetup.watermark" placeholder="cth: DRAF RAHASIA">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Tanda Air (Watermark):</label>
+                            <input type="text" class="ns-btn" style="width:100%;" wire:model="pageSetup.watermark" placeholder="cth: DRAF RAHASIA">
                         </div>
                     </div>
                     <div class="ns-dialog__footer">
@@ -1111,7 +1014,7 @@
                         <button type="button" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="ns-dialog__body">
-                        <p class="leading-relaxed">{{ $spellResult ?: 'Ejaan pada dokumen Anda telah diperiksa dan sesuai pedoman.' }}</p>
+                        <p style="line-height:1.6;">{{ $spellResult ?: 'Ejaan pada dokumen Anda telah diperiksa dan sesuai pedoman.' }}</p>
                     </div>
                     <div class="ns-dialog__footer">
                         <button type="button" class="ns-btn ns-btn--primary" wire:click="closeDialog">Tutup</button>
@@ -1124,12 +1027,12 @@
                         <button type="button" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="ns-dialog__body">
-                        <div class="flex space-x-1">
-                            <input type="text" class="flex-1 border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="thesaurusWord" placeholder="Masukkan kata..." wire:keydown.enter="runThesaurus">
+                        <div style="display:flex; gap:0.35rem;">
+                            <input type="text" class="ns-btn" style="flex:1;" wire:model="thesaurusWord" placeholder="Masukkan kata..." wire:keydown.enter="runThesaurus">
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="runThesaurus">Cari</button>
                         </div>
                         @if ($thesaurusResult)
-                            <div class="p-2 border rounded bg-slate-50 dark:bg-slate-800 text-xs">
+                            <div style="padding:0.5rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft); font-size:0.72rem;">
                                 {{ $thesaurusResult }}
                             </div>
                         @endif
@@ -1145,14 +1048,14 @@
                         <button type="button" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="ns-dialog__body">
-                        <div class="grid grid-cols-2 gap-3">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
                             <div>
-                                <label class="block font-semibold mb-1">Jumlah Baris:</label>
-                                <input type="number" min="1" max="25" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="tableRows">
+                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Jumlah Baris:</label>
+                                <input type="number" min="1" max="25" class="ns-btn" style="width:100%;" wire:model="tableRows">
                             </div>
                             <div>
-                                <label class="block font-semibold mb-1">Jumlah Kolom:</label>
-                                <input type="number" min="1" max="10" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="tableCols">
+                                <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Jumlah Kolom:</label>
+                                <input type="number" min="1" max="10" class="ns-btn" style="width:100%;" wire:model="tableCols">
                             </div>
                         </div>
                     </div>
@@ -1169,16 +1072,16 @@
                     </div>
                     <div class="ns-dialog__body">
                         <div>
-                            <label class="block font-semibold mb-1">Unggah Berkas Gambar:</label>
-                            <input type="file" wire:model="imageUpload" accept="image/*" class="w-full border p-1 rounded bg-slate-50 dark:bg-slate-800">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Unggah Berkas Gambar:</label>
+                            <input type="file" wire:model="imageUpload" accept="image/*" class="ns-btn" style="width:100%;">
                         </div>
                         <div>
-                            <label class="block font-semibold mb-1">Keterangan / Alt:</label>
-                            <input type="text" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="imageAlt" placeholder="Keterangan gambar...">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Keterangan / Alt:</label>
+                            <input type="text" class="ns-btn" style="width:100%;" wire:model="imageAlt" placeholder="Keterangan gambar...">
                         </div>
                         <div>
-                            <label class="block font-semibold mb-1">Lebar Tampilan (px):</label>
-                            <input type="number" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="imageWidth" value="320">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Lebar Tampilan (px):</label>
+                            <input type="number" class="ns-btn" style="width:100%;" wire:model="imageWidth" value="320">
                         </div>
                     </div>
                     <div class="ns-dialog__footer">
@@ -1193,12 +1096,12 @@
                     </div>
                     <div class="ns-dialog__body">
                         <div>
-                            <label class="block font-semibold mb-1">URL Tujuan:</label>
-                            <input type="url" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="linkUrl" placeholder="https://example.com">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">URL Tujuan:</label>
+                            <input type="url" class="ns-btn" style="width:100%;" wire:model="linkUrl" placeholder="https://example.com">
                         </div>
                         <div>
-                            <label class="block font-semibold mb-1">Teks Tampilan:</label>
-                            <input type="text" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="linkText" placeholder="Teks yang diklik...">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Teks Tampilan:</label>
+                            <input type="text" class="ns-btn" style="width:100%;" wire:model="linkText" placeholder="Teks yang diklik...">
                         </div>
                     </div>
                     <div class="ns-dialog__footer">
@@ -1214,8 +1117,8 @@
                     </div>
                     <div class="ns-dialog__body">
                         <div>
-                            <label class="block font-semibold mb-1">Isi Catatan Kaki:</label>
-                            <textarea rows="3" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="footnoteText" placeholder="Ketik keterangan catatan kaki..."></textarea>
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Isi Catatan Kaki:</label>
+                            <textarea rows="3" class="ns-btn" style="width:100%; font-family:var(--rb-font-serif);" wire:model="footnoteText" placeholder="Ketik keterangan catatan kaki..."></textarea>
                         </div>
                     </div>
                     <div class="ns-dialog__footer">
@@ -1230,9 +1133,9 @@
                         <button type="button" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="ns-dialog__body">
-                        <div class="grid grid-cols-8 gap-1.5 text-center font-serif text-lg">
+                        <div style="display:grid; grid-template-columns:repeat(8, 1fr); gap:0.35rem; font-family:var(--rb-font-serif); font-size:1.15rem; text-align:center;">
                             @foreach (['©', '®', '™', '§', '¶', '±', '×', '÷', '≠', '≤', '≥', '≈', '∞', '°', 'µ', 'α', 'β', 'γ', 'π', '∑', '√', '—', '–', '•', '€', '£', '¥', '→'] as $sym)
-                                <button type="button" class="ns-btn justify-center p-2 hover:scale-110" wire:click="insertSymbol('{{ $sym }}'); closeDialog()">
+                                <button type="button" class="ns-btn" style="justify-content:center; padding:0.4rem;" wire:click="insertSymbol('{{ $sym }}'); closeDialog()">
                                     {{ $sym }}
                                 </button>
                             @endforeach
@@ -1250,15 +1153,15 @@
                     </div>
                     <div class="ns-dialog__body">
                         <div>
-                            <label class="block font-semibold mb-1">Data CSV (Baris 1 = Header):</label>
-                            <textarea rows="4" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800 font-mono text-xs" wire:model="mergeCsv" placeholder="nama,instansi&#10;Budi,Universitas Indonesia&#10;Siti,ITB"></textarea>
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Data CSV (Baris 1 = Header):</label>
+                            <textarea rows="4" class="ns-btn" style="width:100%; font-family:var(--rb-font-mono); font-size:0.68rem;" wire:model="mergeCsv" placeholder="nama,instansi&#10;Budi,Universitas Indonesia&#10;Siti,ITB"></textarea>
                         </div>
                         <div>
-                            <label class="block font-semibold mb-1">Template Dokumen (Gunakan @{{nama}}):</label>
-                            <textarea rows="2" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="mergeTemplate" placeholder="Yth. @{{nama}} di @{{instansi}}..."></textarea>
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Template Dokumen (Gunakan @{{nama}}):</label>
+                            <textarea rows="2" class="ns-btn" style="width:100%;" wire:model="mergeTemplate" placeholder="Yth. @{{nama}} di @{{instansi}}..."></textarea>
                         </div>
                         @if (!empty($mergePreviews))
-                            <div class="p-2 border rounded bg-slate-50 dark:bg-slate-800 text-xs">
+                            <div style="padding:0.5rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; background:var(--rb-surface-soft); font-size:0.68rem;">
                                 <strong>Pratinjau Rekaman 1:</strong>
                                 <div>{{ $mergePreviews[0]['text'] ?? '' }}</div>
                             </div>
@@ -1276,7 +1179,7 @@
                         <button type="button" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="ns-dialog__body">
-                        <textarea rows="3" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="commentDraft" placeholder="Tulis komentar..."></textarea>
+                        <textarea rows="3" class="ns-btn" style="width:100%;" wire:model="commentDraft" placeholder="Tulis komentar..."></textarea>
                     </div>
                     <div class="ns-dialog__footer">
                         <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
@@ -1290,28 +1193,28 @@
                         <button type="button" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="ns-dialog__body">
-                        <input type="text" class="w-full border-2 border-slate-900 rounded p-2 text-xs font-mono bg-slate-50 dark:bg-slate-800"
+                        <input type="text" class="ns-btn" style="width:100%; font-family:var(--rb-font-mono); font-size:0.75rem; padding:0.5rem;"
                             placeholder="Ketik perintah (cth: auto-correct, table, paragraph, dark mode)..."
                             wire:model.live="commandSearch" autofocus>
-                        <div class="max-h-60 overflow-y-auto space-y-1 font-mono text-xs">
+                        <div style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:0.25rem; font-family:var(--rb-font-mono); font-size:0.72rem;">
                             @php
                                 $q = strtolower(trim($commandSearch));
                                 $filteredCmds = array_filter($commands, static fn(array $c): bool => $q === '' || str_contains(strtolower($c['label']), $q) || str_contains(strtolower($c['category']), $q) || str_contains(strtolower($c['id']), $q));
                             @endphp
                             @forelse ($filteredCmds as $cmd)
-                                <button type="button" class="w-full text-left p-2 rounded hover:bg-blue-50 dark:hover:bg-slate-800 flex justify-between items-center group border border-slate-200 dark:border-slate-800"
+                                <button type="button" class="ns-btn" style="justify-content:space-between; width:100%; padding:0.4rem 0.6rem;"
                                     wire:click="executeCommand('{{ $cmd['id'] }}'); closeDialog()">
-                                    <div class="flex items-center space-x-2">
+                                    <div style="display:flex; align-items:center; gap:0.5rem;">
                                         <span>{{ $cmd['icon'] }}</span>
-                                        <strong class="text-slate-800 dark:text-slate-200">{{ $cmd['label'] }}</strong>
-                                        <span class="text-[9px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">{{ $cmd['category'] }}</span>
+                                        <strong>{{ $cmd['label'] }}</strong>
+                                        <span class="ns-badge" style="font-size:0.58rem; background:var(--rb-surface-soft);">{{ $cmd['category'] }}</span>
                                     </div>
                                     @if (!empty($cmd['shortcut']))
-                                        <span class="text-[9px] text-slate-400 border rounded px-1">{{ $cmd['shortcut'] }}</span>
+                                        <kbd style="padding:1px 4px; border:1px solid var(--rb-canvas-grid); border-radius:2px; font-size:0.6rem;">{{ $cmd['shortcut'] }}</kbd>
                                     @endif
                                 </button>
                             @empty
-                                <div class="text-slate-400 italic py-4 text-center">Tidak ada perintah yang sesuai.</div>
+                                <div style="color:var(--rb-ink-muted); font-style:italic; padding:1rem 0; text-align:center;">Tidak ada perintah yang sesuai.</div>
                             @endforelse
                         </div>
                     </div>
@@ -1327,22 +1230,22 @@
                     </div>
                     <div class="ns-dialog__body">
                         <div>
-                            <label class="block font-semibold mb-1">Judul Dokumen:</label>
-                            <input type="text" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="docTitle" wire:change="markDirty">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Judul Dokumen:</label>
+                            <input type="text" class="ns-btn" style="width:100%;" wire:model="docTitle" wire:change="markDirty">
                         </div>
                         <div>
-                            <label class="block font-semibold mb-1">Penulis (Author):</label>
-                            <input type="text" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="metadata.author" wire:change="markDirty" placeholder="Nama penulis...">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Penulis (Author):</label>
+                            <input type="text" class="ns-btn" style="width:100%;" wire:model="metadata.author" wire:change="markDirty" placeholder="Nama penulis...">
                         </div>
                         <div>
-                            <label class="block font-semibold mb-1">Subjek / Topik:</label>
-                            <input type="text" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="metadata.subject" wire:change="markDirty" placeholder="Topik bahasan...">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Subjek / Topik:</label>
+                            <input type="text" class="ns-btn" style="width:100%;" wire:model="metadata.subject" wire:change="markDirty" placeholder="Topik bahasan...">
                         </div>
                         <div>
-                            <label class="block font-semibold mb-1">Kata Kunci (Keywords):</label>
-                            <input type="text" class="w-full border p-1.5 rounded bg-slate-50 dark:bg-slate-800" wire:model="metadata.keywords" wire:change="markDirty" placeholder="Kata kunci...">
+                            <label style="display:block; font-weight:700; margin-bottom:0.25rem;">Kata Kunci (Keywords):</label>
+                            <input type="text" class="ns-btn" style="width:100%;" wire:model="metadata.keywords" wire:change="markDirty" placeholder="Kata kunci...">
                         </div>
-                        <div class="pt-2 border-t border-slate-200 dark:border-slate-800 font-mono text-xs space-y-1 text-slate-500">
+                        <div style="padding-top:0.5rem; border-top:1px solid var(--rb-canvas-grid); font-family:var(--rb-font-mono); font-size:0.68rem; color:var(--rb-ink-muted); display:flex; flex-direction:column; gap:0.25rem;">
                             <div>• Total Kata: {{ number_format($wordCount) }}</div>
                             <div>• Total Karakter: {{ number_format($charCount) }}</div>
                             <div>• Total Blok: {{ $blockCount }}</div>
@@ -1360,24 +1263,24 @@
                         <button type="button" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="ns-dialog__body">
-                        <div class="flex space-x-1 mb-2">
-                            <input type="text" class="flex-1 border p-1.5 rounded bg-slate-50 dark:bg-slate-800" placeholder="Label versi baru..." wire:model="snapshotLabel">
+                        <div style="display:flex; gap:0.35rem; margin-bottom:0.5rem;">
+                            <input type="text" class="ns-btn" style="flex:1;" placeholder="Label versi baru..." wire:model="snapshotLabel">
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="createSnapshot(snapshotLabel)">+ Simpan</button>
                         </div>
-                        <div class="space-y-1 max-h-60 overflow-y-auto">
+                        <div style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:0.35rem;">
                             @forelse ($snapshots as $sIdx => $snap)
-                                <div class="p-2 border rounded flex justify-between items-center bg-slate-50 dark:bg-slate-800">
+                                <div style="padding:0.5rem; border:1px solid var(--rb-canvas-grid); border-radius:3px; display:flex; justify-content:space-between; align-items:center; background:var(--rb-surface-soft);">
                                     <div>
                                         <strong>{{ $snap['label'] }}</strong>
-                                        <div class="text-[10px] text-slate-400 font-mono">{{ $snap['at'] }} · {{ $snap['count'] }} blok</div>
+                                        <div style="font-size:0.62rem; color:var(--rb-ink-muted); font-family:var(--rb-font-mono);">{{ $snap['at'] }} · {{ $snap['count'] }} blok</div>
                                     </div>
-                                    <div class="flex space-x-1">
-                                        <button type="button" wire:click="restoreSnapshot({{ $sIdx }})" class="ns-btn text-blue-600">↩ Pulihkan</button>
-                                        <button type="button" wire:click="deleteSnapshot({{ $sIdx }})" class="ns-btn text-red-600">✕</button>
+                                    <div style="display:flex; gap:0.25rem;">
+                                        <button type="button" wire:click="restoreSnapshot({{ $sIdx }})" class="ns-btn" style="color:var(--rb-primary);">↩ Pulihkan</button>
+                                        <button type="button" wire:click="deleteSnapshot({{ $sIdx }})" class="ns-btn" style="color:#dc2626;">✕</button>
                                     </div>
                                 </div>
                             @empty
-                                <div class="text-slate-400 italic text-center py-4">Belum ada snapshot versi tersimpan.</div>
+                                <div style="color:var(--rb-ink-muted); font-style:italic; text-align:center; padding:1.5rem 0;">Belum ada snapshot versi tersimpan.</div>
                             @endforelse
                         </div>
                     </div>
@@ -1392,22 +1295,22 @@
                         <button type="button" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="ns-dialog__body">
-                        <table class="w-full text-xs font-mono">
-                            <thead class="border-b">
-                                <tr class="text-left text-slate-500">
-                                    <th class="p-1">Kombinasi</th>
-                                    <th class="p-1">Aksi</th>
+                        <table style="width:100%; font-size:0.72rem; font-family:var(--rb-font-mono); border-collapse:collapse;">
+                            <thead style="border-bottom:1px solid var(--rb-canvas-grid);">
+                                <tr style="text-align:left; color:var(--rb-ink-muted);">
+                                    <th style="padding:0.35rem;">Kombinasi</th>
+                                    <th style="padding:0.35rem;">Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                                <tr><td class="p-1 font-bold">Ctrl + S</td><td class="p-1">Simpan Naskah</td></tr>
-                                <tr><td class="p-1 font-bold">Ctrl + Z</td><td class="p-1">Urungkan Perubahan (Undo)</td></tr>
-                                <tr><td class="p-1 font-bold">Ctrl + Y</td><td class="p-1">Ulangi Perubahan (Redo)</td></tr>
-                                <tr><td class="p-1 font-bold">Ctrl + K</td><td class="p-1">Pusat Perintah (Command Palette HUD)</td></tr>
-                                <tr><td class="p-1 font-bold">Ctrl + F</td><td class="p-1">Cari dan Ganti Teks</td></tr>
-                                <tr><td class="p-1 font-bold">Ctrl + B</td><td class="p-1">Format Huruf Tebal (Bold)</td></tr>
-                                <tr><td class="p-1 font-bold">Ctrl + I</td><td class="p-1">Format Huruf Miring (Italic)</td></tr>
-                                <tr><td class="p-1 font-bold">Ctrl + U</td><td class="p-1">Format Garis Bawah (Underline)</td></tr>
+                            <tbody>
+                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + S</td><td style="padding:0.35rem;">Simpan Naskah</td></tr>
+                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + Z</td><td style="padding:0.35rem;">Urungkan Perubahan (Undo)</td></tr>
+                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + Y</td><td style="padding:0.35rem;">Ulangi Perubahan (Redo)</td></tr>
+                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + K</td><td style="padding:0.35rem;">Pusat Perintah (Command Palette HUD)</td></tr>
+                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + F</td><td style="padding:0.35rem;">Cari dan Ganti Teks</td></tr>
+                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + B</td><td style="padding:0.35rem;">Format Huruf Tebal (Bold)</td></tr>
+                                <tr style="border-bottom:1px solid var(--rb-canvas-grid);"><td style="padding:0.35rem; font-weight:700;">Ctrl + I</td><td style="padding:0.35rem;">Format Huruf Miring (Italic)</td></tr>
+                                <tr><td style="padding:0.35rem; font-weight:700;">Ctrl + U</td><td style="padding:0.35rem;">Format Garis Bawah (Underline)</td></tr>
                             </tbody>
                         </table>
                     </div>
