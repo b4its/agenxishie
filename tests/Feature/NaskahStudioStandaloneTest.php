@@ -244,3 +244,34 @@ it('redirects /ux-analytics alias to /analytics', function (): void {
 
     $response->assertRedirect('/analytics');
 });
+
+it('renders microsoft word layout with autosave, ribbon groups and navigation pane', function (): void {
+    $response = $this->get('/studio');
+
+    $response->assertOk()
+        ->assertSee('AutoSave')
+        ->assertSee('The Open Studio Handbook')
+        ->assertSee('Navigation')
+        ->assertSee('Headings')
+        ->assertSee('Why share a studio?')
+        ->assertSee('What we agree on')
+        ->assertSee('Accessibility: Good to go');
+});
+
+it('supports microsoft word navigation tabs, editing modes and autosave toggling', function (): void {
+    $page = Livewire::test(NaskahStudioApp::class);
+
+    expect($page->get('autoSave'))->toBeTrue();
+    $page->call('toggleAutoSave');
+    expect($page->get('autoSave'))->toBeFalse();
+
+    $page->call('setNavigationTab', 'pages');
+    expect($page->get('navigationTab'))->toBe('pages');
+
+    $page->call('setEditingMode', 'reviewing');
+    expect($page->get('editingMode'))->toBe('reviewing');
+
+    $page->call('loadSampleHandbook');
+    expect($page->get('docTitle'))->toBe('The Open Studio Handbook')
+        ->and(count($page->get('blocks')))->toBeGreaterThanOrEqual(10);
+});
