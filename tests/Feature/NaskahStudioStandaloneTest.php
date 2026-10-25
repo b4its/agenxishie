@@ -1250,7 +1250,7 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($html)->toContain("savingState === 'saved'")
         ->and($html)->toContain('liveWordCount');
 
-    // Pastikan file word-studio.js memuat alur alami Word/LibreOffice (peleburan Backspace/Delete, soft break, Smart Typography)
+    // Pastikan file word-studio.js memuat alur alami Word/LibreOffice (peleburan Backspace/Delete, soft break, Smart Typography, pemecahan paragraf Enter)
     $script = file_get_contents(public_path('js/word-studio.js'));
     expect($script)->toContain('updateCurrentFormat')
         ->and($script)->toContain('updateCounts')
@@ -1258,6 +1258,7 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain('pasteCurrentFormat')
         ->and($script)->toContain('insertLineBreak')
         ->and(strtolower($script))->toContain('smart typography')
+        ->and($script)->toContain('cloneContents')
         ->and($script)->toContain('— ')
         ->and($script)->toContain('… ')
         ->and($script)->toContain('± ');
