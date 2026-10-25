@@ -2927,6 +2927,14 @@
         </div>
     @endif
 
+    {{-- Floating Assistant FAB Button (Word 365 Copilot Style) --}}
+    @if (!$assistantOpen)
+        <button type="button" class="word-assistant-fab" wire:click="openAssistant" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">
+            <span class="word-fab-dot"></span>
+            <span>✨ Xishie Assistant</span>
+        </button>
+    @endif
+
     @assets
         <script src="{{ asset('js/word-studio.js') }}"></script>
     @endassets

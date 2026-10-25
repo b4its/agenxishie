@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\NaskahStudioPage;
 use App\Livewire\NaskahStudioApp;
 use App\Models\OmnigensiAgentLog;
 use App\Models\XishieProject;
@@ -495,4 +496,12 @@ it('renders prominent copilot ribbon button and detailed stats dialog with acade
     $welcome->assertOk()
         ->assertSee('Xishie Assistant &amp; AI Copilot', false)
         ->assertSee('Asisten cerdas telaah naskah interaktif');
+});
+
+it('renders floating assistant fab button when assistant is closed in both standalone studio and filament studio', function (): void {
+    $studio = Livewire::test(NaskahStudioApp::class);
+    $studio->assertSeeHtml('word-assistant-fab');
+
+    $filament = Livewire::test(NaskahStudioPage::class);
+    $filament->assertSeeHtml('ns-fab');
 });

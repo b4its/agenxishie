@@ -2472,10 +2472,12 @@
         @endif
 
         {{-- FAB Floating Assistant Button --}}
-        <button type="button" class="ns-fab" wire:click="openAssistant" aria-label="Buka Xishie Assistant">
-            <span class="ns-fab__dot"></span>
-            <span>&#10024; Xishie Assistant</span>
-        </button>
+        @if (!$assistantOpen)
+            <button type="button" class="ns-fab" wire:click="openAssistant" aria-label="Buka Xishie Assistant">
+                <span class="ns-fab__dot"></span>
+                <span>&#10024; Xishie Assistant</span>
+            </button>
+        @endif
 
     </div>
 

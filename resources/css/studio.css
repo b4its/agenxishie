@@ -1602,6 +1602,40 @@ dialog#livewire-error {
     font-size: 12px;
 }
 
+.word-assistant-fab {
+    position: fixed;
+    right: 24px;
+    bottom: 34px;
+    z-index: 990;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.word-assistant-fab:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.5);
+    background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+}
+
+.word-fab-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.35);
+}
+
 .word-btn-assistant-highlight {
     background: #f5f3ff !important;
     border: 1px solid #ddd6fe !important;
