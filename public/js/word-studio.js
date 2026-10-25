@@ -387,12 +387,25 @@ window.wordStudioApp = function(config) {
             if (activeSel && !activeSel.isCollapsed) {
                 document.execCommand('fontSize', false, '7');
                 const fontEls = document.querySelectorAll('font[size="7"]');
+                let firstSpan = null;
+                let lastSpan = null;
                 fontEls.forEach(el => {
                     const span = document.createElement('span');
                     span.style.fontSize = size + 'pt';
                     span.innerHTML = el.innerHTML;
                     el.replaceWith(span);
+                    if (!firstSpan) firstSpan = span;
+                    lastSpan = span;
                 });
+                if (firstSpan && lastSpan) {
+                    try {
+                        const newRange = document.createRange();
+                        newRange.setStartBefore(firstSpan);
+                        newRange.setEndAfter(lastSpan);
+                        activeSel.removeAllRanges();
+                        activeSel.addRange(newRange);
+                    } catch (e) {}
+                }
             } else {
                 let blockEl = null;
                 if (activeSel && activeSel.anchorNode) {
@@ -429,6 +442,26 @@ window.wordStudioApp = function(config) {
             const activeSel = window.getSelection();
             if (activeSel && !activeSel.isCollapsed) {
                 document.execCommand('fontName', false, fontCss);
+                const fontEls = document.querySelectorAll(`font[face="${fontCss}"]`);
+                let firstSpan = null;
+                let lastSpan = null;
+                fontEls.forEach(el => {
+                    const span = document.createElement('span');
+                    span.style.fontFamily = fontCss;
+                    span.innerHTML = el.innerHTML;
+                    el.replaceWith(span);
+                    if (!firstSpan) firstSpan = span;
+                    lastSpan = span;
+                });
+                if (firstSpan && lastSpan) {
+                    try {
+                        const newRange = document.createRange();
+                        newRange.setStartBefore(firstSpan);
+                        newRange.setEndAfter(lastSpan);
+                        activeSel.removeAllRanges();
+                        activeSel.addRange(newRange);
+                    } catch (e) {}
+                }
             } else {
                 let blockEl = null;
                 if (activeSel && activeSel.anchorNode) {
@@ -1525,9 +1558,9 @@ window.wordStudioApp = function(config) {
                         }
 
                         // Case E: Di awal halaman (blok pertama sheet) -> Leburkan ke akhir halaman sebelumnya (Word & LibreOffice)
-                        if (!prev || prev.classList.contains('word-sheet-header')) {
+                        if (!prev || prev.classList.contains('word-sheet-header') || prev.classList.contains('ns-sheet-header')) {
                             const currentSheet = block.closest('.word-sheet-content');
-                            const currentPaper = currentSheet ? currentSheet.closest('.word-paper-sheet') : null;
+                            const currentPaper = currentSheet ? currentSheet.closest('.word-paper-sheet, .ns-page') : null;
                             const prevPaper = currentPaper ? currentPaper.previousElementSibling : null;
                             const prevSheet = prevPaper ? prevPaper.querySelector('.word-sheet-content') : null;
                             const prevBlock = prevSheet ? prevSheet.lastElementChild : null;
@@ -1649,9 +1682,9 @@ window.wordStudioApp = function(config) {
                         }
 
                         // Case F: Di akhir halaman (blok terakhir sheet) -> Tarik blok pertama halaman selanjutnya ke sini (Word & LibreOffice)
-                        if (!next || next.classList.contains('word-sheet-footer') || next.classList.contains('word-sheet-header')) {
+                        if (!next || next.classList.contains('word-sheet-footer') || next.classList.contains('word-sheet-header') || next.classList.contains('ns-sheet-footer') || next.classList.contains('ns-sheet-header')) {
                             const currentSheet = block.closest('.word-sheet-content');
-                            const currentPaper = currentSheet ? currentSheet.closest('.word-paper-sheet') : null;
+                            const currentPaper = currentSheet ? currentSheet.closest('.word-paper-sheet, .ns-page') : null;
                             const nextPaper = currentPaper ? currentPaper.nextElementSibling : null;
                             const nextSheet = nextPaper ? nextPaper.querySelector('.word-sheet-content') : null;
                             const nextBlock = nextSheet ? nextSheet.firstElementChild : null;
@@ -1695,8 +1728,8 @@ window.wordStudioApp = function(config) {
                 }
             }
 
-            // 6. TABLE & MULTI-PAGE ARROW NAVIGATION: Navigasi Panah Atas & Bawah (Word & LibreOffice)
-            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            // 6. TABLE & MULTI-PAGE ARROW NAVIGATION: Navigasi Panah Atas, Bawah, Kiri, Kanan (Word & LibreOffice)
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                 const anchor = sel.anchorNode;
                 const cell = anchor?.nodeType === 1 ? anchor.closest('td, th') : anchor?.parentElement?.closest('td, th');
                 if (cell && sel.isCollapsed) {
@@ -1743,33 +1776,35 @@ window.wordStudioApp = function(config) {
                     const currentSheet = block?.closest('.word-sheet-content');
 
                     if (block && currentSheet) {
-                        if (e.key === 'ArrowDown' && block === currentSheet.lastElementChild) {
+                        if ((e.key === 'ArrowDown' || e.key === 'ArrowRight') && block === currentSheet.lastElementChild) {
                             const range = sel.getRangeAt(0);
                             const postRange = range.cloneRange();
                             postRange.selectNodeContents(block);
                             postRange.setStart(range.endContainer, range.endOffset);
                             if (postRange.toString().length === 0) {
-                                const currentPaper = currentSheet.closest('.word-paper-sheet');
+                                const currentPaper = currentSheet.closest('.word-paper-sheet, .ns-page');
                                 const nextPaper = currentPaper ? currentPaper.nextElementSibling : null;
                                 const nextSheet = nextPaper ? nextPaper.querySelector('.word-sheet-content') : null;
                                 if (nextSheet && nextSheet.firstElementChild) {
                                     e.preventDefault();
                                     this.focusNode(nextSheet.firstElementChild, false);
+                                    nextPaper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                                     return;
                                 }
                             }
-                        } else if (e.key === 'ArrowUp' && block === currentSheet.firstElementChild) {
+                        } else if ((e.key === 'ArrowUp' || e.key === 'ArrowLeft') && block === currentSheet.firstElementChild) {
                             const range = sel.getRangeAt(0);
                             const preRange = range.cloneRange();
                             preRange.selectNodeContents(block);
                             preRange.setEnd(range.startContainer, range.startOffset);
                             if (preRange.toString().length === 0) {
-                                const currentPaper = currentSheet.closest('.word-paper-sheet');
+                                const currentPaper = currentSheet.closest('.word-paper-sheet, .ns-page');
                                 const prevPaper = currentPaper ? currentPaper.previousElementSibling : null;
                                 const prevSheet = prevPaper ? prevPaper.querySelector('.word-sheet-content') : null;
                                 if (prevSheet && prevSheet.lastElementChild) {
                                     e.preventDefault();
                                     this.focusNode(prevSheet.lastElementChild, true);
+                                    prevPaper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                                     return;
                                 }
                             }
@@ -1871,10 +1906,22 @@ window.wordStudioApp = function(config) {
                 return;
             }
 
-            if (/^(1[\.\)]|[a-zA-Z][\.\)])\s/.test(text)) {
-                const clean = text.replace(/^(1[\.\)]|[a-zA-Z][\.\)])\s/, '');
+            if (/^((?:[1-9]\d*|[a-zA-Z])[\.\)])\s/.test(text)) {
+                const match = text.match(/^(([1-9]\d*|[a-zA-Z]))[\.\)]\s/);
+                const prefix = match ? match[1] : '1';
+                const clean = text.replace(/^((?:[1-9]\d*|[a-zA-Z])[\.\)])\s/, '');
                 const ol = document.createElement('ol');
                 ol.className = 'word-numbered-list';
+                if (/^[a-z]$/.test(prefix)) {
+                    ol.setAttribute('type', 'a');
+                } else if (/^[A-Z]$/.test(prefix)) {
+                    ol.setAttribute('type', 'A');
+                } else {
+                    ol.setAttribute('type', '1');
+                    if (parseInt(prefix, 10) > 1) {
+                        ol.setAttribute('start', prefix);
+                    }
+                }
                 const li = document.createElement('li');
                 li.innerHTML = clean ? clean : '<br>';
                 ol.appendChild(li);
@@ -2022,10 +2069,51 @@ window.wordStudioApp = function(config) {
                         // Word Find & Replace
                         e.preventDefault();
                         if (wire) wire.openDialog('find');
-                    } else if (key === 'm' || e.code === 'Space') {
+                    } else if (e.key === 'Home') {
+                        // Word Ctrl+Home: Ke awal naskah
+                        const firstSheet = document.querySelector('.word-sheet-content');
+                        if (firstSheet && firstSheet.firstElementChild) {
+                            e.preventDefault();
+                            this.focusNode(firstSheet.firstElementChild, false);
+                            firstSheet.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    } else if (e.key === 'End') {
+                        // Word Ctrl+End: Ke akhir naskah
+                        const allSheets = document.querySelectorAll('.word-sheet-content');
+                        const lastSheet = allSheets[allSheets.length - 1];
+                        if (lastSheet && lastSheet.lastElementChild) {
+                            e.preventDefault();
+                            this.focusNode(lastSheet.lastElementChild, true);
+                            lastSheet.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }
+                    } else if (key === 'm' || (e.code === 'Space' && e.shiftKey)) {
                         // Word/LibreOffice Clear Direct Formatting
                         e.preventDefault();
                         this.clearCurrentFormat();
+                    }
+                }
+
+                // PageUp / PageDown antar halaman fisik (Word & LibreOffice)
+                if ((e.key === 'PageUp' || e.key === 'PageDown') && !isCtrl && !e.altKey) {
+                    const sel = window.getSelection();
+                    const currentSheet = sel?.anchorNode?.nodeType === 1
+                        ? sel.anchorNode.closest('.word-sheet-content')
+                        : sel?.anchorNode?.parentElement?.closest('.word-sheet-content');
+                    const currentPaper = currentSheet?.closest('.word-paper-sheet, .ns-page');
+                    if (e.key === 'PageUp' && currentPaper?.previousElementSibling) {
+                        const prevSheet = currentPaper.previousElementSibling.querySelector('.word-sheet-content');
+                        if (prevSheet && prevSheet.firstElementChild) {
+                            e.preventDefault();
+                            this.focusNode(prevSheet.firstElementChild, false);
+                            currentPaper.previousElementSibling.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    } else if (e.key === 'PageDown' && currentPaper?.nextElementSibling) {
+                        const nextSheet = currentPaper.nextElementSibling.querySelector('.word-sheet-content');
+                        if (nextSheet && nextSheet.firstElementChild) {
+                            e.preventDefault();
+                            this.focusNode(nextSheet.firstElementChild, false);
+                            currentPaper.nextElementSibling.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
                     }
                 }
 

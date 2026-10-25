@@ -647,3 +647,24 @@ it('renders filament naskah studio without leaking raw javascript code and rende
         ->and($html)->toContain('<li>Butir rekomendasi pertama</li>')
         ->and($html)->toContain('word-mini-dropdown');
 });
+
+it('renders filament naskah studio with multi-page sheets, headers and footers', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'title', 'text' => 'Judul Dokumen Multi-Halaman', 'align' => 'center'],
+            ['type' => 'paragraph', 'text' => 'Paragraf halaman pertama.', 'align' => 'left'],
+            ['type' => 'pagebreak', 'text' => '', 'align' => 'left'],
+            ['type' => 'paragraph', 'text' => 'Paragraf halaman kedua.', 'align' => 'left'],
+        ]);
+
+    $html = $page->html();
+    expect($html)->toContain('id="word-manuscript-editor"')
+        ->and($html)->toContain('id="word-page-1"')
+        ->and($html)->toContain('id="word-page-2"')
+        ->and($html)->toContain('id="word-page-content-1"')
+        ->and($html)->toContain('id="word-page-content-2"')
+        ->and($html)->toContain('Halaman 1 dari 2')
+        ->and($html)->toContain('Halaman 2 dari 2')
+        ->and($html)->toContain('&mdash; 1 &mdash;')
+        ->and($html)->toContain('&mdash; 2 &mdash;');
+});

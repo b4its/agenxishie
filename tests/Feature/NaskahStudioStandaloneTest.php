@@ -1295,7 +1295,13 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain('toggleAssistant')
         ->and($script)->toContain('nextPaper')
         ->and($script)->toContain('prevPaper')
-        ->and($script)->toContain('word-paper-sheet');
+        ->and($script)->toContain('word-paper-sheet')
+        ->and($script)->toContain("e.key === 'PageDown'")
+        ->and($script)->toContain("e.key === 'PageUp'")
+        ->and($script)->toContain("e.key === 'Home'")
+        ->and($script)->toContain("e.key === 'End'")
+        ->and($script)->toContain("ol.setAttribute('type', 'a')")
+        ->and($script)->toContain("ol.setAttribute('type', 'A')");
 
     // Pastikan styling lembar kertas mendukung elemen universal Word & LibreOffice
     $css = file_get_contents(resource_path('css/studio.css'));
