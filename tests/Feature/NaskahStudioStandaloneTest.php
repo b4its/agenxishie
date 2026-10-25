@@ -1301,7 +1301,13 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain("e.key === 'Home'")
         ->and($script)->toContain("e.key === 'End'")
         ->and($script)->toContain("ol.setAttribute('type', 'a')")
-        ->and($script)->toContain("ol.setAttribute('type', 'A')");
+        ->and($script)->toContain("ol.setAttribute('type', 'A')")
+        ->and($script)->toContain('changeCase')
+        ->and($script)->toContain("e.shiftKey && e.key === 'F3'")
+        ->and($script)->toContain('sentenceMatch')
+        ->and($script)->toContain("curly = isOpening ? '“' : '”'")
+        ->and($script)->toContain('beforebegin')
+        ->and($script)->toContain('selectNodeContents(currentSheet)');
 
     // Pastikan styling lembar kertas mendukung elemen universal Word & LibreOffice
     $css = file_get_contents(resource_path('css/studio.css'));

@@ -1138,10 +1138,10 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Papan Klip</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" @mousedown.prevent @click="paste()" title="Tempel dari Clipboard (Ctrl+V)">📋 Tempel</button>
-                            <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent @click="cut()" title="Potong Teks (Ctrl+X)">✂</button>
-                            <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent @click="copy()" title="Salin Teks (Ctrl+C)">⎘</button>
-                            <button type="button" class="ns-btn" @mousedown.prevent @click="copyCurrentFormat()" title="Sapu Format (Format Painter)">🖌 Format</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="paste()" title="Tempel dari Clipboard (Ctrl+V)">📋 Tempel</button>
+                            <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent="cut()" title="Potong Teks (Ctrl+X)">✂</button>
+                            <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent="copy()" title="Salin Teks (Ctrl+C)">⎘</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="copyCurrentFormat()" title="Sapu Format (Format Painter)">🖌 Format</button>
                         </div>
                     </div>
                     <div class="ns-group">

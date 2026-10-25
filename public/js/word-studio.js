@@ -523,6 +523,25 @@ window.wordStudioApp = function(config) {
             this.syncAllPages();
         },
 
+        changeCase() {
+            const sel = window.getSelection();
+            if (!sel || sel.isCollapsed) return;
+            const text = sel.toString();
+            if (!text) return;
+
+            let newText = '';
+            if (text === text.toUpperCase() && text !== text.toLowerCase()) {
+                newText = text.toLowerCase();
+            } else if (text === text.toLowerCase()) {
+                newText = text.replace(/(?:^|\s|-)\S/g, c => c.toUpperCase());
+            } else {
+                newText = text.toUpperCase();
+            }
+            document.execCommand('insertText', false, newText);
+            this.updateCurrentFormat();
+            this.syncAllPages();
+        },
+
         adjustFontSize(delta) {
             const cur = parseInt(this.currentFormat.fontSize, 10) || 16;
             const standardSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
@@ -1219,6 +1238,9 @@ window.wordStudioApp = function(config) {
 
                 if (heading) {
                     e.preventDefault();
+                    if (!sel.isCollapsed) {
+                        sel.getRangeAt(0).deleteContents();
+                    }
                     const range = sel.getRangeAt(0);
                     const preRange = range.cloneRange();
                     preRange.selectNodeContents(heading);
@@ -1236,16 +1258,23 @@ window.wordStudioApp = function(config) {
 
                     const newP = document.createElement('p');
                     newP.className = 'word-paragraph-text';
-                    newP.innerHTML = postString ? postString : '<br>';
 
-                    heading.innerHTML = '';
-                    heading.appendChild(preHtml);
-                    if (!heading.innerHTML.trim()) {
-                        heading.innerHTML = '<br>';
+                    // Jika kursor berada di paling awal Judul (preRange kosong), sisipkan baris kosong di atasnya (Word & LibreOffice)
+                    if (preRange.toString().length === 0) {
+                        newP.innerHTML = '<br>';
+                        heading.insertAdjacentElement('beforebegin', newP);
+                        this.focusNode(heading, false);
+                    } else {
+                        newP.innerHTML = postString ? postString : '<br>';
+                        heading.innerHTML = '';
+                        heading.appendChild(preHtml);
+                        if (!heading.innerHTML.trim()) {
+                            heading.innerHTML = '<br>';
+                        }
+                        heading.insertAdjacentElement('afterend', newP);
+                        this.focusNode(newP, false);
                     }
 
-                    heading.insertAdjacentElement('afterend', newP);
-                    this.focusNode(newP, false);
                     this.updateCurrentFormat();
                     this.syncAllPages();
                     return;
@@ -1356,6 +1385,9 @@ window.wordStudioApp = function(config) {
                     }
 
                     e.preventDefault();
+                    if (!sel.isCollapsed) {
+                        sel.getRangeAt(0).deleteContents();
+                    }
                     const range = sel.getRangeAt(0);
 
                     const preRange = range.cloneRange();
@@ -1375,16 +1407,23 @@ window.wordStudioApp = function(config) {
                     const newP = document.createElement('p');
                     newP.className = p.className || 'word-paragraph-text';
                     if (p.style.textAlign) newP.style.textAlign = p.style.textAlign;
-                    newP.innerHTML = postString ? postString : '<br>';
 
-                    p.innerHTML = '';
-                    p.appendChild(preHtml);
-                    if (!p.innerHTML.trim()) {
-                        p.innerHTML = '<br>';
+                    // Jika kursor berada di paling awal paragraf, sisipkan baris kosong di atasnya (Word & LibreOffice)
+                    if (preRange.toString().length === 0) {
+                        newP.innerHTML = '<br>';
+                        p.insertAdjacentElement('beforebegin', newP);
+                        this.focusNode(p, false);
+                    } else {
+                        newP.innerHTML = postString ? postString : '<br>';
+                        p.innerHTML = '';
+                        p.appendChild(preHtml);
+                        if (!p.innerHTML.trim()) {
+                            p.innerHTML = '<br>';
+                        }
+                        p.insertAdjacentElement('afterend', newP);
+                        this.focusNode(newP, false);
                     }
 
-                    p.insertAdjacentElement('afterend', newP);
-                    this.focusNode(newP, false);
                     this.updateCurrentFormat();
                     this.syncAllPages();
                     return;
@@ -1392,7 +1431,7 @@ window.wordStudioApp = function(config) {
             }
 
             // 4. BACKSPACE: Menghapus blok kosong, peleburan paragraf (merge paragraph), atau keluar dari gaya
-            if (e.key === 'Backspace') {
+            if (e.key === 'Backspace' && !e.altKey) {
                 const anchor = sel.anchorNode;
                 const block = anchor?.nodeType === 1
                     ? anchor.closest('p, h1, h2, h3, h4, li, blockquote')
@@ -1410,9 +1449,113 @@ window.wordStudioApp = function(config) {
                         const isEmpty = !text || text.trim() === '' || block.innerHTML === '<br>';
                         const prev = block.previousElementSibling;
 
-                        // Case A: Blok kosong -> Hapus dan fokus ke akhir blok sebelumnya
+                        // Case 1: Di butir daftar (li) - Alur alami Microsoft Word & LibreOffice Writer
+                        if (block.tagName === 'LI') {
+                            e.preventDefault();
+                            const list = block.closest('ul, ol');
+                            if (isEmpty) {
+                                // Backspace pada butir kosong keluar dari daftar menjadi paragraf normal (Word & LibreOffice)
+                                if (list) {
+                                    const newP = document.createElement('p');
+                                    newP.className = 'word-paragraph-text';
+                                    newP.innerHTML = '<br>';
+                                    const nextSiblings = [];
+                                    let nextEl = block.nextElementSibling;
+                                    while (nextEl) {
+                                        nextSiblings.push(nextEl);
+                                        nextEl = nextEl.nextElementSibling;
+                                    }
+                                    block.remove();
+                                    if (list.children.length === 0) {
+                                        list.replaceWith(newP);
+                                    } else if (nextSiblings.length > 0) {
+                                        const nextList = document.createElement(list.tagName);
+                                        nextList.className = list.className;
+                                        nextSiblings.forEach(s => nextList.appendChild(s));
+                                        list.insertAdjacentElement('afterend', newP);
+                                        newP.insertAdjacentElement('afterend', nextList);
+                                    } else {
+                                        list.insertAdjacentElement('afterend', newP);
+                                    }
+                                    this.focusNode(newP, false);
+                                    this.updateCurrentFormat();
+                                    this.syncAllPages();
+                                    return;
+                                }
+                            } else {
+                                // Butir berisi di awal teks: leburkan ke butir sebelumnya atau keluarkan dari daftar
+                                const prevLi = block.previousElementSibling;
+                                if (prevLi) {
+                                    const preChildCount = prevLi.childNodes.length;
+                                    if (prevLi.innerHTML === '<br>') {
+                                        prevLi.innerHTML = '';
+                                    }
+
+                                    const blockChildren = Array.from(block.childNodes);
+                                    for (const child of blockChildren) {
+                                        if (child.nodeName === 'BR' && blockChildren.length > 1) continue;
+                                        prevLi.appendChild(child);
+                                    }
+
+                                    if (!prevLi.innerHTML.trim()) {
+                                        prevLi.innerHTML = '<br>';
+                                    }
+
+                                    block.remove();
+
+                                    // junctionMarker: Titik sambungan merger presisi tanpa merusak seleksi browser
+                                    const targetNode = prevLi.childNodes[preChildCount];
+                                    if (targetNode) {
+                                        try {
+                                            const newRange = document.createRange();
+                                            if (targetNode.nodeType === Node.TEXT_NODE) {
+                                                newRange.setStart(targetNode, 0);
+                                            } else {
+                                                newRange.setStartBefore(targetNode);
+                                            }
+                                            newRange.collapse(true);
+                                            sel.removeAllRanges();
+                                            sel.addRange(newRange);
+                                        } catch (err) {
+                                            this.focusNode(prevLi, false);
+                                        }
+                                    } else {
+                                        this.focusNode(prevLi, true);
+                                    }
+
+                                    this.updateCurrentFormat();
+                                    this.syncAllPages();
+                                    return;
+                                } else {
+                                    if (list) {
+                                        const newP = document.createElement('p');
+                                        newP.className = 'word-paragraph-text';
+                                        newP.innerHTML = block.innerHTML || '<br>';
+                                        block.remove();
+                                        if (list.children.length === 0) {
+                                            list.replaceWith(newP);
+                                        } else {
+                                            list.insertAdjacentElement('beforebegin', newP);
+                                        }
+                                        this.focusNode(newP, false);
+                                        this.updateCurrentFormat();
+                                        this.syncAllPages();
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Case 2: Di awal judul/heading -> Tekan Backspace mengubah kembali ke Paragraf Normal (Word)
+                        if (['H1', 'H2', 'H3', 'H4'].includes(block.tagName)) {
+                            e.preventDefault();
+                            this.applyBlockStyle('normal');
+                            return;
+                        }
+
+                        // Case 3: Blok kosong biasa -> Hapus dan fokus ke akhir blok sebelumnya
                         if (isEmpty) {
-                            if (prev && !prev.classList.contains('word-sheet-header')) {
+                            if (prev && !prev.classList.contains('word-sheet-header') && !prev.classList.contains('ns-sheet-header')) {
                                 e.preventDefault();
                                 block.remove();
                                 if (prev.tagName === 'TABLE') {
@@ -1428,80 +1571,8 @@ window.wordStudioApp = function(config) {
                             }
                         }
 
-                        // Case B: Di awal judul/heading -> Tekan Backspace mengubah kembali ke Paragraf Normal (Word)
-                        if (['H1', 'H2', 'H3', 'H4'].includes(block.tagName)) {
-                            e.preventDefault();
-                            this.applyBlockStyle('normal');
-                            return;
-                        }
-
-                        // Case C: Di awal butir daftar (li) -> Leburkan ke butir sebelumnya atau keluar dari daftar
-                        if (block.tagName === 'LI') {
-                            e.preventDefault();
-                            const prevLi = block.previousElementSibling;
-                            if (prevLi) {
-                                const preChildCount = prevLi.childNodes.length;
-                                if (prevLi.innerHTML === '<br>') {
-                                    prevLi.innerHTML = '';
-                                }
-
-                                const blockChildren = Array.from(block.childNodes);
-                                for (const child of blockChildren) {
-                                    if (child.nodeName === 'BR' && blockChildren.length > 1) continue;
-                                    prevLi.appendChild(child);
-                                }
-
-                                if (!prevLi.innerHTML.trim()) {
-                                    prevLi.innerHTML = '<br>';
-                                }
-
-                                block.remove();
-
-                                // junctionMarker: Titik sambungan merger presisi tanpa merusak seleksi browser
-                                const targetNode = prevLi.childNodes[preChildCount];
-                                if (targetNode) {
-                                    try {
-                                        const newRange = document.createRange();
-                                        if (targetNode.nodeType === Node.TEXT_NODE) {
-                                            newRange.setStart(targetNode, 0);
-                                        } else {
-                                            newRange.setStartBefore(targetNode);
-                                        }
-                                        newRange.collapse(true);
-                                        sel.removeAllRanges();
-                                        sel.addRange(newRange);
-                                    } catch (err) {
-                                        this.focusNode(prevLi, false);
-                                    }
-                                } else {
-                                    this.focusNode(prevLi, true);
-                                }
-
-                                this.updateCurrentFormat();
-                                this.syncAllPages();
-                                return;
-                            } else {
-                                const list = block.closest('ul, ol');
-                                if (list) {
-                                    const newP = document.createElement('p');
-                                    newP.className = 'word-paragraph-text';
-                                    newP.innerHTML = block.innerHTML || '<br>';
-                                    block.remove();
-                                    if (list.children.length === 0) {
-                                        list.replaceWith(newP);
-                                    } else {
-                                        list.insertAdjacentElement('beforebegin', newP);
-                                    }
-                                    this.focusNode(newP, false);
-                                    this.updateCurrentFormat();
-                                    this.syncAllPages();
-                                    return;
-                                }
-                            }
-                        }
-
-                        // Case D: Di awal paragraf non-kosong -> LEBURKAN (Merge) dengan blok sebelumnya (Word & LibreOffice)
-                        if (prev && !prev.classList.contains('word-sheet-header')) {
+                        // Case 4: Di awal paragraf non-kosong -> LEBURKAN (Merge) dengan blok sebelumnya (Word & LibreOffice)
+                        if (prev && !prev.classList.contains('word-sheet-header') && !prev.classList.contains('ns-sheet-header')) {
                             if (prev.classList.contains('word-page-break-marker') || prev.tagName === 'HR') {
                                 e.preventDefault();
                                 prev.remove();
@@ -1827,7 +1898,7 @@ window.wordStudioApp = function(config) {
             const sel = window.getSelection();
             if (!sel || !sel.rangeCount) return;
 
-            // Smart Typography Auto-Replacement (Word & LibreOffice Writer)
+            // Smart Typography & Auto-Capitalization Engine (Word & LibreOffice Writer)
             if (sel.isCollapsed) {
                 const node = sel.anchorNode;
                 if (node && node.nodeType === Node.TEXT_NODE) {
@@ -1835,22 +1906,84 @@ window.wordStudioApp = function(config) {
                     const offset = sel.anchorOffset;
                     const beforeText = textVal.slice(0, offset);
 
+                    // 1. Auto-Capitalization alami (Awal paragraf atau setelah tanda baca . ! ?)
+                    const sentenceMatch = beforeText.match(/(?:^|[\.\!\?]\s+|[\.\!\?]["'”’]\s+)([a-z])$/);
+                    if (sentenceMatch) {
+                        const lower = sentenceMatch[1];
+                        const upper = lower.toUpperCase();
+                        const newBeforeText = beforeText.slice(0, -1) + upper;
+                        const afterText = textVal.slice(offset);
+                        node.textContent = newBeforeText + afterText;
+                        const newRange = document.createRange();
+                        newRange.setStart(node, newBeforeText.length);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                        return;
+                    }
+
+                    // 2. Instant Smart Quotes: straight quotes to curly quotes (Word & LibreOffice)
+                    if (beforeText.endsWith('"')) {
+                        const charBefore = beforeText.slice(-2, -1);
+                        const isOpening = !charBefore || /\s|[(\[{<]/.test(charBefore);
+                        const curly = isOpening ? '“' : '”';
+                        const newBeforeText = beforeText.slice(0, -1) + curly;
+                        const afterText = textVal.slice(offset);
+                        node.textContent = newBeforeText + afterText;
+                        const newRange = document.createRange();
+                        newRange.setStart(node, newBeforeText.length);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                        return;
+                    }
+
+                    if (beforeText.endsWith("'")) {
+                        const charBefore = beforeText.slice(-2, -1);
+                        const isOpening = !charBefore || /\s|[(\[{<]/.test(charBefore);
+                        const curly = isOpening ? '‘' : '’';
+                        const newBeforeText = beforeText.slice(0, -1) + curly;
+                        const afterText = textVal.slice(offset);
+                        node.textContent = newBeforeText + afterText;
+                        const newRange = document.createRange();
+                        newRange.setStart(node, newBeforeText.length);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                        return;
+                    }
+
                     const replacements = [
+                        { pattern: /--$/, replace: '—' },
                         { pattern: /---\s$/, replace: '— ' },
                         { pattern: /--\s$/, replace: '— ' },
+                        { pattern: /\.\.\.$/, replace: '…' },
                         { pattern: /\.\.\.\s$/, replace: '… ' },
+                        { pattern: /\([cC]\)$/, replace: '©' },
                         { pattern: /\([cC]\)\s$/, replace: '© ' },
+                        { pattern: /\([rR]\)$/, replace: '®' },
                         { pattern: /\([rR]\)\s$/, replace: '® ' },
+                        { pattern: /\([tT][mM]\)$/, replace: '™' },
                         { pattern: /\([tT][mM]\)\s$/, replace: '™ ' },
+                        { pattern: /1\/2$/, replace: '½' },
                         { pattern: /1\/2\s$/, replace: '½ ' },
+                        { pattern: /1\/4$/, replace: '¼' },
                         { pattern: /1\/4\s$/, replace: '¼ ' },
+                        { pattern: /3\/4$/, replace: '¾' },
                         { pattern: /3\/4\s$/, replace: '¾ ' },
+                        { pattern: /\+-$/, replace: '±' },
                         { pattern: /\+-\s$/, replace: '± ' },
+                        { pattern: /!=$/, replace: '≠' },
                         { pattern: /!=\s$/, replace: '≠ ' },
+                        { pattern: /<=$/, replace: '≤' },
                         { pattern: /<=\s$/, replace: '≤ ' },
+                        { pattern: />=$/, replace: '≥' },
                         { pattern: />=\s$/, replace: '≥ ' },
+                        { pattern: /->$/, replace: '→' },
                         { pattern: /->\s$/, replace: '→ ' },
+                        { pattern: /<-$/, replace: '←' },
                         { pattern: /<-\s$/, replace: '← ' },
+                        { pattern: /<=>$/, replace: '⇔' },
                         { pattern: /<=>\s$/, replace: '⇔ ' },
                         { pattern: /<<\s$/, replace: '« ' },
                         { pattern: />>\s$/, replace: '» ' },
@@ -1994,10 +2127,38 @@ window.wordStudioApp = function(config) {
                 const isCtrl = e.ctrlKey || e.metaKey;
                 const wire = this.getWire();
 
+                // Shift+F3: Word & LibreOffice Change Case (lowercase -> Capitalize -> UPPERCASE)
+                if (e.shiftKey && e.key === 'F3') {
+                    e.preventDefault();
+                    this.changeCase();
+                    return;
+                }
+
                 // Pintasan Keyboard Microsoft Word & LibreOffice Writer
                 if (isCtrl && !e.altKey) {
                     const key = e.key.toLowerCase();
-                    if (key === 'k') {
+                    if (key === 'a') {
+                        const activeEl = document.activeElement;
+                        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                            return;
+                        }
+                        const currentSheet = window.getSelection()?.anchorNode?.nodeType === 1
+                            ? window.getSelection().anchorNode.closest('.word-sheet-content')
+                            : window.getSelection()?.anchorNode?.parentElement?.closest('.word-sheet-content');
+                        if (currentSheet) {
+                            e.preventDefault();
+                            const sel = window.getSelection();
+                            if (sel) {
+                                const range = document.createRange();
+                                range.selectNodeContents(currentSheet);
+                                sel.removeAllRanges();
+                                sel.addRange(range);
+                                this.checkSelection();
+                                this.updateCurrentFormat();
+                            }
+                            return;
+                        }
+                    } else if (key === 'k') {
                         e.preventDefault();
                         if (wire) wire.openDialog('palette');
                     } else if (key === 's') {
@@ -2086,8 +2247,8 @@ window.wordStudioApp = function(config) {
                             this.focusNode(lastSheet.lastElementChild, true);
                             lastSheet.scrollIntoView({ behavior: 'smooth', block: 'end' });
                         }
-                    } else if (key === 'm' || (e.code === 'Space' && e.shiftKey)) {
-                        // Word/LibreOffice Clear Direct Formatting
+                    } else if (key === 'm' || e.code === 'Space') {
+                        // Word Ctrl+Space / LibreOffice Ctrl+M: Clear Direct Formatting
                         e.preventDefault();
                         this.clearCurrentFormat();
                     }

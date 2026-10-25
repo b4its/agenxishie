@@ -401,7 +401,7 @@
             <div class="word-group">
                 <div class="word-group__content">
                     <!-- Big Paste Button -->
-                    <button type="button" class="word-btn-large" @mousedown.prevent @click="paste()" title="Paste from Clipboard (Ctrl+V)">
+                    <button type="button" class="word-btn-large" @mousedown.prevent="paste()" title="Paste from Clipboard (Ctrl+V)">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
                             <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                             <path d="M9 14l2 2 4-4"/>
@@ -411,20 +411,20 @@
 
                     <!-- Cut, Copy, Format Painter -->
                     <div class="word-group__col">
-                        <button type="button" class="word-tool-btn" @mousedown.prevent @click="cut()" title="Cut (Ctrl+X)">
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="cut()" title="Cut (Ctrl+X)">
                             <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor">
                                 <path fill-rule="evenodd" d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H11V9.413l1.293 1.294a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13H5.5z" clip-rule="evenodd"/>
                             </svg>
                             <span>Cut</span>
                         </button>
-                        <button type="button" class="word-tool-btn" @mousedown.prevent @click="copy()" title="Copy (Ctrl+C)">
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="copy()" title="Copy (Ctrl+C)">
                             <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor">
                                 <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z"/>
                                 <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z"/>
                             </svg>
                             <span>Copy</span>
                         </button>
-                        <button type="button" class="word-tool-btn" :class="{ 'active': copiedFormat !== null || @js((bool)$copiedFormat) }" @mousedown.prevent @click="copyCurrentFormat()" title="Format Painter (Ctrl+Shift+C)">
+                        <button type="button" class="word-tool-btn" :class="{ 'active': copiedFormat !== null || @js((bool)$copiedFormat) }" @mousedown.prevent="copyCurrentFormat()" title="Format Painter (Ctrl+Shift+C)">
                             <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor">
                                 <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
                             </svg>
@@ -464,22 +464,22 @@
 
                         <!-- Row 2: B, I, U, Strike, Sub, Super, Glow, Highlight, Color -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" style="font-weight:700;" :class="{ 'active': currentFormat.bold }" @mousedown.prevent @click="format('bold')" title="Bold (Ctrl+B)">B</button>
-                            <button type="button" class="word-btn-square" style="font-style:italic;" :class="{ 'active': currentFormat.italic }" @mousedown.prevent @click="format('italic')" title="Italic (Ctrl+I)">I</button>
-                            <button type="button" class="word-btn-square" style="text-decoration:underline;" :class="{ 'active': currentFormat.underline }" @mousedown.prevent @click="format('underline')" title="Underline (Ctrl+U)">U ▾</button>
-                            <button type="button" class="word-btn-square" style="text-decoration:line-through;" :class="{ 'active': currentFormat.strike }" @mousedown.prevent @click="format('strikeThrough')" title="Strikethrough (ab)">ab</button>
-                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.subscript }" @mousedown.prevent @click="format('subscript')" title="Subscript (x₂)">x₂</button>
-                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.superscript }" @mousedown.prevent @click="format('superscript')" title="Superscript (x²)">x²</button>
+                            <button type="button" class="word-btn-square" style="font-weight:700;" :class="{ 'active': currentFormat.bold }" @mousedown.prevent="format('bold')" title="Bold (Ctrl+B)">B</button>
+                            <button type="button" class="word-btn-square" style="font-style:italic;" :class="{ 'active': currentFormat.italic }" @mousedown.prevent="format('italic')" title="Italic (Ctrl+I)">I</button>
+                            <button type="button" class="word-btn-square" style="text-decoration:underline;" :class="{ 'active': currentFormat.underline }" @mousedown.prevent="format('underline')" title="Underline (Ctrl+U)">U ▾</button>
+                            <button type="button" class="word-btn-square" style="text-decoration:line-through;" :class="{ 'active': currentFormat.strike }" @mousedown.prevent="format('strikeThrough')" title="Strikethrough (ab)">ab</button>
+                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.subscript }" @mousedown.prevent="format('subscript')" title="Subscript (x₂)">x₂</button>
+                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.superscript }" @mousedown.prevent="format('superscript')" title="Superscript (x²)">x²</button>
                             <button type="button" class="word-btn-square" style="color:#0f6cbd;" wire:click="applyTheme('modern')" title="Text Effects">A</button>
 
                             <!-- Highlight Pen -->
-                            <div class="word-color-picker-btn" @mousedown.prevent @click="format('hiliteColor', '#fef08a')" title="Highlight Color">
+                            <div class="word-color-picker-btn" @mousedown.prevent="format('hiliteColor', '#fef08a')" title="Highlight Color">
                                 <span>🖊️</span>
                                 <div class="word-color-bar" style="background:#fde68a;"></div>
                             </div>
 
                             <!-- Font Color -->
-                            <div class="word-color-picker-btn" @mousedown.prevent @click="format('foreColor', '#b91c1c')" title="Font Color">
+                            <div class="word-color-picker-btn" @mousedown.prevent="format('foreColor', '#b91c1c')" title="Font Color">
                                 <span style="font-weight:700; line-height:1;">A</span>
                                 <div class="word-color-bar" style="background:#b91c1c;"></div>
                             </div>
@@ -497,20 +497,20 @@
                     <div class="word-group__col">
                         <!-- Row 1: Bullets, Numbering, Multilevel, Indent-, Indent+, Marks -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.isBullet }" @mousedown.prevent @click="format('insertUnorderedList')" title="Bullets">• ▾</button>
-                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.isNumbered }" @mousedown.prevent @click="format('insertOrderedList')" title="Numbering">1. ▾</button>
+                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.isBullet }" @mousedown.prevent="format('insertUnorderedList')" title="Bullets">• ▾</button>
+                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.isNumbered }" @mousedown.prevent="format('insertOrderedList')" title="Numbering">1. ▾</button>
                             <button type="button" class="word-btn-square" wire:click="addBlock('bullet')" title="Multilevel List">▾</button>
-                            <button type="button" class="word-btn-square" @mousedown.prevent @click="applyIndent(-1)" title="Decrease Indent (Shift+Tab)">⇤</button>
-                            <button type="button" class="word-btn-square" @mousedown.prevent @click="applyIndent(1)" title="Increase Indent (Tab)">⇥</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent="applyIndent(-1)" title="Decrease Indent (Shift+Tab)">⇤</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent="applyIndent(1)" title="Increase Indent (Tab)">⇥</button>
                             <button type="button" class="word-btn-square" wire:click="$toggle('showGridlines')" title="Show/Hide Marks (¶)">¶</button>
                         </div>
 
                         <!-- Row 2: Align Left, Center, Right, Justify, Spacing, Shading, Borders -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.align === 'left' }" @mousedown.prevent @click="applyAlignment('left')" title="Align Left (Ctrl+L)">⫷</button>
-                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.align === 'center' }" @mousedown.prevent @click="applyAlignment('center')" title="Center (Ctrl+E)">≡</button>
-                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.align === 'right' }" @mousedown.prevent @click="applyAlignment('right')" title="Align Right (Ctrl+R)">⫸</button>
-                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.align === 'justify' }" @mousedown.prevent @click="applyAlignment('justify')" title="Justify (Ctrl+J)">☷</button>
+                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.align === 'left' }" @mousedown.prevent="applyAlignment('left')" title="Align Left (Ctrl+L)">⫷</button>
+                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.align === 'center' }" @mousedown.prevent="applyAlignment('center')" title="Center (Ctrl+E)">≡</button>
+                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.align === 'right' }" @mousedown.prevent="applyAlignment('right')" title="Align Right (Ctrl+R)">⫸</button>
+                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.align === 'justify' }" @mousedown.prevent="applyAlignment('justify')" title="Justify (Ctrl+J)">☷</button>
                             <div style="position:relative;" x-data="{ openSpacing: false }">
                                 <button type="button" class="word-btn-square" @click="openSpacing = !openSpacing" title="Line Spacing (1.0, 1.15, 1.5, 2.0)">↕ ▾</button>
                                 <div x-show="openSpacing" @click.outside="openSpacing = false" style="position:absolute; left:0; top:24px; background:#ffffff; border:1px solid #e1dfdd; border-radius:4px; box-shadow:0 4px 16px rgba(0,0,0,0.12); width:135px; z-index:100; padding:4px 0; font-size:11.5px;">
@@ -535,43 +535,43 @@
                 <div class="word-group__content">
                     <div class="word-styles-gallery">
                         <div class="word-style-tile" :class="{ 'active': currentFormat.style === 'normal' }"
-                            @mousedown.prevent @click="applyBlockStyle('normal')" title="Normal (Ctrl+Alt+0)">
+                            @mousedown.prevent="applyBlockStyle('normal')" title="Normal (Ctrl+Alt+0)">
                             <div class="word-style-tile__preview" style="font-family:var(--ms-font-ui); font-size:12px;">AaBbCcDd</div>
                             <div class="word-style-tile__name">Normal</div>
                         </div>
 
                         <div class="word-style-tile" :class="{ 'active': currentFormat.style === 'nospacing' }"
-                            @mousedown.prevent @click="applyBlockStyle('normal')" title="No Spacing">
+                            @mousedown.prevent="applyBlockStyle('normal')" title="No Spacing">
                             <div class="word-style-tile__preview" style="font-family:var(--ms-font-ui); font-size:11px; letter-spacing:-0.5px;">AaBbCcDd</div>
                             <div class="word-style-tile__name">No Spacing</div>
                         </div>
 
                         <div class="word-style-tile" :class="{ 'active': currentFormat.style === 'heading1' }"
-                            @mousedown.prevent @click="applyBlockStyle('heading1')" title="Heading 1 (Ctrl+Alt+1)">
+                            @mousedown.prevent="applyBlockStyle('heading1')" title="Heading 1 (Ctrl+Alt+1)">
                             <div class="word-style-tile__preview" style="color:var(--ms-blue-dark); font-weight:700; font-size:13px;">AaBbC</div>
                             <div class="word-style-tile__name">Heading 1</div>
                         </div>
 
                         <div class="word-style-tile" :class="{ 'active': currentFormat.style === 'title' }"
-                            @mousedown.prevent @click="applyBlockStyle('title')" title="Title">
+                            @mousedown.prevent="applyBlockStyle('title')" title="Title">
                             <div class="word-style-tile__preview" style="font-weight:800; font-size:14px; color:#111827;">AaBb</div>
                             <div class="word-style-tile__name">Title</div>
                         </div>
 
                         <div class="word-style-tile" :class="{ 'active': currentFormat.style === 'heading2' }"
-                            @mousedown.prevent @click="applyBlockStyle('heading2')" title="Heading 2 (Ctrl+Alt+2)">
+                            @mousedown.prevent="applyBlockStyle('heading2')" title="Heading 2 (Ctrl+Alt+2)">
                             <div class="word-style-tile__preview" style="color:var(--ms-blue-heading); font-weight:600; font-size:12.5px;">AaBbCcD</div>
                             <div class="word-style-tile__name">Heading 2</div>
                         </div>
 
                         <div class="word-style-tile" :class="{ 'active': currentFormat.style === 'subtitle' }"
-                            @mousedown.prevent @click="applyBlockStyle('subtitle')" title="Subtitle">
+                            @mousedown.prevent="applyBlockStyle('subtitle')" title="Subtitle">
                             <div class="word-style-tile__preview" style="color:#6b7280; font-size:11.5px;">AaBbCcD</div>
                             <div class="word-style-tile__name">Subtitle</div>
                         </div>
 
                         <div class="word-style-tile" :class="{ 'active': currentFormat.style === 'quote' }"
-                            @mousedown.prevent @click="applyBlockStyle('quote')" title="Quote">
+                            @mousedown.prevent="applyBlockStyle('quote')" title="Quote">
                             <div class="word-style-tile__preview" style="color:#6b7280; font-style:italic; font-size:11.5px;">AaBbCcD</div>
                             <div class="word-style-tile__name">Quote</div>
                         </div>
