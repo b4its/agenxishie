@@ -72,28 +72,28 @@
                 <span>✨ AI</span>
             </button>
             <div x-show="copilotMenuOpen" @click.outside="copilotMenuOpen = false" class="word-mini-dropdown" style="width: 210px;">
-                <button type="button" @click="runAi('/poles')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="runAi('/poles')" class="word-mini-dropdown-item">
                     <span>🪄 Poles Kalimat Terpilih</span>
                 </button>
-                <button type="button" @click="runAi('/parafrase')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="runAi('/parafrase')" class="word-mini-dropdown-item">
                     <span>🔄 Parafrase Anti-Plagiasi</span>
                 </button>
-                <button type="button" @click="runAi('/kembangkan')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="runAi('/kembangkan')" class="word-mini-dropdown-item">
                     <span>✍️ Elaborasi &amp; Kembangkan</span>
                 </button>
-                <button type="button" @click="runAi('/ringkaskan')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="runAi('/ringkaskan')" class="word-mini-dropdown-item">
                     <span>✂️ Padatkan / Buat Ringkas</span>
                 </button>
-                <button type="button" @click="runAi('/perbaiki-ejaan')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="runAi('/perbaiki-ejaan')" class="word-mini-dropdown-item">
                     <span>🔤 Perbaiki Ejaan &amp; PUEBI</span>
                 </button>
-                <button type="button" @click="runAi('/terjemahkan')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="runAi('/terjemahkan')" class="word-mini-dropdown-item">
                     <span>🌐 Terjemahkan Akademik</span>
                 </button>
-                <button type="button" @click="runAi('/sitasi')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="runAi('/sitasi')" class="word-mini-dropdown-item">
                     <span>📚 Rekomendasikan Sitasi</span>
                 </button>
-                <button type="button" @click="runAi('/cek-pedoman')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="runAi('/cek-pedoman')" class="word-mini-dropdown-item">
                     <span>🎯 Cek Kepatuhan Pedoman</span>
                 </button>
             </div>
@@ -116,28 +116,28 @@
                 <span>Copilot ▾</span>
             </button>
             <div x-show="blockCopilotMenu" @click.outside="blockCopilotMenu = false" class="word-mini-dropdown" style="width: 220px; top: 28px; right: 0;">
-                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/poles')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; runBlockAi('/poles')" class="word-mini-dropdown-item">
                     <span>🪄 Poles Gaya Bahasa</span>
                 </button>
-                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/parafrase')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; runBlockAi('/parafrase')" class="word-mini-dropdown-item">
                     <span>🔄 Parafrase Anti-Plagiasi</span>
                 </button>
-                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/kembangkan')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; runBlockAi('/kembangkan')" class="word-mini-dropdown-item">
                     <span>✍️ Kembangkan Paragraf</span>
                 </button>
-                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/ringkaskan')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; runBlockAi('/ringkaskan')" class="word-mini-dropdown-item">
                     <span>✂️ Padatkan / Ringkas</span>
                 </button>
-                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/perbaiki-ejaan')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; runBlockAi('/perbaiki-ejaan')" class="word-mini-dropdown-item">
                     <span>🔤 Koreksi Ejaan PUEBI</span>
                 </button>
-                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/terjemahkan')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; runBlockAi('/terjemahkan')" class="word-mini-dropdown-item">
                     <span>🌐 Terjemahan Akademik</span>
                 </button>
-                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/rumus')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; runBlockAi('/rumus')" class="word-mini-dropdown-item">
                     <span>π Rekomendasi Rumus LaTeX</span>
                 </button>
-                <button type="button" @click="blockCopilotMenu = false; runBlockAi('/cek-pedoman')" class="word-mini-dropdown-item">
+                <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; runBlockAi('/cek-pedoman')" class="word-mini-dropdown-item">
                     <span>🎯 Audit Kepatuhan Kaidah</span>
                 </button>
                 <div style="height:1px; background:#e1dfdd; margin:2px 0;"></div>
@@ -443,7 +443,7 @@
                     <div class="word-group__col">
                         <!-- Row 1: Font Family, Size, Grow, Shrink, Case, Clear -->
                         <div class="word-group__row">
-                            <select class="word-select" style="width:115px;" @change="applyFontFamily($event.target.value)">
+                            <select class="word-select" style="width:115px;" @mousedown="saveSelection()" @change="applyFontFamily($event.target.value)" :value="currentFormat.fontFamily || '{{ $styleMeta['fontFamily'] ?? 'serif' }}'">
                                 <option value="sans" {{ ($styleMeta['fontFamily'] ?? '') === 'sans' ? 'selected' : '' }}>Aptos</option>
                                 <option value="calibri" {{ ($styleMeta['fontFamily'] ?? '') === 'calibri' ? 'selected' : '' }}>Calibri</option>
                                 <option value="times" {{ ($styleMeta['fontFamily'] ?? '') === 'times' ? 'selected' : '' }}>Times New Roman</option>
@@ -451,7 +451,7 @@
                                 <option value="serif" {{ ($styleMeta['fontFamily'] ?? 'serif') === 'serif' ? 'selected' : '' }}>Source Serif 4</option>
                                 <option value="mono" {{ ($styleMeta['fontFamily'] ?? '') === 'mono' ? 'selected' : '' }}>JetBrains Mono</option>
                             </select>
-                            <select class="word-select" style="width:48px;" @change="applyFontSize($event.target.value)">
+                            <select class="word-select" style="width:48px;" @mousedown="saveSelection()" @change="applyFontSize($event.target.value)" :value="currentFormat.fontSize || {{ $styleMeta['fontSize'] ?? 16 }}">
                                 @foreach ([10, 11, 12, 14, 16, 18, 20, 24, 28, 32] as $fs)
                                     <option value="{{ $fs }}" {{ ($styleMeta['fontSize'] ?? 16) == $fs ? 'selected' : '' }}>{{ $fs }}</option>
                                 @endforeach

@@ -1287,9 +1287,19 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain('copy()')
         ->and($script)->toContain('paste()')
         ->and($script)->toContain('saveDocument')
+        ->and($script)->toContain('saveSelection')
+        ->and($script)->toContain('restoreSelection')
+        ->and($script)->toContain('savedRange')
         ->and($script)->toContain("e.key === 'i' || e.key === 'I'")
         ->and($script)->toContain('toggleAssistant')
         ->and($script)->toContain('nextPaper')
         ->and($script)->toContain('prevPaper')
         ->and($script)->toContain('word-paper-sheet');
+
+    // Pastikan styling lembar kertas mendukung elemen universal Word & LibreOffice
+    $css = file_get_contents(resource_path('css/studio.css'));
+    expect($css)->toContain('.word-sheet-content ul')
+        ->and($css)->toContain('.word-sheet-content ol')
+        ->and($css)->toContain('.word-sheet-content p')
+        ->and($css)->toContain('.word-sheet-content table');
 });

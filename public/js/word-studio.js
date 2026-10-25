@@ -39,12 +39,42 @@ window.wordStudioApp = function(config) {
             tag: 'p',
         },
         copiedFormat: null,
+        savedRange: null,
         _syncTimer: null,
         _inputTimer: null,
         _selTimer: null,
+        _blockTimer: null,
 
         getWire() {
             return this.$wire || config.wire || (window.Livewire ? window.Livewire.find(this.$el?.closest('[wire\\:id]')?.getAttribute('wire:id')) : null);
+        },
+
+        saveSelection() {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                const sheet = range.commonAncestorContainer?.nodeType === 1
+                    ? range.commonAncestorContainer.closest('.word-sheet-content')
+                    : range.commonAncestorContainer?.parentElement?.closest('.word-sheet-content');
+                if (sheet) {
+                    this.savedRange = range.cloneRange();
+                }
+            }
+        },
+
+        restoreSelection() {
+            if (!this.savedRange) return;
+            const sel = window.getSelection();
+            if (!sel) return;
+            try {
+                sel.removeAllRanges();
+                sel.addRange(this.savedRange);
+                const container = this.savedRange.commonAncestorContainer;
+                const sheet = container.nodeType === 1 ? container.closest('.word-sheet-content') : container.parentElement?.closest('.word-sheet-content');
+                if (sheet && typeof sheet.focus === 'function') {
+                    sheet.focus();
+                }
+            } catch (e) {}
         },
 
         updateCounts() {
@@ -75,6 +105,29 @@ window.wordStudioApp = function(config) {
             if (!anchor) return;
             const el = anchor.nodeType === 1 ? anchor : anchor.parentElement;
             if (!el) return;
+
+            // Deteksi ukuran dan jenis font aktif di bawah kursor (Microsoft Word & LibreOffice Writer)
+            try {
+                const computed = window.getComputedStyle(el);
+                const pxSize = parseFloat(computed.fontSize);
+                if (!isNaN(pxSize) && pxSize > 0) {
+                    this.currentFormat.fontSize = Math.round(pxSize * 0.75); // konversi px ke pt
+                }
+                const fontStr = (computed.fontFamily || '').toLowerCase();
+                if (fontStr.includes('aptos') || fontStr.includes('inter') || fontStr.includes('sans-serif')) {
+                    this.currentFormat.fontFamily = 'sans';
+                } else if (fontStr.includes('calibri') || fontStr.includes('carlito')) {
+                    this.currentFormat.fontFamily = 'calibri';
+                } else if (fontStr.includes('times') || fontStr.includes('liberation serif')) {
+                    this.currentFormat.fontFamily = 'times';
+                } else if (fontStr.includes('arial') || fontStr.includes('liberation sans')) {
+                    this.currentFormat.fontFamily = 'arial';
+                } else if (fontStr.includes('mono')) {
+                    this.currentFormat.fontFamily = 'mono';
+                } else {
+                    this.currentFormat.fontFamily = 'serif';
+                }
+            } catch (e) {}
 
             const block = el.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
             if (block) {
@@ -146,18 +199,30 @@ window.wordStudioApp = function(config) {
 
         applyBlockStyle(style) {
             const sel = window.getSelection();
+            const inSheet = sel?.anchorNode?.nodeType === 1
+                ? sel.anchorNode.closest('.word-sheet-content')
+                : sel?.anchorNode?.parentElement?.closest('.word-sheet-content');
+            if (!inSheet && this.savedRange) {
+                this.restoreSelection();
+            }
+            const activeSel = window.getSelection();
             let blockEl = null;
-            if (sel && sel.anchorNode) {
-                blockEl = sel.anchorNode.nodeType === 1
-                    ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
-                    : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+            if (activeSel && activeSel.anchorNode) {
+                blockEl = activeSel.anchorNode.nodeType === 1
+                    ? activeSel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                    : activeSel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
             }
             if (!blockEl && this.activeBlock !== null) {
                 blockEl = document.querySelector('[data-block-index="' + this.activeBlock + '"]');
             }
 
             if (blockEl) {
-                const innerHtml = blockEl.innerHTML;
+                let innerHtml = blockEl.innerHTML;
+                if (blockEl.tagName === 'BLOCKQUOTE') {
+                    const qp = blockEl.querySelector('p');
+                    if (qp) innerHtml = qp.innerHTML;
+                }
+
                 let newTag = 'p';
                 let newClass = 'word-paragraph-text';
 
@@ -208,9 +273,37 @@ window.wordStudioApp = function(config) {
                     newEl.setAttribute('data-block-index', blockIdx);
                 }
 
-                blockEl.replaceWith(newEl);
+                if (blockEl.tagName === 'LI') {
+                    const list = blockEl.closest('ul, ol');
+                    if (list) {
+                        const nextSiblings = [];
+                        let n = blockEl.nextElementSibling;
+                        while (n) {
+                            nextSiblings.push(n);
+                            n = n.nextElementSibling;
+                        }
+                        blockEl.remove();
+                        if (list.children.length === 0) {
+                            list.replaceWith(newEl);
+                        } else if (nextSiblings.length > 0) {
+                            const nextList = document.createElement(list.tagName);
+                            nextList.className = list.className;
+                            nextSiblings.forEach(s => nextList.appendChild(s));
+                            list.insertAdjacentElement('afterend', newEl);
+                            newEl.insertAdjacentElement('afterend', nextList);
+                        } else {
+                            list.insertAdjacentElement('afterend', newEl);
+                        }
+                    } else {
+                        blockEl.replaceWith(newEl);
+                    }
+                } else {
+                    blockEl.replaceWith(newEl);
+                }
+
                 this.focusNode(newEl, true);
                 this.updateCurrentFormat();
+                this.saveSelection();
                 this.syncAllPages();
             } else if (this.activeBlock !== null) {
                 const wire = this.getWire();
@@ -222,11 +315,18 @@ window.wordStudioApp = function(config) {
 
         applyAlignment(align) {
             const sel = window.getSelection();
+            const inSheet = sel?.anchorNode?.nodeType === 1
+                ? sel.anchorNode.closest('.word-sheet-content')
+                : sel?.anchorNode?.parentElement?.closest('.word-sheet-content');
+            if (!inSheet && this.savedRange) {
+                this.restoreSelection();
+            }
+            const activeSel = window.getSelection();
             let blockEl = null;
-            if (sel && sel.anchorNode) {
-                blockEl = sel.anchorNode.nodeType === 1
-                    ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
-                    : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+            if (activeSel && activeSel.anchorNode) {
+                blockEl = activeSel.anchorNode.nodeType === 1
+                    ? activeSel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                    : activeSel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
             }
             if (!blockEl && this.activeBlock !== null) {
                 blockEl = document.querySelector('[data-block-index="' + this.activeBlock + '"]');
@@ -239,21 +339,30 @@ window.wordStudioApp = function(config) {
                 document.execCommand(cmd, false, null);
             } catch (e) {}
             this.currentFormat.align = align;
+            this.saveSelection();
             this.syncAllPages();
         },
 
         applyIndent(delta) {
             const sel = window.getSelection();
+            const inSheet = sel?.anchorNode?.nodeType === 1
+                ? sel.anchorNode.closest('.word-sheet-content')
+                : sel?.anchorNode?.parentElement?.closest('.word-sheet-content');
+            if (!inSheet && this.savedRange) {
+                this.restoreSelection();
+            }
+            const activeSel = window.getSelection();
             let blockEl = null;
-            if (sel && sel.anchorNode) {
-                blockEl = sel.anchorNode.nodeType === 1
-                    ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
-                    : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+            if (activeSel && activeSel.anchorNode) {
+                blockEl = activeSel.anchorNode.nodeType === 1
+                    ? activeSel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                    : activeSel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
             }
             if (blockEl && blockEl.tagName !== 'LI') {
                 const curMargin = parseFloat(blockEl.style.marginLeft || '0');
                 const newMargin = Math.max(0, curMargin + (delta > 0 ? 1.5 : -1.5));
                 blockEl.style.marginLeft = newMargin > 0 ? (newMargin + 'rem') : '';
+                this.saveSelection();
                 this.syncAllPages();
                 return;
             }
@@ -262,12 +371,20 @@ window.wordStudioApp = function(config) {
             } else {
                 document.execCommand('outdent', false, null);
             }
+            this.saveSelection();
             this.syncAllPages();
         },
 
         applyFontSize(size) {
             const sel = window.getSelection();
-            if (sel && !sel.isCollapsed) {
+            const inSheet = sel?.anchorNode?.nodeType === 1
+                ? sel.anchorNode.closest('.word-sheet-content')
+                : sel?.anchorNode?.parentElement?.closest('.word-sheet-content');
+            if (!inSheet && this.savedRange) {
+                this.restoreSelection();
+            }
+            const activeSel = window.getSelection();
+            if (activeSel && !activeSel.isCollapsed) {
                 document.execCommand('fontSize', false, '7');
                 const fontEls = document.querySelectorAll('font[size="7"]');
                 fontEls.forEach(el => {
@@ -278,16 +395,17 @@ window.wordStudioApp = function(config) {
                 });
             } else {
                 let blockEl = null;
-                if (sel && sel.anchorNode) {
-                    blockEl = sel.anchorNode.nodeType === 1
-                        ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
-                        : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+                if (activeSel && activeSel.anchorNode) {
+                    blockEl = activeSel.anchorNode.nodeType === 1
+                        ? activeSel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                        : activeSel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
                 }
                 if (blockEl) {
                     blockEl.style.fontSize = size + 'pt';
                 }
             }
             this.currentFormat.fontSize = size;
+            this.saveSelection();
             this.syncAllPages();
         },
 
@@ -302,20 +420,28 @@ window.wordStudioApp = function(config) {
             };
             const fontCss = fontMap[family] || family;
             const sel = window.getSelection();
-            if (sel && !sel.isCollapsed) {
+            const inSheet = sel?.anchorNode?.nodeType === 1
+                ? sel.anchorNode.closest('.word-sheet-content')
+                : sel?.anchorNode?.parentElement?.closest('.word-sheet-content');
+            if (!inSheet && this.savedRange) {
+                this.restoreSelection();
+            }
+            const activeSel = window.getSelection();
+            if (activeSel && !activeSel.isCollapsed) {
                 document.execCommand('fontName', false, fontCss);
             } else {
                 let blockEl = null;
-                if (sel && sel.anchorNode) {
-                    blockEl = sel.anchorNode.nodeType === 1
-                        ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
-                        : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+                if (activeSel && activeSel.anchorNode) {
+                    blockEl = activeSel.anchorNode.nodeType === 1
+                        ? activeSel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                        : activeSel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
                 }
                 if (blockEl) {
                     blockEl.style.fontFamily = fontCss;
                 }
             }
             this.currentFormat.fontFamily = family;
+            this.saveSelection();
             this.syncAllPages();
         },
 
@@ -693,15 +819,25 @@ window.wordStudioApp = function(config) {
         updateActiveBlock(event) {
             const target = event.target;
             if (!target) return;
-            const blockEl = target.closest('[data-block-index]');
+            const blockEl = target.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote, table');
             if (blockEl) {
-                const idx = parseInt(blockEl.getAttribute('data-block-index'), 10);
-                if (!isNaN(idx) && this.activeBlock !== idx) {
-                    this.activeBlock = idx;
-                    const wire = this.getWire();
-                    if (wire) {
-                        wire.selectBlock(idx);
+                let idx = parseInt(blockEl.getAttribute('data-block-index'), 10);
+                if (isNaN(idx)) {
+                    const allBlocks = Array.from(document.querySelectorAll('.word-sheet-content > p, .word-sheet-content > h1, .word-sheet-content > h2, .word-sheet-content > h3, .word-sheet-content > h4, .word-sheet-content > blockquote, .word-sheet-content > table, .word-sheet-content > figure, .word-sheet-content ul > li, .word-sheet-content ol > li'));
+                    idx = allBlocks.indexOf(blockEl);
+                    if (idx >= 0) {
+                        blockEl.setAttribute('data-block-index', idx);
                     }
+                }
+                if (!isNaN(idx) && idx >= 0 && this.activeBlock !== idx) {
+                    this.activeBlock = idx;
+                    clearTimeout(this._blockTimer);
+                    this._blockTimer = setTimeout(() => {
+                        const wire = this.getWire();
+                        if (wire) {
+                            wire.selectBlock(idx);
+                        }
+                    }, 300);
                 }
                 try {
                     const rect = blockEl.getBoundingClientRect();
@@ -758,6 +894,7 @@ window.wordStudioApp = function(config) {
                 const rootRect = this.$el.getBoundingClientRect();
                 if (rect.width > 0 && rect.height > 0) {
                     this.selectedText = text;
+                    this.saveSelection();
                     this.toolbarTop = Math.max(10, (rect.top - rootRect.top) - 44);
                     this.toolbarLeft = Math.max(10, (rect.left - rootRect.left) + (rect.width / 2) - 150);
                     this.showMiniToolbar = true;
@@ -767,10 +904,13 @@ window.wordStudioApp = function(config) {
                         const idx = parseInt(blockEl.getAttribute('data-block-index'), 10);
                         if (!isNaN(idx) && this.activeBlock !== idx) {
                             this.activeBlock = idx;
-                            const wire = this.getWire();
-                            if (wire) {
-                                wire.selectBlock(idx);
-                            }
+                            clearTimeout(this._blockTimer);
+                            this._blockTimer = setTimeout(() => {
+                                const wire = this.getWire();
+                                if (wire) {
+                                    wire.selectBlock(idx);
+                                }
+                            }, 300);
                         }
                     }
                 }
@@ -781,7 +921,15 @@ window.wordStudioApp = function(config) {
         },
 
         format(cmd, val = null) {
+            const sel = window.getSelection();
+            const inSheet = sel?.anchorNode?.nodeType === 1
+                ? sel.anchorNode.closest('.word-sheet-content')
+                : sel?.anchorNode?.parentElement?.closest('.word-sheet-content');
+            if (!inSheet && this.savedRange) {
+                this.restoreSelection();
+            }
             document.execCommand(cmd, false, val);
+            this.saveSelection();
             this.updateCurrentFormat();
             this.syncAllPages();
         },
@@ -1468,7 +1616,7 @@ window.wordStudioApp = function(config) {
                                     block.innerHTML = '<br>';
                                 }
 
-                                if (nextElToMerge !== nextBlock) {
+                                if (nextElToMerge !== next) {
                                     nextElToMerge.remove();
                                     if (next.children.length === 0) next.remove();
                                 } else {
@@ -1913,6 +2061,7 @@ window.wordStudioApp = function(config) {
             document.addEventListener('selectionchange', () => {
                 clearTimeout(this._selTimer);
                 this._selTimer = setTimeout(() => {
+                    this.saveSelection();
                     this.checkSelection();
                     this.updateCurrentFormat();
                 }, 100);

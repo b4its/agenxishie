@@ -1104,14 +1104,16 @@ dialog#livewire-error {
     color: #f3f3f3;
 }
 
-/* Authentic Word Bullet & Numbered Lists */
-.word-bullet-list {
-    margin: 8px 0 16px 28px;
-    padding-left: 8px;
-    list-style-type: disc;
+/* Authentic Word & LibreOffice Bullet & Numbered Lists */
+.word-bullet-list,
+.word-sheet-content ul {
+    margin: 8px 0 16px 28px !important;
+    padding-left: 8px !important;
+    list-style-type: disc !important;
 }
 
-.word-bullet-list li {
+.word-bullet-list li,
+.word-sheet-content ul li {
     font-size: 11pt;
     line-height: 1.5;
     color: #242424;
@@ -1119,17 +1121,20 @@ dialog#livewire-error {
     padding-left: 4px;
 }
 
-.dark .word-bullet-list li {
+.dark .word-bullet-list li,
+.dark .word-sheet-content ul li {
     color: #e5e5e5;
 }
 
-.word-numbered-list {
-    margin: 8px 0 16px 28px;
-    padding-left: 8px;
-    list-style-type: decimal;
+.word-numbered-list,
+.word-sheet-content ol {
+    margin: 8px 0 16px 28px !important;
+    padding-left: 8px !important;
+    list-style-type: decimal !important;
 }
 
-.word-numbered-list li {
+.word-numbered-list li,
+.word-sheet-content ol li {
     font-size: 11pt;
     line-height: 1.5;
     color: #242424;
@@ -1137,7 +1142,8 @@ dialog#livewire-error {
     padding-left: 4px;
 }
 
-.dark .word-numbered-list li {
+.dark .word-numbered-list li,
+.dark .word-sheet-content ol li {
     color: #e5e5e5;
 }
 
@@ -1284,23 +1290,78 @@ dialog#livewire-error {
     color: #60a5fa;
 }
 
-.word-heading-3 {
+.word-heading-3,
+.word-sheet-content h4 {
     font-size: 12pt;
     font-weight: 600;
     color: #1e3a8a;
     margin-top: 16px;
     margin-bottom: 6px;
+    line-height: 1.4;
 }
 
-.word-paragraph-text {
+.word-paragraph-text,
+.word-sheet-content p {
     font-size: 11pt;
     line-height: 1.5;
     color: #242424;
     margin-bottom: 12px;
 }
 
-.dark .word-paragraph-text {
+.dark .word-paragraph-text,
+.dark .word-sheet-content p {
     color: #e5e5e5;
+}
+
+.dark .word-sheet-content h1,
+.dark .word-sheet-content h2,
+.dark .word-sheet-content h3,
+.dark .word-sheet-content h4 {
+    color: #93c5fd;
+}
+
+.word-sheet-content blockquote {
+    border-left: 3px solid #0078d4;
+    margin: 14px 0 14px 20px;
+    padding-left: 14px;
+    font-style: italic;
+    color: #4b5563;
+}
+
+.dark .word-sheet-content blockquote {
+    border-left-color: #2563eb;
+    color: #9ca3af;
+}
+
+.word-sheet-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    border: 1px solid #d1d5db;
+}
+
+.word-sheet-content table th,
+.word-sheet-content table td {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    min-height: 24px;
+}
+
+.word-sheet-content table th {
+    background: #f8fafc;
+    font-weight: 600;
+    text-align: left;
+}
+
+.dark .word-sheet-content table,
+.dark .word-sheet-content table th,
+.dark .word-sheet-content table td {
+    border-color: #4b5563;
+}
+
+.dark .word-sheet-content table th {
+    background: #2d2d2d;
+    color: #f3f3f3;
 }
 
 /* Authentic Word Squiggly Underlines */
