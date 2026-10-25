@@ -1268,5 +1268,15 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain('targetEl')
         ->and($script)->toContain('firstLi')
         ->and($script)->toContain('ArrowDown')
-        ->and($script)->toContain('ArrowUp');
+        ->and($script)->toContain('ArrowUp')
+        ->and($script)->toContain('applyFontSize')
+        ->and($script)->toContain('adjustFontSize')
+        ->and($script)->toContain('applyFontFamily')
+        ->and($script)->toContain('applyLineSpacing')
+        ->and($script)->toContain('clearCurrentFormat')
+        ->and($script)->toContain('insertPageBreak')
+        ->and($script)->toContain('insertHorizontalRule')
+        ->and($script)->toContain('insertTable')
+        ->and($script)->toContain('insertTableRow')
+        ->and($script)->toContain('insertTableColumn');
 });
