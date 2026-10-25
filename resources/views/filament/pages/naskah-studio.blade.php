@@ -1467,6 +1467,18 @@
                                              });
                                          }
                                      }
+                                 } else if (e.key === 'Enter') {
+                                     e.preventDefault();
+                                     if (r < totalRows - 1) {
+                                         const nextInput = document.querySelector(`input[data-cell='${blockIndex}-${r + 1}-${c}']`);
+                                         if (nextInput) nextInput.focus();
+                                     } else {
+                                         $wire.tableInsertRow(blockIndex, totalRows - 1);
+                                         this.$nextTick(() => {
+                                             const newCellInput = document.querySelector(`input[data-cell='${blockIndex}-${totalRows}-${c}']`);
+                                             if (newCellInput) newCellInput.focus();
+                                         });
+                                     }
                                  }
                              }
                          }">

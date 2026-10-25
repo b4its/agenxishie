@@ -745,12 +745,25 @@ window.wordStudioApp = function(config) {
                         if (prev && !prev.classList.contains('word-sheet-header') && !['TABLE', 'FIGURE'].includes(prev.tagName)) {
                             e.preventDefault();
                             const blockHtml = block.innerHTML === '<br>' ? '' : block.innerHTML;
-                            const prevLength = (prev.innerText || prev.textContent || '').length;
 
                             if (prev.innerHTML === '<br>') {
-                                prev.innerHTML = blockHtml || '<br>';
-                            } else if (blockHtml) {
-                                prev.innerHTML += blockHtml;
+                                prev.innerHTML = '';
+                            }
+
+                            // Buat marker di titik sambungan merger agar kursor presisi
+                            const junctionMarker = document.createTextNode('');
+                            prev.appendChild(junctionMarker);
+
+                            if (blockHtml) {
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = blockHtml;
+                                while (tempDiv.firstChild) {
+                                    prev.appendChild(tempDiv.firstChild);
+                                }
+                            }
+
+                            if (!prev.innerHTML.trim()) {
+                                prev.innerHTML = '<br>';
                             }
 
                             block.remove();
@@ -758,12 +771,14 @@ window.wordStudioApp = function(config) {
                             // Letakkan kursor tepat di titik sambungan merger
                             try {
                                 const newRange = document.createRange();
-                                newRange.selectNodeContents(prev);
-                                newRange.collapse(false);
+                                newRange.setStartBefore(junctionMarker);
+                                newRange.collapse(true);
                                 sel.removeAllRanges();
                                 sel.addRange(newRange);
                             } catch (err) {
-                                this.focusNode(prev, true);
+                                this.focusNode(prev, false);
+                            } finally {
+                                junctionMarker.remove();
                             }
 
                             this.updateCurrentFormat();
@@ -793,12 +808,40 @@ window.wordStudioApp = function(config) {
                         if (next && !next.classList.contains('word-sheet-footer') && !next.classList.contains('word-sheet-header') && !['TABLE', 'FIGURE'].includes(next.tagName)) {
                             e.preventDefault();
                             const nextHtml = next.innerHTML === '<br>' ? '' : next.innerHTML;
+
                             if (block.innerHTML === '<br>') {
-                                block.innerHTML = nextHtml || '<br>';
-                            } else if (nextHtml) {
-                                block.innerHTML += nextHtml;
+                                block.innerHTML = '';
                             }
+
+                            const junctionMarker = document.createTextNode('');
+                            block.appendChild(junctionMarker);
+
+                            if (nextHtml) {
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = nextHtml;
+                                while (tempDiv.firstChild) {
+                                    block.appendChild(tempDiv.firstChild);
+                                }
+                            }
+
+                            if (!block.innerHTML.trim()) {
+                                block.innerHTML = '<br>';
+                            }
+
                             next.remove();
+
+                            try {
+                                const newRange = document.createRange();
+                                newRange.setStartBefore(junctionMarker);
+                                newRange.collapse(true);
+                                sel.removeAllRanges();
+                                sel.addRange(newRange);
+                            } catch (err) {
+                                this.focusNode(block, true);
+                            } finally {
+                                junctionMarker.remove();
+                            }
+
                             this.updateCurrentFormat();
                             this.syncAllPages();
                             return;

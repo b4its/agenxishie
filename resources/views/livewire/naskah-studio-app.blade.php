@@ -473,13 +473,13 @@
                             <button type="button" class="word-btn-square" style="color:#0f6cbd;" wire:click="applyTheme('modern')" title="Text Effects">A</button>
 
                             <!-- Highlight Pen -->
-                            <div class="word-color-picker-btn" @mousedown.prevent @click="document.execCommand('hiliteColor', false, '#fef08a'); syncAllPages();" title="Highlight Color">
+                            <div class="word-color-picker-btn" @mousedown.prevent @click="format('hiliteColor', '#fef08a')" title="Highlight Color">
                                 <span>🖊️</span>
                                 <div class="word-color-bar" style="background:#fde68a;"></div>
                             </div>
 
                             <!-- Font Color -->
-                            <div class="word-color-picker-btn" @mousedown.prevent @click="document.execCommand('foreColor', false, '#b91c1c'); syncAllPages();" title="Font Color">
+                            <div class="word-color-picker-btn" @mousedown.prevent @click="format('foreColor', '#b91c1c')" title="Font Color">
                                 <span style="font-weight:700; line-height:1;">A</span>
                                 <div class="word-color-bar" style="background:#b91c1c;"></div>
                             </div>
@@ -497,8 +497,8 @@
                     <div class="word-group__col">
                         <!-- Row 1: Bullets, Numbering, Multilevel, Indent-, Indent+, Marks -->
                         <div class="word-group__row">
-                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.isBullet }" @mousedown.prevent @click="document.execCommand('insertUnorderedList'); updateCurrentFormat(); syncAllPages();" title="Bullets">• ▾</button>
-                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.isNumbered }" @mousedown.prevent @click="document.execCommand('insertOrderedList'); updateCurrentFormat(); syncAllPages();" title="Numbering">1. ▾</button>
+                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.isBullet }" @mousedown.prevent @click="format('insertUnorderedList')" title="Bullets">• ▾</button>
+                            <button type="button" class="word-btn-square" :class="{ 'active': currentFormat.isNumbered }" @mousedown.prevent @click="format('insertOrderedList')" title="Numbering">1. ▾</button>
                             <button type="button" class="word-btn-square" wire:click="addBlock('bullet')" title="Multilevel List">▾</button>
                             <button type="button" class="word-btn-square" @mousedown.prevent @click="applyIndent(-1)" title="Decrease Indent (Shift+Tab)">⇤</button>
                             <button type="button" class="word-btn-square" @mousedown.prevent @click="applyIndent(1)" title="Increase Indent (Tab)">⇥</button>
