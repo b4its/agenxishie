@@ -1288,5 +1288,8 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain('paste()')
         ->and($script)->toContain('saveDocument')
         ->and($script)->toContain("e.key === 'i' || e.key === 'I'")
-        ->and($script)->toContain('toggleAssistant');
+        ->and($script)->toContain('toggleAssistant')
+        ->and($script)->toContain('nextPaper')
+        ->and($script)->toContain('prevPaper')
+        ->and($script)->toContain('word-paper-sheet');
 });

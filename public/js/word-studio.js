@@ -1375,6 +1375,48 @@ window.wordStudioApp = function(config) {
                                 return;
                             }
                         }
+
+                        // Case E: Di awal halaman (blok pertama sheet) -> Leburkan ke akhir halaman sebelumnya (Word & LibreOffice)
+                        if (!prev || prev.classList.contains('word-sheet-header')) {
+                            const currentSheet = block.closest('.word-sheet-content');
+                            const currentPaper = currentSheet ? currentSheet.closest('.word-paper-sheet') : null;
+                            const prevPaper = currentPaper ? currentPaper.previousElementSibling : null;
+                            const prevSheet = prevPaper ? prevPaper.querySelector('.word-sheet-content') : null;
+                            const prevBlock = prevSheet ? prevSheet.lastElementChild : null;
+
+                            if (prevBlock) {
+                                if (isEmpty) {
+                                    e.preventDefault();
+                                    block.remove();
+                                    this.focusNode(prevBlock, true);
+                                    this.updateCurrentFormat();
+                                    this.syncAllPages();
+                                    return;
+                                } else if (!['TABLE', 'FIGURE'].includes(prevBlock.tagName)) {
+                                    e.preventDefault();
+                                    const targetEl = (['UL', 'OL'].includes(prevBlock.tagName) && prevBlock.lastElementChild)
+                                        ? prevBlock.lastElementChild
+                                        : prevBlock;
+                                    const preChildCount = targetEl.childNodes.length;
+                                    if (targetEl.innerHTML === '<br>') {
+                                        targetEl.innerHTML = '';
+                                    }
+                                    const blockChildren = Array.from(block.childNodes);
+                                    for (const child of blockChildren) {
+                                        if (child.nodeName === 'BR' && blockChildren.length > 1) continue;
+                                        targetEl.appendChild(child);
+                                    }
+                                    if (!targetEl.innerHTML.trim()) {
+                                        targetEl.innerHTML = '<br>';
+                                    }
+                                    block.remove();
+                                    this.focusNode(targetEl, true);
+                                    this.updateCurrentFormat();
+                                    this.syncAllPages();
+                                    return;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1426,7 +1468,7 @@ window.wordStudioApp = function(config) {
                                     block.innerHTML = '<br>';
                                 }
 
-                                if (nextElToMerge !== next) {
+                                if (nextElToMerge !== nextBlock) {
                                     nextElToMerge.remove();
                                     if (next.children.length === 0) next.remove();
                                 } else {
@@ -1457,11 +1499,55 @@ window.wordStudioApp = function(config) {
                                 return;
                             }
                         }
+
+                        // Case F: Di akhir halaman (blok terakhir sheet) -> Tarik blok pertama halaman selanjutnya ke sini (Word & LibreOffice)
+                        if (!next || next.classList.contains('word-sheet-footer') || next.classList.contains('word-sheet-header')) {
+                            const currentSheet = block.closest('.word-sheet-content');
+                            const currentPaper = currentSheet ? currentSheet.closest('.word-paper-sheet') : null;
+                            const nextPaper = currentPaper ? currentPaper.nextElementSibling : null;
+                            const nextSheet = nextPaper ? nextPaper.querySelector('.word-sheet-content') : null;
+                            const nextBlock = nextSheet ? nextSheet.firstElementChild : null;
+
+                            if (nextBlock && !['TABLE', 'FIGURE'].includes(nextBlock.tagName)) {
+                                e.preventDefault();
+                                let nextElToMerge = nextBlock;
+                                if (['UL', 'OL'].includes(nextBlock.tagName) && nextBlock.firstElementChild) {
+                                    nextElToMerge = nextBlock.firstElementChild;
+                                }
+
+                                const preChildCount = block.childNodes.length;
+                                if (block.innerHTML === '<br>') {
+                                    block.innerHTML = '';
+                                }
+
+                                const nextChildren = Array.from(nextElToMerge.childNodes);
+                                for (const child of nextChildren) {
+                                    if (child.nodeName === 'BR' && nextChildren.length > 1) continue;
+                                    block.appendChild(child);
+                                }
+
+                                if (!block.innerHTML.trim()) {
+                                    block.innerHTML = '<br>';
+                                }
+
+                                if (nextElToMerge !== nextBlock) {
+                                    nextElToMerge.remove();
+                                    if (nextBlock.children.length === 0) nextBlock.remove();
+                                } else {
+                                    nextBlock.remove();
+                                }
+
+                                this.focusNode(block, true);
+                                this.updateCurrentFormat();
+                                this.syncAllPages();
+                                return;
+                            }
+                        }
                     }
                 }
             }
 
-            // 6. TABLE ARROW NAVIGATION: Navigasi Panah Atas & Bawah antar baris tabel (Word & LibreOffice)
+            // 6. TABLE & MULTI-PAGE ARROW NAVIGATION: Navigasi Panah Atas & Bawah (Word & LibreOffice)
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 const anchor = sel.anchorNode;
                 const cell = anchor?.nodeType === 1 ? anchor.closest('td, th') : anchor?.parentElement?.closest('td, th');
@@ -1497,6 +1583,45 @@ window.wordStudioApp = function(config) {
                                 if (targetCell) {
                                     e.preventDefault();
                                     this.focusNode(targetCell, false);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                } else if (!cell && sel.isCollapsed) {
+                    const block = anchor?.nodeType === 1
+                        ? anchor.closest('p, h1, h2, h3, h4, li, blockquote')
+                        : anchor?.parentElement?.closest('p, h1, h2, h3, h4, li, blockquote');
+                    const currentSheet = block?.closest('.word-sheet-content');
+
+                    if (block && currentSheet) {
+                        if (e.key === 'ArrowDown' && block === currentSheet.lastElementChild) {
+                            const range = sel.getRangeAt(0);
+                            const postRange = range.cloneRange();
+                            postRange.selectNodeContents(block);
+                            postRange.setStart(range.endContainer, range.endOffset);
+                            if (postRange.toString().length === 0) {
+                                const currentPaper = currentSheet.closest('.word-paper-sheet');
+                                const nextPaper = currentPaper ? currentPaper.nextElementSibling : null;
+                                const nextSheet = nextPaper ? nextPaper.querySelector('.word-sheet-content') : null;
+                                if (nextSheet && nextSheet.firstElementChild) {
+                                    e.preventDefault();
+                                    this.focusNode(nextSheet.firstElementChild, false);
+                                    return;
+                                }
+                            }
+                        } else if (e.key === 'ArrowUp' && block === currentSheet.firstElementChild) {
+                            const range = sel.getRangeAt(0);
+                            const preRange = range.cloneRange();
+                            preRange.selectNodeContents(block);
+                            preRange.setEnd(range.startContainer, range.startOffset);
+                            if (preRange.toString().length === 0) {
+                                const currentPaper = currentSheet.closest('.word-paper-sheet');
+                                const prevPaper = currentPaper ? currentPaper.previousElementSibling : null;
+                                const prevSheet = prevPaper ? prevPaper.querySelector('.word-sheet-content') : null;
+                                if (prevSheet && prevSheet.lastElementChild) {
+                                    e.preventDefault();
+                                    this.focusNode(prevSheet.lastElementChild, true);
                                     return;
                                 }
                             }
@@ -1791,6 +1916,19 @@ window.wordStudioApp = function(config) {
                     this.checkSelection();
                     this.updateCurrentFormat();
                 }, 100);
+            });
+
+            // Klik di mana pun pada kertas (margin/bawah lembar) mengaktifkan kursor alami (Word & LibreOffice)
+            document.addEventListener('mousedown', (e) => {
+                const paper = e.target.closest('.word-paper-sheet, .ns-page');
+                if (paper && !e.target.closest('.word-sheet-content') && !e.target.closest('.word-sheet-header') && !e.target.closest('.word-sheet-footer') && !e.target.closest('button') && !e.target.closest('select') && !e.target.closest('input')) {
+                    const sheetContent = paper.querySelector('.word-sheet-content');
+                    if (sheetContent) {
+                        e.preventDefault();
+                        const last = sheetContent.lastElementChild || sheetContent;
+                        this.focusNode(last, true);
+                    }
+                }
             });
 
             setInterval(() => {
