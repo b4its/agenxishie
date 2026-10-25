@@ -17,6 +17,9 @@ window.wordStudioApp = function(config) {
         showMiniToolbar: false,
         toolbarTop: 0,
         toolbarLeft: 0,
+        showContextMenu: false,
+        contextMenuX: 0,
+        contextMenuY: 0,
         selectedText: '',
         copilotMenuOpen: false,
         showBlockCopilot: false,
@@ -573,38 +576,143 @@ window.wordStudioApp = function(config) {
             nextP.className = 'word-paragraph-text';
             nextP.innerHTML = '<br>';
 
-            if (blockEl && blockEl.parentElement) {
-                if (['P', 'H1', 'H2', 'H3', 'H4'].includes(blockEl.tagName) && sel && sel.rangeCount) {
-                    const range = sel.getRangeAt(0);
-                    const postRange = range.cloneRange();
-                    postRange.selectNodeContents(blockEl);
-                    postRange.setStart(range.endContainer, range.endOffset);
-                    const postHtml = postRange.cloneContents();
-                    const tempDiv = document.createElement('div');
-                    tempDiv.appendChild(postHtml);
-                    const postText = tempDiv.innerHTML.trim();
-                    if (postText) {
-                        nextP.innerHTML = postText;
+            const currentContent = blockEl ? blockEl.closest('.word-sheet-content') : document.querySelector('.word-sheet-content');
+            const currentSheet = currentContent ? currentContent.closest('.word-paper-sheet, .ns-page') : null;
+
+            if (currentSheet && currentContent) {
+                const trailingEls = [];
+
+                if (blockEl && blockEl.parentElement === currentContent) {
+                    if (['P', 'H1', 'H2', 'H3', 'H4'].includes(blockEl.tagName) && sel && sel.rangeCount) {
+                        const range = sel.getRangeAt(0);
+                        const postRange = range.cloneRange();
+                        postRange.selectNodeContents(blockEl);
+                        postRange.setStart(range.endContainer, range.endOffset);
+                        const postHtml = postRange.cloneContents();
+                        const tempDiv = document.createElement('div');
+                        tempDiv.appendChild(postHtml);
+                        const postText = tempDiv.innerHTML.trim();
+                        if (postText) {
+                            nextP.innerHTML = postText;
+                        }
+
+                        const preRange = range.cloneRange();
+                        preRange.selectNodeContents(blockEl);
+                        preRange.setEnd(range.startContainer, range.startOffset);
+                        const preHtml = preRange.cloneContents();
+                        blockEl.innerHTML = '';
+                        blockEl.appendChild(preHtml);
+                        if (!blockEl.innerHTML.trim()) blockEl.innerHTML = '<br>';
                     }
-                    const preRange = range.cloneRange();
-                    preRange.selectNodeContents(blockEl);
-                    preRange.setEnd(range.startContainer, range.startOffset);
-                    const preHtml = preRange.cloneContents();
-                    blockEl.innerHTML = '';
-                    blockEl.appendChild(preHtml);
-                    if (!blockEl.innerHTML.trim()) blockEl.innerHTML = '<br>';
+
+                    trailingEls.push(nextP);
+
+                    let nextSib = blockEl.nextElementSibling;
+                    while (nextSib) {
+                        const toMove = nextSib;
+                        nextSib = nextSib.nextElementSibling;
+                        trailingEls.push(toMove);
+                    }
+                    trailingEls.forEach(el => {
+                        if (el.parentElement === currentContent) el.remove();
+                    });
+                } else {
+                    trailingEls.push(nextP);
                 }
-                blockEl.insertAdjacentElement('afterend', breakEl);
-                breakEl.insertAdjacentElement('afterend', nextP);
+
+                currentContent.appendChild(breakEl);
+
+                // Buat lembar halaman fisik baru (Microsoft Word & LibreOffice Multi-Page Sheets)
+                const newSheet = document.createElement('div');
+                newSheet.className = currentSheet.className;
+                newSheet.style.cssText = currentSheet.style.cssText;
+                const nextNum = (parseInt(currentSheet.getAttribute('data-page-number') || '1', 10)) + 1;
+                newSheet.id = `word-page-${nextNum}`;
+                newSheet.setAttribute('data-page-number', String(nextNum));
+
+                const titleText = this.docTitle || 'Dokumen Naskah';
+                if (currentSheet.classList.contains('word-paper-sheet')) {
+                    newSheet.innerHTML = `
+                        <div class="word-sheet-header" contenteditable="false">
+                            <span class="word-sheet-title">${titleText}</span>
+                            <span class="word-sheet-page-top" title="Halaman ${nextNum}">${nextNum}</span>
+                        </div>
+                        <div class="word-sheet-content" id="word-page-content-${nextNum}" data-page-number="${nextNum}" contenteditable="true" spellcheck="false" style="${currentContent.style.cssText}">
+                        </div>
+                        <div class="word-sheet-footer" contenteditable="false">
+                            <span class="word-sheet-footer-page">Halaman ${nextNum}</span>
+                        </div>
+                    `;
+                } else {
+                    newSheet.innerHTML = `
+                        <div class="ns-sheet-header" contenteditable="false" style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#94a3b8; border-bottom:1px dotted #cbd5e1; padding-bottom:6px; margin-bottom:16px; user-select:none;">
+                            <span>${titleText}</span>
+                            <span>Halaman ${nextNum}</span>
+                        </div>
+                        <div class="word-sheet-content" id="word-page-content-${nextNum}" data-page-number="${nextNum}" contenteditable="true" spellcheck="false" style="${currentContent.style.cssText}">
+                        </div>
+                    `;
+                }
+
+                const newSheetContent = newSheet.querySelector('.word-sheet-content');
+                trailingEls.forEach(el => newSheetContent.appendChild(el));
+                if (newSheetContent.children.length === 0) {
+                    newSheetContent.appendChild(nextP);
+                }
+
+                // Pasang event listener ke lembar baru
+                newSheetContent.addEventListener('keydown', (e) => this.handleContentKeydown(e));
+                newSheetContent.addEventListener('input', (e) => this.handleContentInput(e));
+                newSheetContent.addEventListener('paste', (e) => this.handlePaste(e));
+                newSheetContent.addEventListener('click', (e) => this.updateActiveBlock(e));
+                newSheetContent.addEventListener('focusin', (e) => this.updateActiveBlock(e));
+                newSheetContent.addEventListener('keyup', (e) => this.updateActiveBlock(e));
+                newSheetContent.addEventListener('blur', () => this.syncAllPages());
+
+                currentSheet.insertAdjacentElement('afterend', newSheet);
+                this.renumberSheets();
+
+                const firstBlock = newSheetContent.firstElementChild || newSheetContent;
+                this.focusNode(firstBlock, false);
             } else {
                 const sheet = document.querySelector('.word-sheet-content');
                 if (sheet) {
                     sheet.appendChild(breakEl);
                     sheet.appendChild(nextP);
+                    this.focusNode(nextP, false);
                 }
             }
-            this.focusNode(nextP, false);
-            this.syncAllPages();
+
+            this.syncAllPages(true);
+        },
+
+        renumberSheets() {
+            const sheets = document.querySelectorAll('.word-paper-sheet, .ns-page');
+            const total = sheets.length;
+            sheets.forEach((sheet, idx) => {
+                const pageNum = idx + 1;
+                sheet.id = `word-page-${pageNum}`;
+                sheet.setAttribute('data-page-number', String(pageNum));
+                const content = sheet.querySelector('.word-sheet-content');
+                if (content) {
+                    content.id = `word-page-content-${pageNum}`;
+                    content.setAttribute('data-page-number', String(pageNum));
+                }
+                const topPage = sheet.querySelector('.word-sheet-page-top');
+                if (topPage) {
+                    topPage.textContent = String(pageNum);
+                    topPage.setAttribute('title', `Halaman ${pageNum}`);
+                }
+                const footerPage = sheet.querySelector('.word-sheet-footer-page');
+                if (footerPage) {
+                    footerPage.textContent = `Halaman ${pageNum}`;
+                }
+                const nsHeaderSpan = sheet.querySelectorAll('.ns-sheet-header span');
+                if (nsHeaderSpan && nsHeaderSpan.length > 1) {
+                    nsHeaderSpan[1].textContent = `Halaman ${pageNum} dari ${total}`;
+                }
+            });
+            this.pageCount = total;
         },
 
         insertHorizontalRule() {
@@ -920,6 +1028,33 @@ window.wordStudioApp = function(config) {
             }
         },
 
+        openContextMenu(e) {
+            const inCanvas = e.target.closest('.word-canvas-area, .ns-canvas, .word-paper-sheet, .ns-page, .word-sheet-content');
+            if (!inCanvas) return;
+            e.preventDefault();
+            this.saveSelection();
+            const menuWidth = 260;
+            const menuHeight = 420;
+            this.contextMenuX = Math.max(10, Math.min(e.clientX, window.innerWidth - menuWidth - 10));
+            this.contextMenuY = Math.max(10, Math.min(e.clientY, window.innerHeight - menuHeight - 10));
+            this.showContextMenu = true;
+            this.showMiniToolbar = false;
+        },
+
+        closeContextMenu() {
+            this.showContextMenu = false;
+        },
+
+        triggerContextAssistant(command) {
+            this.restoreSelection();
+            const wire = this.getWire();
+            if (wire) {
+                wire.openAssistant();
+                wire.sendAssistantWithText(command);
+            }
+            this.closeContextMenu();
+        },
+
         checkSelection() {
             const sel = window.getSelection();
             if (!sel || sel.isCollapsed) {
@@ -1200,7 +1335,28 @@ window.wordStudioApp = function(config) {
                     return;
                 }
 
-                // Teks umum: Sisipkan 4 spasi non-breaking (tab stop Word) tanpa memindahkan fokus keluar
+                // Paragraf: Tab di awal baris menyetel indentasi baris pertama (First-Line Indent 1.27cm sesuai standar Word & LibreOffice)
+                const p = anchor?.nodeType === 1 ? anchor.closest('p') : anchor?.parentElement?.closest('p');
+                if (p) {
+                    const range = sel.getRangeAt(0);
+                    const preRange = range.cloneRange();
+                    preRange.selectNodeContents(p);
+                    preRange.setEnd(range.startContainer, range.startOffset);
+                    const isAtStart = preRange.toString().length === 0;
+
+                    if (isAtStart) {
+                        if (e.shiftKey) {
+                            p.style.textIndent = '';
+                        } else {
+                            p.style.textIndent = '1.27cm';
+                        }
+                        this.updateCurrentFormat();
+                        this.syncAllPages();
+                        return;
+                    }
+                }
+
+                // Teks umum di tengah baris: Sisipkan 4 spasi non-breaking (tab stop Word) tanpa memindahkan fokus keluar
                 if (e.shiftKey) {
                     document.execCommand('outdent', false, null);
                 } else {
@@ -1445,6 +1601,15 @@ window.wordStudioApp = function(config) {
                     const isAtStart = preRange.toString().length === 0;
 
                     if (isAtStart) {
+                        // Jika paragraf memiliki first-line indent (1.27cm): tekan Backspace menghapus indentasi dalam 1 ketukan (Word & LibreOffice)
+                        if (block.style && block.style.textIndent && block.style.textIndent !== '' && block.style.textIndent !== '0px') {
+                            e.preventDefault();
+                            block.style.textIndent = '';
+                            this.updateCurrentFormat();
+                            this.syncAllPages();
+                            return;
+                        }
+
                         const text = block.textContent;
                         const isEmpty = !text || text.trim() === '' || block.innerHTML === '<br>';
                         const prev = block.previousElementSibling;
@@ -1637,12 +1802,23 @@ window.wordStudioApp = function(config) {
                             const prevBlock = prevSheet ? prevSheet.lastElementChild : null;
 
                             if (prevBlock) {
+                                const breakMarker = prevSheet.querySelector('.word-page-break-marker');
+                                if (breakMarker) {
+                                    breakMarker.remove();
+                                }
+
                                 if (isEmpty) {
                                     e.preventDefault();
                                     block.remove();
+
+                                    if (currentPaper && (currentSheet.children.length === 0 || !currentSheet.textContent.trim())) {
+                                        currentPaper.remove();
+                                        this.renumberSheets();
+                                    }
+
                                     this.focusNode(prevBlock, true);
                                     this.updateCurrentFormat();
-                                    this.syncAllPages();
+                                    this.syncAllPages(true);
                                     return;
                                 } else if (!['TABLE', 'FIGURE'].includes(prevBlock.tagName)) {
                                     e.preventDefault();
@@ -1662,9 +1838,15 @@ window.wordStudioApp = function(config) {
                                         targetEl.innerHTML = '<br>';
                                     }
                                     block.remove();
+
+                                    if (currentPaper && (currentSheet.children.length === 0 || !currentSheet.textContent.trim())) {
+                                        currentPaper.remove();
+                                        this.renumberSheets();
+                                    }
+
                                     this.focusNode(targetEl, true);
                                     this.updateCurrentFormat();
-                                    this.syncAllPages();
+                                    this.syncAllPages(true);
                                     return;
                                 }
                             }
@@ -2122,6 +2304,24 @@ window.wordStudioApp = function(config) {
         init() {
             this.updateCounts();
             this.ensureRootParagraph();
+
+            // Ctrl + Wheel: Authentic Word & LibreOffice smooth canvas zoom (50% - 200%)
+            const canvasEl = document.querySelector('.word-canvas-area, .ns-canvas');
+            if (canvasEl) {
+                canvasEl.addEventListener('wheel', (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        const wire = this.getWire();
+                        if (wire) {
+                            if (e.deltaY < 0) {
+                                wire.zoomIn();
+                            } else if (e.deltaY > 0) {
+                                wire.zoomOut();
+                            }
+                        }
+                    }
+                }, { passive: false });
+            }
 
             window.addEventListener('keydown', (e) => {
                 const isCtrl = e.ctrlKey || e.metaKey;

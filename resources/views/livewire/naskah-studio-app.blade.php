@@ -101,6 +101,154 @@
     </div>
 
     <!-- ===================================================================== -->
+    <!-- RIGHT-CLICK CONTEXT MENU (MICROSOFT WORD & LIBREOFFICE WRITER MENU)   -->
+    <!-- ===================================================================== -->
+    <div x-cloak
+        x-show="showContextMenu"
+        @click.outside="closeContextMenu()"
+        @keydown.window.escape="closeContextMenu()"
+        class="word-context-menu"
+        :style="`top: ${contextMenuY}px; left: ${contextMenuX}px;`"
+        x-transition:enter="transition ease-out duration-100"
+        x-transition:enter-start="opacity-0 transform scale-95"
+        x-transition:enter-end="opacity-100 transform scale-100"
+        x-transition:leave="transition ease-in duration-75"
+        x-transition:leave-start="opacity-100 transform scale-100"
+        x-transition:leave-end="opacity-0 transform scale-95">
+
+        <!-- Mini-Toolbar Strip at Top -->
+        <div class="word-context-minibar">
+            <button type="button" class="word-mini-btn" :class="{ 'active': currentFormat.bold }" @mousedown.prevent="format('bold')" title="Huruf Tebal (Ctrl+B)"><strong>B</strong></button>
+            <button type="button" class="word-mini-btn" :class="{ 'active': currentFormat.italic }" @mousedown.prevent="format('italic')" title="Huruf Miring (Ctrl+I)"><em>I</em></button>
+            <button type="button" class="word-mini-btn" :class="{ 'active': currentFormat.underline }" @mousedown.prevent="format('underline')" title="Garis Bawah (Ctrl+U)"><u>U</u></button>
+            <button type="button" class="word-mini-btn" :class="{ 'active': currentFormat.strike }" @mousedown.prevent="format('strikeThrough')" title="Coret Tengah (Ctrl+D)"><s>S</s></button>
+            <span class="word-context-sep"></span>
+            <button type="button" class="word-mini-btn" @mousedown.prevent="applyTextColor('#dc2626')" title="Warna Font"><span style="color:#dc2626; font-weight:700;">A</span></button>
+            <button type="button" class="word-mini-btn" @mousedown.prevent="applyHighlight('#fef08a')" title="Sorotan Teks"><span style="background:#fef08a; padding:1px 3px; border-radius:2px; font-weight:700;">✎</span></button>
+            <button type="button" class="word-mini-btn" @mousedown.prevent="clearDirectFormatting()" title="Hapus Format Langsung (Ctrl+Space)">T<sub>x</sub></button>
+        </div>
+
+        <!-- Clipboard Group -->
+        <div class="word-context-group">
+            <button type="button" class="word-context-item" @mousedown.prevent="cut(); closeContextMenu()">
+                <span class="word-context-label">
+                    <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor"><path d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H11V9.413l1.293 1.294a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13H5.5z"/></svg>
+                    Potong (Cut)
+                </span>
+                <span class="word-context-shortcut">Ctrl+X</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="copy(); closeContextMenu()">
+                <span class="word-context-label">
+                    <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                    Salin (Copy)
+                </span>
+                <span class="word-context-shortcut">Ctrl+C</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="paste(); closeContextMenu()">
+                <span class="word-context-label">
+                    <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h6a1 1 0 100-2H7zm0 4a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+                    Tempel (Paste)
+                </span>
+                <span class="word-context-shortcut">Ctrl+V</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="copyCurrentFormat(); closeContextMenu()">
+                <span class="word-context-label">
+                    <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor"><path fill-rule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z" clip-rule="evenodd"/></svg>
+                    Salin Format (Format Painter)
+                </span>
+                <span class="word-context-shortcut">Ctrl+Shift+C</span>
+            </button>
+        </div>
+
+        <div class="word-context-divider"></div>
+
+        <!-- Styles Group -->
+        <div class="word-context-group">
+            <button type="button" class="word-context-item" @mousedown.prevent="applyBlockStyle('normal'); closeContextMenu()">
+                <span class="word-context-label">¶ Paragraf Normal</span>
+                <span class="word-context-shortcut">Ctrl+Alt+0</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="applyBlockStyle('heading1'); closeContextMenu()">
+                <span class="word-context-label" style="font-weight:700;">H1 Judul 1 (Heading 1)</span>
+                <span class="word-context-shortcut">Ctrl+Alt+1</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="applyBlockStyle('heading2'); closeContextMenu()">
+                <span class="word-context-label" style="font-weight:600;">H2 Judul 2 (Heading 2)</span>
+                <span class="word-context-shortcut">Ctrl+Alt+2</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="applyBlockStyle('bullet'); closeContextMenu()">
+                <span class="word-context-label">• Daftar Butir (Bullets)</span>
+                <span class="word-context-shortcut">Ctrl+Shift+L</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="applyBlockStyle('numbered'); closeContextMenu()">
+                <span class="word-context-label">1. Daftar Bernomor (Numbered)</span>
+                <span class="word-context-shortcut">1. + Spasi</span>
+            </button>
+        </div>
+
+        <div class="word-context-divider"></div>
+
+        <!-- Insert Group -->
+        <div class="word-context-group">
+            <button type="button" class="word-context-item" @mousedown.prevent="insertPageBreak(); closeContextMenu()">
+                <span class="word-context-label">
+                    <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+                    Pemisah Halaman (Page Break)
+                </span>
+                <span class="word-context-shortcut">Ctrl+Enter</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="insertTable(3, 3); closeContextMenu()">
+                <span class="word-context-label">
+                    <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor"><path fill-rule="evenodd" d="M5 4a3 3 0 00-3 3v6a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H5zm-1 9v-1h5v2H5a1 1 0 01-1-1zm7 1v-2h5v1a1 1 0 01-1 1h-4zm5-4h-5V8h5v2zM9 8v2H4V8a1 1 0 011-1h4z" clip-rule="evenodd"/></svg>
+                    Sisipkan Tabel 3×3
+                </span>
+                <span class="word-context-shortcut">Word Grid</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="insertHorizontalRule(); closeContextMenu()">
+                <span class="word-context-label">— Garis Pembatas Horisontal</span>
+                <span class="word-context-shortcut">--- + Enter</span>
+            </button>
+        </div>
+
+        <div class="word-context-divider"></div>
+
+        <!-- Xishie Assistant AI Copilot Group -->
+        <div class="word-context-group">
+            <div style="padding: 2px 9px 4px; font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">
+                Xishie Assistant AI Copilot
+            </div>
+            <button type="button" class="word-context-item" @mousedown.prevent="triggerContextAssistant('/poles'); closeContextMenu()">
+                <span class="word-context-label">
+                    <span class="word-context-copilot-badge">🪄 /poles</span>
+                    <span>Poles Gaya Bahasa & Diksi</span>
+                </span>
+                <span class="word-context-shortcut">AI</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="triggerContextAssistant('/parafrase'); closeContextMenu()">
+                <span class="word-context-label">
+                    <span class="word-context-copilot-badge">🔄 /parafrase</span>
+                    <span>Parafrase Kalimat Terpilih</span>
+                </span>
+                <span class="word-context-shortcut">AI</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="triggerContextAssistant('/puebi'); closeContextMenu()">
+                <span class="word-context-label">
+                    <span class="word-context-copilot-badge">✍️ /puebi</span>
+                    <span>Koreksi Ejaan & PUEBI</span>
+                </span>
+                <span class="word-context-shortcut">AI</span>
+            </button>
+            <button type="button" class="word-context-item" @mousedown.prevent="triggerContextAssistant('/ringkas'); closeContextMenu()">
+                <span class="word-context-label">
+                    <span class="word-context-copilot-badge">📋 /ringkas</span>
+                    <span>Ringkas Teks Dokumen</span>
+                </span>
+                <span class="word-context-shortcut">AI</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
     <!-- FLOATING IN-CANVAS COPILOT BUBBLE (MICROSOFT WORD 365 COPILOT INLINE) -->
     <!-- ===================================================================== -->
     <div x-cloak
@@ -1308,6 +1456,7 @@
         <!-- CENTER CANVAS: SEPARATE PAGES (PDF VIEWER & MICROSOFT WORD STYLE) -->
         <!-- ================================================================= -->
         <main class="word-canvas-area" style="zoom: {{ (int) $zoom / 100 }};"
+            @contextmenu="openContextMenu($event)"
             @scroll.passive="
                 const sheets = $el.querySelectorAll('.word-paper-sheet');
                 const scrollPos = $el.scrollTop + 180;
@@ -1319,6 +1468,7 @@
                 });
                 showMiniToolbar = false;
                 showBlockCopilot = false;
+                showContextMenu = false;
             ">
 
             <!-- Horizontal Ruler Aligned Directly Above Canvas Sheet -->

@@ -1251,9 +1251,11 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
     // Pastikan status penyimpanan dan hitungan kata live terikat reaktif
     expect($html)->toContain("savingState === 'saving'")
         ->and($html)->toContain("savingState === 'saved'")
-        ->and($html)->toContain('liveWordCount');
+        ->and($html)->toContain('liveWordCount')
+        ->and($html)->toContain('word-context-menu')
+        ->and($html)->toContain('openContextMenu');
 
-    // Pastikan file word-studio.js memuat alur alami Word/LibreOffice (peleburan Backspace/Delete, soft break, Smart Typography, pemecahan paragraf Enter)
+    // Pastikan file word-studio.js memuat alur alami Word/LibreOffice (peleburan Backspace/Delete, soft break, Smart Typography, pemecahan paragraf Enter, context menu, physical sheet pagebreak)
     $script = file_get_contents(public_path('js/word-studio.js'));
     expect($script)->toContain('updateCurrentFormat')
         ->and($script)->toContain('updateCounts')
@@ -1307,12 +1309,23 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain('sentenceMatch')
         ->and($script)->toContain("curly = isOpening ? '“' : '”'")
         ->and($script)->toContain('beforebegin')
-        ->and($script)->toContain('selectNodeContents(currentSheet)');
+        ->and($script)->toContain('selectNodeContents(currentSheet)')
+        ->and($script)->toContain('showContextMenu')
+        ->and($script)->toContain('openContextMenu')
+        ->and($script)->toContain('closeContextMenu')
+        ->and($script)->toContain('triggerContextAssistant')
+        ->and($script)->toContain('renumberSheets')
+        ->and($script)->toContain("textIndent = '1.27cm'")
+        ->and($script)->toContain("textIndent = ''")
+        ->and($script)->toContain("canvasEl.addEventListener('wheel'");
 
     // Pastikan styling lembar kertas mendukung elemen universal Word & LibreOffice
     $css = file_get_contents(resource_path('css/studio.css'));
     expect($css)->toContain('.word-sheet-content ul')
         ->and($css)->toContain('.word-sheet-content ol')
         ->and($css)->toContain('.word-sheet-content p')
-        ->and($css)->toContain('.word-sheet-content table');
+        ->and($css)->toContain('.word-sheet-content table')
+        ->and($css)->toContain('.word-context-menu')
+        ->and($css)->toContain('.word-context-minibar')
+        ->and($css)->toContain('.word-context-item');
 });
