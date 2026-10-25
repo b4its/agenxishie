@@ -133,6 +133,17 @@ window.wordStudioApp = function(config) {
             this.syncAllPages(true);
         },
 
+        saveDocument() {
+            this.savingState = 'saving';
+            const pageEls = document.querySelectorAll('.word-sheet-content');
+            const pageHtmls = [];
+            pageEls.forEach(el => pageHtmls.push(el.innerHTML));
+            const wire = this.getWire();
+            if (wire) {
+                wire.save(pageHtmls);
+            }
+        },
+
         applyBlockStyle(style) {
             const sel = window.getSelection();
             let blockEl = null;
@@ -1441,6 +1452,11 @@ window.wordStudioApp = function(config) {
             this.savingState = 'saving';
             this._inputTimer = setTimeout(() => this.syncAllPages(), 500);
 
+            const sheet = e.target ? e.target.closest('.word-sheet-content') : null;
+            if (sheet && (!sheet.firstElementChild || sheet.innerHTML.trim() === '')) {
+                this.ensureRootParagraph(sheet);
+            }
+
             const sel = window.getSelection();
             if (!sel || !sel.rangeCount) return;
 
@@ -1593,6 +1609,7 @@ window.wordStudioApp = function(config) {
 
         init() {
             this.updateCounts();
+            this.ensureRootParagraph();
 
             window.addEventListener('keydown', (e) => {
                 const isCtrl = e.ctrlKey || e.metaKey;

@@ -686,8 +686,243 @@
             border-radius: 4px;
         }
         .ns-msg--user { background: #f1f5f9; }
-        .ns-msg--assistant { background: #eff6ff; border-left: 3px solid #1e40af; white-space: pre-wrap; }
+        .ns-msg--assistant { background: #eff6ff; border-left: 3px solid #1e40af; }
         .ns-msg__role { display: block; font-weight: 700; font-size: .53rem; letter-spacing: .06em; text-transform: uppercase; color: #1e40af; margin-bottom: .15rem; }
+
+        /* Unified Word Sheet & Typography Styles */
+        .word-sheet-content {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            line-height: 1.5;
+            cursor: text;
+        }
+        .word-title-text {
+            font-size: 26pt;
+            font-weight: 700;
+            color: inherit;
+            line-height: 1.2;
+            margin: 8px 0 16px;
+            outline: none;
+        }
+        .word-subtitle-text {
+            font-size: 14pt;
+            font-weight: 400;
+            color: #64748b;
+            line-height: 1.4;
+            margin-bottom: 24px;
+            outline: none;
+        }
+        .word-heading-1 {
+            font-size: 18pt;
+            font-weight: 700;
+            color: #1e40af;
+            line-height: 1.3;
+            margin: 24px 0 8px;
+            outline: none;
+        }
+        .word-heading-2 {
+            font-size: 14pt;
+            font-weight: 600;
+            color: #2563eb;
+            line-height: 1.35;
+            margin: 20px 0 6px;
+            outline: none;
+        }
+        .word-heading-3 {
+            font-size: 12pt;
+            font-weight: 600;
+            color: #1e3a8a;
+            line-height: 1.4;
+            margin: 16px 0 4px;
+            outline: none;
+        }
+        .word-paragraph-text {
+            font-size: 11pt;
+            line-height: 1.6;
+            color: inherit;
+            margin-bottom: 12px;
+            outline: none;
+        }
+        .word-quote-block {
+            border-left: 4px solid #3b82f6;
+            padding: 8px 16px;
+            margin: 16px 0;
+            background: rgba(59, 130, 246, 0.05);
+            font-style: italic;
+            color: #334155;
+            outline: none;
+        }
+        .word-quote-text {
+            margin: 0;
+            outline: none;
+        }
+        .word-bullet-list {
+            margin: 8px 0 16px 28px;
+            padding-left: 8px;
+            list-style-type: disc;
+        }
+        .word-bullet-list li {
+            font-size: 11pt;
+            line-height: 1.6;
+            margin-bottom: 4px;
+            outline: none;
+        }
+        .word-numbered-list {
+            margin: 8px 0 16px 28px;
+            padding-left: 8px;
+            list-style-type: decimal;
+        }
+        .word-numbered-list li {
+            font-size: 11pt;
+            line-height: 1.6;
+            margin-bottom: 4px;
+            outline: none;
+        }
+        .word-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            border: 1px solid #d1d5db;
+        }
+        .word-table th, .word-table td {
+            border: 1px solid #d1d5db;
+            padding: 8px 12px;
+            min-height: 24px;
+            outline: none;
+        }
+        .word-table th {
+            background: #f8fafc;
+            font-weight: 700;
+        }
+        .word-page-break-marker {
+            user-select: none;
+        }
+
+        /* Floating Mini-toolbar & Dropdowns */
+        .word-mini-toolbar {
+            display: inline-flex;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+            padding: 3px 6px;
+            gap: 2px;
+            z-index: 1000;
+        }
+        .ns-root--dark .word-mini-toolbar {
+            background: #1e293b;
+            border-color: #475569;
+        }
+        .word-mini-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 28px;
+            min-width: 28px;
+            padding: 0 6px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #1e293b;
+        }
+        .ns-root--dark .word-mini-btn {
+            color: #f1f5f9;
+        }
+        .word-mini-btn:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+        .ns-root--dark .word-mini-btn:hover {
+            background: #334155;
+            border-color: #64748b;
+        }
+        .word-mini-btn.active {
+            background: #e0e7ff;
+            border-color: #818cf8;
+            color: #3730a3;
+        }
+        .word-mini-copilot-btn {
+            background: linear-gradient(135deg, #eef2ff 0%, #f3e8ff 100%);
+            border: 1px solid #c7d2fe;
+            color: #4338ca;
+            font-weight: 700;
+        }
+        .word-mini-divider {
+            width: 1px;
+            height: 18px;
+            background: #e2e8f0;
+            margin: 0 4px;
+        }
+        .word-mini-dropdown {
+            position: absolute;
+            top: 32px;
+            left: 0;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+            padding: 4px;
+            z-index: 1001;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .ns-root--dark .word-mini-dropdown {
+            background: #1e293b;
+            border-color: #475569;
+        }
+        .word-mini-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            background: transparent;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            color: #334155;
+        }
+        .ns-root--dark .word-mini-dropdown-item {
+            color: #e2e8f0;
+        }
+        .word-mini-dropdown-item:hover {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        .ns-root--dark .word-mini-dropdown-item:hover {
+            background: #334155;
+            color: #93c5fd;
+        }
+        .word-in-canvas-copilot {
+            position: absolute;
+            z-index: 998;
+        }
+        .word-block-copilot-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);
+            border: 1px solid #c7d2fe;
+            border-radius: 14px;
+            padding: 2px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #4f46e5;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15);
+        }
+        .word-block-copilot-btn:hover {
+            background: #eef2ff;
+            border-color: #818cf8;
+        }
     </style>
 
     <div class="ns-root @if($darkMode) ns-root--dark @endif"
@@ -742,15 +977,86 @@
 
             <span class="word-mini-divider"></span>
 
-            <button type="button" class="word-mini-btn word-mini-btn--copilot" @click="copilotMenuOpen = !copilotMenuOpen" title="Bantuan Cerdas Xishie Copilot">
-                ✨ Xishie
-            </button>
+            <!-- Xishie Copilot Quick Action Dropdown -->
+            <div style="position:relative;">
+                <button type="button" class="word-mini-btn word-mini-copilot-btn" @click="copilotMenuOpen = !copilotMenuOpen" title="Bantuan Cerdas Xishie Copilot">
+                    <span>✨ Xishie ▾</span>
+                </button>
+                <div x-show="copilotMenuOpen" @click.outside="copilotMenuOpen = false" class="word-mini-dropdown" style="width: 210px;">
+                    <button type="button" @click="runAi('/poles')" class="word-mini-dropdown-item">
+                        <span>🪄 Poles Kalimat Terpilih</span>
+                    </button>
+                    <button type="button" @click="runAi('/parafrase')" class="word-mini-dropdown-item">
+                        <span>🔄 Parafrase Anti-Plagiasi</span>
+                    </button>
+                    <button type="button" @click="runAi('/kembangkan')" class="word-mini-dropdown-item">
+                        <span>✍️ Elaborasi &amp; Kembangkan</span>
+                    </button>
+                    <button type="button" @click="runAi('/ringkaskan')" class="word-mini-dropdown-item">
+                        <span>✂️ Padatkan / Buat Ringkas</span>
+                    </button>
+                    <button type="button" @click="runAi('/puebi')" class="word-mini-dropdown-item">
+                        <span>🔤 Perbaiki Ejaan &amp; PUEBI</span>
+                    </button>
+                    <button type="button" @click="runAi('/terjemahkan')" class="word-mini-dropdown-item">
+                        <span>🌐 Terjemahkan Akademik</span>
+                    </button>
+                    <button type="button" @click="runAi('/sitasi')" class="word-mini-dropdown-item">
+                        <span>📚 Rekomendasikan Sitasi</span>
+                    </button>
+                    <button type="button" @click="runAi('/cek-pedoman')" class="word-mini-dropdown-item">
+                        <span>🎯 Cek Kepatuhan Pedoman</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- FLOATING IN-CANVAS COPILOT BUBBLE (MICROSOFT WORD 365 COPILOT INLINE) -->
+        <!-- ===================================================================== -->
+        <div x-cloak
+            x-show="showBlockCopilot && !showMiniToolbar"
+            @click.outside="showBlockCopilot = false"
+            class="word-in-canvas-copilot"
+            :style="`top: ${blockCopilotTop}px; left: ${blockCopilotLeft}px;`"
+            x-data="{ blockCopilotMenu: false }"
+            title="Xishie Assistant AI Copilot">
+            <div style="position:relative; display:inline-flex; align-items:center;">
+                <button type="button" class="word-block-copilot-btn" @click="blockCopilotMenu = !blockCopilotMenu">
+                    <span style="font-size:11px;">✨</span>
+                    <span>Copilot ▾</span>
+                </button>
+                <div x-show="blockCopilotMenu" @click.outside="blockCopilotMenu = false" class="word-mini-dropdown" style="width: 220px; top: 28px; right: 0;">
+                    <button type="button" @click="blockCopilotMenu = false; runBlockAi('/poles')" class="word-mini-dropdown-item">
+                        <span>🪄 Poles Gaya Bahasa</span>
+                    </button>
+                    <button type="button" @click="blockCopilotMenu = false; runBlockAi('/parafrase')" class="word-mini-dropdown-item">
+                        <span>🔄 Parafrase Akademik</span>
+                    </button>
+                    <button type="button" @click="blockCopilotMenu = false; runBlockAi('/kembangkan')" class="word-mini-dropdown-item">
+                        <span>✍️ Kembangkan Paragraf</span>
+                    </button>
+                    <button type="button" @click="blockCopilotMenu = false; runBlockAi('/puebi')" class="word-mini-dropdown-item">
+                        <span>🔤 Periksa PUEBI/KBBI</span>
+                    </button>
+                    <button type="button" @click="blockCopilotMenu = false; runBlockAi('/rumus')" class="word-mini-dropdown-item">
+                        <span>π Rumus / Persamaan LaTeX</span>
+                    </button>
+                    <button type="button" @click="blockCopilotMenu = false; runBlockAi('/sitasi')" class="word-mini-dropdown-item">
+                        <span>📚 Cari Sitasi / Referensi</span>
+                    </button>
+                    <div style="border-top:1px solid #e1dfdd; margin:4px 0;"></div>
+                    <button type="button" @click="blockCopilotMenu = false; showBlockCopilot = false; $wire.openAssistant()" class="word-mini-dropdown-item" style="color:#0f6cbd; font-weight:600;">
+                        <span>💬 Buka Panel Chat Xishie →</span>
+                    </button>
+                </div>
+            </div>
         </div>
 
         {{-- ================= BILAH AKSES CEPAT (TOPBAR) ================= --}}
         <header class="ns-topbar">
             <div class="ns-topbar__left">
-                <button type="button" class="ns-btn ns-btn--primary" wire:click="save" wire:loading.attr="disabled" wire:target="save" title="Simpan Dokumen (Ctrl+S)">
+                <button type="button" class="ns-btn ns-btn--primary" @click="saveDocument()" wire:loading.attr="disabled" wire:target="save" title="Simpan Dokumen (Ctrl+S)">
                     <span wire:loading.remove wire:target="save">&#128190; Simpan</span>
                     <span wire:loading wire:target="save">Menyimpan…</span>
                 </button>
@@ -798,7 +1104,7 @@
                         <span class="ns-group__label">Dokumen</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="newDocument" title="Dokumen baru">&#128196; Baru</button>
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="save" title="Simpan naskah">&#128190; Simpan</button>
+                            <button type="button" class="ns-btn ns-btn--primary" @click="saveDocument()" title="Simpan naskah">&#128190; Simpan</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -902,6 +1208,12 @@
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="openDialog('find')">&#128269; Cari &amp; Ganti</button>
                             <button type="button" class="ns-btn" wire:click="runAutoCorrect" title="Auto-Correct Tipografi (—, →, ©, ®, ™, ½, …)">&#10024; Auto-Correct</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Copilot</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="openAssistant" style="background: linear-gradient(135deg, #eef2ff 0%, #f3e8ff 100%); border: 1px solid #c7d2fe; color: #4338ca; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">&#10024; Copilot</button>
                         </div>
                     </div>
 
@@ -1275,10 +1587,6 @@
                         <div class="ns-watermark">{{ $pageSetup['watermark'] }}</div>
                     @endif
 
-                    {{-- Judul Dokumen --}}
-                    <input type="text" style="width:100%; border:none; outline:none; font-family:var(--rb-font-display); font-size:1.65rem; font-weight:800; color:inherit; padding:.2rem 0 .5rem; border-bottom:2px solid #e2e8f0; margin-bottom:1.5rem; background:transparent; text-align:{{ ($pageSetup['columns'] ?? 1) > 1 ? 'left' : 'center' }};"
-                           wire:model="docTitle" wire:change="markDirty" placeholder="Judul Dokumen" aria-label="Judul Dokumen" />
-
                     {{-- Kanvas Lembar Naskah WYSIWYG (Microsoft Word 365 & LibreOffice Writer) --}}
                     <div class="word-sheet-content"
                          id="word-page-content-1"
@@ -1381,7 +1689,7 @@
                                             </div>
                                         </div>
                                     @elseif ($type === 'table')
-                                        <div class="word-table-wrapper" contenteditable="false" style="margin:12px 0;">
+                                        <div class="word-table-wrapper" contenteditable="true" style="margin:12px 0;">
                                             <table class="word-table ns-table" style="width:100%; border-collapse:collapse; margin:4px 0;" data-block-index="{{ $index }}">
                                                 <tbody contenteditable="true">
                                                     @php
@@ -2112,7 +2420,7 @@
                         @forelse ($assistantLog as $logIndex => $msg)
                             <div class="ns-msg ns-msg--{{ $msg['role'] === 'user' ? 'user' : 'assistant' }}">
                                 <span class="ns-msg__role">{{ $msg['role'] === 'user' ? 'Anda' : 'Xishie' }}@if(!empty($msg['command'])) · {{ ltrim($msg['command'], '/') }}@endif</span>
-                                <div>{{ $msg['content'] }}</div>
+                                <div style="line-height:1.55; margin-bottom:.35rem;">{!! \Illuminate\Support\Str::markdown($msg['content'] ?? '') !!}</div>
                                 @if (($msg['role'] ?? '') === 'assistant')
                                     <div style="display:flex; gap:.3rem; margin-top:.4rem; border-top:1px dashed #cbd5e1; padding-top:.3rem; flex-wrap:wrap; align-items:center;">
                                         <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="insertAssistantResponse({{ $logIndex }})" title="Sisipkan ke naskah">

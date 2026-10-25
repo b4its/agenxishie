@@ -172,7 +172,7 @@
 
             <!-- Quick Access Toolbar (Save, Undo, Redo, Down Arrow) -->
             <div class="word-quick-actions">
-                <button type="button" class="word-icon-btn" @click="const pageEls = document.querySelectorAll('.word-sheet-content'); const pageHtmls = []; pageEls.forEach(el => pageHtmls.push(el.innerHTML)); $wire.save(pageHtmls);" title="Save Document (Ctrl+S)">
+                <button type="button" class="word-icon-btn" @click="saveDocument()" title="Save Document (Ctrl+S)">
                     <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor">
                         <path d="M4 2a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6.414A2 2 0 0017.414 5L15 2.586A2 2 0 0013.586 2H4zm1 2h8v3H5V4zm0 6h10v6H5v-6z"/>
                     </svg>
@@ -335,7 +335,7 @@
                         </svg>
                         <span>Sample</span>
                     </button>
-                    <button type="button" class="word-btn-large" @click="const pageEls = document.querySelectorAll('.word-sheet-content'); const pageHtmls = []; pageEls.forEach(el => pageHtmls.push(el.innerHTML)); $wire.save(pageHtmls);" title="Save Document (Ctrl+S)">
+                    <button type="button" class="word-btn-large" @click="saveDocument()" title="Save Document (Ctrl+S)">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
                             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
                         </svg>

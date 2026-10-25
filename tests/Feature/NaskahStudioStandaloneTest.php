@@ -1220,7 +1220,9 @@ it('renders studio web page cleanly without leaking raw javascript code or attri
 
     // Pastikan tidak ada kebocoran skrip raw seperti ${innerHtml} atau applyAlignment di luar atribut
     expect($html)->not->toContain('${innerHtml}')
+        ->and($html)->not->toContain('${innerHTML}')
         ->and($html)->not->toContain('; } else { newEl.innerHTML = innerHtml;')
+        ->and($html)->not->toContain('; } else { newEl.innerHTML = innerHTML;')
         ->and($html)->toContain('js/word-studio.js')
         ->and($html)->toContain('wordStudioApp({');
 });

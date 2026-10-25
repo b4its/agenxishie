@@ -626,3 +626,24 @@ it('renders copilot button in filament topbar', function (): void {
     $page = Livewire::test(NaskahStudioPage::class);
     $page->assertSeeHtml('Copilot');
 });
+
+it('renders filament naskah studio without leaking raw javascript code and renders markdown in assistant chat', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('assistantOpen', true)
+        ->set('assistantLog', [
+            [
+                'role' => 'assistant',
+                'content' => "**Polesan Kalimat:**\n- Butir rekomendasi pertama\n- Butir rekomendasi kedua",
+                'command' => '/poles',
+                'timestamp' => now()->toIso8601String(),
+            ],
+        ]);
+
+    $html = $page->html();
+    expect($html)->not->toContain('${innerHTML}')
+        ->and($html)->not->toContain('${innerHtml}')
+        ->and($html)->not->toContain('; } else { newEl.innerHTML =')
+        ->and($html)->toContain('<strong>Polesan Kalimat:</strong>')
+        ->and($html)->toContain('<li>Butir rekomendasi pertama</li>')
+        ->and($html)->toContain('word-mini-dropdown');
+});
