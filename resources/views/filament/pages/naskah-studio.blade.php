@@ -3,6 +3,7 @@
     <!-- KaTeX math typesetting (CDN) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+    <script src="{{ asset('js/word-studio.js') }}"></script>
 
     <style>
         .ns-root {
@@ -689,7 +690,62 @@
         .ns-msg__role { display: block; font-weight: 700; font-size: .53rem; letter-spacing: .06em; text-transform: uppercase; color: #1e40af; margin-bottom: .15rem; }
     </style>
 
-    <div class="ns-root @if($darkMode) ns-root--dark @endif">
+    <div class="ns-root @if($darkMode) ns-root--dark @endif"
+         style="position: relative;"
+         x-data="wordStudioApp({
+             wire: $wire,
+             zenMode: @entangle('zenMode'),
+             activeTaskPane: @entangle('activeTaskPane'),
+             commentsOpen: @entangle('showComments'),
+             revisionsOpen: @entangle('showRevisions'),
+             assistantPane: @entangle('assistantOpen'),
+             navTab: @entangle('navigationTab'),
+             activeBlock: @entangle('activeBlock')
+         })">
+
+        <!-- ===================================================================== -->
+        <!-- FLOATING SELECTION MINI-TOOLBAR (MICROSOFT WORD 365 BUBBLE MENU)      -->
+        <!-- ===================================================================== -->
+        <div x-cloak
+            x-show="showMiniToolbar"
+            @click.outside="showMiniToolbar = false"
+            class="word-mini-toolbar"
+            :style="`top: ${toolbarTop}px; left: ${toolbarLeft}px; position: absolute; z-index: 999;`"
+            x-transition:enter="transition ease-out duration-150"
+            x-transition:enter-start="opacity-0 transform translate-y-2 scale-95"
+            x-transition:enter-end="opacity-100 transform translate-y-0 scale-100"
+            x-transition:leave="transition ease-in duration-100"
+            x-transition:leave-start="opacity-100 transform translate-y-0 scale-100"
+            x-transition:leave-end="opacity-0 transform translate-y-2 scale-95">
+
+            <button type="button" class="word-mini-btn" :class="{ 'active': currentFormat.bold }" @mousedown.prevent="format('bold')" title="Huruf Tebal (Ctrl+B)">
+                <strong>B</strong>
+            </button>
+            <button type="button" class="word-mini-btn" :class="{ 'active': currentFormat.italic }" @mousedown.prevent="format('italic')" title="Huruf Miring (Ctrl+I)">
+                <em>I</em>
+            </button>
+            <button type="button" class="word-mini-btn" :class="{ 'active': currentFormat.underline }" @mousedown.prevent="format('underline')" title="Garis Bawah (Ctrl+U)">
+                <u>U</u>
+            </button>
+            <button type="button" class="word-mini-btn" :class="{ 'active': currentFormat.strike }" @mousedown.prevent="format('strikeThrough')" title="Coret (Strikethrough)">
+                <s>S</s>
+            </button>
+
+            <span class="word-mini-divider"></span>
+
+            <button type="button" class="word-mini-btn" @mousedown.prevent="format('hiliteColor', '#fde68a')" title="Stabilo Kuning">
+                <span style="background:#fde68a; padding:1px 4px; border-radius:2px; font-weight:700; color:#0f172a;">A</span>
+            </button>
+            <button type="button" class="word-mini-btn" @mousedown.prevent="format('foreColor', '#0f6cbd')" title="Warna Biru Word">
+                <span style="color:#0f6cbd; font-weight:700; border-bottom:2px solid #0f6cbd;">A</span>
+            </button>
+
+            <span class="word-mini-divider"></span>
+
+            <button type="button" class="word-mini-btn word-mini-btn--copilot" @click="copilotMenuOpen = !copilotMenuOpen" title="Bantuan Cerdas Xishie Copilot">
+                ✨ Xishie
+            </button>
+        </div>
 
         {{-- ================= BILAH AKSES CEPAT (TOPBAR) ================= --}}
         <header class="ns-topbar">
@@ -780,31 +836,30 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Huruf (Font)</span>
                         <div class="ns-group__row">
-                            <select class="ns-btn" style="padding:.2rem .35rem;" wire:model.live="fontFamily">
+                            <select class="ns-btn" style="padding:.2rem .35rem;" @change="applyFontFamily($event.target.value)">
                                 @foreach ($fontFamilies as $fKey => $fLabel)
-                                    <option value="{{ $fKey }}">{{ $fLabel }}</option>
+                                    <option value="{{ $fKey }}" {{ ($styleMeta['fontFamily'] ?? '') === $fKey ? 'selected' : '' }}>{{ $fLabel }}</option>
                                 @endforeach
                             </select>
-                            <select class="ns-btn" style="padding:.2rem .35rem;" wire:model.live="fontSize">
+                            <select class="ns-btn" style="padding:.2rem .35rem;" @change="applyFontSize($event.target.value)">
                                 @foreach ($fontSizes as $fSize)
-                                    <option value="{{ $fSize }}">{{ $fSize }} pt</option>
+                                    <option value="{{ $fSize }}" {{ ($styleMeta['fontSize'] ?? 16) == $fSize ? 'selected' : '' }}>{{ $fSize }} pt</option>
                                 @endforeach
                             </select>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="adjustFontSize(1)" title="Perbesar Font (A+)">A&#9650;</button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="adjustFontSize(-1)" title="Perkecil Font (A-)">A&#9660;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent="adjustFontSize(1)" title="Perbesar Font (Ctrl+])">A&#9650;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent="adjustFontSize(-1)" title="Perkecil Font (Ctrl+[)">A&#9660;</button>
                         </div>
                     </div>
                     <div class="ns-group">
                         <span class="ns-group__label">Gaya Huruf</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('bold')" title="Tebal (Ctrl+B)"><strong>B</strong></button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('italic')" title="Miring (Ctrl+I)"><em>I</em></button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('underline')" title="Garis Bawah (Ctrl+U)"><span style="text-decoration:underline;">U</span></button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('strike')" title="Coret"><span style="text-decoration:line-through;">S</span></button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('sub')" title="Subscript">X<sub>2</sub></button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('sup')" title="Superscript">X<sup>2</sup></button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatInline('code')" title="Inline Code"><code>&lt;&gt;</code></button>
-                            <button type="button" class="ns-btn" wire:click="clearFormatting" title="Hapus Format Huruf &amp; Paragraf">&#129529; Bersihkan</button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.bold }" @mousedown.prevent="format('bold')" title="Tebal (Ctrl+B)"><strong>B</strong></button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.italic }" @mousedown.prevent="format('italic')" title="Miring (Ctrl+I)"><em>I</em></button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.underline }" @mousedown.prevent="format('underline')" title="Garis Bawah (Ctrl+U)"><span style="text-decoration:underline;">U</span></button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.strike }" @mousedown.prevent="format('strikeThrough')" title="Coret"><span style="text-decoration:line-through;">S</span></button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.subscript }" @mousedown.prevent="format('subscript')" title="Subscript">X<sub>2</sub></button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.superscript }" @mousedown.prevent="format('superscript')" title="Superscript">X<sup>2</sup></button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="clearCurrentFormat()" title="Hapus Format Huruf &amp; Paragraf (Ctrl+Space)">&#129529; Bersihkan</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -812,33 +867,33 @@
                         <div class="ns-group__row">
                             @foreach ($colors as $color)
                                 <button type="button" style="width:16px; height:16px; border-radius:2px; border:1px solid #cbd5e1; background:{{ $color }}; cursor:pointer;"
-                                        wire:click="formatInline('color', '{{ $color }}')" title="Warna teks {{ $color }}"></button>
+                                        @mousedown.prevent="format('foreColor', '{{ $color }}')" title="Warna teks {{ $color }}"></button>
                             @endforeach
                             <span style="border-left:1px solid #e2e8f0; height:16px; margin:0 .15rem;"></span>
                             @foreach ($highlights as $hl)
                                 <button type="button" style="width:16px; height:16px; border-radius:2px; border:1px solid #cbd5e1; background:{{ $hl }}; cursor:pointer;"
-                                        wire:click="formatInline('highlight', '{{ $hl }}')" title="Sorot warna {{ $hl }}"></button>
+                                        @mousedown.prevent="format('hiliteColor', '{{ $hl }}')" title="Sorot warna {{ $hl }}"></button>
                             @endforeach
                         </div>
                     </div>
                     <div class="ns-group">
                         <span class="ns-group__label">Paragraf</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('align', 'left')" title="Rata Kiri">&#9776;</button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('align', 'center')" title="Rata Tengah">&#9778;</button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('align', 'right')" title="Rata Kanan">&#9777;</button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('align', 'justify')" title="Rata Kanan-Kiri">&#9779;</button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('indent-')" title="Kurangi Indentasi">&#8676;</button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('indent+')" title="Tambah Indentasi">&#8677;</button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('listBullet')" title="Daftar Poin (Bullet)">• List</button>
-                            <button type="button" class="ns-btn ns-btn--icon" wire:click="formatParagraph('listNumbered')" title="Daftar Nomor">1. List</button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.align === 'left' }" @mousedown.prevent="applyAlignment('left')" title="Rata Kiri (Ctrl+L)">&#9776;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.align === 'center' }" @mousedown.prevent="applyAlignment('center')" title="Rata Tengah (Ctrl+E)">&#9778;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.align === 'right' }" @mousedown.prevent="applyAlignment('right')" title="Rata Kanan (Ctrl+R)">&#9777;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.align === 'justify' }" @mousedown.prevent="applyAlignment('justify')" title="Rata Kanan-Kiri (Ctrl+J)">&#9779;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent="applyIndent(-1)" title="Kurangi Indentasi (Shift+Tab)">&#8676;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent="applyIndent(1)" title="Tambah Indentasi (Tab)">&#8677;</button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.isBullet }" @mousedown.prevent="format('insertUnorderedList')" title="Daftar Poin (Bullet)">• List</button>
+                            <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.isNumbered }" @mousedown.prevent="format('insertOrderedList')" title="Daftar Nomor">1. List</button>
                         </div>
                     </div>
                     <div class="ns-group">
                         <span class="ns-group__label">Galeri Gaya</span>
                         <div class="ns-group__row">
                             @foreach ($stylesGallery as $styleKey => $styleLabel)
-                                <button type="button" class="ns-btn" wire:click="applyStyle({{ $activeBlock }}, '{{ $styleKey }}')" title="Terapkan {{ $styleLabel }}">{{ $styleLabel }}</button>
+                                <button type="button" class="ns-btn" :class="{ 'ns-btn--active': currentFormat.style === '{{ $styleKey }}' }" @mousedown.prevent="applyBlockStyle('{{ $styleKey }}')" title="Terapkan {{ $styleLabel }}">{{ $styleLabel }}</button>
                             @endforeach
                         </div>
                     </div>
@@ -866,7 +921,7 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Tabel &amp; Gambar</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="openDialog('table')">&#8862; Sisipkan Tabel</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="insertTable(3, 3)" title="Sisipkan Tabel 3x3">&#8862; Sisipkan Tabel</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('image')">&#128444; Sisipkan Gambar</button>
                         </div>
                     </div>
@@ -882,8 +937,8 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Pemisah &amp; Bidang</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="insertPageBreak">&#9986; Pemisah Halaman</button>
-                            <button type="button" class="ns-btn" wire:click="insertHorizontalRule">&#8213; Garis Pembatas</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="insertPageBreak()" title="Pemisah Halaman (Ctrl+Enter)">&#9986; Pemisah Halaman</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="insertHorizontalRule()" title="Garis Pembatas (---)">&#8213; Garis Pembatas</button>
                             <button type="button" class="ns-btn" wire:click="insertDate">&#128197; Tanggal</button>
                             <button type="button" class="ns-btn" wire:click="insertPageNumberField"># Nomor Halaman</button>
                         </div>
@@ -1224,495 +1279,184 @@
                     <input type="text" style="width:100%; border:none; outline:none; font-family:var(--rb-font-display); font-size:1.65rem; font-weight:800; color:inherit; padding:.2rem 0 .5rem; border-bottom:2px solid #e2e8f0; margin-bottom:1.5rem; background:transparent; text-align:{{ ($pageSetup['columns'] ?? 1) > 1 ? 'left' : 'center' }};"
                            wire:model="docTitle" wire:change="markDirty" placeholder="Judul Dokumen" aria-label="Judul Dokumen" />
 
-                    {{-- Blok-blok Dokumen (Alur Penulisan Lancar seperti Microsoft Word & LibreOffice Writer) --}}
-                    <div class="ns-blocks-wrap"
-                         x-data="{
-                             aiMenuOpen: null,
-                             autoResize(el) {
-                                 if (!el) return;
-                                 el.style.height = 'auto';
-                                 el.style.height = (el.scrollHeight) + 'px';
-                             },
-                             handleTextareaKeydown(e, index, type) {
-                                 const ta = e.target;
-                                 const isCtrl = e.ctrlKey || e.metaKey;
+                    {{-- Kanvas Lembar Naskah WYSIWYG (Microsoft Word 365 & LibreOffice Writer) --}}
+                    <div class="word-sheet-content"
+                         id="word-page-content-1"
+                         wire:key="filament-content-{{ $documentId ?? 'new' }}-v{{ $editorRevision }}"
+                         wire:ignore
+                         style="outline: none; min-height: 720px; line-height: {{ $pageSetup['lineSpacing'] ?? '1.5' }};"
+                         contenteditable="true"
+                         spellcheck="false"
+                         @keydown="handleContentKeydown($event)"
+                         @keydown.ctrl.enter.prevent="insertPageBreak()"
+                         @keydown.meta.enter.prevent="insertPageBreak()"
+                         @paste="handlePaste($event)"
+                         @dragover.prevent
+                         @drop="handleDrop($event)"
+                         @click="updateActiveBlock($event)"
+                         @focusin="updateActiveBlock($event)"
+                         @keyup="updateActiveBlock($event)"
+                         @input="handleContentInput($event)"
+                         @blur="syncAllPages()">
 
-                                 // 1. Tab & Shift+Tab: Indent / Outdent tanpa kehilangan fokus
-                                 if (e.key === 'Tab') {
-                                     e.preventDefault();
-                                     if (e.shiftKey) {
-                                         $wire.formatParagraph('indent-');
-                                     } else {
-                                         const start = ta.selectionStart;
-                                         const end = ta.selectionEnd;
-                                         ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(end);
-                                         ta.selectionStart = ta.selectionEnd = start + 4;
-                                         ta.dispatchEvent(new Event('input'));
-                                     }
-                                     return;
-                                 }
+                        @php
+                            $inBulletList = false;
+                            $inNumberedList = false;
+                            $inBibliographySection = false;
+                        @endphp
 
-                                 // 2. Enter: Alur alami judul ke paragraf baru & membelah kalimat (Word & LibreOffice)
-                                 if (e.key === 'Enter' && !e.shiftKey && !isCtrl && !e.altKey) {
-                                     e.preventDefault();
-                                     const val = ta.value;
-                                     const pos = ta.selectionStart;
-
-                                     // Keluar dari daftar kosong menjadi paragraf biasa
-                                     if ((type === 'bullet' || type === 'numbered') && val.trim() === '') {
-                                         $wire.exitListToParagraph(index);
-                                         return;
-                                     }
-
-                                     // Bila kursor di akhir baris atau tipe judul/heading -> tambah paragraf normal di bawahnya
-                                     if (pos >= val.length || ['heading', 'title', 'subtitle'].includes(type)) {
-                                         if (pos < val.length) {
-                                             const left = val.slice(0, pos);
-                                             const right = val.slice(pos);
-                                             $wire.splitBlockAt(index, left, right, 'paragraph');
-                                         } else {
-                                             $wire.insertParagraphAfter(index);
-                                         }
-                                         this.$nextTick(() => {
-                                             const nextTa = document.querySelector(`#ns-block-${index + 1} textarea`);
-                                             if (nextTa) {
-                                                 nextTa.focus();
-                                                 nextTa.setSelectionRange(0, 0);
-                                                 this.autoResize(nextTa);
-                                             }
-                                         });
-                                         return;
-                                     }
-
-                                     // Membelah kalimat di tengah paragraf
-                                     const left = val.slice(0, pos);
-                                     const right = val.slice(pos);
-                                     $wire.splitBlockAt(index, left, right);
-                                     this.$nextTick(() => {
-                                         const nextTa = document.querySelector(`#ns-block-${index + 1} textarea`);
-                                         if (nextTa) {
-                                             nextTa.focus();
-                                             nextTa.setSelectionRange(0, 0);
-                                             this.autoResize(nextTa);
-                                         }
-                                     });
-                                     return;
-                                 }
-
-                                 // 3. Backspace: Hapus blok kosong atau leburkan (merge) dengan blok sebelumnya (Word & LibreOffice)
-                                 if (e.key === 'Backspace') {
-                                     if (ta.selectionStart === 0 && ta.selectionEnd === 0) {
-                                         if (index > 0) {
-                                             e.preventDefault();
-                                             if (ta.value === '' || ta.value === '\n') {
-                                                 $wire.removeBlockAndFocusPrev(index);
-                                                 this.$nextTick(() => {
-                                                     const prevTa = document.querySelector(`#ns-block-${index - 1} textarea`);
-                                                     if (prevTa) {
-                                                         prevTa.focus();
-                                                         prevTa.setSelectionRange(prevTa.value.length, prevTa.value.length);
-                                                     }
-                                                 });
-                                             } else {
-                                                 const prevTa = document.querySelector(`#ns-block-${index - 1} textarea`);
-                                                 const prevLen = prevTa ? prevTa.value.length : 0;
-                                                 $wire.mergeBlockWithPrev(index);
-                                                 this.$nextTick(() => {
-                                                     const mergedTa = document.querySelector(`#ns-block-${index - 1} textarea`);
-                                                     if (mergedTa) {
-                                                         mergedTa.focus();
-                                                         mergedTa.setSelectionRange(prevLen, prevLen);
-                                                         this.autoResize(mergedTa);
-                                                     }
-                                                 });
-                                             }
-                                             return;
-                                         }
-                                     }
-                                 }
-
-                                 // 4. Delete: Peleburan blok berikutnya ke dalam blok saat ini (Word & LibreOffice Delete di akhir)
-                                 if (e.key === 'Delete') {
-                                     if (ta.selectionStart === ta.value.length && ta.selectionEnd === ta.value.length) {
-                                         const curPos = ta.selectionStart;
-                                         const nextTa = document.querySelector(`#ns-block-${index + 1} textarea`);
-                                         if (nextTa) {
-                                             e.preventDefault();
-                                             $wire.mergeBlockWithNext(index);
-                                             this.$nextTick(() => {
-                                                 const curTa = document.querySelector(`#ns-block-${index} textarea`);
-                                                 if (curTa) {
-                                                     curTa.focus();
-                                                     curTa.setSelectionRange(curPos, curPos);
-                                                     this.autoResize(curTa);
-                                                 }
-                                             });
-                                             return;
-                                         }
-                                     }
-                                 }
-
-                                 // 5. Navigasi Panah Atas / Bawah antar blok
-                                 if (e.key === 'ArrowUp' && ta.selectionStart === 0 && ta.selectionEnd === 0) {
-                                     if (index > 0) {
-                                         const prevTa = document.querySelector(`#ns-block-${index - 1} textarea`);
-                                         if (prevTa) {
-                                             e.preventDefault();
-                                             prevTa.focus();
-                                             prevTa.setSelectionRange(prevTa.value.length, prevTa.value.length);
-                                         }
-                                     }
-                                 } else if (e.key === 'ArrowDown' && ta.selectionStart === ta.value.length && ta.selectionEnd === ta.value.length) {
-                                     const nextTa = document.querySelector(`#ns-block-${index + 1} textarea`);
-                                     if (nextTa) {
-                                         e.preventDefault();
-                                         nextTa.focus();
-                                         nextTa.setSelectionRange(0, 0);
-                                     }
-                                 }
-
-                                 // 6. Pintasan Keyboard Microsoft Word & LibreOffice di dalam blok
-                                 if (isCtrl && !e.altKey) {
-                                     const k = e.key.toLowerCase();
-                                     if (k === 'b') { e.preventDefault(); $wire.formatInline('bold'); }
-                                     else if (k === 'i') { e.preventDefault(); $wire.formatInline('italic'); }
-                                     else if (k === 'u') { e.preventDefault(); $wire.formatInline('underline'); }
-                                     else if (k === 'e') { e.preventDefault(); $wire.formatParagraph('align', 'center'); }
-                                     else if (k === 'l' && !e.shiftKey) { e.preventDefault(); $wire.formatParagraph('align', 'left'); }
-                                     else if (k === 'r') { e.preventDefault(); $wire.formatParagraph('align', 'right'); }
-                                     else if (k === 'j') { e.preventDefault(); $wire.formatParagraph('align', 'justify'); }
-                                     else if (e.key === '1') { e.preventDefault(); $wire.setLineSpacing(1.0); }
-                                     else if (e.key === '2') { e.preventDefault(); $wire.setLineSpacing(2.0); }
-                                     else if (e.key === '5') { e.preventDefault(); $wire.setLineSpacing(1.5); }
-                                     else if (e.key === '[') { e.preventDefault(); $wire.adjustFontSize(-1); }
-                                     else if (e.key === ']') { e.preventDefault(); $wire.adjustFontSize(1); }
-                                     else if (e.shiftKey && k === 'l') { e.preventDefault(); $wire.formatParagraph('listBullet'); }
-                                 } else if (isCtrl && e.altKey) {
-                                     if (e.key === '1') { e.preventDefault(); $wire.applyStyle(index, 'heading1'); }
-                                     else if (e.key === '2') { e.preventDefault(); $wire.applyStyle(index, 'heading2'); }
-                                     else if (e.key === '3') { e.preventDefault(); $wire.applyStyle(index, 'heading3'); }
-                                     else if (e.key === '0') { e.preventDefault(); $wire.applyStyle(index, 'paragraph'); }
-                                 }
-                             },
-                             handleTextareaInput(e, index) {
-                                 this.autoResize(e.target);
-                                 const ta = e.target;
-                                 let val = ta.value;
-
-                                 // Smart Typography Auto-Replacement (Word & LibreOffice Writer)
-                                 const pos = ta.selectionStart;
-                                 if (pos !== null && pos !== undefined) {
-                                     const before = val.slice(0, pos);
-                                     const replacements = [
-                                         { pattern: /---\s$/, replace: '— ' },
-                                         { pattern: /--\s$/, replace: '— ' },
-                                         { pattern: /\.\.\.\s$/, replace: '… ' },
-                                         { pattern: /\([cC]\)\s$/, replace: '© ' },
-                                         { pattern: /\([rR]\)\s$/, replace: '® ' },
-                                         { pattern: /\([tT][mM]\)\s$/, replace: '™ ' },
-                                         { pattern: /->\s$/, replace: '→ ' },
-                                         { pattern: /<-\s$/, replace: '← ' },
-                                     ];
-                                     for (const r of replacements) {
-                                         if (r.pattern.test(before)) {
-                                             const newBefore = before.replace(r.pattern, r.replace);
-                                             const after = val.slice(pos);
-                                             ta.value = newBefore + after;
-                                             ta.selectionStart = ta.selectionEnd = newBefore.length;
-                                             $wire.updateBlockText(index, ta.value);
-                                             val = ta.value;
-                                             break;
-                                         }
-                                     }
-                                 }
-
-                                 if (/^(\*|-)\s/.test(val)) {
-                                     $wire.autoFormatBlock(index, '*', val.replace(/^(\*|-)\s/, ''));
-                                 } else if (/^1\.\s/.test(val)) {
-                                     $wire.autoFormatBlock(index, '1.', val.replace(/^1\.\s/, ''));
-                                 } else if (/^###\s/.test(val)) {
-                                     $wire.autoFormatBlock(index, '###', val.replace(/^###\s/, ''));
-                                 } else if (/^##\s/.test(val)) {
-                                     $wire.autoFormatBlock(index, '##', val.replace(/^##\s/, ''));
-                                 } else if (/^#\s/.test(val)) {
-                                     $wire.autoFormatBlock(index, '#', val.replace(/^#\s/, ''));
-                                 } else if (/^>\s/.test(val)) {
-                                     $wire.autoFormatBlock(index, '>', val.replace(/^>\s/, ''));
-                                 }
-                             },
-                             handleTableCellKeydown(e, blockIndex, r, c, totalRows, totalCols) {
-                                 if (e.key === 'Tab') {
-                                     e.preventDefault();
-                                     if (e.shiftKey) {
-                                         if (c > 0) {
-                                             const prevInput = document.querySelector(`input[data-cell='${blockIndex}-${r}-${c - 1}']`);
-                                             if (prevInput) prevInput.focus();
-                                         } else if (r > 0) {
-                                             const prevInput = document.querySelector(`input[data-cell='${blockIndex}-${r - 1}-${totalCols - 1}']`);
-                                             if (prevInput) prevInput.focus();
-                                         }
-                                     } else {
-                                         if (c < totalCols - 1) {
-                                             const nextInput = document.querySelector(`input[data-cell='${blockIndex}-${r}-${c + 1}']`);
-                                             if (nextInput) nextInput.focus();
-                                         } else if (r < totalRows - 1) {
-                                             const nextInput = document.querySelector(`input[data-cell='${blockIndex}-${r + 1}-0']`);
-                                             if (nextInput) nextInput.focus();
-                                         } else {
-                                             // Sel terakhir tabel: Tambah baris baru secara otomatis (Word & LibreOffice)
-                                             $wire.tableInsertRow(blockIndex, totalRows - 1);
-                                             this.$nextTick(() => {
-                                                 const newCellInput = document.querySelector(`input[data-cell='${blockIndex}-${totalRows}-0']`);
-                                                 if (newCellInput) newCellInput.focus();
-                                             });
-                                         }
-                                     }
-                                 } else if (e.key === 'Enter') {
-                                     e.preventDefault();
-                                     if (r < totalRows - 1) {
-                                         const nextInput = document.querySelector(`input[data-cell='${blockIndex}-${r + 1}-${c}']`);
-                                         if (nextInput) nextInput.focus();
-                                     } else {
-                                         $wire.tableInsertRow(blockIndex, totalRows - 1);
-                                         this.$nextTick(() => {
-                                             const newCellInput = document.querySelector(`input[data-cell='${blockIndex}-${totalRows}-${c}']`);
-                                             if (newCellInput) newCellInput.focus();
-                                         });
-                                     }
-                                 }
-                             }
-                         }">
                         @forelse ($blocks as $index => $block)
                             @php
                                 $type = (string) ($block['type'] ?? 'paragraph');
                                 $level = (int) ($block['level'] ?? 1);
+                                $headingId = 'heading-' . $index;
+                                $text = (string) ($block['text'] ?? '');
                                 $align = (string) ($block['align'] ?? 'left');
-                                $indent = (int) ($block['indent'] ?? 0);
-                                $lineSpacing = (float) ($block['lineSpacing'] ?? 1.5);
-                                $spacingBefore = (float) ($block['spacingBefore'] ?? 0);
-                                $spacingAfter = (float) ($block['spacingAfter'] ?? 0);
-
-                                $classes = 'ns-block ns-block--'.$type.' align-'.$align;
-                                if ($type === 'heading') { $classes .= ' ns-block--h'.max(1, min(3, $level)); }
-                                if ($activeBlock === $index) { $classes .= ' ns-block--active'; }
-                                if (!empty($block['dropCap'])) { $classes .= ' ns-block--dropcap'; }
-
-                                $blockStyle = "line-height: {$lineSpacing};";
-                                if ($indent > 0) { $blockStyle .= " margin-left: ".($indent * 1.5)."rem;"; }
-                                if ($spacingBefore > 0) { $blockStyle .= " margin-top: ".($spacingBefore)."pt;"; }
-                                if ($spacingAfter > 0) { $blockStyle .= " margin-bottom: ".($spacingAfter)."pt;"; }
                             @endphp
 
-                            <div class="{{ $classes }}" id="ns-block-{{ $index }}" style="{{ $blockStyle }}" wire:key="ns-block-{{ $index }}-{{ $type }}" wire:click="selectBlock({{ $index }})">
-                                {{-- Nomor baris --}}
-                                @if (!empty($pageSetup['lineNumbers']))
-                                    <span class="ns-lineno">{{ $index + 1 }}</span>
+                            @if ($type === 'bullet')
+                                @if (!$inBulletList)
+                                    <ul class="word-bullet-list">
+                                    @php $inBulletList = true; @endphp
+                                @endif
+                                <li id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $align }};">{!! $text !!}</li>
+                            @else
+                                @if ($inBulletList)
+                                    </ul>
+                                    @php $inBulletList = false; @endphp
                                 @endif
 
-                                {{-- Action Gutter Melayang Ringkas & Rapi (Tidak Menutupi Teks) --}}
-                                <div class="ns-block__gutter">
-                                    <button type="button" class="ns-block__btn" wire:click.stop="moveBlock({{ $index }}, -1)" title="Pindahkan Ke Atas" @disabled($index === 0)>&#9650;</button>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="moveBlock({{ $index }}, 1)" title="Pindahkan Ke Bawah" @disabled($index === count($blocks) - 1)>&#9660;</button>
-                                    <span style="display:inline-block; width:1px; height:12px; background:#cbd5e1; margin:0 2px;"></span>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'heading1')" title="Jadikan H1 (Ctrl+Alt+1)">H1</button>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'heading2')" title="Jadikan H2 (Ctrl+Alt+2)">H2</button>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'paragraph')" title="Jadikan Paragraf (Ctrl+Alt+0)">P</button>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="applyStyle({{ $index }}, 'quote')" title="Jadikan Kutipan">&ldquo;</button>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="toggleDropCap({{ $index }})" title="Toggle Drop Cap">A</button>
-                                    <span style="display:inline-block; width:1px; height:12px; background:#cbd5e1; margin:0 2px;"></span>
-                                    <div style="position:relative;" @click.outside="if (aiMenuOpen === {{ $index }}) aiMenuOpen = null">
-                                        <button type="button" class="ns-block__btn ns-block__btn--ai" @click.stop="aiMenuOpen = (aiMenuOpen === {{ $index }} ? null : {{ $index }})" title="Asisten AI Wordcraft">
-                                            &#10024; AI &#9662;
-                                        </button>
-                                        <div x-show="aiMenuOpen === {{ $index }}" x-cloak style="position:absolute; right:0; top:100%; margin-top:4px; width:160px; background:#ffffff; border:1px solid #cbd5e1; border-radius:4px; box-shadow:0 4px 12px rgba(15,23,42,.15); padding:4px; display:flex; flex-direction:column; gap:2px; z-index:30;">
-                                            <button type="button" class="ns-nav__item" style="font-size:.7rem; padding:.25rem .4rem;" wire:click.stop="aiElaborateBlock({{ $index }}); aiMenuOpen = null">&#9889; Kembangkan</button>
-                                            <button type="button" class="ns-nav__item" style="font-size:.7rem; padding:.25rem .4rem;" wire:click.stop="aiShortenBlock({{ $index }}); aiMenuOpen = null">&#9986; Padatkan</button>
-                                            <button type="button" class="ns-nav__item" style="font-size:.7rem; padding:.25rem .4rem;" wire:click.stop="aiImproveBlock({{ $index }}); aiMenuOpen = null">&#10024; Poles Bahasa</button>
-                                            <button type="button" class="ns-nav__item" style="font-size:.7rem; padding:.25rem .4rem;" wire:click.stop="aiContinueStory({{ $index }}); aiMenuOpen = null">&#10133; Lanjutkan Naskah</button>
-                                        </div>
-                                    </div>
-                                    <span style="display:inline-block; width:1px; height:12px; background:#cbd5e1; margin:0 2px;"></span>
-                                    <button type="button" class="ns-block__btn" wire:click.stop="duplicateBlock({{ $index }})" title="Gandakan blok">&#128203;</button>
-                                    <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click.stop="removeBlock({{ $index }})" title="Hapus blok">&times;</button>
-                                </div>
-
-                                {{-- Render Tabel --}}
-                                @if ($type === 'table')
-                                    <div class="ns-table-wrap">
-                                        <div class="ns-table-toolbar">
-                                            <span>&#8862; Tabel</span>
-                                            <button type="button" class="ns-block__btn" wire:click.stop="tableInsertRow({{ $index }}, 0)">+ Baris</button>
-                                            <button type="button" class="ns-block__btn" wire:click.stop="tableInsertColumn({{ $index }}, 0)">+ Kolom</button>
-                                            <button type="button" class="ns-block__btn" wire:click.stop="tableToggleHeader({{ $index }})">Header</button>
-                                        </div>
-                                        <table class="ns-table">
-                                            @php
-                                                $rows = (array) ($block['table']['rows'] ?? []);
-                                                $hasHeader = (bool) ($block['table']['header'] ?? true);
-                                            @endphp
-                                            @foreach ($rows as $r => $row)
-                                                <tr>
-                                                    @foreach ((array) $row as $c => $cell)
-                                                        @php $cellTag = ($hasHeader && $r === 0) ? 'th' : 'td'; @endphp
-                                                        <{{ $cellTag }}>
-                                                            <input type="text"
-                                                                   data-cell="{{ $index }}-{{ $r }}-{{ $c }}"
-                                                                   wire:model="blocks.{{ $index }}.table.rows.{{ $r }}.{{ $c }}.text"
-                                                                   wire:change="markDirty"
-                                                                   @keydown="handleTableCellKeydown($event, {{ $index }}, {{ $r }}, {{ $c }}, {{ count($rows) }}, {{ count((array)$row) }})"
-                                                                   placeholder="Sel..." />
-                                                        </{{ $cellTag }}>
-                                                    @endforeach
-                                                </tr>
-                                            @endforeach
-                                        </table>
-                                    </div>
-
-                                {{-- Render Gambar --}}
-                                @elseif ($type === 'image')
-                                    <div class="ns-image-wrap align-{{ $align }}">
-                                        @if (!empty($block['image']['src']))
-                                            <img src="{{ $block['image']['src'] }}" alt="{{ $block['image']['alt'] ?? '' }}" style="width:{{ $block['image']['width'] ?? 320 }}px;" />
-                                            @if (!empty($block['image']['alt']))
-                                                <div style="font-size:.72rem; color:var(--rb-ink-muted); margin-top:.3rem; font-style:italic;">{{ $block['image']['alt'] }}</div>
-                                            @endif
-                                        @endif
-                                    </div>
-
-                                {{-- Render Pemisah Halaman --}}
-                                @elseif ($type === 'pagebreak')
-                                    <div class="ns-pagebreak-wrap">
-                                        <span>&#9986; ―――――――――― Pemisah Halaman (Page Break) ――――――――――</span>
-                                    </div>
-
-                                {{-- Render Catatan Kaki --}}
-                                @elseif ($type === 'footnote-ref')
-                                    <div style="border-top:1px solid #cbd5e1; padding-top:.3rem; margin-top:.5rem; font-size:.75rem; color:#475569; display:flex; align-items:center; justify-content:space-between;">
-                                        <div><strong style="color:#1e40af;">[Catatan Kaki]</strong> {{ $block['text'] ?? '' }}</div>
-                                        <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click.stop="removeBlock({{ $index }})" title="Hapus Catatan Kaki">&times;</button>
-                                    </div>
-
-                                {{-- Render Rumus LaTeX (Equation) --}}
-                                @elseif ($type === 'equation')
-                                    @php
-                                        $latex = (string) ($block['equation']['latex'] ?? $block['text'] ?? 'E = mc^2');
-                                        $caption = (string) ($block['equation']['caption'] ?? '');
-                                    @endphp
-                                    <div class="ns-equation-block" id="ns-block-{{ $index }}" style="user-select:none; margin:.65rem 0; padding:.65rem 1rem; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; display:flex; align-items:center; justify-content:center; position:relative; cursor:pointer;" wire:click="selectBlock({{ $index }})" wire:dblclick="editEquation({{ $index }})">
-                                        <div class="ns-equation-actions" style="position:absolute; right:.5rem; top:.5rem; display:flex; gap:.25rem;">
-                                            <button type="button" class="ns-block__btn" wire:click.stop="editEquation({{ $index }})" title="Edit Rumus LaTeX">✏️ Edit</button>
-                                            <button type="button" class="ns-block__btn" x-data="{ copied: false }" @click.stop="navigator.clipboard?.writeText(@js($latex)); copied = true; setTimeout(() => copied = false, 2000)" title="Salin Sintaks LaTeX">📋 <span x-text="copied ? 'Tersalin' : 'Salin'"></span></button>
-                                            <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click.stop="removeBlock({{ $index }})" title="Hapus Rumus">&times;</button>
-                                        </div>
-                                        <div class="ns-equation-render" style="font-family:'Cambria Math', KaTeX_Math, serif; font-size:1.15rem; text-align:center; color:#0f172a; margin:auto; padding:.25rem 3rem .25rem .5rem; overflow-x:auto;">
-                                            <span class="latex-math-render" data-latex="{{ $latex }}">{{ $latex }}</span>
-                                        </div>
-                                        @if ($caption !== '')
-                                            <div style="position:absolute; right:1rem; font-size:.85rem; font-weight:600; color:#64748b;">
-                                                ({{ trim($caption, '()') }})
-                                            </div>
-                                        @endif
-                                    </div>
-
-                                {{-- Render Kotak Sorotan (Callout) --}}
-                                @elseif ($type === 'callout')
-                                    @php $cType = $block['calloutType'] ?? 'info'; @endphp
-                                    <div class="ns-callout ns-callout--{{ $cType }}" style="position:relative;">
-                                        <span class="ns-callout__icon">
-                                            @if($cType === 'warning') ⚠️ @elseif($cType === 'tip') 💡 @elseif($cType === 'success') ✅ @else 📌 @endif
-                                        </span>
-                                        <div style="flex:1;">
-                                            <textarea
-                                                rows="{{ max(1, (int) ceil(mb_strlen((string) ($block['text'] ?? '')) / 70) + 1) }}"
-                                                wire:model="blocks.{{ $index }}.text"
-                                                wire:change="markDirty"
-                                                @keydown="handleTextareaKeydown($event, {{ $index }}, 'callout')"
-                                                @input="autoResize($event.target)"
-                                                x-init="autoResize($el)"
-                                                placeholder="Tulis catatan sorotan di sini..."
-                                            >{{ $block['text'] ?? '' }}</textarea>
-                                        </div>
-                                        <button type="button" class="ns-block__btn" style="color:#b91c1c; align-self:flex-start;" wire:click.stop="removeBlock({{ $index }})" title="Hapus Sorotan">&times;</button>
-                                    </div>
-
-                                {{-- Render Daftar Isi Otomatis --}}
-                                @elseif ($type === 'toc')
-                                    <div class="ns-toc-block" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; padding:.75rem 1rem; margin:.75rem 0; width:100%;">
-                                        <div style="font-weight:700; font-size:1.05rem; color:#1e40af; margin-bottom:.6rem; display:flex; align-items:center; justify-content:space-between;">
-                                            <span>📑 Daftar Isi Otomatis</span>
-                                            <div style="display:flex; align-items:center; gap:.4rem;">
-                                                <button type="button" class="ns-block__btn" wire:click.stop="insertTableOfContents" title="Perbarui Daftar Isi">🔄 Perbarui</button>
-                                                <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click.stop="removeBlock({{ $index }})" title="Hapus Daftar Isi">&times;</button>
-                                            </div>
-                                        </div>
-                                        <div style="display:flex; flex-direction:column; gap:.35rem;">
-                                            @php $tocRows = $block['table']['rows'] ?? []; @endphp
-                                            @foreach ($tocRows as $tIdx => $tRow)
-                                                @if ($tIdx > 0)
-                                                    <div style="display:flex; align-items:baseline; font-size:.85rem; color:#334155;">
-                                                        <span style="white-space:nowrap;">{{ $tRow[0]['text'] ?? '' }}</span>
-                                                        <span style="flex:1; border-bottom:1px dotted #94a3b8; margin:0 .5rem; transform:translateY(-2px);"></span>
-                                                        <span style="font-size:.78rem; color:#64748b;">{{ $tRow[1]['text'] === '…' ? (1 + floor($tIdx / 4)) : ($tRow[1]['text'] ?? '1') }}</span>
-                                                    </div>
-                                                @endif
-                                            @endforeach
-                                        </div>
-                                    </div>
-
-                                {{-- Render Judul Naskah (Title) --}}
-                                @elseif ($type === 'title')
-                                    <div style="width:100%;">
-                                        <textarea
-                                            rows="1"
-                                            wire:model="blocks.{{ $index }}.text"
-                                            wire:change="markDirty"
-                                            @keydown="handleTextareaKeydown($event, {{ $index }}, 'title')"
-                                            @input="autoResize($event.target)"
-                                            x-init="autoResize($el)"
-                                            placeholder="Judul Dokumen..."
-                                            style="font-family:var(--rb-font-display, system-ui); font-size:1.6rem; font-weight:800; color:#1e40af; text-align:center;"
-                                        >{{ $block['text'] ?? '' }}</textarea>
-                                    </div>
-
-                                {{-- Render Subjudul Naskah (Subtitle) --}}
-                                @elseif ($type === 'subtitle')
-                                    <div style="width:100%;">
-                                        <textarea
-                                            rows="1"
-                                            wire:model="blocks.{{ $index }}.text"
-                                            wire:change="markDirty"
-                                            @keydown="handleTextareaKeydown($event, {{ $index }}, 'subtitle')"
-                                            @input="autoResize($event.target)"
-                                            x-init="autoResize($el)"
-                                            placeholder="Subjudul Dokumen..."
-                                            style="font-style:italic; font-size:1.05rem; color:#475569; text-align:center;"
-                                        >{{ $block['text'] ?? '' }}</textarea>
-                                    </div>
-
-                                {{-- Render Blok Teks Biasa (Heading, Paragraph, Quote, Bullet, Numbered) --}}
+                                @if ($type === 'numbered')
+                                    @if (!$inNumberedList)
+                                        <ol class="word-numbered-list">
+                                        @php $inNumberedList = true; @endphp
+                                    @endif
+                                    <li id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $align }};">{!! $text !!}</li>
                                 @else
-                                    <div style="display:flex; width:100%;">
-                                        @if ($type === 'numbered')
-                                            <span class="ns-block--numbered__num">{{ $index + 1 }}.</span>
+                                    @if ($inNumberedList)
+                                        </ol>
+                                        @php $inNumberedList = false; @endphp
+                                    @endif
+
+                                    @if ($type === 'title')
+                                        <h1 class="word-title-text" id="doc-title" data-block-index="{{ $index }}" style="text-align: {{ $align }};">{!! $text ?: 'Judul Naskah' !!}</h1>
+                                    @elseif ($type === 'subtitle')
+                                        <p class="word-subtitle-text" id="doc-subtitle" data-block-index="{{ $index }}" style="text-align: {{ $align }};">{!! $text !!}</p>
+                                    @elseif ($type === 'heading')
+                                        @php
+                                            if (stripos($text, 'daftar pustaka') !== false || stripos($text, 'referensi') !== false || stripos($text, 'bibliography') !== false) {
+                                                $inBibliographySection = true;
+                                            } else {
+                                                $inBibliographySection = false;
+                                            }
+                                        @endphp
+                                        @if ($level === 1)
+                                            <h2 class="word-heading-1" id="{{ $headingId }}" data-block-index="{{ $index }}" style="text-align: {{ $align }};">{!! $text !!}</h2>
+                                        @elseif ($level === 2)
+                                            <h3 class="word-heading-2" id="{{ $headingId }}" data-block-index="{{ $index }}" style="text-align: {{ $align }};">{!! $text !!}</h3>
+                                        @else
+                                            <h4 class="word-heading-3" id="{{ $headingId }}" data-block-index="{{ $index }}" style="text-align: {{ $align }};">{!! $text !!}</h4>
                                         @endif
-                                        <textarea
-                                            rows="{{ max(1, (int) ceil(mb_strlen((string) ($block['text'] ?? '')) / 76) + 1) }}"
-                                            wire:model="blocks.{{ $index }}.text"
-                                            wire:change="markDirty"
-                                            @keydown="handleTextareaKeydown($event, {{ $index }}, '{{ $type }}')"
-                                            @input="handleTextareaInput($event, {{ $index }})"
-                                            x-init="autoResize($el)"
-                                            placeholder="{{ $type === 'heading' ? 'Judul Bagian...' : 'Tulis isi naskah di sini...' }}"
-                                            aria-label="Blok {{ $index + 1 }} {{ $type }}"
-                                        >{{ $block['text'] ?? '' }}</textarea>
-                                    </div>
+                                    @elseif ($type === 'quote')
+                                        <blockquote class="word-quote-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $align }};">
+                                            <p class="word-quote-text">{!! $text !!}</p>
+                                        </blockquote>
+                                    @elseif ($type === 'toc')
+                                        <div class="ns-toc-block word-toc-block" id="word-block-{{ $index }}" data-block-index="{{ $index }}" contenteditable="false" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; padding:.75rem 1rem; margin:.75rem 0;">
+                                            <div style="font-weight:700; font-size:1.05rem; color:#1e40af; margin-bottom:.6rem; display:flex; align-items:center; justify-content:space-between;">
+                                                <span>📑 Daftar Isi Otomatis</span>
+                                                <button type="button" class="ns-block__btn" wire:click.stop="insertTableOfContents" title="Perbarui Daftar Isi">🔄 Perbarui</button>
+                                            </div>
+                                            <div style="display:flex; flex-direction:column; gap:.35rem;">
+                                                @php $tocRows = $block['table']['rows'] ?? []; @endphp
+                                                @foreach ($tocRows as $tIdx => $tRow)
+                                                    @if ($tIdx > 0)
+                                                        <div style="display:flex; align-items:baseline; font-size:.85rem; color:#334155;">
+                                                            <span style="white-space:nowrap;">{{ $tRow[0]['text'] ?? '' }}</span>
+                                                            <span style="flex:1; border-bottom:1px dotted #94a3b8; margin:0 .5rem; transform:translateY(-2px);"></span>
+                                                            <span style="font-size:.78rem; color:#64748b;">{{ $tRow[1]['text'] === '…' ? (1 + floor($tIdx / 4)) : ($tRow[1]['text'] ?? '1') }}</span>
+                                                        </div>
+                                                    @endif
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @elseif ($type === 'table')
+                                        <div class="word-table-wrapper" contenteditable="false" style="margin:12px 0;">
+                                            <table class="word-table ns-table" style="width:100%; border-collapse:collapse; margin:4px 0;" data-block-index="{{ $index }}">
+                                                <tbody contenteditable="true">
+                                                    @php
+                                                        $rows = (array) ($block['table']['rows'] ?? []);
+                                                        $hasHeader = (bool) ($block['table']['header'] ?? true);
+                                                    @endphp
+                                                    @foreach ($rows as $r => $row)
+                                                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                                                            @foreach ((array) $row as $c => $cell)
+                                                                @php $cellTag = ($hasHeader && $r === 0) ? 'th' : 'td'; @endphp
+                                                                <{{ $cellTag }} style="padding:6px 10px; border-right:1px solid #e2e8f0; text-align:left; @if($hasHeader && $r === 0) background:#f8fafc; font-weight:700; @endif">
+                                                                    {!! (string) ($cell['text'] ?? '') ?: '<br>' !!}
+                                                                </{{ $cellTag }}>
+                                                            @endforeach
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @elseif ($type === 'image')
+                                        <figure class="word-image-figure" id="word-block-{{ $index }}" data-block-index="{{ $index }}" contenteditable="false" style="text-align:{{ $align }}; margin:16px 0;">
+                                            @if (!empty($block['image']['src']))
+                                                <img src="{{ $block['image']['src'] }}" alt="{{ $block['image']['alt'] ?? '' }}" style="max-width:100%; width:{{ $block['image']['width'] ?? 320 }}px; display:inline-block; border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,0.08);" />
+                                                @if (!empty($block['image']['alt']))
+                                                    <figcaption style="font-size:.78rem; color:#64748b; font-style:italic; margin-top:.4rem;">{{ $block['image']['alt'] }}</figcaption>
+                                                @endif
+                                            @endif
+                                        </figure>
+                                    @elseif ($type === 'equation')
+                                        @php
+                                            $latex = (string) ($block['equation']['latex'] ?? $block['text'] ?? 'E = mc^2');
+                                            $caption = (string) ($block['equation']['caption'] ?? '');
+                                        @endphp
+                                        <div class="word-equation-block latex-math-render"
+                                             id="word-block-{{ $index }}"
+                                             data-block-index="{{ $index }}"
+                                             data-latex="{{ $latex }}"
+                                             data-caption="{{ $caption }}"
+                                             contenteditable="false"
+                                             wire:click="openDialog('equation')"
+                                             title="Klik untuk menyunting rumus LaTeX"
+                                             style="cursor:pointer; padding:12px; margin:12px 0; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; text-align:center;">
+                                            <span class="latex-math-formula">${{ $latex }}$</span>
+                                            @if ($caption !== '')
+                                                <div style="font-size:.75rem; color:#64748b; text-align:right; margin-top:.3rem;">{{ $caption }}</div>
+                                            @endif
+                                        </div>
+                                    @elseif ($type === 'callout')
+                                        @php $cType = (string) ($block['calloutType'] ?? 'info'); @endphp
+                                        <div class="ns-callout ns-callout--{{ $cType }}" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="margin:12px 0; padding:10px 14px; border-left:4px solid #3b82f6; background:#eff6ff; border-radius:4px;">
+                                            <p class="word-paragraph-text" style="margin:0;">{!! $text ?: '<br>' !!}</p>
+                                        </div>
+                                    @else
+                                        @if ($inBibliographySection)
+                                            <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $align }}; margin-bottom:.5rem;">
+                                                {!! $text ?: '<br>' !!}
+                                            </p>
+                                        @else
+                                            <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $align }}; margin-bottom:.5rem;">
+                                                {!! $text ?: '<br>' !!}
+                                            </p>
+                                        @endif
+                                    @endif
                                 @endif
-                            </div>
+                            @endif
                         @empty
-                            <p style="font-family:var(--rb-font-mono); color:var(--rb-ink-muted); font-size:.85rem; text-align:center; padding:3rem 0;">
-                                Naskah masih kosong. Muat dari berkas/proyek atau gunakan tombol di ribbon untuk mulai menulis.
-                            </p>
+                            <p class="word-paragraph-text" data-block-index="0" style="margin-bottom:.5rem;"><br></p>
                         @endforelse
+
+                        @if ($inBulletList)
+                            </ul>
+                        @endif
+                        @if ($inNumberedList)
+                            </ol>
+                        @endif
                     </div>
                 </div>
             </main>
@@ -1968,7 +1712,7 @@
                         </div>
                         <div class="ns-dialog__footer">
                             <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertTable">Sisipkan Tabel</button>
+                            <button type="button" class="ns-btn ns-btn--primary" @click="insertTable($wire.tableRows || 3, $wire.tableCols || 3); $wire.closeDialog()">Sisipkan Tabel</button>
                         </div>
 
                     {{-- Dialog Editor Rumus Matematika (LaTeX) --}}

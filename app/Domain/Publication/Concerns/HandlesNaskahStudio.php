@@ -79,6 +79,20 @@ trait HandlesNaskahStudio
 
     public string $viewMode = 'print';
 
+    public bool $zenMode = false;
+
+    public string $navigationTab = 'headings';
+
+    public string $activeTaskPane = '';
+
+    public string $editingMode = 'editing';
+
+    public string $rulerUnit = 'in';
+
+    public int $currentPage = 1;
+
+    public int $totalPages = 2;
+
     public string $fontFamily = 'serif';
 
     public string $fontSize = '16';

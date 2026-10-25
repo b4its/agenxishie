@@ -37,8 +37,6 @@ class NaskahStudioApp extends Component
 
     public int $targetWordCount = 1500;
 
-    public bool $zenMode = false;
-
     /**
      * Metrik Kepuasan Pengguna / CSAT (HEART - Happiness).
      */
@@ -53,19 +51,7 @@ class NaskahStudioApp extends Component
      */
     public bool $autoSave = true;
 
-    public string $navigationTab = 'headings'; // 'headings', 'pages', 'results'
-
     public string $navigationSearch = '';
-
-    public string $editingMode = 'editing'; // 'editing', 'reviewing', 'viewing'
-
-    public string $activeTaskPane = ''; // '', 'kpi', 'editor', 'comments', 'revisions', 'assistant', 'share'
-
-    public string $rulerUnit = 'in'; // 'in', 'cm'
-
-    public int $currentPage = 1;
-
-    public int $totalPages = 2;
 
     /**
      * Panel Inspeksi 18 UX KPIs.
