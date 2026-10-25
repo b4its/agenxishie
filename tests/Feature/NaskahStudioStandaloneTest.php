@@ -1262,5 +1262,11 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain('cloneContents')
         ->and($script)->toContain('— ')
         ->and($script)->toContain('… ')
-        ->and($script)->toContain('± ');
+        ->and($script)->toContain('± ')
+        ->and($script)->toContain('word-divider')
+        ->and($script)->toContain('prevLi')
+        ->and($script)->toContain('targetEl')
+        ->and($script)->toContain('firstLi')
+        ->and($script)->toContain('ArrowDown')
+        ->and($script)->toContain('ArrowUp');
 });
