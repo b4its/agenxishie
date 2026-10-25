@@ -1257,6 +1257,7 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain('copyCurrentFormat')
         ->and($script)->toContain('pasteCurrentFormat')
         ->and($script)->toContain('insertLineBreak')
+        ->and($script)->toContain('junctionMarker')
         ->and(strtolower($script))->toContain('smart typography')
         ->and($script)->toContain('cloneContents')
         ->and($script)->toContain('— ')
