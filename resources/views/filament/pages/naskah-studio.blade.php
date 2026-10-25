@@ -1193,6 +1193,15 @@
                             <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent="applyIndent(1)" title="Tambah Indentasi (Tab)">&#8677;</button>
                             <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.isBullet }" @mousedown.prevent="format('insertUnorderedList')" title="Daftar Poin (Bullet)">• List</button>
                             <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.isNumbered }" @mousedown.prevent="format('insertOrderedList')" title="Daftar Nomor">1. List</button>
+                            <div style="position:relative; display:inline-block;" x-data="{ openSpacing: false }">
+                                <button type="button" class="ns-btn ns-btn--icon" @click="openSpacing = !openSpacing" title="Spasi Baris (1.0, 1.15, 1.5, 2.0)">↕ ▾</button>
+                                <div x-show="openSpacing" @click.outside="openSpacing = false" class="word-mini-dropdown" style="width: 140px; top: 32px; left: 0;">
+                                    <button type="button" @click="openSpacing = false" @mousedown.prevent="applyLineSpacing('1.0')" class="word-mini-dropdown-item">1.0 Tunggal</button>
+                                    <button type="button" @click="openSpacing = false" @mousedown.prevent="applyLineSpacing('1.15')" class="word-mini-dropdown-item">1.15 Normal</button>
+                                    <button type="button" @click="openSpacing = false" @mousedown.prevent="applyLineSpacing('1.5')" class="word-mini-dropdown-item">1.5 Akademik</button>
+                                    <button type="button" @click="openSpacing = false" @mousedown.prevent="applyLineSpacing('2.0')" class="word-mini-dropdown-item">2.0 Ganda</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1389,6 +1398,12 @@
                             <button type="button" class="ns-btn" wire:click="runTool('/cek-pedoman')">&#128269; Cek Pedoman</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/cek-gap')">&#128300; Cek Gap Riset</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/ringkas')">&#128221; Ringkas Naskah</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Copilot</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="openAssistant" style="background: linear-gradient(135deg, #eef2ff 0%, #f3e8ff 100%); border: 1px solid #c7d2fe; color: #4338ca; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">&#10024; Copilot</button>
                         </div>
                     </div>
 
@@ -1844,8 +1859,13 @@
         <footer class="ns-statusbar">
             <span>Halaman 1 dari 1</span>
             <span>{{ $blockCount }} blok</span>
-            <span>{{ number_format($wordCount) }} kata</span>
-            <span>{{ number_format($charCount) }} karakter</span>
+            <span x-text="(liveWordCount || {{ $wordCount }}) + ' kata'">{{ number_format($wordCount) }} kata</span>
+            <span x-text="(liveCharCount || {{ $charCount }}) + ' karakter'">{{ number_format($charCount) }} karakter</span>
+            <span>{{ $proofingLanguage ?? 'Indonesia (PUEBI)' }}</span>
+            <span style="display:inline-flex; align-items:center; gap:3px;">
+                <span x-show="savingState === 'saving'" style="color:#b45309;">● Menyimpan…</span>
+                <span x-show="savingState === 'saved'" style="color:#15803d;">✓ Tersimpan</span>
+            </span>
             @if (!empty($statistics['readingTimeMinutes']))
                 <span>&#9201; ~{{ $statistics['readingTimeMinutes'] }} menit baca</span>
             @endif
