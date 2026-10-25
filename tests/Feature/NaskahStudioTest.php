@@ -600,3 +600,29 @@ it('closes dialog and updates editor revision on table manipulations and citatio
     $page->call('insertCitation', '(Smith, 2024)');
     expect($page->get('dialog'))->toBe('');
 });
+
+it('merges blocks with prev and next like Microsoft Word and LibreOffice Writer Backspace and Delete', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Halo dunia ', 'runs' => []],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'akademik Indonesia.', 'runs' => []],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Paragraf ketiga.', 'runs' => []],
+        ]);
+
+    // Backspace at pos 0 in block 1 merges block 1 into block 0
+    $page->call('mergeBlockWithPrev', 1);
+    expect($page->get('blocks'))->toHaveCount(2)
+        ->and($page->get('blocks')[0]['text'])->toBe('Halo dunia akademik Indonesia.')
+        ->and($page->get('activeBlock'))->toBe(0);
+
+    // Delete at end of block 0 merges block 1 into block 0
+    $page->call('mergeBlockWithNext', 0);
+    expect($page->get('blocks'))->toHaveCount(1)
+        ->and($page->get('blocks')[0]['text'])->toBe('Halo dunia akademik Indonesia.Paragraf ketiga.')
+        ->and($page->get('activeBlock'))->toBe(0);
+});
+
+it('renders copilot button in filament topbar', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class);
+    $page->assertSeeHtml('Copilot');
+});
