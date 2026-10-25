@@ -715,6 +715,7 @@
             </div>
 
             <div class="ns-topbar__actions">
+                <a href="{{ route('studio.index', ['document' => $documentId]) }}" class="ns-btn ns-btn--primary" style="background:#0f6cbd; color:#ffffff; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Buka Mode Penuh Standalone Word &amp; LibreOffice Studio">&#128065; Buka Full Word Studio &rarr;</a>
                 <button type="button" class="ns-btn" wire:click="openDialog('palette')" title="Pusat Perintah &amp; Fitur (Wordcraft HUD / Ctrl+K)">&#128269; Perintah (Ctrl+K)</button>
                 <button type="button" class="ns-btn" wire:click="openDialog('properties')" title="Properti Dokumen &amp; Metadata">&#8505; Properti</button>
                 <button type="button" class="ns-btn" wire:click="openDialog('shortcuts')" title="Tombol Pintas Papan Ketik">&#9000; Pintas</button>

@@ -628,6 +628,58 @@ window.wordStudioApp = function(config) {
                         return;
                     }
                 }
+
+                // Bila di dalam Blockquote: Enter pada baris kutipan kosong mengakhiri kutipan (Word & LibreOffice)
+                const bq = anchor?.nodeType === 1 ? anchor.closest('blockquote') : anchor?.parentElement?.closest('blockquote');
+                if (bq && (!bq.textContent.trim() || bq.textContent === '')) {
+                    e.preventDefault();
+                    const newP = document.createElement('p');
+                    newP.className = 'word-paragraph-text';
+                    newP.innerHTML = '<br>';
+                    bq.replaceWith(newP);
+                    this.focusNode(newP, false);
+                    this.updateCurrentFormat();
+                    this.syncAllPages();
+                    return;
+                }
+
+                // Bila di dalam Paragraf biasa: Pecah paragraf pada posisi kursor menjadi blok baru (Microsoft Word & LibreOffice Writer)
+                const p = anchor?.nodeType === 1 ? anchor.closest('p.word-paragraph-text, p') : anchor?.parentElement?.closest('p.word-paragraph-text, p');
+                if (p && !p.closest('.word-quote-block') && !cell) {
+                    e.preventDefault();
+                    const range = sel.getRangeAt(0);
+
+                    const preRange = range.cloneRange();
+                    preRange.selectNodeContents(p);
+                    preRange.setEnd(range.endContainer, range.endOffset);
+                    const preHtml = preRange.cloneContents();
+
+                    const postRange = range.cloneRange();
+                    postRange.selectNodeContents(p);
+                    postRange.setStart(range.endContainer, range.endOffset);
+                    const postHtml = postRange.cloneContents();
+
+                    const tempDiv = document.createElement('div');
+                    tempDiv.appendChild(postHtml);
+                    const postString = tempDiv.innerHTML.trim();
+
+                    const newP = document.createElement('p');
+                    newP.className = p.className || 'word-paragraph-text';
+                    if (p.style.textAlign) newP.style.textAlign = p.style.textAlign;
+                    newP.innerHTML = postString ? postString : '<br>';
+
+                    p.innerHTML = '';
+                    p.appendChild(preHtml);
+                    if (!p.innerHTML.trim()) {
+                        p.innerHTML = '<br>';
+                    }
+
+                    p.insertAdjacentElement('afterend', newP);
+                    this.focusNode(newP, false);
+                    this.updateCurrentFormat();
+                    this.syncAllPages();
+                    return;
+                }
             }
 
             // 4. BACKSPACE: Menghapus blok kosong, peleburan paragraf (merge paragraph), atau keluar dari gaya
@@ -789,6 +841,9 @@ window.wordStudioApp = function(config) {
                         { pattern: /->\s$/, replace: '→ ' },
                         { pattern: /<-\s$/, replace: '← ' },
                         { pattern: /<=>\s$/, replace: '⇔ ' },
+                        { pattern: /(\d+)-(\d+)\s$/, replace: '$1–$2 ' },
+                        { pattern: /(\d+)\s*[xX]\s*(\d+)\s$/, replace: '$1 × $2 ' },
+                        { pattern: /(?:^|\s)"([^\s"]+)"\s$/, replace: ' “$1” ' },
                     ];
 
                     for (const r of replacements) {
@@ -920,10 +975,22 @@ window.wordStudioApp = function(config) {
                         if (wire) wire.save(pageHtmls);
                     } else if (key === 'z') {
                         e.preventDefault();
-                        if (wire) wire.undo();
+                        if (document.queryCommandEnabled && document.queryCommandEnabled('undo')) {
+                            document.execCommand('undo');
+                            this.updateCurrentFormat();
+                            this.syncAllPages();
+                        } else if (wire) {
+                            wire.undo();
+                        }
                     } else if (key === 'y') {
                         e.preventDefault();
-                        if (wire) wire.redo();
+                        if (document.queryCommandEnabled && document.queryCommandEnabled('redo')) {
+                            document.execCommand('redo');
+                            this.updateCurrentFormat();
+                            this.syncAllPages();
+                        } else if (wire) {
+                            wire.redo();
+                        }
                     } else if (key === 'f') {
                         e.preventDefault();
                         if (wire) wire.openDialog('find');
