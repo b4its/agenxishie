@@ -3381,6 +3381,9 @@ trait HandlesNaskahStudio
             } elseif (str_contains($tool, 'matriks-literatur') || str_contains($tool, 'cari-referensi') || str_contains($tool, 'abstrak') || str_contains($tool, 'tabel-analisis')) {
                 $target = $targetText !== '' ? Str::limit($targetText, 150, '') : Str::limit($this->docTitle, 150, '');
                 $input = $tool.' '.$target;
+            } elseif (str_contains($tool, 'pendahuluan') || str_contains($tool, 'pembahasan') || str_contains($tool, 'kesimpulan') || str_contains($tool, 'tinjauan-pustaka')) {
+                $target = ! empty($selectedText) ? Str::limit(trim($selectedText), 150, '') : '';
+                $input = $target !== '' ? $tool.' '.$target : $tool;
             }
 
             $this->dispatchAssistant($input, $tool);

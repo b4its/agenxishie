@@ -721,9 +721,14 @@ window.wordStudioApp = function(config) {
 
         runBlockAi(tool) {
             this.showBlockCopilot = false;
+            let textToUse = '';
+            const activeEl = document.querySelector(`[data-block-index="${this.activeBlock}"]`);
+            if (activeEl) {
+                textToUse = activeEl.innerText || activeEl.textContent || '';
+            }
             const wire = this.getWire();
             if (wire) {
-                wire.runTool(tool);
+                wire.runTool(tool, textToUse.trim());
             }
         },
 
@@ -1684,7 +1689,6 @@ window.wordStudioApp = function(config) {
                     } else if (key === 'y') {
                         e.preventDefault();
                         this.redo();
-                        }
                     } else if (key === 'f') {
                         e.preventDefault();
                         if (wire) wire.openDialog('find');
@@ -1772,6 +1776,12 @@ window.wordStudioApp = function(config) {
                 if (e.altKey && (e.key === '=' || e.key === '+')) {
                     e.preventDefault();
                     if (wire) wire.openDialog('equation');
+                }
+
+                // Word 365 Copilot / Xishie Assistant shortcut: Alt+I
+                if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+                    e.preventDefault();
+                    if (wire) wire.toggleAssistant();
                 }
             });
 

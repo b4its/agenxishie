@@ -1280,5 +1280,13 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain('insertHorizontalRule')
         ->and($script)->toContain('insertTable')
         ->and($script)->toContain('insertTableRow')
-        ->and($script)->toContain('insertTableColumn');
+        ->and($script)->toContain('insertTableColumn')
+        ->and($script)->toContain('undo()')
+        ->and($script)->toContain('redo()')
+        ->and($script)->toContain('cut()')
+        ->and($script)->toContain('copy()')
+        ->and($script)->toContain('paste()')
+        ->and($script)->toContain('saveDocument')
+        ->and($script)->toContain("e.key === 'i' || e.key === 'I'")
+        ->and($script)->toContain('toggleAssistant');
 });
