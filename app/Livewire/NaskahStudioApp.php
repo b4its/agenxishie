@@ -54,13 +54,6 @@ class NaskahStudioApp extends Component
     public string $navigationSearch = '';
 
     /**
-     * Panel Inspeksi 18 UX KPIs.
-     */
-    public bool $kpiDrawerOpen = false;
-
-    public string $kpiActiveFramework = 'HEART'; // 'HEART', 'AARRR', 'UX', 'RESOURCES'
-
-    /**
      * Kontrol Agency / Human-In-The-Loop (HITL).
      */
     public string $controlMode = 'hitl'; // 'manual', 'hitl', 'automation'
@@ -82,7 +75,6 @@ class NaskahStudioApp extends Component
         $this->showComments = false;
         $this->showRevisions = false;
         $this->assistantOpen = false;
-        $this->kpiDrawerOpen = false;
 
         // Inisialisasi dokumen contoh handbook Microsoft Word hanya jika belum ada blok sama sekali
         if ($targetDocId === null && empty($this->blocks)) {
@@ -240,31 +232,6 @@ class NaskahStudioApp extends Component
     public function toggleZenMode(): void
     {
         $this->zenMode = ! $this->zenMode;
-    }
-
-    /**
-     * Buka / Tutup Drawer 18 UX KPIs.
-     */
-    public function toggleKpiDrawer(?string $framework = null): void
-    {
-        if ($framework !== null) {
-            $this->kpiActiveFramework = $framework;
-            $this->kpiDrawerOpen = true;
-
-            return;
-        }
-
-        $this->kpiDrawerOpen = ! $this->kpiDrawerOpen;
-    }
-
-    /**
-     * Ubah framework aktif dalam KPI drawer.
-     */
-    public function setKpiFramework(string $framework): void
-    {
-        if (in_array($framework, ['HEART', 'AARRR', 'UX', 'RESOURCES'], true)) {
-            $this->kpiActiveFramework = $framework;
-        }
     }
 
     /**
@@ -450,8 +417,6 @@ class NaskahStudioApp extends Component
         $viewData['targetWordCount'] = $this->targetWordCount;
         $viewData['csatScore'] = $this->csatScore;
         $viewData['csatSubmitted'] = $this->csatSubmitted;
-        $viewData['kpiDrawerOpen'] = $this->kpiDrawerOpen;
-        $viewData['kpiActiveFramework'] = $this->kpiActiveFramework;
         $viewData['controlMode'] = $this->controlMode;
 
         return view('livewire.naskah-studio-app', $viewData);

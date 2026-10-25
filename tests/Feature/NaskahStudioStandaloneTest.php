@@ -90,17 +90,18 @@ it('records interactive csat rating into ux kpi telemetry', function (): void {
     )->toBeTrue();
 });
 
-it('toggles zen focus mode and kpi drawer', function (): void {
+it('toggles zen focus mode and assistant taskpane', function (): void {
     $page = Livewire::test(NaskahStudioApp::class);
 
     expect($page->get('zenMode'))->toBeFalse();
     $page->call('toggleZenMode');
     expect($page->get('zenMode'))->toBeTrue();
 
-    expect($page->get('kpiDrawerOpen'))->toBeFalse();
-    $page->call('toggleKpiDrawer', 'AARRR');
-    expect($page->get('kpiDrawerOpen'))->toBeTrue()
-        ->and($page->get('kpiActiveFramework'))->toBe('AARRR');
+    expect($page->get('assistantOpen'))->toBeFalse();
+    $page->call('openAssistant');
+    expect($page->get('assistantOpen'))->toBeTrue();
+    $page->call('closeAssistant');
+    expect($page->get('assistantOpen'))->toBeFalse();
 });
 
 it('runs typographical auto-correct and table formulas outside admin', function (): void {

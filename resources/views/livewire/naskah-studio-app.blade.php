@@ -2934,14 +2934,20 @@
                     </div>
                     <div class="word-dialog__body">
                         <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Alt + I</td><td>Open / Close Xishie Assistant AI Copilot</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + S</td><td>Save document</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Z</td><td>Undo change</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Y</td><td>Redo change</td></tr>
-                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + K</td><td>Search commands &amp; actions</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + K</td><td>Search commands &amp; actions (Command Palette)</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + F</td><td>Find and Replace</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Enter</td><td>Insert Page Break</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + B</td><td>Bold</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + I</td><td>Italic</td></tr>
-                            <tr><td style="padding:4px 0; font-weight:600;">Ctrl + U</td><td>Underline</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + U</td><td>Underline</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + [ / ]</td><td>Decrease / Increase Font Size</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Shift + C / V</td><td>Copy / Apply Format (Format Painter)</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Alt + 1 / 2 / 3</td><td>Apply Heading 1 / 2 / 3 Style</td></tr>
+                            <tr><td style="padding:4px 0; font-weight:600;">Ctrl + Alt + 0</td><td>Apply Normal Text Style</td></tr>
                         </table>
                     </div>
                     <div class="word-dialog__footer">

@@ -2974,9 +2974,6 @@ trait HandlesNaskahStudio
         if (property_exists($this, 'activeTaskPane')) {
             $this->activeTaskPane = 'assistant';
         }
-        if (property_exists($this, 'kpiDrawerOpen')) {
-            $this->kpiDrawerOpen = false;
-        }
     }
 
     public function closeAssistant(): void
@@ -2997,26 +2994,14 @@ trait HandlesNaskahStudio
             $this->assistantOpen = true;
             $this->showComments = false;
             $this->showRevisions = false;
-            if (property_exists($this, 'kpiDrawerOpen')) {
-                $this->kpiDrawerOpen = false;
-            }
         } elseif ($pane === 'comments') {
             $this->showComments = true;
             $this->assistantOpen = false;
             $this->showRevisions = false;
-            if (property_exists($this, 'kpiDrawerOpen')) {
-                $this->kpiDrawerOpen = false;
-            }
         } elseif ($pane === 'revisions') {
             $this->showRevisions = true;
             $this->assistantOpen = false;
             $this->showComments = false;
-            if (property_exists($this, 'kpiDrawerOpen')) {
-                $this->kpiDrawerOpen = false;
-            }
-        } elseif ($pane === 'kpi' && property_exists($this, 'kpiDrawerOpen')) {
-            $this->kpiDrawerOpen = true;
-            $this->assistantOpen = false;
         }
     }
 
@@ -3024,9 +3009,6 @@ trait HandlesNaskahStudio
     {
         if (property_exists($this, 'activeTaskPane')) {
             $this->activeTaskPane = '';
-        }
-        if (property_exists($this, 'kpiDrawerOpen')) {
-            $this->kpiDrawerOpen = false;
         }
         $this->assistantOpen = false;
         $this->showComments = false;

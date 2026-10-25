@@ -483,17 +483,20 @@
             width: 1.8rem;
         }
 
-        /* Panel Samping (Drawer Kanan) */
+        /* Panel Samping (Drawer Kanan / Task Pane) */
         .ns-drawer {
             border: 1px solid var(--rb-border-color, #cbd5e1);
             background: var(--rb-surface, #ffffff);
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(15,23,42,.05);
-            width: 290px;
-            max-height: 82vh;
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(15,23,42,.08);
+            width: 360px;
+            max-width: calc(100vw - 2rem);
+            max-height: 84vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            position: sticky;
+            top: .5rem;
         }
         .ns-drawer__header {
             display: flex;
@@ -1546,7 +1549,7 @@
         @endif
 
         {{-- ================= WORKSPACE ================= --}}
-        <div class="ns-workspace" style="@if(!$showNavigation) grid-template-columns: minmax(0,1fr) @if($showComments || $showRevisions) auto @endif; @endif">
+        <div class="ns-workspace" style="@if(!$showNavigation) grid-template-columns: minmax(0,1fr) @if($showComments || $showRevisions || $assistantOpen) auto @endif; @endif">
 
             {{-- 1. LEFT SIDEBAR: NAVIGATOR --}}
             @if ($showNavigation)
@@ -1786,11 +1789,156 @@
                 </div>
             </main>
 
-            {{-- 3. RIGHT SIDEBAR: KOMENTAR & LACAK REVISI --}}
-            @if ($showComments || $showRevisions)
-                <aside class="ns-drawer" aria-label="Panel Komentar dan Revisi">
+            {{-- 3. RIGHT SIDEBAR: XISHIE ASSISTANT, KOMENTAR & LACAK REVISI --}}
+            @if ($assistantOpen || $showComments || $showRevisions)
+                <aside class="ns-drawer" aria-label="Panel Samping Tugas dan Asisten">
+                    {{-- 1. XISHIE ASSISTANT DOCKED TASK PANE --}}
+                    @if ($assistantOpen)
+                        <div class="ns-drawer__header" style="background: linear-gradient(135deg, #1e40af 0%, #312e81 100%); color:#ffffff;">
+                            <div style="display:flex; align-items:center; gap:.4rem;">
+                                <span>✨</span>
+                                <span style="font-weight:700;">XISHIE ASSISTANT</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:.35rem;">
+                                @if (!empty($assistantLog))
+                                    <button type="button" class="ns-btn" style="font-size:.58rem; padding:.1rem .35rem; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:#fff;" wire:click="clearAssistantLog" title="Bersihkan riwayat chat">🗑️</button>
+                                @endif
+                                <button type="button" style="background:transparent; border:none; color:#ffffff; cursor:pointer; font-size:1.1rem; line-height:1;" wire:click="closeAssistant" title="Tutup asisten">&times;</button>
+                            </div>
+                        </div>
+
+                        {{-- Sub-header Context Bar --}}
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:.35rem .6rem; background:#eff6ff; border-bottom:1px solid #dbeafe; font-size:.62rem; color:#1e40af;">
+                            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px; font-weight:600;">
+                                📄 {{ Str::limit($docTitle, 24) }}
+                            </span>
+                            <span style="background:#dbeafe; color:#1e40af; font-weight:700; padding:1px 6px; border-radius:999px;">
+                                Blok #{{ $activeBlock + 1 }}
+                            </span>
+                        </div>
+
+                        {{-- Quick Academic Slash Command Chips --}}
+                        <div style="display:flex; flex-wrap:wrap; gap:.25rem; padding:.45rem .6rem; background:#f8fafc; border-bottom:1px solid #e2e8f0; max-height:85px; overflow-y:auto;">
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/poles')" title="Poles tata bahasa akademik">✍️ /poles</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/parafrase')" title="Parafrase akademik kalimat aktif">🔄 /parafrase</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/cek-pedoman')" title="Audit kepatuhan pedoman &amp; kaidah ilmiah">🎯 /cek-pedoman</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/sitasi')" title="Cari rekomendasi sitasi valid">📚 /sitasi</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/matriks-literatur')" title="Bangun tabel matriks literatur (SOTA)">📊 /matriks-literatur</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/cek-gap')" title="Audit gap riset &amp; kebaruan">🔬 /cek-gap</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/kembangkan')" title="Elaborasi dan kembangkan poin">⚡ /kembangkan</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/rumus')" title="Rekomendasi formula LaTeX">π /rumus</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/abstrak')" title="Susun draf abstrak IMRAD">📜 /abstrak</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/metodologi')" title="Rancang struktur metodologi">📐 /metode</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/tabel-analisis')" title="Buat tabel komparasi analisis">📊 /tabel-analisis</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/puebi')" title="Periksa ejaan dan PUEBI baku">🔍 /puebi</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/terjemahkan')" title="Terjemahan akademik formal">🌐 /terjemahkan</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/pendahuluan')" title="Rancang Bab Pendahuluan">📖 /pendahuluan</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/pembahasan')" title="Sintesis Bab Pembahasan">💬 /pembahasan</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/kesimpulan')" title="Rumuskan Bab Kesimpulan">🏁 /kesimpulan</button>
+                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/tinjauan-pustaka')" title="Tinjauan Pustaka &amp; Teori">📚 /tinjauan-pustaka</button>
+                        </div>
+
+                        {{-- Assistant Body / Chat Stream --}}
+                        <div class="ns-drawer__body" style="flex:1; overflow-y:auto; padding:.6rem; display:flex; flex-direction:column; gap:.5rem;"
+                             x-init="$watch('$el.children.length', () => $nextTick(() => $el.scrollTop = $el.scrollHeight)); $nextTick(() => $el.scrollTop = $el.scrollHeight);">
+                            @if (empty($assistantLog))
+                                <div style="text-align:center; padding:1.2rem .5rem; display:flex; flex-direction:column; align-items:center; gap:.5rem;">
+                                    <div style="width:42px; height:42px; border-radius:10px; background:linear-gradient(135deg, #eef2ff 0%, #ede9fe 100%); display:flex; align-items:center; justify-content:center; font-size:20px; box-shadow:0 2px 8px rgba(99,102,241,0.15);">
+                                        ✨
+                                    </div>
+                                    <div style="font-weight:700; font-size:.85rem; color:#1e293b;">
+                                        Xishie Assistant Siap Membantu
+                                    </div>
+                                    <p style="font-size:.65rem; color:#64748b; line-height:1.45; margin:0;">
+                                        Pilih pintasan perintah di atas atau ketik pertanyaan langsung untuk memoles paragraf, memeriksa kepatuhan pedoman, sitasi, atau menyusun draf bab.
+                                    </p>
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:.35rem; width:100%; margin-top:.3rem; text-align:left;">
+                                        <div class="ns-tool-card" wire:click="runTool('/poles')" style="cursor:pointer; padding:.4rem .5rem;">
+                                            <span style="font-size:.85rem;">🪄</span>
+                                            <div>
+                                                <div style="font-weight:700; font-size:.65rem; color:#4338ca;">Poles Teks</div>
+                                                <div style="font-size:.55rem; color:#64748b;">Perbaiki gaya akademik</div>
+                                            </div>
+                                        </div>
+                                        <div class="ns-tool-card" wire:click="runTool('/parafrase')" style="cursor:pointer; padding:.4rem .5rem;">
+                                            <span style="font-size:.85rem;">🔄</span>
+                                            <div>
+                                                <div style="font-weight:700; font-size:.65rem; color:#4338ca;">Parafrase</div>
+                                                <div style="font-size:.55rem; color:#64748b;">Bebas plagiasi</div>
+                                            </div>
+                                        </div>
+                                        <div class="ns-tool-card" wire:click="runTool('/cek-pedoman')" style="cursor:pointer; padding:.4rem .5rem;">
+                                            <span style="font-size:.85rem;">🎯</span>
+                                            <div>
+                                                <div style="font-weight:700; font-size:.65rem; color:#4338ca;">Cek Pedoman</div>
+                                                <div style="font-size:.55rem; color:#64748b;">Audit kaidah naskah</div>
+                                            </div>
+                                        </div>
+                                        <div class="ns-tool-card" wire:click="runTool('/sitasi')" style="cursor:pointer; padding:.4rem .5rem;">
+                                            <span style="font-size:.85rem;">📚</span>
+                                            <div>
+                                                <div style="font-weight:700; font-size:.65rem; color:#4338ca;">Cari Sitasi</div>
+                                                <div style="font-size:.55rem; color:#64748b;">Rujukan ilmiah valid</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @else
+                                @foreach ($assistantLog as $logIndex => $msg)
+                                    <div class="ns-msg ns-msg--{{ $msg['role'] === 'user' ? 'user' : 'assistant' }}" style="padding:.5rem .65rem; border-radius:6px; font-size:.7rem; @if($msg['role'] === 'user') background:#eff6ff; border:1px solid #bfdbfe; margin-left:1.5rem; @else background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-right:.5rem; @endif">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.25rem; font-size:.6rem; font-weight:700; color:{{ $msg['role'] === 'user' ? '#1d4ed8' : '#4338ca' }};">
+                                            <span>{{ $msg['role'] === 'user' ? '👤 Anda' : '✨ Xishie Assistant' }}</span>
+                                            @if(!empty($msg['command']))
+                                                <span style="background:#ede9fe; color:#5b21b6; padding:1px 5px; border-radius:4px; font-family:var(--rb-font-mono);">{{ $msg['command'] }}</span>
+                                            @endif
+                                        </div>
+                                        <div style="line-height:1.55; color:#1e293b;" class="word-markdown-content">
+                                            {!! \Illuminate\Support\Str::markdown($msg['content'] ?? '') !!}
+                                        </div>
+                                        @if (($msg['role'] ?? '') === 'assistant')
+                                            <div style="display:flex; gap:.3rem; margin-top:.4rem; border-top:1px dashed #cbd5e1; padding-top:.35rem; flex-wrap:wrap; align-items:center;">
+                                                <button type="button" class="ns-btn ns-btn--primary" style="font-size:.58rem; padding:.15rem .4rem;" wire:click="insertAssistantResponse({{ $logIndex }})" title="Sisipkan rekomendasi ini ke naskah">
+                                                    ➕ Sisipkan ke Naskah
+                                                </button>
+                                                <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .4rem;" wire:click="replaceActiveBlockWithAssistant({{ $logIndex }})" title="Ganti blok aktif dengan rekomendasi ini">
+                                                    🔄 Ganti Blok Aktif
+                                                </button>
+                                                <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .4rem;" x-data="{ copied: false }" @click="navigator.clipboard?.writeText(@js($msg['content'])); copied = true; setTimeout(() => copied = false, 2000)" title="Salin Jawaban">
+                                                    📋 <span x-text="copied ? 'Tersalin' : 'Salin'"></span>
+                                                </button>
+                                            </div>
+                                            <div style="display:flex; flex-wrap:wrap; gap:.25rem; margin-top:.3rem;">
+                                                <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#f8fafc;" wire:click="sendAssistantWithText('Jelaskan rekomendasi ini secara lebih mendalam dengan rincian operasional.')">💡 Perjelas Operasional</button>
+                                                <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#f8fafc;" wire:click="sendAssistantWithText('Buatkan alternatif formulasi lain untuk kalimat/bagian ini.')">🔄 Alternatif Lain</button>
+                                                <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#f8fafc;" wire:click="sendAssistantWithText('Buat formulasi kalimat yang lebih padat dan ringkas.')">✂️ Padatkan Versi</button>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            @endif
+
+                            @if ($assistantBusy)
+                                <div style="padding:.5rem .65rem; border-radius:6px; background:#f5f3ff; border:1px solid #ddd6fe; font-size:.68rem; color:#5b21b6; display:flex; align-items:center; gap:.4rem;">
+                                    <span style="animation: spin 1s linear infinite;">⏳</span> Sedang merumuskan rekomendasi penulisan ilmiah…
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- Assistant Input Bar --}}
+                        <div style="padding:.5rem .6rem; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; gap:.35rem; align-items:center;">
+                            <input type="text" class="ns-btn" style="flex:1; font-size:.7rem; background:#ffffff; text-align:left;"
+                                   placeholder="Tanya Xishie (mis. /poles, /parafrase, atau konsultasi)..."
+                                   wire:model="assistantInput" wire:keydown.enter="sendAssistant" />
+                            <button type="button" class="ns-btn ns-btn--primary" style="font-size:.7rem; padding:.3rem .6rem;"
+                                    wire:click="sendAssistant" wire:loading.attr="disabled" wire:target="sendAssistant,runTool,sendAssistantWithText">
+                                Kirim
+                            </button>
+                        </div>
+                    @endif
+
+                    {{-- 2. PANEL KOMENTAR --}}
                     @if ($showComments)
-                        <div class="ns-drawer__header">
+                        <div class="ns-drawer__header" style="@if($assistantOpen) border-top:2px solid #cbd5e1; @endif">
                             <span>&#128172; Komentar ({{ count($comments) }})</span>
                             <button type="button" wire:click="$toggle('showComments')" style="background:none; border:none; cursor:pointer;">&times;</button>
                         </div>
@@ -1821,6 +1969,7 @@
                         </div>
                     @endif
 
+                    {{-- 3. PANEL LACAK REVISI --}}
                     @if ($showRevisions)
                         <div class="ns-drawer__header" style="border-top:1px solid #e2e8f0;">
                             <span>&#128065; Revisi ({{ $pendingRevisionCount }} pending)</span>
@@ -2357,15 +2506,20 @@
                             <table class="ns-table" style="font-size:.7rem;">
                                 <thead><tr><th>Tombol</th><th>Fungsi</th><th>Kategori</th></tr></thead>
                                 <tbody>
+                                    <tr><td><code>Alt + I</code></td><td>Buka / Tutup Xishie Assistant (AI Copilot)</td><td>Kecerdasan Buatan</td></tr>
                                     <tr><td><code>Ctrl + S</code></td><td>Simpan Naskah</td><td>Berkas</td></tr>
                                     <tr><td><code>Ctrl + Z</code></td><td>Urungkan Perubahan (Undo)</td><td>Sunting</td></tr>
                                     <tr><td><code>Ctrl + Y</code></td><td>Ulangi Perubahan (Redo)</td><td>Sunting</td></tr>
+                                    <tr><td><code>Ctrl + K</code></td><td>Pusat Perintah &amp; Fitur (Command Palette)</td><td>Alat</td></tr>
+                                    <tr><td><code>Ctrl + F</code></td><td>Cari dan Ganti Teks</td><td>Sunting</td></tr>
+                                    <tr><td><code>Ctrl + Enter</code></td><td>Pemisah Halaman (Page Break)</td><td>Sisipkan</td></tr>
                                     <tr><td><code>Ctrl + B</code></td><td>Cetak Tebal (Bold)</td><td>Format</td></tr>
                                     <tr><td><code>Ctrl + I</code></td><td>Cetak Miring (Italic)</td><td>Format</td></tr>
                                     <tr><td><code>Ctrl + U</code></td><td>Garis Bawah (Underline)</td><td>Format</td></tr>
-                                    <tr><td><code>Ctrl + K</code></td><td>Pusat Perintah &amp; Fitur (Command Palette)</td><td>Alat</td></tr>
-                                    <tr><td><code>Ctrl + Enter</code></td><td>Pemisah Halaman (Page Break)</td><td>Sisipkan</td></tr>
-                                    <tr><td><code>Ctrl + F</code></td><td>Cari dan Ganti Teks</td><td>Sunting</td></tr>
+                                    <tr><td><code>Ctrl + [ / ]</code></td><td>Kecilkan / Besarkan Ukuran Huruf (Font Size)</td><td>Format</td></tr>
+                                    <tr><td><code>Ctrl + Shift + C / V</code></td><td>Salin / Tempel Format (Format Painter)</td><td>Format</td></tr>
+                                    <tr><td><code>Ctrl + Alt + 1 / 2 / 3</code></td><td>Terapkan Gaya Judul 1 / 2 / 3 (Heading)</td><td>Format Gaya</td></tr>
+                                    <tr><td><code>Ctrl + Alt + 0</code></td><td>Terapkan Gaya Paragraf Normal</td><td>Format Gaya</td></tr>
                                     <tr><td><code>Ctrl + P</code></td><td>Cetak Dokumen</td><td>Berkas</td></tr>
                                 </tbody>
                             </table>
@@ -2379,109 +2533,11 @@
             </div>
         @endif
 
-        {{-- ================= XISHIE ASSISTANT (FLOATING PANEL & FAB) ================= --}}
-        @if ($assistantOpen)
-            <div class="ns-assistant" aria-label="Xishie Assistant Panel">
-                <div class="ns-assistant__titlebar">
-                    <span>&#10024; XISHIE ASSISTANT · WORDCRAFT CO-WRITER</span>
-                    <div style="display:flex; align-items:center; gap:.4rem;">
-                        @if (!empty($assistantLog))
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.1rem .3rem; background:transparent;" wire:click="clearAssistantLog" title="Bersihkan riwayat">&#128465; Bersihkan</button>
-                        @endif
-                        <button type="button" style="background:transparent; border:none; color:inherit; cursor:pointer; font-size:1.1rem; line-height:1;" wire:click="closeAssistant" aria-label="Tutup asisten">&times;</button>
-                    </div>
-                </div>
-                <div class="ns-assistant__body">
-                    <p style="font-family:var(--rb-font-mono); font-size:.6rem; color:var(--rb-ink-muted); margin:0;">
-                        Pilih perintah slash atau ajukan pertanyaan bebas dengan konteks naskah &amp; proyek.
-                    </p>
-
-                    <div class="ns-tools-grid">
-                        @foreach ($assistantTools as $tool)
-                            @php $on = in_array($tool['name'], $activeTools, true); @endphp
-                            <button type="button" class="ns-tool-card @if($on) ns-tool-card--on @endif"
-                                    wire:click="toggleTool('{{ $tool['name'] }}')"
-                                    title="{{ $tool['description'] }}">
-                                <span style="font-weight:700;">@if($on)&#10003;@else&#9675;@endif</span>
-                                <span>{{ $tool['label'] }}</span>
-                            </button>
-                        @endforeach
-                    </div>
-
-                    {{-- Quick Academic Copilot Tool Buttons --}}
-                    <div style="display:flex; flex-wrap:wrap; gap:.25rem; border-top:1px dashed #cbd5e1; padding-top:.35rem;">
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/poles')" title="Poles tata bahasa akademik">✍️ Poles</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/parafrase')" title="Parafrase akademik kalimat aktif">🔄 Parafrase</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/kembangkan')" title="Elaborasi dan kembangkan poin">⚡ Kembangkan</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/puebi')" title="Periksa ejaan dan PUEBI baku">🔍 PUEBI</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/abstrak')" title="Susun draf abstrak IMRAD">📜 Abstrak</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/metodologi')" title="Rancang struktur metodologi">📐 Metode</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/tabel-analisis')" title="Buat tabel komparasi analisis">📊 Tabel</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/terjemahkan')" title="Terjemahan akademik formal">🌐 Terjemahkan</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/rumus')" title="Rekomendasi formula LaTeX">π Rumus</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/cek-gap')" title="Audit gap riset & SOTA">🔬 Gap Riset</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/pendahuluan')" title="Rancang Bab Pendahuluan">📖 Pendahuluan</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/pembahasan')" title="Sintesis Bab Pembahasan">💬 Pembahasan</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/kesimpulan')" title="Rumuskan Bab Kesimpulan">🏁 Kesimpulan</button>
-                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/tinjauan-pustaka')" title="Tinjauan Pustaka & Teori">📚 Tinjauan Pustaka</button>
-                    </div>
-
-                    @if (count($activeTools) > 0)
-                        <div style="display:flex; gap:.3rem; flex-wrap:wrap;">
-                            @foreach ($activeTools as $activeTool)
-                                <button type="button" class="ns-btn ns-btn--primary" style="font-size:.6rem; padding:.2rem .45rem;"
-                                        wire:click="runTool('{{ $activeTool }}')" wire:loading.attr="disabled" wire:target="runTool">
-                                    &#9889; Jalankan {{ str_replace('-', ' ', ltrim($activeTool, '/')) }}
-                                </button>
-                            @endforeach
-                        </div>
-                    @endif
-
-                    <div style="display:flex; gap:.3rem;">
-                        <input type="text" class="ns-btn" style="flex:1; font-size:.68rem;" placeholder="Tanya Xishie tentang naskah ini..." wire:model="assistantInput" wire:keydown.enter="sendAssistant" />
-                        <button type="button" class="ns-btn ns-btn--primary" wire:click="sendAssistant" wire:loading.attr="disabled" wire:target="sendAssistant">Kirim</button>
-                    </div>
-
-                    <div class="ns-chatlog">
-                        @forelse ($assistantLog as $logIndex => $msg)
-                            <div class="ns-msg ns-msg--{{ $msg['role'] === 'user' ? 'user' : 'assistant' }}">
-                                <span class="ns-msg__role">{{ $msg['role'] === 'user' ? 'Anda' : 'Xishie' }}@if(!empty($msg['command'])) · {{ ltrim($msg['command'], '/') }}@endif</span>
-                                <div style="line-height:1.55; margin-bottom:.35rem;">{!! \Illuminate\Support\Str::markdown($msg['content'] ?? '') !!}</div>
-                                @if (($msg['role'] ?? '') === 'assistant')
-                                    <div style="display:flex; gap:.3rem; margin-top:.4rem; border-top:1px dashed #cbd5e1; padding-top:.3rem; flex-wrap:wrap; align-items:center;">
-                                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="insertAssistantResponse({{ $logIndex }})" title="Sisipkan ke naskah">
-                                            ➕ Sisipkan
-                                        </button>
-                                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="replaceActiveBlockWithAssistant({{ $logIndex }})" title="Ganti blok aktif">
-                                            🔄 Ganti Blok
-                                        </button>
-                                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" x-data="{ copied: false }" @click="navigator.clipboard?.writeText(@js($msg['content'])); copied = true; setTimeout(() => copied = false, 2000)" title="Salin Jawaban">
-                                            📋 <span x-text="copied ? 'Tersalin' : 'Salin'"></span>
-                                        </button>
-                                    </div>
-                                    <div style="display:flex; flex-wrap:wrap; gap:.25rem; margin-top:.35rem;">
-                                        <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#ffffff;" wire:click="sendAssistantWithText('Jelaskan rekomendasi ini secara lebih mendalam dengan rincian operasional.')">💡 Perjelas Operasional</button>
-                                        <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#ffffff;" wire:click="sendAssistantWithText('Buatkan alternatif formulasi lain untuk kalimat/bagian ini.')">🔄 Alternatif Lain</button>
-                                        <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#ffffff;" wire:click="sendAssistantWithText('Buat formulasi kalimat yang lebih padat dan ringkas.')">✂️ Padatkan Versi</button>
-                                    </div>
-                                @endif
-                            </div>
-                        @empty
-                            <p style="font-family:var(--rb-font-mono); font-size:.6rem; color:var(--rb-ink-muted); margin:0;">Belum ada percakapan.</p>
-                        @endforelse
-                        @if ($assistantBusy)
-                            <div class="ns-msg ns-msg--assistant"><span class="ns-msg__role">Xishie</span>Sedang memproses…</div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        @endif
-
         {{-- FAB Floating Assistant Button --}}
         @if (!$assistantOpen)
-            <button type="button" class="ns-fab" wire:click="openAssistant" aria-label="Buka Xishie Assistant">
+            <button type="button" class="ns-fab" wire:click="openAssistant" aria-label="Buka Xishie Assistant" title="Buka Xishie Assistant (Alt + I)">
                 <span class="ns-fab__dot"></span>
-                <span>&#10024; Xishie Assistant</span>
+                <span>✨ Xishie Assistant</span>
             </button>
         @endif
 
