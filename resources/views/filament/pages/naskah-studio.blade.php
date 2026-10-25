@@ -1060,8 +1060,8 @@
                     <span wire:loading.remove wire:target="save">&#128190; Simpan</span>
                     <span wire:loading wire:target="save">Menyimpan…</span>
                 </button>
-                <button type="button" class="ns-btn ns-btn--icon" wire:click="undo" @disabled(empty($undoStack)) title="Urungkan (Undo)">&#8630;</button>
-                <button type="button" class="ns-btn ns-btn--icon" wire:click="redo" @disabled(empty($redoStack)) title="Ulangi (Redo)">&#8631;</button>
+                <button type="button" class="ns-btn ns-btn--icon" @click="undo()" title="Urungkan (Undo Ctrl+Z)">&#8630;</button>
+                <button type="button" class="ns-btn ns-btn--icon" @click="redo()" title="Ulangi (Redo Ctrl+Y)">&#8631;</button>
 
                 <input type="text" class="ns-topbar__title-input" wire:model="docTitle" wire:change="markDirty" placeholder="Judul Dokumen" aria-label="Judul Dokumen" />
 
@@ -1135,8 +1135,10 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Papan Klip</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="copyFormat({{ $activeBlock }})" title="Sapu Format (Salin Gaya Blok)">&#128396; Salin Format</button>
-                            <button type="button" class="ns-btn" wire:click="pasteFormat({{ $activeBlock }})" @disabled(! $copiedFormat) title="Terapkan Gaya Tersalin">&#128203; Terapkan</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent @click="paste()" title="Tempel dari Clipboard (Ctrl+V)">📋 Tempel</button>
+                            <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent @click="cut()" title="Potong Teks (Ctrl+X)">✂</button>
+                            <button type="button" class="ns-btn ns-btn--icon" @mousedown.prevent @click="copy()" title="Salin Teks (Ctrl+C)">⎘</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent @click="copyCurrentFormat()" title="Sapu Format (Format Painter)">🖌 Format</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1555,7 +1557,7 @@
                     <div class="ns-nav__body">
                         @forelse ($outline as $node)
                             <button type="button" class="ns-nav__item @if($node['level'] === 2) ns-nav__item--l2 @elseif($node['level'] >= 3) ns-nav__item--l3 @endif"
-                                    x-on:click="document.getElementById('ns-block-{{ $node['index'] }}')?.scrollIntoView({behavior:'smooth', block:'center'})">
+                                    x-on:click="(document.getElementById('heading-{{ $node['index'] }}') || document.getElementById('word-block-{{ $node['index'] }}'))?.scrollIntoView({behavior:'smooth', block:'center'})">
                                 <span>{{ $node['text'] }}</span>
                                 <span style="font-size:.55rem; color:var(--rb-ink-muted);">H{{ $node['level'] }}</span>
                             </button>
@@ -2418,6 +2420,10 @@
                         <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/terjemahkan')" title="Terjemahan akademik formal">🌐 Terjemahkan</button>
                         <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/rumus')" title="Rekomendasi formula LaTeX">π Rumus</button>
                         <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/cek-gap')" title="Audit gap riset & SOTA">🔬 Gap Riset</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/pendahuluan')" title="Rancang Bab Pendahuluan">📖 Pendahuluan</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/pembahasan')" title="Sintesis Bab Pembahasan">💬 Pembahasan</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/kesimpulan')" title="Rumuskan Bab Kesimpulan">🏁 Kesimpulan</button>
+                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem;" wire:click="runTool('/tinjauan-pustaka')" title="Tinjauan Pustaka & Teori">📚 Tinjauan Pustaka</button>
                     </div>
 
                     @if (count($activeTools) > 0)

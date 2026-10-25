@@ -636,6 +636,60 @@ window.wordStudioApp = function(config) {
             this.syncAllPages();
         },
 
+        undo() {
+            if (document.queryCommandEnabled && document.queryCommandEnabled('undo')) {
+                document.execCommand('undo');
+                this.updateCurrentFormat();
+                this.syncAllPages();
+            } else {
+                const wire = this.getWire();
+                if (wire) wire.undo();
+            }
+        },
+
+        redo() {
+            if (document.queryCommandEnabled && document.queryCommandEnabled('redo')) {
+                document.execCommand('redo');
+                this.updateCurrentFormat();
+                this.syncAllPages();
+            } else {
+                const wire = this.getWire();
+                if (wire) wire.redo();
+            }
+        },
+
+        cut() {
+            const sel = window.getSelection();
+            if (sel && !sel.isCollapsed) {
+                document.execCommand('cut');
+                this.syncAllPages();
+            }
+        },
+
+        copy() {
+            const sel = window.getSelection();
+            if (sel && !sel.isCollapsed) {
+                document.execCommand('copy');
+            }
+        },
+
+        async paste() {
+            try {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    const text = await navigator.clipboard.readText();
+                    if (text) {
+                        document.execCommand('insertText', false, text);
+                        this.syncAllPages();
+                    }
+                } else {
+                    document.execCommand('paste');
+                    this.syncAllPages();
+                }
+            } catch (err) {
+                document.execCommand('paste');
+            }
+        },
+
         updateActiveBlock(event) {
             const target = event.target;
             if (!target) return;
@@ -1623,27 +1677,13 @@ window.wordStudioApp = function(config) {
                         if (wire) wire.openDialog('palette');
                     } else if (key === 's') {
                         e.preventDefault();
-                        const pageEls = document.querySelectorAll('.word-sheet-content');
-                        const pageHtmls = [];
-                        pageEls.forEach(el => pageHtmls.push(el.innerHTML));
-                        if (wire) wire.save(pageHtmls);
+                        this.saveDocument();
                     } else if (key === 'z') {
                         e.preventDefault();
-                        if (document.queryCommandEnabled && document.queryCommandEnabled('undo')) {
-                            document.execCommand('undo');
-                            this.updateCurrentFormat();
-                            this.syncAllPages();
-                        } else if (wire) {
-                            wire.undo();
-                        }
+                        this.undo();
                     } else if (key === 'y') {
                         e.preventDefault();
-                        if (document.queryCommandEnabled && document.queryCommandEnabled('redo')) {
-                            document.execCommand('redo');
-                            this.updateCurrentFormat();
-                            this.syncAllPages();
-                        } else if (wire) {
-                            wire.redo();
+                        this.redo();
                         }
                     } else if (key === 'f') {
                         e.preventDefault();

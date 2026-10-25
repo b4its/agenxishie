@@ -3803,6 +3803,62 @@ trait HandlesNaskahStudio
             return ['reply' => $reply, 'data' => ['diagram' => true]];
         }
 
+        if (str_starts_with($effectiveInput, '/pendahuluan') || str_starts_with($effectiveInput, '/latar-belakang')) {
+            $topic = trim((string) preg_replace('/^\/(pendahuluan|latar-belakang)\s*/i', '', $effectiveInput));
+            if ($topic === '') {
+                $topic = $this->docTitle ?: 'Topik Naskah';
+            }
+            $reply = "### Rancangan Struktur Bab Pendahuluan (Introduction)\n\n"
+                ."1. **Latar Belakang & Konteks Luas**: Dinamika perkembangan kontemporer menuntut pemahaman mendalam terkait isu \"{$topic}\", yang menjadi landasan strategis kajian ini.\n"
+                ."2. **Identifikasi Masalah & Urgensi Riset**: Kesenjangan antara harapan teoretis dan kenyataan empiris menunjukkan perlunya intervensi metodologis terarah guna mengatasi hambatan struktural yang ada.\n"
+                ."3. **State of the Art (SOTA) & Research Gap**: Kajian terdahulu sebagian besar berfokus pada tataran parsial, sehingga menyisakan celah analitis signifikan dalam mengintegrasikan dimensi multidisipliner secara komprehensif.\n"
+                .'4. **Tujuan Penelitian & Orisinalitas**: Riset ini bertujuan mengevaluasi fenomena tersebut melalui pendekatan terukur, memberikan kontribusi kebaruan yang memperkaya literatur ilmiah terkait.';
+
+            return ['reply' => $reply, 'data' => ['section' => 'pendahuluan', 'topic' => $topic]];
+        }
+
+        if (str_starts_with($effectiveInput, '/pembahasan') || str_starts_with($effectiveInput, '/diskusi')) {
+            $topic = trim((string) preg_replace('/^\/(pembahasan|diskusi)\s*/i', '', $effectiveInput));
+            if ($topic === '') {
+                $topic = $this->docTitle ?: 'Topik Naskah';
+            }
+            $reply = "### Rancangan Sintesis Bab Pembahasan (Discussion)\n\n"
+                ."1. **Interpretasi Temuan Kunci**: Hasil analisis terhadap \"{$topic}\" membuktikan adanya korelasi signifikan antara indikator operasional dan parameter keberhasilan yang diuji.\n"
+                ."2. **Komparasi Kritis dengan Literatur Terkait**: Temuan ini mengonfirmasi proposisi teoretis yang diajukan dalam literatur rujukan, sekaligus memberikan wawasan baru terkait variabilitas respons dalam konteks empiris.\n"
+                ."3. **Implikasi Teoretis & Manajerial**: Secara konseptual, hasil riset ini memperluas cakupan teori yang ada; secara praktis, temuan ini memberikan panduan strategis bagi pengambil keputusan.\n"
+                .'4. **Eksplorasi Limitasi Penelitian**: Variasi lingkungan pengujian dan keterbatasan cakupan data perlu dipertimbangkan sebagai konteks pembatas generalisasi hasil.';
+
+            return ['reply' => $reply, 'data' => ['section' => 'pembahasan', 'topic' => $topic]];
+        }
+
+        if (str_starts_with($effectiveInput, '/kesimpulan') || str_starts_with($effectiveInput, '/penutup')) {
+            $topic = trim((string) preg_replace('/^\/(kesimpulan|penutup)\s*/i', '', $effectiveInput));
+            if ($topic === '') {
+                $topic = $this->docTitle ?: 'Topik Naskah';
+            }
+            $reply = "### Rancangan Struktur Bab Kesimpulan & Saran (Conclusion)\n\n"
+                ."1. **Sintesis Temuan Utama**: Penelitian terkait \"{$topic}\" berhasil menjawab seluruh pertanyaan penelitian dengan membuktikan efektivitas pendekatan yang diusulkan secara empiris.\n"
+                ."2. **Kontribusi Kebaruan (Novelty)**: Integrasi metode ini memberikan kontribusi nyata dalam menjembatani kesenjangan teoretis dan implementasi teknis di lapangan.\n"
+                ."3. **Limitasi Riset**: Pembatasan pada aspek parameter evaluasi dan periode observasi menjadi batasan objektif naskah ini.\n"
+                .'4. **Rekomendasi Riset Lanjutan**: Disarankan bagi peneliti mendatang untuk memperluas korpus data dan menguji ketahanan model pada skenario yang lebih kompleks.';
+
+            return ['reply' => $reply, 'data' => ['section' => 'kesimpulan', 'topic' => $topic]];
+        }
+
+        if (str_starts_with($effectiveInput, '/tinjauan-pustaka') || str_starts_with($effectiveInput, '/literatur') || str_starts_with($effectiveInput, '/teori')) {
+            $topic = trim((string) preg_replace('/^\/(tinjauan-pustaka|literatur|teori)\s*/i', '', $effectiveInput));
+            if ($topic === '') {
+                $topic = $this->docTitle ?: 'Topik Naskah';
+            }
+            $reply = "### Kerangka Teoretis & Tinjauan Pustaka (Literature Review)\n\n"
+                ."1. **Landasan Konseptual Utama**: Telaah komprehensif terhadap konsep fundamental \"{$topic}\" berdasarkan teori-teori kanonik yang telah teruji dalam kepustakaan ilmiah.\n"
+                ."2. **Taksonomi & Pemetaan Literatur Terkini**: Klasifikasi kontribusi akademisi selama lima tahun terakhir, memetakan evolusi metodologi dan perdebatan akademik utama.\n"
+                ."3. **Kerangka Teoretis Hubungan Antar-Variabel**: Model konseptual yang menghubungkan variabel independen, mediator, dan luaran terukur dengan hipotesis yang diajukan.\n"
+                .'4. **Sintesis Rujukan Bereputasi**: Setiap postulat didukung sitasi dari publikasi terindeks untuk menjamin validitas argumentasi ilmiah naskah.';
+
+            return ['reply' => $reply, 'data' => ['section' => 'tinjauan-pustaka', 'topic' => $topic]];
+        }
+
         $wordCount = $this->model->countWords($this->model->normalize($this->blocks));
 
         $llm = app(OmnigensiChatClient::class);

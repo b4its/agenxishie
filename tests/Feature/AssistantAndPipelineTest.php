@@ -66,8 +66,13 @@ it('accepts the enum-based agent contract signature', function (): void {
 it('parses slash commands from assistant input', function (): void {
     expect(SlashCommand::tryParse('/sitasi topik saya'))->toBe(SlashCommand::SITASI)
         ->and(SlashCommand::tryParse('/cek-gap'))->toBe(SlashCommand::CEK_GAP)
+        ->and(SlashCommand::tryParse('/pendahuluan'))->toBe(SlashCommand::PENDAHULUAN)
+        ->and(SlashCommand::tryParse('/latar-belakang'))->toBe(SlashCommand::PENDAHULUAN)
+        ->and(SlashCommand::tryParse('/pembahasan'))->toBe(SlashCommand::PEMBAHASAN)
+        ->and(SlashCommand::tryParse('/kesimpulan'))->toBe(SlashCommand::KESIMPULAN)
+        ->and(SlashCommand::tryParse('/tinjauan-pustaka'))->toBe(SlashCommand::TINJAUAN_PUSTAKA)
         ->and(SlashCommand::tryParse('halo biasa'))->toBeNull()
-        ->and(SlashCommand::names())->toContain('/parafrase', '/cek-pedoman', '/matriks-literatur');
+        ->and(SlashCommand::names())->toContain('/parafrase', '/cek-pedoman', '/matriks-literatur', '/pendahuluan', '/kesimpulan');
 });
 
 it('answers /sitasi with verified citation keys', function (): void {
@@ -109,6 +114,20 @@ it('answers /cek-pedoman with a compliance score', function (): void {
 
     expect($result['data'])->toHaveKey('score')
         ->and($result['reply'])->toContain('Compliance');
+});
+
+it('answers /pendahuluan and /kesimpulan with structured academic sections', function (): void {
+    $project = makeProject(['title' => 'Pengembangan Sistem Cerdas']);
+
+    $intro = app(XishieAssistantService::class)->handle($project, '/pendahuluan');
+    expect($intro['command'])->toBe('/pendahuluan')
+        ->and($intro['reply'])->toContain('Rancangan Struktur Bab Pendahuluan')
+        ->and($intro['reply'])->toContain('State of the Art');
+
+    $conclusion = app(XishieAssistantService::class)->handle($project, '/kesimpulan');
+    expect($conclusion['command'])->toBe('/kesimpulan')
+        ->and($conclusion['reply'])->toContain('Rancangan Struktur Bab Kesimpulan & Saran')
+        ->and($conclusion['reply'])->toContain('Sintesis Temuan Utama');
 });
 
 it('answers unknown input with project context', function (): void {

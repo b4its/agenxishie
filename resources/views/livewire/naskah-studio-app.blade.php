@@ -177,12 +177,12 @@
                         <path d="M4 2a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6.414A2 2 0 0017.414 5L15 2.586A2 2 0 0013.586 2H4zm1 2h8v3H5V4zm0 6h10v6H5v-6z"/>
                     </svg>
                 </button>
-                <button type="button" class="word-icon-btn" wire:click="undo" {{ empty($undoStack) ? 'disabled' : '' }} title="Undo (Ctrl+Z)">
+                <button type="button" class="word-icon-btn" @click="undo()" title="Undo (Ctrl+Z)">
                     <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor">
                         <path fill-rule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v1a1 1 0 11-2 0v-1a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
                     </svg>
                 </button>
-                <button type="button" class="word-icon-btn" wire:click="redo" {{ empty($redoStack) ? 'disabled' : '' }} title="Redo (Ctrl+Y)">
+                <button type="button" class="word-icon-btn" @click="redo()" title="Redo (Ctrl+Y)">
                     <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor">
                         <path fill-rule="evenodd" d="M12.293 3.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 9H9a5 5 0 00-5 5v1a1 1 0 11-2 0v-1a7 7 0 017-7h5.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
                     </svg>
@@ -401,23 +401,23 @@
             <div class="word-group">
                 <div class="word-group__content">
                     <!-- Big Paste Button -->
-                    <button type="button" class="word-btn-large" wire:click="runAutoCorrect" title="Paste / Auto-Correct">
+                    <button type="button" class="word-btn-large" @mousedown.prevent @click="paste()" title="Paste from Clipboard (Ctrl+V)">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
                             <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                             <path d="M9 14l2 2 4-4"/>
                         </svg>
-                        <span>Paste ▾</span>
+                        <span>Paste</span>
                     </button>
 
                     <!-- Cut, Copy, Format Painter -->
                     <div class="word-group__col">
-                        <button type="button" class="word-tool-btn" wire:click="removeBlock({{ $activeBlock }})" title="Cut">
+                        <button type="button" class="word-tool-btn" @mousedown.prevent @click="cut()" title="Cut (Ctrl+X)">
                             <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor">
                                 <path fill-rule="evenodd" d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H11V9.413l1.293 1.294a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13H5.5z" clip-rule="evenodd"/>
                             </svg>
                             <span>Cut</span>
                         </button>
-                        <button type="button" class="word-tool-btn" wire:click="addBlock('paragraph')" title="Copy">
+                        <button type="button" class="word-tool-btn" @mousedown.prevent @click="copy()" title="Copy (Ctrl+C)">
                             <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor">
                                 <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z"/>
                                 <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z"/>
@@ -716,7 +716,7 @@
         @elseif ($activeTab === 'insert')
             <div class="word-group">
                 <div class="word-group__content">
-                    <button type="button" class="word-btn-large" wire:click="addBlock('paragraph')" title="Insert Blank Page">
+                    <button type="button" class="word-btn-large" @mousedown.prevent="insertPageBreak()" title="Insert Blank Page">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                         <span>Blank Page</span>
                     </button>
@@ -1784,6 +1784,18 @@
                         <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/kembangkan')" title="Elaborasi dan kembangkan poin menjadi teks utuh">
                             ✍️ /kembangkan
                         </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/pendahuluan')" title="Rancang struktur Bab Pendahuluan &amp; SOTA">
+                            📖 /pendahuluan
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/pembahasan')" title="Sintesis Bab Pembahasan &amp; temuan">
+                            💬 /pembahasan
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/kesimpulan')" title="Rumuskan Bab Kesimpulan &amp; saran riset">
+                            🏁 /kesimpulan
+                        </button>
+                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/tinjauan-pustaka')" title="Bangun kerangka teoretis &amp; tinjauan pustaka">
+                            📚 /tinjauan-pustaka
+                        </button>
                     </div>
 
                     <!-- Conversation Stream -->
@@ -1871,6 +1883,20 @@
                                             <strong style="font-size:11.5px; color:#4338ca;">Tabel Analisis</strong>
                                         </div>
                                         <span style="font-size:10px; color:var(--ms-text-muted);">Tabel evaluasi komparasi kinerja</span>
+                                    </div>
+                                    <div class="word-assistant-card" wire:click="runTool('/pendahuluan')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">📖</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Bab Pendahuluan</strong>
+                                        </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Latar belakang, urgensi &amp; gap</span>
+                                    </div>
+                                    <div class="word-assistant-card" wire:click="runTool('/kesimpulan')">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:14px;">🏁</span>
+                                            <strong style="font-size:11.5px; color:#4338ca;">Bab Kesimpulan</strong>
+                                        </div>
+                                        <span style="font-size:10px; color:var(--ms-text-muted);">Sintesis temuan &amp; limitasi riset</span>
                                     </div>
                                 </div>
                             </div>

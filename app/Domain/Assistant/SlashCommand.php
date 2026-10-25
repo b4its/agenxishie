@@ -26,6 +26,10 @@ enum SlashCommand: string
     case TERJEMAHKAN = '/terjemahkan';
     case PUEBI = '/puebi';
     case KEMBANGKAN = '/kembangkan';
+    case PENDAHULUAN = '/pendahuluan';
+    case PEMBAHASAN = '/pembahasan';
+    case KESIMPULAN = '/kesimpulan';
+    case TINJAUAN_PUSTAKA = '/tinjauan-pustaka';
 
     public function description(): string
     {
@@ -46,6 +50,10 @@ enum SlashCommand: string
             self::TERJEMAHKAN => 'Terjemahkan teks ke dalam Bahasa Inggris akademik formal.',
             self::PUEBI => 'Audit dan koreksi tata bahasa, ejaan, dan tanda baca sesuai PUEBI.',
             self::KEMBANGKAN => 'Elaborasi dan kembangkan poin gagasan menjadi paragraf utuh.',
+            self::PENDAHULUAN => 'Rancang narasi Bab Pendahuluan (Latar Belakang, Urgensi, SOTA, dan Research Gap).',
+            self::PEMBAHASAN => 'Sintesis pembahasan kritis, komparasi temuan empiris dengan rujukan terdahulu.',
+            self::KESIMPULAN => 'Rumuskan kesimpulan bernas, kontribusi teoretis/praktis, limitasi, dan saran.',
+            self::TINJAUAN_PUSTAKA => 'Bangun kerangka teoretis, landasan konseptual, dan sintesis literatur.',
         };
     }
 
@@ -76,6 +84,18 @@ enum SlashCommand: string
         }
         if ($firstToken === '/diagram') {
             return self::GAMBAR;
+        }
+        if (in_array($firstToken, ['/latar-belakang', '/intro', '/introduction'], true)) {
+            return self::PENDAHULUAN;
+        }
+        if (in_array($firstToken, ['/diskusi', '/discussion'], true)) {
+            return self::PEMBAHASAN;
+        }
+        if (in_array($firstToken, ['/penutup', '/saran', '/conclusion'], true)) {
+            return self::KESIMPULAN;
+        }
+        if (in_array($firstToken, ['/literatur', '/teori', '/kerangka-teori', '/tinjauan', '/literature'], true)) {
+            return self::TINJAUAN_PUSTAKA;
         }
 
         return self::tryFrom($firstToken);

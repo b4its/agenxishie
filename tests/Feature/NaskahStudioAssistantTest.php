@@ -406,6 +406,26 @@ it('supports /puebi and /kembangkan slash commands', function (): void {
     $page->call('runTool', '/kembangkan');
     $log2 = $page->get('assistantLog');
     expect(end($log2)['content'])->toContain('Elaborasi Pengembangan Teks Akademik');
+
+    // 3. /pendahuluan in standalone studio
+    $page->call('runTool', '/pendahuluan');
+    $logIntro = $page->get('assistantLog');
+    expect(end($logIntro)['content'])->toContain('Rancangan Struktur Bab Pendahuluan');
+
+    // 4. /pembahasan in standalone studio
+    $page->call('runTool', '/pembahasan');
+    $logDisc = $page->get('assistantLog');
+    expect(end($logDisc)['content'])->toContain('Rancangan Sintesis Bab Pembahasan');
+
+    // 5. /kesimpulan in standalone studio
+    $page->call('runTool', '/kesimpulan');
+    $logConc = $page->get('assistantLog');
+    expect(end($logConc)['content'])->toContain('Rancangan Struktur Bab Kesimpulan & Saran');
+
+    // 6. /tinjauan-pustaka in standalone studio
+    $page->call('runTool', '/tinjauan-pustaka');
+    $logLit = $page->get('assistantLog');
+    expect(end($logLit)['content'])->toContain('Kerangka Teoretis & Tinjauan Pustaka');
 });
 
 it('executes rich academic slash commands when connected to an active project', function (): void {
@@ -441,6 +461,27 @@ it('executes rich academic slash commands when connected to an active project', 
     $page->call('runTool', '/terjemahkan');
     $logTr = $page->get('assistantLog');
     expect(end($logTr)['content'])->toContain('Konversi Terjemahan Akademik Baku');
+
+    // 5. /pendahuluan with project
+    $page->call('runTool', '/pendahuluan');
+    $logIntro = $page->get('assistantLog');
+    expect(end($logIntro)['content'])->toContain('Rancangan Struktur Bab Pendahuluan')
+        ->and(end($logIntro)['content'])->toContain('Studi Komparasi Model Pembelajaran Mesin');
+
+    // 6. /pembahasan with project
+    $page->call('runTool', '/pembahasan');
+    $logDisc = $page->get('assistantLog');
+    expect(end($logDisc)['content'])->toContain('Rancangan Sintesis Bab Pembahasan');
+
+    // 7. /kesimpulan with project
+    $page->call('runTool', '/kesimpulan');
+    $logConc = $page->get('assistantLog');
+    expect(end($logConc)['content'])->toContain('Rancangan Struktur Bab Kesimpulan & Saran');
+
+    // 8. /tinjauan-pustaka with project
+    $page->call('runTool', '/tinjauan-pustaka');
+    $logLit = $page->get('assistantLog');
+    expect(end($logLit)['content'])->toContain('Kerangka Teoretis & Tinjauan Pustaka');
 });
 
 it('automatically captures active block text for /poles and /puebi when project is connected', function (): void {
