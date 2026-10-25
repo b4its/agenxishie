@@ -2426,3 +2426,68 @@ dialog#livewire-error {
     border-top-color: #3f3f46;
     color: #94a3b8;
 }
+
+/* ========================================================================= */
+/* PRINT MEDIA (AUTHENTIC WORD & LIBREOFFICE CLEAN PHYSICAL DOCUMENT PRINT)  */
+/* ========================================================================= */
+@media print {
+    body, html {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        color: #000000 !important;
+    }
+    .word-titlebar,
+    .word-ribbon-tabs-row,
+    .word-ribbon-body,
+    .word-nav-pane,
+    .word-taskpane,
+    .word-statusbar,
+    .word-canvas-ruler-wrapper,
+    .word-context-menu,
+    .word-mini-toolbar,
+    .word-in-canvas-copilot,
+    .word-floating-assistant-btn,
+    .word-assistant-fab,
+    .word-dialog-backdrop,
+    .ns-topbar,
+    .ns-ribbon,
+    .ns-nav {
+        display: none !important;
+    }
+    .word-studio-root,
+    .ns-root {
+        height: auto !important;
+        overflow: visible !important;
+        background: transparent !important;
+    }
+    .word-workspace,
+    .ns-canvas {
+        display: block !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .word-canvas-area {
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+        zoom: 1 !important;
+    }
+    .word-paper-sheet,
+    .ns-page {
+        box-shadow: none !important;
+        margin: 0 auto !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        background: #ffffff !important;
+        border: none !important;
+    }
+    .word-sheet-content {
+        outline: none !important;
+    }
+}

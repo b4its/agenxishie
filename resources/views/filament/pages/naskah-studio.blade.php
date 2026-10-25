@@ -1175,6 +1175,44 @@
                 </button>
             </div>
 
+            <!-- Table Tools Contextual Group (ketika klik kanan di dalam sel tabel) -->
+            <template x-if="contextIsTable">
+                <div class="word-context-group">
+                    <div class="word-context-divider"></div>
+                    <div style="padding: 2px 9px 4px; font-size: 10px; font-weight: 700; color: #0f6cbd; text-transform: uppercase; letter-spacing: 0.05em;">
+                        Alat Tabel (Table Tools)
+                    </div>
+                    <button type="button" class="word-context-item" @mousedown.prevent="insertTableRow(true); closeContextMenu()">
+                        <span class="word-context-label">➕ Sisipkan Baris di Bawah</span>
+                        <span class="word-context-shortcut">Row Below</span>
+                    </button>
+                    <button type="button" class="word-context-item" @mousedown.prevent="insertTableRow(false); closeContextMenu()">
+                        <span class="word-context-label">➕ Sisipkan Baris di Atas</span>
+                        <span class="word-context-shortcut">Row Above</span>
+                    </button>
+                    <button type="button" class="word-context-item" @mousedown.prevent="insertTableColumn(true); closeContextMenu()">
+                        <span class="word-context-label">➕ Sisipkan Kolom di Kanan</span>
+                        <span class="word-context-shortcut">Col Right</span>
+                    </button>
+                    <button type="button" class="word-context-item" @mousedown.prevent="insertTableColumn(false); closeContextMenu()">
+                        <span class="word-context-label">➕ Sisipkan Kolom di Kiri</span>
+                        <span class="word-context-shortcut">Col Left</span>
+                    </button>
+                    <button type="button" class="word-context-item" style="color:#dc2626;" @mousedown.prevent="deleteTableRow(); closeContextMenu()">
+                        <span class="word-context-label">🗑️ Hapus Baris Ini</span>
+                        <span class="word-context-shortcut">Del Row</span>
+                    </button>
+                    <button type="button" class="word-context-item" style="color:#dc2626;" @mousedown.prevent="deleteTableColumn(); closeContextMenu()">
+                        <span class="word-context-label">🗑️ Hapus Kolom Ini</span>
+                        <span class="word-context-shortcut">Del Col</span>
+                    </button>
+                    <button type="button" class="word-context-item" style="color:#dc2626;" @mousedown.prevent="deleteTable(); closeContextMenu()">
+                        <span class="word-context-label">✕ Hapus Seluruh Tabel</span>
+                        <span class="word-context-shortcut">Del Table</span>
+                    </button>
+                </div>
+            </template>
+
             <div class="word-context-divider"></div>
 
             <!-- Styles Group -->

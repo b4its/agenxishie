@@ -160,6 +160,44 @@
             </button>
         </div>
 
+        <!-- Table Tools Contextual Group (ketika klik kanan di dalam sel tabel) -->
+        <template x-if="contextIsTable">
+            <div class="word-context-group">
+                <div class="word-context-divider"></div>
+                <div style="padding: 2px 9px 4px; font-size: 10px; font-weight: 700; color: #0f6cbd; text-transform: uppercase; letter-spacing: 0.05em;">
+                    Alat Tabel (Table Tools)
+                </div>
+                <button type="button" class="word-context-item" @mousedown.prevent="insertTableRow(true); closeContextMenu()">
+                    <span class="word-context-label">➕ Sisipkan Baris di Bawah</span>
+                    <span class="word-context-shortcut">Row Below</span>
+                </button>
+                <button type="button" class="word-context-item" @mousedown.prevent="insertTableRow(false); closeContextMenu()">
+                    <span class="word-context-label">➕ Sisipkan Baris di Atas</span>
+                    <span class="word-context-shortcut">Row Above</span>
+                </button>
+                <button type="button" class="word-context-item" @mousedown.prevent="insertTableColumn(true); closeContextMenu()">
+                    <span class="word-context-label">➕ Sisipkan Kolom di Kanan</span>
+                    <span class="word-context-shortcut">Col Right</span>
+                </button>
+                <button type="button" class="word-context-item" @mousedown.prevent="insertTableColumn(false); closeContextMenu()">
+                    <span class="word-context-label">➕ Sisipkan Kolom di Kiri</span>
+                    <span class="word-context-shortcut">Col Left</span>
+                </button>
+                <button type="button" class="word-context-item" style="color:#dc2626;" @mousedown.prevent="deleteTableRow(); closeContextMenu()">
+                    <span class="word-context-label">🗑️ Hapus Baris Ini</span>
+                    <span class="word-context-shortcut">Del Row</span>
+                </button>
+                <button type="button" class="word-context-item" style="color:#dc2626;" @mousedown.prevent="deleteTableColumn(); closeContextMenu()">
+                    <span class="word-context-label">🗑️ Hapus Kolom Ini</span>
+                    <span class="word-context-shortcut">Del Col</span>
+                </button>
+                <button type="button" class="word-context-item" style="color:#dc2626;" @mousedown.prevent="deleteTable(); closeContextMenu()">
+                    <span class="word-context-label">✕ Hapus Seluruh Tabel</span>
+                    <span class="word-context-shortcut">Del Table</span>
+                </button>
+            </div>
+        </template>
+
         <div class="word-context-divider"></div>
 
         <!-- Styles Group -->
@@ -401,6 +439,7 @@
                     'mailings' => 'Mailings',
                     'review' => 'Review',
                     'view' => 'View',
+                    'table' => 'Table',
                     'help' => 'Help',
                 ];
             @endphp
@@ -500,6 +539,14 @@
                             <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
                         </svg>
                         <span>Properties</span>
+                    </button>
+                    <button type="button" class="word-btn-large" @click="window.print()" title="Print Document (Ctrl+P)">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>
+                        <span>Print</span>
                     </button>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Document</span></div>
@@ -1045,7 +1092,7 @@
                     <div class="word-group__col">
                         <button type="button" class="word-tool-btn" wire:click="formatParagraph('indent-')">⇤ Decrease Indent</button>
                         <button type="button" class="word-tool-btn" wire:click="formatParagraph('indent+')">⇥ Increase Indent</button>
-                        <button type="button" class="word-tool-btn" wire:click="insertPageBreak">✂️ Insert Break</button>
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="insertPageBreak()" title="Pemisah Halaman (Ctrl+Enter)">✂️ Insert Break</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Paragraph</span></div>
@@ -1295,6 +1342,81 @@
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Asisten &amp; Audit</span></div>
+            </div>
+
+        <!-- TAB: TABLE TOOLS (ALAT TABEL MICROSOFT WORD & LIBREOFFICE) -->
+        @elseif ($activeTab === 'table')
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" @mousedown.prevent="insertTable(3, 3)" title="Sisipkan Tabel Baru 3×3">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+                        </svg>
+                        <span>New Table</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="openDialog('table')" title="Konfigurasi Ukuran Grid Tabel">
+                        <span style="font-size:18px;">⊞</span>
+                        <span>Custom Grid</span>
+                    </button>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Insert Table</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="insertTableRow(true)" title="Sisipkan Baris di Bawah">
+                            ➕ Row Below
+                        </button>
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="insertTableRow(false)" title="Sisipkan Baris di Atas">
+                            ➕ Row Above
+                        </button>
+                    </div>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="insertTableColumn(true)" title="Sisipkan Kolom di Kanan">
+                            ➕ Column Right
+                        </button>
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="insertTableColumn(false)" title="Sisipkan Kolom di Kiri">
+                            ➕ Column Left
+                        </button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Rows &amp; Columns</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="tableToggleHeader({{ $activeBlock }})" title="Ganti Header Baris">
+                            🏷️ Header Row
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'sum')" title="Hitung Total Kolom Angka">
+                            Σ Sum (Jumlah)
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'avg')" title="Hitung Rata-rata Kolom Angka">
+                            μ Average (Rata-rata)
+                        </button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Formulas &amp; Data</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" style="color:#c50f1f;" @mousedown.prevent="deleteTableRow()" title="Hapus Baris Terpilih">
+                            🗑️ Delete Row
+                        </button>
+                        <button type="button" class="word-tool-btn" style="color:#c50f1f;" @mousedown.prevent="deleteTableColumn()" title="Hapus Kolom Terpilih">
+                            🗑️ Delete Column
+                        </button>
+                        <button type="button" class="word-tool-btn" style="color:#c50f1f;" @mousedown.prevent="deleteTable()" title="Hapus Seluruh Tabel">
+                            ✕ Delete Table
+                        </button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Delete</span></div>
             </div>
         @endif
     </div>
@@ -3086,14 +3208,18 @@
                         <table style="width:100%; font-size:12px; border-collapse:collapse;">
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Alt + I</td><td>Open / Close Xishie Assistant AI Copilot</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + S</td><td>Save document</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + P</td><td>Print document / Pratinjau Cetak</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Z</td><td>Undo change</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Y</td><td>Redo change</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Shift + F3</td><td>Ubah Huruf Besar/Kecil (lowercase &rarr; Capitalize &rarr; UPPERCASE)</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + K</td><td>Search commands &amp; actions (Command Palette)</td></tr>
-                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + F</td><td>Find and Replace</td></tr>
-                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Enter</td><td>Insert Page Break</td></tr>
-                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + B</td><td>Bold</td></tr>
-                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + I</td><td>Italic</td></tr>
-                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + U</td><td>Underline</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + F / H</td><td>Find and Replace</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Enter</td><td>Insert Page Break (Pemisah Lembar Halaman Fisik)</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Tab / Backspace</td><td>Indentasi Baris Pertama 1.27cm &amp; Reset Indentasi</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Space / M</td><td>Hapus Format Langsung (Clear Direct Formatting)</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Scroll Wheel</td><td>Zoom Kanvas Lembar Halaman (50% &ndash; 200%)</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Klik Kanan</td><td>Menu Konteks Naskah &amp; Alat Tabel Lengkap</td></tr>
+                            <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + B / I / U</td><td>Tebal / Miring / Garis Bawah</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + [ / ]</td><td>Decrease / Increase Font Size</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Shift + C / V</td><td>Copy / Apply Format (Format Painter)</td></tr>
                             <tr style="border-bottom:1px solid #edebe9;"><td style="padding:4px 0; font-weight:600;">Ctrl + Alt + 1 / 2 / 3</td><td>Apply Heading 1 / 2 / 3 Style</td></tr>

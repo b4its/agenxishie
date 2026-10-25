@@ -20,6 +20,7 @@ window.wordStudioApp = function(config) {
         showContextMenu: false,
         contextMenuX: 0,
         contextMenuY: 0,
+        contextIsTable: false,
         selectedText: '',
         copilotMenuOpen: false,
         showBlockCopilot: false,
@@ -1033,8 +1034,9 @@ window.wordStudioApp = function(config) {
             if (!inCanvas) return;
             e.preventDefault();
             this.saveSelection();
+            this.contextIsTable = !!(e.target.closest('td, th, table'));
             const menuWidth = 260;
-            const menuHeight = 420;
+            const menuHeight = this.contextIsTable ? 460 : 420;
             this.contextMenuX = Math.max(10, Math.min(e.clientX, window.innerWidth - menuWidth - 10));
             this.contextMenuY = Math.max(10, Math.min(e.clientY, window.innerHeight - menuHeight - 10));
             this.showContextMenu = true;
@@ -2447,6 +2449,10 @@ window.wordStudioApp = function(config) {
                             this.focusNode(lastSheet.lastElementChild, true);
                             lastSheet.scrollIntoView({ behavior: 'smooth', block: 'end' });
                         }
+                    } else if (key === 'p') {
+                        // Word & LibreOffice Ctrl+P: Print Document
+                        e.preventDefault();
+                        window.print();
                     } else if (key === 'm' || e.code === 'Space') {
                         // Word Ctrl+Space / LibreOffice Ctrl+M: Clear Direct Formatting
                         e.preventDefault();

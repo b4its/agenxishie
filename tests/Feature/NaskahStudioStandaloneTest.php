@@ -1317,7 +1317,9 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($script)->toContain('renumberSheets')
         ->and($script)->toContain("textIndent = '1.27cm'")
         ->and($script)->toContain("textIndent = ''")
-        ->and($script)->toContain("canvasEl.addEventListener('wheel'");
+        ->and($script)->toContain("canvasEl.addEventListener('wheel'")
+        ->and($script)->toContain('contextIsTable')
+        ->and($script)->toContain('window.print()');
 
     // Pastikan styling lembar kertas mendukung elemen universal Word & LibreOffice
     $css = file_get_contents(resource_path('css/studio.css'));
@@ -1327,5 +1329,6 @@ it('binds Word and LibreOffice dynamic active formatting indicators, live counts
         ->and($css)->toContain('.word-sheet-content table')
         ->and($css)->toContain('.word-context-menu')
         ->and($css)->toContain('.word-context-minibar')
-        ->and($css)->toContain('.word-context-item');
+        ->and($css)->toContain('.word-context-item')
+        ->and($css)->toContain('@media print');
 });
