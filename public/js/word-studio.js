@@ -210,19 +210,396 @@ window.wordStudioApp = function(config) {
         },
 
         applyAlignment(align) {
+            const sel = window.getSelection();
+            let blockEl = null;
+            if (sel && sel.anchorNode) {
+                blockEl = sel.anchorNode.nodeType === 1
+                    ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                    : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+            }
+            if (!blockEl && this.activeBlock !== null) {
+                blockEl = document.querySelector('[data-block-index="' + this.activeBlock + '"]');
+            }
+            if (blockEl) {
+                blockEl.style.textAlign = align;
+            }
             const cmd = align === 'center' ? 'justifyCenter' : (align === 'right' ? 'justifyRight' : (align === 'justify' ? 'justifyFull' : 'justifyLeft'));
-            document.execCommand(cmd, false, null);
+            try {
+                document.execCommand(cmd, false, null);
+            } catch (e) {}
             this.currentFormat.align = align;
             this.syncAllPages();
         },
 
         applyIndent(delta) {
+            const sel = window.getSelection();
+            let blockEl = null;
+            if (sel && sel.anchorNode) {
+                blockEl = sel.anchorNode.nodeType === 1
+                    ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                    : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+            }
+            if (blockEl && blockEl.tagName !== 'LI') {
+                const curMargin = parseFloat(blockEl.style.marginLeft || '0');
+                const newMargin = Math.max(0, curMargin + (delta > 0 ? 1.5 : -1.5));
+                blockEl.style.marginLeft = newMargin > 0 ? (newMargin + 'rem') : '';
+                this.syncAllPages();
+                return;
+            }
             if (delta > 0) {
                 document.execCommand('indent', false, null);
             } else {
                 document.execCommand('outdent', false, null);
             }
             this.syncAllPages();
+        },
+
+        applyFontSize(size) {
+            const sel = window.getSelection();
+            if (sel && !sel.isCollapsed) {
+                document.execCommand('fontSize', false, '7');
+                const fontEls = document.querySelectorAll('font[size="7"]');
+                fontEls.forEach(el => {
+                    const span = document.createElement('span');
+                    span.style.fontSize = size + 'pt';
+                    span.innerHTML = el.innerHTML;
+                    el.replaceWith(span);
+                });
+            } else {
+                let blockEl = null;
+                if (sel && sel.anchorNode) {
+                    blockEl = sel.anchorNode.nodeType === 1
+                        ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                        : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+                }
+                if (blockEl) {
+                    blockEl.style.fontSize = size + 'pt';
+                }
+            }
+            this.currentFormat.fontSize = size;
+            this.syncAllPages();
+        },
+
+        applyFontFamily(family) {
+            const fontMap = {
+                'sans': "'Aptos', 'Inter', system-ui, sans-serif",
+                'calibri': "'Calibri', 'Carlito', sans-serif",
+                'times': "'Times New Roman', 'Liberation Serif', serif",
+                'arial': "'Arial', 'Liberation Sans', sans-serif",
+                'serif': "'Source Serif 4', Georgia, serif",
+                'mono': "'JetBrains Mono', ui-monospace, monospace"
+            };
+            const fontCss = fontMap[family] || family;
+            const sel = window.getSelection();
+            if (sel && !sel.isCollapsed) {
+                document.execCommand('fontName', false, fontCss);
+            } else {
+                let blockEl = null;
+                if (sel && sel.anchorNode) {
+                    blockEl = sel.anchorNode.nodeType === 1
+                        ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                        : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+                }
+                if (blockEl) {
+                    blockEl.style.fontFamily = fontCss;
+                }
+            }
+            this.currentFormat.fontFamily = family;
+            this.syncAllPages();
+        },
+
+        applyLineSpacing(spacing) {
+            const sel = window.getSelection();
+            let blockEl = null;
+            if (sel && sel.anchorNode) {
+                blockEl = sel.anchorNode.nodeType === 1
+                    ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                    : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+            }
+            if (blockEl) {
+                blockEl.style.lineHeight = spacing;
+            } else {
+                document.querySelectorAll('.word-sheet-content').forEach(el => {
+                    el.style.lineHeight = spacing;
+                });
+            }
+            const wire = this.getWire();
+            if (wire) {
+                wire.setLineSpacing(parseFloat(spacing));
+            }
+            this.syncAllPages();
+        },
+
+        clearCurrentFormat() {
+            document.execCommand('removeFormat', false, null);
+            const sel = window.getSelection();
+            let blockEl = null;
+            if (sel && sel.anchorNode) {
+                blockEl = sel.anchorNode.nodeType === 1
+                    ? sel.anchorNode.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote')
+                    : sel.anchorNode.parentElement?.closest('[data-block-index], p, h1, h2, h3, h4, li, blockquote');
+            }
+            if (blockEl) {
+                blockEl.style.cssText = '';
+                if (!['P', 'H1', 'H2', 'H3', 'H4', 'LI', 'BLOCKQUOTE'].includes(blockEl.tagName)) {
+                    const newP = document.createElement('p');
+                    newP.className = 'word-paragraph-text';
+                    newP.innerHTML = blockEl.innerHTML;
+                    blockEl.replaceWith(newP);
+                    this.focusNode(newP, false);
+                }
+            }
+            this.updateCurrentFormat();
+            this.syncAllPages();
+        },
+
+        adjustFontSize(delta) {
+            const cur = parseInt(this.currentFormat.fontSize, 10) || 16;
+            const standardSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
+            let newSize;
+            if (delta > 0) {
+                newSize = standardSizes.find(s => s > cur) || (cur + 2);
+            } else {
+                newSize = [...standardSizes].reverse().find(s => s < cur) || Math.max(8, cur - 2);
+            }
+            this.applyFontSize(newSize);
+        },
+
+        insertPageBreak() {
+            const sel = window.getSelection();
+            let blockEl = null;
+            if (sel && sel.anchorNode) {
+                blockEl = sel.anchorNode.nodeType === 1
+                    ? sel.anchorNode.closest('p, h1, h2, h3, h4, li, blockquote, table, div.word-page-break-marker')
+                    : sel.anchorNode.parentElement?.closest('p, h1, h2, h3, h4, li, blockquote, table, div.word-page-break-marker');
+            }
+
+            const breakEl = document.createElement('div');
+            breakEl.className = 'word-page-break-marker';
+            breakEl.contentEditable = 'false';
+            breakEl.style.cssText = 'border-top:2px dashed #0078d4; margin:28px 0; text-align:center; user-select:none;';
+            breakEl.innerHTML = '<span style="position:relative; top:-11px; background:#ffffff; padding:2px 14px; font-size:11px; color:#0078d4; font-weight:600; border:1px solid #0078d4; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">——— Pemisah Halaman (Page Break) ———</span>';
+
+            const nextP = document.createElement('p');
+            nextP.className = 'word-paragraph-text';
+            nextP.innerHTML = '<br>';
+
+            if (blockEl && blockEl.parentElement) {
+                if (['P', 'H1', 'H2', 'H3', 'H4'].includes(blockEl.tagName) && sel && sel.rangeCount) {
+                    const range = sel.getRangeAt(0);
+                    const postRange = range.cloneRange();
+                    postRange.selectNodeContents(blockEl);
+                    postRange.setStart(range.endContainer, range.endOffset);
+                    const postHtml = postRange.cloneContents();
+                    const tempDiv = document.createElement('div');
+                    tempDiv.appendChild(postHtml);
+                    const postText = tempDiv.innerHTML.trim();
+                    if (postText) {
+                        nextP.innerHTML = postText;
+                    }
+                    const preRange = range.cloneRange();
+                    preRange.selectNodeContents(blockEl);
+                    preRange.setEnd(range.startContainer, range.startOffset);
+                    const preHtml = preRange.cloneContents();
+                    blockEl.innerHTML = '';
+                    blockEl.appendChild(preHtml);
+                    if (!blockEl.innerHTML.trim()) blockEl.innerHTML = '<br>';
+                }
+                blockEl.insertAdjacentElement('afterend', breakEl);
+                breakEl.insertAdjacentElement('afterend', nextP);
+            } else {
+                const sheet = document.querySelector('.word-sheet-content');
+                if (sheet) {
+                    sheet.appendChild(breakEl);
+                    sheet.appendChild(nextP);
+                }
+            }
+            this.focusNode(nextP, false);
+            this.syncAllPages();
+        },
+
+        insertHorizontalRule() {
+            const hr = document.createElement('hr');
+            hr.className = 'word-divider';
+            hr.style.cssText = 'border:none; border-top:1px solid #d1d5db; margin:20px 0;';
+
+            const nextP = document.createElement('p');
+            nextP.className = 'word-paragraph-text';
+            nextP.innerHTML = '<br>';
+
+            const sel = window.getSelection();
+            let blockEl = null;
+            if (sel && sel.anchorNode) {
+                blockEl = sel.anchorNode.nodeType === 1
+                    ? sel.anchorNode.closest('p, h1, h2, h3, h4, li, blockquote, table')
+                    : sel.anchorNode.parentElement?.closest('p, h1, h2, h3, h4, li, blockquote, table');
+            }
+
+            if (blockEl && blockEl.parentElement) {
+                blockEl.insertAdjacentElement('afterend', hr);
+                hr.insertAdjacentElement('afterend', nextP);
+            } else {
+                const sheet = document.querySelector('.word-sheet-content');
+                if (sheet) {
+                    sheet.appendChild(hr);
+                    sheet.appendChild(nextP);
+                }
+            }
+            this.focusNode(nextP, false);
+            this.syncAllPages();
+        },
+
+        insertTable(rows = 3, cols = 3) {
+            const sel = window.getSelection();
+            let blockEl = null;
+            if (sel && sel.anchorNode) {
+                blockEl = sel.anchorNode.nodeType === 1
+                    ? sel.anchorNode.closest('p, h1, h2, h3, h4, li, blockquote, table')
+                    : sel.anchorNode.parentElement?.closest('p, h1, h2, h3, h4, li, blockquote, table');
+            }
+            const table = document.createElement('table');
+            table.className = 'word-table';
+            table.style.cssText = 'width:100%; border-collapse:collapse; margin:16px 0; border:1px solid #d1d5db;';
+            const tbody = document.createElement('tbody');
+            for (let r = 0; r < rows; r++) {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #e1dfdd';
+                if (r === 0) tr.style.background = '#f8fafc';
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.createElement(r === 0 ? 'th' : 'td');
+                    cell.style.cssText = 'padding:8px 12px; border:1px solid #d1d5db; min-height:24px;';
+                    cell.innerHTML = r === 0 ? `Kolom ${c + 1}` : '<br>';
+                    tr.appendChild(cell);
+                }
+                tbody.appendChild(tr);
+            }
+            table.appendChild(tbody);
+
+            const nextP = document.createElement('p');
+            nextP.className = 'word-paragraph-text';
+            nextP.innerHTML = '<br>';
+
+            if (blockEl && blockEl.parentElement) {
+                blockEl.insertAdjacentElement('afterend', table);
+                table.insertAdjacentElement('afterend', nextP);
+            } else {
+                const sheet = document.querySelector('.word-sheet-content');
+                if (sheet) {
+                    sheet.appendChild(table);
+                    sheet.appendChild(nextP);
+                }
+            }
+            this.focusNode(table.rows[0].cells[0], true);
+            this.syncAllPages();
+        },
+
+        insertTableRow(below = true) {
+            const sel = window.getSelection();
+            const cell = sel?.anchorNode?.nodeType === 1 ? sel.anchorNode.closest('td, th') : sel?.anchorNode?.parentElement?.closest('td, th');
+            if (!cell) return;
+            const row = cell.closest('tr');
+            const table = row?.closest('table');
+            if (!row || !table) return;
+            const colCount = row.cells.length;
+            const newRow = document.createElement('tr');
+            newRow.style.borderBottom = '1px solid #e1dfdd';
+            for (let i = 0; i < colCount; i++) {
+                const td = document.createElement('td');
+                td.style.cssText = 'padding:8px 12px; border:1px solid #e1dfdd; min-height:24px;';
+                td.innerHTML = '<br>';
+                newRow.appendChild(td);
+            }
+            if (below) {
+                row.insertAdjacentElement('afterend', newRow);
+            } else {
+                row.insertAdjacentElement('beforebegin', newRow);
+            }
+            this.focusNode(newRow.cells[0], true);
+            this.syncAllPages();
+        },
+
+        deleteTableRow() {
+            const sel = window.getSelection();
+            const cell = sel?.anchorNode?.nodeType === 1 ? sel.anchorNode.closest('td, th') : sel?.anchorNode?.parentElement?.closest('td, th');
+            if (!cell) return;
+            const row = cell.closest('tr');
+            const table = row?.closest('table');
+            if (!row || !table) return;
+            const siblingRow = row.nextElementSibling || row.previousElementSibling;
+            if (table.rows.length <= 1) {
+                table.remove();
+            } else {
+                row.remove();
+                if (siblingRow) this.focusNode(siblingRow.cells[0], true);
+            }
+            this.syncAllPages();
+        },
+
+        insertTableColumn(right = true) {
+            const sel = window.getSelection();
+            const cell = sel?.anchorNode?.nodeType === 1 ? sel.anchorNode.closest('td, th') : sel?.anchorNode?.parentElement?.closest('td, th');
+            if (!cell) return;
+            const row = cell.closest('tr');
+            const table = row?.closest('table');
+            if (!row || !table) return;
+            const colIndex = Array.from(row.cells).indexOf(cell);
+            for (const r of table.rows) {
+                const isHeader = r.cells[colIndex]?.tagName === 'TH';
+                const newCell = document.createElement(isHeader ? 'th' : 'td');
+                newCell.style.cssText = 'padding:8px 12px; border:1px solid #e1dfdd; min-height:24px;';
+                newCell.innerHTML = '<br>';
+                const refCell = r.cells[colIndex];
+                if (refCell) {
+                    if (right) {
+                        refCell.insertAdjacentElement('afterend', newCell);
+                    } else {
+                        refCell.insertAdjacentElement('beforebegin', newCell);
+                    }
+                }
+            }
+            this.syncAllPages();
+        },
+
+        deleteTableColumn() {
+            const sel = window.getSelection();
+            const cell = sel?.anchorNode?.nodeType === 1 ? sel.anchorNode.closest('td, th') : sel?.anchorNode?.parentElement?.closest('td, th');
+            if (!cell) return;
+            const row = cell.closest('tr');
+            const table = row?.closest('table');
+            if (!row || !table) return;
+            const colIndex = Array.from(row.cells).indexOf(cell);
+            if (row.cells.length <= 1) {
+                table.remove();
+            } else {
+                for (const r of table.rows) {
+                    if (r.cells[colIndex]) r.cells[colIndex].remove();
+                }
+            }
+            this.syncAllPages();
+        },
+
+        deleteTable() {
+            const sel = window.getSelection();
+            const cell = sel?.anchorNode?.nodeType === 1 ? sel.anchorNode.closest('td, th') : sel?.anchorNode?.parentElement?.closest('td, th');
+            const table = cell?.closest('table');
+            if (table) {
+                const sibling = table.nextElementSibling || table.previousElementSibling;
+                table.remove();
+                if (sibling) this.focusNode(sibling, false);
+                this.syncAllPages();
+            }
+        },
+
+        ensureRootParagraph(sheet) {
+            if (!sheet) sheet = document.querySelector('.word-sheet-content');
+            if (sheet && (!sheet.firstElementChild || sheet.innerHTML.trim() === '')) {
+                const p = document.createElement('p');
+                p.className = 'word-paragraph-text';
+                p.innerHTML = '<br>';
+                sheet.innerHTML = '';
+                sheet.appendChild(p);
+                this.focusNode(p, false);
+            }
         },
 
         copyCurrentFormat() {
@@ -351,7 +728,10 @@ window.wordStudioApp = function(config) {
 
         focusNode(node, atEnd = false) {
             if (!node) return;
-            node.focus();
+            const sheet = node.closest('[contenteditable="true"]') || node;
+            if (sheet && typeof sheet.focus === 'function') {
+                sheet.focus();
+            }
             const sel = window.getSelection();
             if (!sel) return;
             const range = document.createRange();
@@ -490,6 +870,13 @@ window.wordStudioApp = function(config) {
             const sel = window.getSelection();
             if (!sel || !sel.rangeCount) return;
 
+            // 0. CTRL+ENTER / CMD+ENTER: Insert Page Break (Pemisah Halaman Word & LibreOffice)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                this.insertPageBreak();
+                return;
+            }
+
             // 1. TAB & SHIFT+TAB: Navigasi tabel dan indentasi alami (Word & LibreOffice)
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -624,9 +1011,21 @@ window.wordStudioApp = function(config) {
                             const newP = document.createElement('p');
                             newP.className = 'word-paragraph-text';
                             newP.innerHTML = '<br>';
+                            const nextSiblings = [];
+                            let nextEl = li.nextElementSibling;
+                            while (nextEl) {
+                                nextSiblings.push(nextEl);
+                                nextEl = nextEl.nextElementSibling;
+                            }
                             li.remove();
                             if (list.children.length === 0) {
                                 list.replaceWith(newP);
+                            } else if (nextSiblings.length > 0) {
+                                const nextList = document.createElement(list.tagName);
+                                nextList.className = list.className;
+                                nextSiblings.forEach(s => nextList.appendChild(s));
+                                list.insertAdjacentElement('afterend', newP);
+                                newP.insertAdjacentElement('afterend', nextList);
                             } else {
                                 list.insertAdjacentElement('afterend', newP);
                             }
@@ -765,7 +1164,13 @@ window.wordStudioApp = function(config) {
                             if (prev && !prev.classList.contains('word-sheet-header')) {
                                 e.preventDefault();
                                 block.remove();
-                                this.focusNode(prev, true);
+                                if (prev.tagName === 'TABLE') {
+                                    const lastRow = prev.rows[prev.rows.length - 1];
+                                    const lastCell = lastRow ? lastRow.cells[lastRow.cells.length - 1] : null;
+                                    if (lastCell) this.focusNode(lastCell, true);
+                                } else {
+                                    this.focusNode(prev, true);
+                                }
                                 this.updateCurrentFormat();
                                 this.syncAllPages();
                                 return;
@@ -784,21 +1189,15 @@ window.wordStudioApp = function(config) {
                             e.preventDefault();
                             const prevLi = block.previousElementSibling;
                             if (prevLi) {
-                                // Leburkan ke butir li sebelumnya (Word & LibreOffice)
-                                const blockHtml = block.innerHTML === '<br>' ? '' : block.innerHTML;
+                                const preChildCount = prevLi.childNodes.length;
                                 if (prevLi.innerHTML === '<br>') {
                                     prevLi.innerHTML = '';
                                 }
 
-                                const junctionMarker = document.createTextNode('');
-                                prevLi.appendChild(junctionMarker);
-
-                                if (blockHtml) {
-                                    const tempDiv = document.createElement('div');
-                                    tempDiv.innerHTML = blockHtml;
-                                    while (tempDiv.firstChild) {
-                                        prevLi.appendChild(tempDiv.firstChild);
-                                    }
+                                const blockChildren = Array.from(block.childNodes);
+                                for (const child of blockChildren) {
+                                    if (child.nodeName === 'BR' && blockChildren.length > 1) continue;
+                                    prevLi.appendChild(child);
                                 }
 
                                 if (!prevLi.innerHTML.trim()) {
@@ -807,23 +1206,30 @@ window.wordStudioApp = function(config) {
 
                                 block.remove();
 
-                                try {
-                                    const newRange = document.createRange();
-                                    newRange.setStartBefore(junctionMarker);
-                                    newRange.collapse(true);
-                                    sel.removeAllRanges();
-                                    sel.addRange(newRange);
-                                } catch (err) {
-                                    this.focusNode(prevLi, false);
-                                } finally {
-                                    junctionMarker.remove();
+                                // junctionMarker: Titik sambungan merger presisi tanpa merusak seleksi browser
+                                const targetNode = prevLi.childNodes[preChildCount];
+                                if (targetNode) {
+                                    try {
+                                        const newRange = document.createRange();
+                                        if (targetNode.nodeType === Node.TEXT_NODE) {
+                                            newRange.setStart(targetNode, 0);
+                                        } else {
+                                            newRange.setStartBefore(targetNode);
+                                        }
+                                        newRange.collapse(true);
+                                        sel.removeAllRanges();
+                                        sel.addRange(newRange);
+                                    } catch (err) {
+                                        this.focusNode(prevLi, false);
+                                    }
+                                } else {
+                                    this.focusNode(prevLi, true);
                                 }
 
                                 this.updateCurrentFormat();
                                 this.syncAllPages();
                                 return;
                             } else {
-                                // Butir pertama: ubah menjadi paragraf normal di luar daftar
                                 const list = block.closest('ul, ol');
                                 if (list) {
                                     const newP = document.createElement('p');
@@ -844,52 +1250,60 @@ window.wordStudioApp = function(config) {
                         }
 
                         // Case D: Di awal paragraf non-kosong -> LEBURKAN (Merge) dengan blok sebelumnya (Word & LibreOffice)
-                        if (prev && !prev.classList.contains('word-sheet-header') && !['TABLE', 'FIGURE'].includes(prev.tagName)) {
-                            e.preventDefault();
-                            const targetEl = (['UL', 'OL'].includes(prev.tagName) && prev.lastElementChild)
-                                ? prev.lastElementChild
-                                : prev;
-
-                            const blockHtml = block.innerHTML === '<br>' ? '' : block.innerHTML;
-
-                            if (targetEl.innerHTML === '<br>') {
-                                targetEl.innerHTML = '';
+                        if (prev && !prev.classList.contains('word-sheet-header')) {
+                            if (prev.classList.contains('word-page-break-marker') || prev.tagName === 'HR') {
+                                e.preventDefault();
+                                prev.remove();
+                                this.syncAllPages();
+                                return;
                             }
 
-                            // Buat marker di titik sambungan merger agar kursor presisi
-                            const junctionMarker = document.createTextNode('');
-                            targetEl.appendChild(junctionMarker);
+                            if (!['TABLE', 'FIGURE'].includes(prev.tagName)) {
+                                e.preventDefault();
+                                const targetEl = (['UL', 'OL'].includes(prev.tagName) && prev.lastElementChild)
+                                    ? prev.lastElementChild
+                                    : prev;
 
-                            if (blockHtml) {
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = blockHtml;
-                                while (tempDiv.firstChild) {
-                                    targetEl.appendChild(tempDiv.firstChild);
+                                const preChildCount = targetEl.childNodes.length;
+                                if (targetEl.innerHTML === '<br>') {
+                                    targetEl.innerHTML = '';
                                 }
+
+                                const blockChildren = Array.from(block.childNodes);
+                                for (const child of blockChildren) {
+                                    if (child.nodeName === 'BR' && blockChildren.length > 1) continue;
+                                    targetEl.appendChild(child);
+                                }
+
+                                if (!targetEl.innerHTML.trim()) {
+                                    targetEl.innerHTML = '<br>';
+                                }
+
+                                block.remove();
+
+                                const targetNode = targetEl.childNodes[preChildCount];
+                                if (targetNode) {
+                                    try {
+                                        const newRange = document.createRange();
+                                        if (targetNode.nodeType === Node.TEXT_NODE) {
+                                            newRange.setStart(targetNode, 0);
+                                        } else {
+                                            newRange.setStartBefore(targetNode);
+                                        }
+                                        newRange.collapse(true);
+                                        sel.removeAllRanges();
+                                        sel.addRange(newRange);
+                                    } catch (err) {
+                                        this.focusNode(targetEl, false);
+                                    }
+                                } else {
+                                    this.focusNode(targetEl, true);
+                                }
+
+                                this.updateCurrentFormat();
+                                this.syncAllPages();
+                                return;
                             }
-
-                            if (!targetEl.innerHTML.trim()) {
-                                targetEl.innerHTML = '<br>';
-                            }
-
-                            block.remove();
-
-                            // Letakkan kursor tepat di titik sambungan merger
-                            try {
-                                const newRange = document.createRange();
-                                newRange.setStartBefore(junctionMarker);
-                                newRange.collapse(true);
-                                sel.removeAllRanges();
-                                sel.addRange(newRange);
-                            } catch (err) {
-                                this.focusNode(targetEl, false);
-                            } finally {
-                                junctionMarker.remove();
-                            }
-
-                            this.updateCurrentFormat();
-                            this.syncAllPages();
-                            return;
                         }
                     }
                 }
@@ -911,56 +1325,67 @@ window.wordStudioApp = function(config) {
 
                     if (isAtEnd) {
                         const next = block.nextElementSibling;
-                        if (next && !next.classList.contains('word-sheet-footer') && !next.classList.contains('word-sheet-header') && !['TABLE', 'FIGURE'].includes(next.tagName)) {
-                            e.preventDefault();
-                            let nextHtml = '';
+                        if (next && !next.classList.contains('word-sheet-footer') && !next.classList.contains('word-sheet-header')) {
+                            if (next.classList.contains('word-page-break-marker') || next.tagName === 'HR') {
+                                e.preventDefault();
+                                next.remove();
+                                this.syncAllPages();
+                                return;
+                            }
 
-                            if (['UL', 'OL'].includes(next.tagName) && next.firstElementChild) {
-                                const firstLi = next.firstElementChild;
-                                nextHtml = firstLi.innerHTML === '<br>' ? '' : firstLi.innerHTML;
-                                firstLi.remove();
-                                if (next.children.length === 0) {
+                            if (!['TABLE', 'FIGURE'].includes(next.tagName)) {
+                                e.preventDefault();
+                                let nextElToMerge = next;
+                                if (['UL', 'OL'].includes(next.tagName) && next.firstElementChild) {
+                                    const firstLi = next.firstElementChild;
+                                    nextElToMerge = firstLi;
+                                }
+
+                                const preChildCount = block.childNodes.length;
+                                if (block.innerHTML === '<br>') {
+                                    block.innerHTML = '';
+                                }
+
+                                const nextChildren = Array.from(nextElToMerge.childNodes);
+                                for (const child of nextChildren) {
+                                    if (child.nodeName === 'BR' && nextChildren.length > 1) continue;
+                                    block.appendChild(child);
+                                }
+
+                                if (!block.innerHTML.trim()) {
+                                    block.innerHTML = '<br>';
+                                }
+
+                                if (nextElToMerge !== next) {
+                                    nextElToMerge.remove();
+                                    if (next.children.length === 0) next.remove();
+                                } else {
                                     next.remove();
                                 }
-                            } else {
-                                nextHtml = next.innerHTML === '<br>' ? '' : next.innerHTML;
-                                next.remove();
-                            }
 
-                            if (block.innerHTML === '<br>') {
-                                block.innerHTML = '';
-                            }
-
-                            const junctionMarker = document.createTextNode('');
-                            block.appendChild(junctionMarker);
-
-                            if (nextHtml) {
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = nextHtml;
-                                while (tempDiv.firstChild) {
-                                    block.appendChild(tempDiv.firstChild);
+                                const targetNode = block.childNodes[preChildCount];
+                                if (targetNode) {
+                                    try {
+                                        const newRange = document.createRange();
+                                        if (targetNode.nodeType === Node.TEXT_NODE) {
+                                            newRange.setStart(targetNode, 0);
+                                        } else {
+                                            newRange.setStartBefore(targetNode);
+                                        }
+                                        newRange.collapse(true);
+                                        sel.removeAllRanges();
+                                        sel.addRange(newRange);
+                                    } catch (err) {
+                                        this.focusNode(block, true);
+                                    }
+                                } else {
+                                    this.focusNode(block, true);
                                 }
-                            }
 
-                            if (!block.innerHTML.trim()) {
-                                block.innerHTML = '<br>';
+                                this.updateCurrentFormat();
+                                this.syncAllPages();
+                                return;
                             }
-
-                            try {
-                                const newRange = document.createRange();
-                                newRange.setStartBefore(junctionMarker);
-                                newRange.collapse(true);
-                                sel.removeAllRanges();
-                                sel.addRange(newRange);
-                            } catch (err) {
-                                this.focusNode(block, true);
-                            } finally {
-                                junctionMarker.remove();
-                            }
-
-                            this.updateCurrentFormat();
-                            this.syncAllPages();
-                            return;
                         }
                     }
                 }
@@ -1044,10 +1469,17 @@ window.wordStudioApp = function(config) {
                         { pattern: /->\s$/, replace: '→ ' },
                         { pattern: /<-\s$/, replace: '← ' },
                         { pattern: /<=>\s$/, replace: '⇔ ' },
+                        { pattern: /<<\s$/, replace: '« ' },
+                        { pattern: />>\s$/, replace: '» ' },
+                        { pattern: /\b1st\s$/, replace: '1ˢᵗ ' },
+                        { pattern: /\b2nd\s$/, replace: '2ⁿᵈ ' },
+                        { pattern: /\b3rd\s$/, replace: '3ʳᵈ ' },
+                        { pattern: /\b(\d+)th\s$/, replace: '$1ᵗʰ ' },
+                        { pattern: /\bke-(\d+)\s$/, replace: 'ke-$1 ' },
                         { pattern: /(\d+)-(\d+)\s$/, replace: '$1–$2 ' },
                         { pattern: /(\d+)\s*[xX]\s*(\d+)\s$/, replace: '$1 × $2 ' },
-                        { pattern: /(?:^|\s)"([^\s"]+)"\s$/, replace: ' “$1” ' },
-                        { pattern: /(?:^|\s)'([^\s']+)'\s$/, replace: ' ‘$1’ ' },
+                        { pattern: /(^|\s)"([^\s"]+)"\s$/, replace: '$1“$2” ' },
+                        { pattern: /(^|\s)'([^\s']+)'\s$/, replace: '$1‘$2’ ' },
                         { pattern: /([a-zA-Z])'([a-zA-Z])\s$/, replace: '$1’$2 ' },
                     ];
 
@@ -1091,8 +1523,8 @@ window.wordStudioApp = function(config) {
                 return;
             }
 
-            if (/^1\.\s/.test(text)) {
-                const clean = text.replace(/^1\.\s/, '');
+            if (/^(1[\.\)]|[a-zA-Z][\.\)])\s/.test(text)) {
+                const clean = text.replace(/^(1[\.\)]|[a-zA-Z][\.\)])\s/, '');
                 const ol = document.createElement('ol');
                 ol.className = 'word-numbered-list';
                 const li = document.createElement('li');
@@ -1222,19 +1654,25 @@ window.wordStudioApp = function(config) {
                         this.applyAlignment('justify');
                     } else if (e.key === '1') {
                         e.preventDefault();
-                        if (wire) wire.setLineSpacing(1.0);
+                        this.applyLineSpacing('1.0');
                     } else if (e.key === '2') {
                         e.preventDefault();
-                        if (wire) wire.setLineSpacing(2.0);
+                        this.applyLineSpacing('2.0');
                     } else if (e.key === '5') {
                         e.preventDefault();
-                        if (wire) wire.setLineSpacing(1.5);
+                        this.applyLineSpacing('1.5');
                     } else if (e.key === '[') {
                         e.preventDefault();
-                        if (wire) wire.adjustFontSize(-1);
+                        this.adjustFontSize(-1);
                     } else if (e.key === ']') {
                         e.preventDefault();
-                        if (wire) wire.adjustFontSize(1);
+                        this.adjustFontSize(1);
+                    } else if (e.shiftKey && (e.key === '<' || e.key === ',')) {
+                        e.preventDefault();
+                        this.adjustFontSize(-1);
+                    } else if (e.shiftKey && (e.key === '>' || e.key === '.')) {
+                        e.preventDefault();
+                        this.adjustFontSize(1);
                     } else if (e.shiftKey && key === 'l') {
                         e.preventDefault();
                         this.format('insertUnorderedList');
@@ -1253,9 +1691,7 @@ window.wordStudioApp = function(config) {
                     } else if (key === 'm' || e.code === 'Space') {
                         // Word/LibreOffice Clear Direct Formatting
                         e.preventDefault();
-                        document.execCommand('removeFormat', false, null);
-                        if (wire) wire.clearFormatting();
-                        this.updateCurrentFormat();
+                        this.clearCurrentFormat();
                     }
                 }
 

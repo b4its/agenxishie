@@ -443,23 +443,23 @@
                     <div class="word-group__col">
                         <!-- Row 1: Font Family, Size, Grow, Shrink, Case, Clear -->
                         <div class="word-group__row">
-                            <select wire:model.live="fontFamily" class="word-select" style="width:115px;">
-                                <option value="sans">Aptos</option>
-                                <option value="calibri">Calibri</option>
-                                <option value="times">Times New Roman</option>
-                                <option value="arial">Arial</option>
-                                <option value="serif">Source Serif 4</option>
-                                <option value="mono">JetBrains Mono</option>
+                            <select class="word-select" style="width:115px;" @change="applyFontFamily($event.target.value)">
+                                <option value="sans" {{ ($styleMeta['fontFamily'] ?? '') === 'sans' ? 'selected' : '' }}>Aptos</option>
+                                <option value="calibri" {{ ($styleMeta['fontFamily'] ?? '') === 'calibri' ? 'selected' : '' }}>Calibri</option>
+                                <option value="times" {{ ($styleMeta['fontFamily'] ?? '') === 'times' ? 'selected' : '' }}>Times New Roman</option>
+                                <option value="arial" {{ ($styleMeta['fontFamily'] ?? '') === 'arial' ? 'selected' : '' }}>Arial</option>
+                                <option value="serif" {{ ($styleMeta['fontFamily'] ?? 'serif') === 'serif' ? 'selected' : '' }}>Source Serif 4</option>
+                                <option value="mono" {{ ($styleMeta['fontFamily'] ?? '') === 'mono' ? 'selected' : '' }}>JetBrains Mono</option>
                             </select>
-                            <select wire:model.live="fontSize" class="word-select" style="width:48px;">
+                            <select class="word-select" style="width:48px;" @change="applyFontSize($event.target.value)">
                                 @foreach ([10, 11, 12, 14, 16, 18, 20, 24, 28, 32] as $fs)
-                                    <option value="{{ $fs }}">{{ $fs }}</option>
+                                    <option value="{{ $fs }}" {{ ($styleMeta['fontSize'] ?? 16) == $fs ? 'selected' : '' }}>{{ $fs }}</option>
                                 @endforeach
                             </select>
-                            <button type="button" class="word-btn-square" wire:click="adjustFontSize(1)" title="Increase Font Size (A^)">A<sup>▲</sup></button>
-                            <button type="button" class="word-btn-square" wire:click="adjustFontSize(-1)" title="Decrease Font Size (Av)">A<sup>▼</sup></button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent="applyFontSize(Math.min(36, (currentFormat.fontSize || 16) + 1))" title="Increase Font Size (Ctrl+])">A<sup>▲</sup></button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent="applyFontSize(Math.max(8, (currentFormat.fontSize || 16) - 1))" title="Decrease Font Size (Ctrl+[)">A<sup>▼</sup></button>
                             <button type="button" class="word-btn-square" wire:click="runAutoCorrect" title="Change Case (Aa ▾)">Aa</button>
-                            <button type="button" class="word-btn-square" wire:click="clearFormatting" title="Clear All Formatting">✕</button>
+                            <button type="button" class="word-btn-square" @mousedown.prevent="clearCurrentFormat()" title="Clear All Formatting (Ctrl+Space)">✕</button>
                         </div>
 
                         <!-- Row 2: B, I, U, Strike, Sub, Super, Glow, Highlight, Color -->
@@ -514,10 +514,10 @@
                             <div style="position:relative;" x-data="{ openSpacing: false }">
                                 <button type="button" class="word-btn-square" @click="openSpacing = !openSpacing" title="Line Spacing (1.0, 1.15, 1.5, 2.0)">↕ ▾</button>
                                 <div x-show="openSpacing" @click.outside="openSpacing = false" style="position:absolute; left:0; top:24px; background:#ffffff; border:1px solid #e1dfdd; border-radius:4px; box-shadow:0 4px 16px rgba(0,0,0,0.12); width:135px; z-index:100; padding:4px 0; font-size:11.5px;">
-                                    <button type="button" @click="openSpacing = false" wire:click="setLineSpacing('1.0')" class="word-nav-item {{ (string)($pageSetup['lineSpacing'] ?? '1.5') === '1' || ($pageSetup['lineSpacing'] ?? '') == 1.0 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.0 Single</button>
-                                    <button type="button" @click="openSpacing = false" wire:click="setLineSpacing('1.15')" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 1.15 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.15 Normal</button>
-                                    <button type="button" @click="openSpacing = false" wire:click="setLineSpacing('1.5')" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 1.5 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.5 Academic (DIKTI)</button>
-                                    <button type="button" @click="openSpacing = false" wire:click="setLineSpacing('2.0')" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 2.0 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">2.0 Double</button>
+                                    <button type="button" @click="openSpacing = false" @mousedown.prevent="applyLineSpacing('1.0')" class="word-nav-item {{ (string)($pageSetup['lineSpacing'] ?? '1.5') === '1' || ($pageSetup['lineSpacing'] ?? '') == 1.0 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.0 Single</button>
+                                    <button type="button" @click="openSpacing = false" @mousedown.prevent="applyLineSpacing('1.15')" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 1.15 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.15 Normal</button>
+                                    <button type="button" @click="openSpacing = false" @mousedown.prevent="applyLineSpacing('1.5')" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 1.5 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">1.5 Academic (DIKTI)</button>
+                                    <button type="button" @click="openSpacing = false" @mousedown.prevent="applyLineSpacing('2.0')" class="word-nav-item {{ ($pageSetup['lineSpacing'] ?? '') == 2.0 ? 'active' : '' }}" style="padding:4px 10px; font-size:11px;">2.0 Double</button>
                                 </div>
                             </div>
                             <button type="button" class="word-btn-square" wire:click="updatePageSetup('pageColor', '#fdfbf7')" title="Shading">🪣</button>
@@ -720,7 +720,7 @@
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                         <span>Blank Page</span>
                     </button>
-                    <button type="button" class="word-btn-large" wire:click="insertPageBreak" title="Insert Page Break">
+                    <button type="button" class="word-btn-large" @mousedown.prevent="insertPageBreak()" title="Insert Page Break (Ctrl+Enter)">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v6h12V8z"/><path d="M6 16v6a2 2 0 002 2h12a2 2 0 002-2v-6H6z"/><line x1="2" y1="12" x2="22" y2="12" stroke-dasharray="2 2"/></svg>
                         <span>Page Break</span>
                     </button>
@@ -735,9 +735,9 @@
                         <span>Table ▾</span>
                     </button>
                     <div class="word-group__col">
-                        <button type="button" class="word-tool-btn" wire:click="insertTable" title="Quick 3x3 Table">⊞ 3x3 Quick</button>
-                        <button type="button" class="word-tool-btn" wire:click="tableInsertRow({{ $activeBlock }}, 1)" title="Add Row Below">➕ Row</button>
-                        <button type="button" class="word-tool-btn" wire:click="tableInsertColumn({{ $activeBlock }}, 1)" title="Add Column">➕ Col</button>
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="insertTable(3, 3)" title="Quick 3x3 Table">⊞ 3x3 Quick</button>
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="insertTableRow(true)" title="Add Row Below (Tab pada baris terakhir)">➕ Row</button>
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="insertTableColumn(true)" title="Add Column Right">➕ Col</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Tables</span></div>
@@ -763,7 +763,7 @@
                     <div class="word-group__col">
                         <button type="button" class="word-tool-btn" wire:click="openDialog('link')">🔗 Hyperlink</button>
                         <button type="button" class="word-tool-btn" wire:click="openDialog('footnote')">⚓ Footnote</button>
-                        <button type="button" class="word-tool-btn" wire:click="insertHorizontalRule">➖ Horizontal Line</button>
+                        <button type="button" class="word-tool-btn" @mousedown.prevent="insertHorizontalRule()" title="Horizontal Line (---)">➖ Horizontal Line</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Links &amp; Notes</span></div>
@@ -1414,8 +1414,8 @@
                             contenteditable="{{ $editingMode === 'viewing' ? 'false' : 'true' }}"
                             spellcheck="false"
                             @keydown="handleContentKeydown($event)"
-                            @keydown.ctrl.enter.prevent="$wire.insertPageBreak()"
-                            @keydown.meta.enter.prevent="$wire.insertPageBreak()"
+                            @keydown.ctrl.enter.prevent="insertPageBreak()"
+                            @keydown.meta.enter.prevent="insertPageBreak()"
                             @paste="handlePaste($event)"
                             @dragover.prevent
                             @drop="handleDrop($event)"
@@ -2306,7 +2306,7 @@
                     </div>
                     <div class="word-dialog__footer">
                         <button type="button" class="word-btn-pill" wire:click="closeDialog">Cancel</button>
-                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertTable">OK</button>
+                        <button type="button" class="word-btn-pill word-btn-share" @click="insertTable($wire.tableRows || 3, $wire.tableCols || 3); $wire.closeDialog()">OK</button>
                     </div>
 
                 {{-- INSERT / EDIT EQUATION (LATEX) --}}
