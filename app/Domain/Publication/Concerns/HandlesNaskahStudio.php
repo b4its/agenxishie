@@ -935,6 +935,68 @@ trait HandlesNaskahStudio
         }
     }
 
+    /**
+     * Leburkan blok saat ini dengan blok sebelumnya (Word & LibreOffice Backspace di posisi awal).
+     * Menggabungkan teks blok $index ke akhir blok $index - 1, lalu menghapus blok $index.
+     * Mengembalikan posisi kursor pada titik sambungan merger (panjang teks awal blok sebelumnya).
+     */
+    public function mergeBlockWithPrev(int $index): int
+    {
+        if ($index <= 0 || ! isset($this->blocks[$index], $this->blocks[$index - 1])) {
+            return 0;
+        }
+
+        $prevText = (string) ($this->blocks[$index - 1]['text'] ?? '');
+        $currText = (string) ($this->blocks[$index]['text'] ?? '');
+        $cursorPos = mb_strlen($prevText);
+
+        $this->pushUndo();
+        $this->blocks[$index - 1]['text'] = $prevText.$currText;
+
+        if (isset($this->blocks[$index]['runs']) && is_array($this->blocks[$index]['runs'])) {
+            $prevRuns = (array) ($this->blocks[$index - 1]['runs'] ?? []);
+            $this->blocks[$index - 1]['runs'] = array_merge($prevRuns, $this->blocks[$index]['runs']);
+        } elseif (isset($this->blocks[$index - 1]['runs'][0])) {
+            $this->blocks[$index - 1]['runs'][0]['text'] = $this->blocks[$index - 1]['text'];
+        }
+
+        array_splice($this->blocks, $index, 1);
+        $this->activeBlock = $index - 1;
+        $this->editorRevision++;
+        $this->markDirty();
+
+        return $cursorPos;
+    }
+
+    /**
+     * Leburkan blok berikutnya ke dalam blok saat ini (Word & LibreOffice Delete di akhir teks).
+     * Menggabungkan teks blok $index + 1 ke akhir blok $index, lalu menghapus blok $index + 1.
+     */
+    public function mergeBlockWithNext(int $index): void
+    {
+        if (! isset($this->blocks[$index], $this->blocks[$index + 1])) {
+            return;
+        }
+
+        $currText = (string) ($this->blocks[$index]['text'] ?? '');
+        $nextText = (string) ($this->blocks[$index + 1]['text'] ?? '');
+
+        $this->pushUndo();
+        $this->blocks[$index]['text'] = $currText.$nextText;
+
+        if (isset($this->blocks[$index + 1]['runs']) && is_array($this->blocks[$index + 1]['runs'])) {
+            $currRuns = (array) ($this->blocks[$index]['runs'] ?? []);
+            $this->blocks[$index]['runs'] = array_merge($currRuns, $this->blocks[$index + 1]['runs']);
+        } elseif (isset($this->blocks[$index]['runs'][0])) {
+            $this->blocks[$index]['runs'][0]['text'] = $this->blocks[$index]['text'];
+        }
+
+        array_splice($this->blocks, $index + 1, 1);
+        $this->activeBlock = $index;
+        $this->editorRevision++;
+        $this->markDirty();
+    }
+
     public function applyStyle(int $index, string $style): void
     {
         if (! isset($this->blocks[$index])) {

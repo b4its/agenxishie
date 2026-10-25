@@ -716,6 +716,7 @@
 
             <div class="ns-topbar__actions">
                 <a href="{{ route('studio.index', ['document' => $documentId]) }}" class="ns-btn ns-btn--primary" style="background:#0f6cbd; color:#ffffff; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Buka Mode Penuh Standalone Word &amp; LibreOffice Studio">&#128065; Buka Full Word Studio &rarr;</a>
+                <button type="button" class="ns-btn" wire:click="openAssistant" style="background: linear-gradient(135deg, #eef2ff 0%, #f3e8ff 100%); border: 1px solid #c7d2fe; color: #4338ca; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">&#10024; Copilot</button>
                 <button type="button" class="ns-btn" wire:click="openDialog('palette')" title="Pusat Perintah &amp; Fitur (Wordcraft HUD / Ctrl+K)">&#128269; Perintah (Ctrl+K)</button>
                 <button type="button" class="ns-btn" wire:click="openDialog('properties')" title="Properti Dokumen &amp; Metadata">&#8505; Properti</button>
                 <button type="button" class="ns-btn" wire:click="openDialog('shortcuts')" title="Tombol Pintas Papan Ketik">&#9000; Pintas</button>
@@ -1298,17 +1299,52 @@
                                      return;
                                  }
 
-                                 // 3. Backspace: Hapus blok kosong dan fokus ke blok sebelumnya
+                                 // 3. Backspace: Hapus blok kosong atau leburkan (merge) dengan blok sebelumnya (Word & LibreOffice)
                                  if (e.key === 'Backspace') {
-                                     if (ta.selectionStart === 0 && ta.selectionEnd === 0 && (ta.value === '' || ta.value === '\n')) {
+                                     if (ta.selectionStart === 0 && ta.selectionEnd === 0) {
                                          if (index > 0) {
                                              e.preventDefault();
-                                             $wire.removeBlockAndFocusPrev(index);
-                                             this.$nextTick(() => {
+                                             if (ta.value === '' || ta.value === '\n') {
+                                                 $wire.removeBlockAndFocusPrev(index);
+                                                 this.$nextTick(() => {
+                                                     const prevTa = document.querySelector(`#ns-block-${index - 1} textarea`);
+                                                     if (prevTa) {
+                                                         prevTa.focus();
+                                                         prevTa.setSelectionRange(prevTa.value.length, prevTa.value.length);
+                                                     }
+                                                 });
+                                             } else {
                                                  const prevTa = document.querySelector(`#ns-block-${index - 1} textarea`);
-                                                 if (prevTa) {
-                                                     prevTa.focus();
-                                                     prevTa.setSelectionRange(prevTa.value.length, prevTa.value.length);
+                                                 const prevLen = prevTa ? prevTa.value.length : 0;
+                                                 $wire.mergeBlockWithPrev(index);
+                                                 this.$nextTick(() => {
+                                                     const mergedTa = document.querySelector(`#ns-block-${index - 1} textarea`);
+                                                     if (mergedTa) {
+                                                         mergedTa.focus();
+                                                         mergedTa.setSelectionRange(prevLen, prevLen);
+                                                         this.autoResize(mergedTa);
+                                                     }
+                                                 });
+                                             }
+                                             return;
+                                         }
+                                     }
+                                 }
+
+                                 // 4. Delete: Peleburan blok berikutnya ke dalam blok saat ini (Word & LibreOffice Delete di akhir)
+                                 if (e.key === 'Delete') {
+                                     if (ta.selectionStart === ta.value.length && ta.selectionEnd === ta.value.length) {
+                                         const curPos = ta.selectionStart;
+                                         const nextTa = document.querySelector(`#ns-block-${index + 1} textarea`);
+                                         if (nextTa) {
+                                             e.preventDefault();
+                                             $wire.mergeBlockWithNext(index);
+                                             this.$nextTick(() => {
+                                                 const curTa = document.querySelector(`#ns-block-${index} textarea`);
+                                                 if (curTa) {
+                                                     curTa.focus();
+                                                     curTa.setSelectionRange(curPos, curPos);
+                                                     this.autoResize(curTa);
                                                  }
                                              });
                                              return;
@@ -1316,7 +1352,7 @@
                                      }
                                  }
 
-                                 // 4. Navigasi Panah Atas / Bawah antar blok
+                                 // 5. Navigasi Panah Atas / Bawah antar blok
                                  if (e.key === 'ArrowUp' && ta.selectionStart === 0 && ta.selectionEnd === 0) {
                                      if (index > 0) {
                                          const prevTa = document.querySelector(`#ns-block-${index - 1} textarea`);
@@ -1335,7 +1371,7 @@
                                      }
                                  }
 
-                                 // 5. Pintasan Keyboard Microsoft Word & LibreOffice di dalam blok
+                                 // 6. Pintasan Keyboard Microsoft Word & LibreOffice di dalam blok
                                  if (isCtrl && !e.altKey) {
                                      const k = e.key.toLowerCase();
                                      if (k === 'b') { e.preventDefault(); $wire.formatInline('bold'); }
@@ -1360,7 +1396,36 @@
                              },
                              handleTextareaInput(e, index) {
                                  this.autoResize(e.target);
-                                 const val = e.target.value;
+                                 const ta = e.target;
+                                 let val = ta.value;
+
+                                 // Smart Typography Auto-Replacement (Word & LibreOffice Writer)
+                                 const pos = ta.selectionStart;
+                                 if (pos !== null && pos !== undefined) {
+                                     const before = val.slice(0, pos);
+                                     const replacements = [
+                                         { pattern: /---\s$/, replace: '— ' },
+                                         { pattern: /--\s$/, replace: '— ' },
+                                         { pattern: /\.\.\.\s$/, replace: '… ' },
+                                         { pattern: /\([cC]\)\s$/, replace: '© ' },
+                                         { pattern: /\([rR]\)\s$/, replace: '® ' },
+                                         { pattern: /\([tT][mM]\)\s$/, replace: '™ ' },
+                                         { pattern: /->\s$/, replace: '→ ' },
+                                         { pattern: /<-\s$/, replace: '← ' },
+                                     ];
+                                     for (const r of replacements) {
+                                         if (r.pattern.test(before)) {
+                                             const newBefore = before.replace(r.pattern, r.replace);
+                                             const after = val.slice(pos);
+                                             ta.value = newBefore + after;
+                                             ta.selectionStart = ta.selectionEnd = newBefore.length;
+                                             $wire.updateBlockText(index, ta.value);
+                                             val = ta.value;
+                                             break;
+                                         }
+                                     }
+                                 }
+
                                  if (/^(\*|-)\s/.test(val)) {
                                      $wire.autoFormatBlock(index, '*', val.replace(/^(\*|-)\s/, ''));
                                  } else if (/^1\.\s/.test(val)) {
