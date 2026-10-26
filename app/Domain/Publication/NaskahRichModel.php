@@ -1508,6 +1508,18 @@ final class NaskahRichModel
             $block['calloutType'] = $attributes['calloutType'];
         }
 
+        if (isset($attributes['backgroundColor'])) {
+            $block['backgroundColor'] = $this->color($attributes['backgroundColor']);
+        }
+
+        if (isset($attributes['borderColor'])) {
+            $block['borderColor'] = $this->color($attributes['borderColor']);
+        }
+
+        if (isset($attributes['rightIndent'])) {
+            $block['rightIndent'] = max(0, min(8, (int) $attributes['rightIndent']));
+        }
+
         return $block;
     }
 

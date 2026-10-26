@@ -2602,6 +2602,46 @@
                             </div>
                         </div>
 
+                        <!-- Warna Latar & Garis Tepi -->
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:11px; margin-bottom:4px;">Warna Latar (Shading):</label>
+                                <select wire:model="customParaBgColor" class="word-select" style="width:100%; height:30px; font-size:11px;">
+                                    <option value="">(Transparan)</option>
+                                    <option value="#f8fafc">Abu-abu Lembut (#f8fafc)</option>
+                                    <option value="#eff6ff">Biru Muda (#eff6ff)</option>
+                                    <option value="#f0fdf4">Hijau Muda (#f0fdf4)</option>
+                                    <option value="#fefce8">Kuning Lembut (#fefce8)</option>
+                                    <option value="#faf5ff">Ungu Muda (#faf5ff)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:11px; margin-bottom:4px;">Aksen Garis (Border):</label>
+                                <select wire:model="customParaBorderColor" class="word-select" style="width:100%; height:30px; font-size:11px;">
+                                    <option value="">(Tanpa Garis)</option>
+                                    <option value="#0f6cbd">Biru Royal (#0f6cbd)</option>
+                                    <option value="#16a34a">Hijau Zamrud (#16a34a)</option>
+                                    <option value="#d97706">Emas / Amber (#d97706)</option>
+                                    <option value="#dc2626">Merah (#dc2626)</option>
+                                    <option value="#64748b">Abu-abu (#64748b)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:11px; margin-bottom:4px;">Indentasi Kanan (Level):</label>
+                                <input type="number" min="0" max="8" wire:model="customParaRightIndent" class="word-input" style="width:100%; height:30px; font-size:11px;">
+                            </div>
+                        </div>
+
+                        <!-- Cari & Ganti Khusus Halaman -->
+                        <div style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; padding:8px 10px;">
+                            <label style="display:block; font-weight:700; font-size:11px; color:#334155; margin-bottom:6px;">🔍 Cari &amp; Ganti Teks Khusus Halaman {{ $customParaPage }}:</label>
+                            <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:6px; align-items:center;">
+                                <input type="text" wire:model="pageSearchQuery" placeholder="Kata dicari..." class="word-input" style="height:28px; font-size:11px;">
+                                <input type="text" wire:model="pageReplaceQuery" placeholder="Pengganti..." class="word-input" style="height:28px; font-size:11px;">
+                                <button type="button" class="word-tool-btn" wire:click="findAndReplaceOnPage({{ $customParaPage }})" style="padding:4px 10px; height:28px; background:#0f6cbd; color:#ffffff; font-weight:600; font-size:11px;">Ganti</button>
+                            </div>
+                        </div>
+
                         <!-- Alat Manipulasi Paragraf -->
                         <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
                             <label style="display:block; font-weight:700; font-size:11px; color:#475569;">🛠️ Alat Manipulasi Paragraf:</label>

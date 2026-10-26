@@ -286,6 +286,16 @@ trait HandlesNaskahStudio
 
     public string $customParaCalloutType = 'info';
 
+    public ?string $customParaBgColor = null;
+
+    public ?string $customParaBorderColor = null;
+
+    public int $customParaRightIndent = 0;
+
+    public string $pageSearchQuery = '';
+
+    public string $pageReplaceQuery = '';
+
     public string $customParaType = 'paragraph';
 
     /**
@@ -1440,6 +1450,24 @@ trait HandlesNaskahStudio
             $styles[] = "margin-bottom: {$spacingAfter}pt";
         }
 
+        $rightIndent = (int) ($block['rightIndent'] ?? 0);
+        if ($rightIndent > 0) {
+            $rem = $rightIndent * 1.5;
+            $styles[] = "margin-right: {$rem}rem";
+        }
+
+        $bgColor = (string) ($block['backgroundColor'] ?? '');
+        if ($bgColor !== '') {
+            $styles[] = "background-color: {$bgColor}";
+            $styles[] = 'padding: 6px 10px';
+            $styles[] = 'border-radius: 4px';
+        }
+
+        $borderColor = (string) ($block['borderColor'] ?? '');
+        if ($borderColor !== '') {
+            $styles[] = "border-left: 3px solid {$borderColor}";
+        }
+
         return implode('; ', $styles).';';
     }
 
@@ -1464,6 +1492,9 @@ trait HandlesNaskahStudio
             $this->customParaDropCap = (bool) ($b['dropCap'] ?? false);
             $this->customParaCalloutType = (string) ($b['calloutType'] ?? 'info');
             $this->customParaType = (string) ($b['type'] ?? 'paragraph');
+            $this->customParaBgColor = isset($b['backgroundColor']) ? (string) $b['backgroundColor'] : null;
+            $this->customParaBorderColor = isset($b['borderColor']) ? (string) $b['borderColor'] : null;
+            $this->customParaRightIndent = (int) ($b['rightIndent'] ?? 0);
         }
 
         $this->dialog = 'paragraphCustomizer';
@@ -1489,6 +1520,9 @@ trait HandlesNaskahStudio
             $this->customParaDropCap = (bool) ($b['dropCap'] ?? false);
             $this->customParaCalloutType = (string) ($b['calloutType'] ?? 'info');
             $this->customParaType = (string) ($b['type'] ?? 'paragraph');
+            $this->customParaBgColor = isset($b['backgroundColor']) ? (string) $b['backgroundColor'] : null;
+            $this->customParaBorderColor = isset($b['borderColor']) ? (string) $b['borderColor'] : null;
+            $this->customParaRightIndent = (int) ($b['rightIndent'] ?? 0);
         }
     }
 
@@ -1508,6 +1542,9 @@ trait HandlesNaskahStudio
             'dropCap' => $this->customParaDropCap,
             'calloutType' => $this->customParaCalloutType,
             'type' => $this->customParaType,
+            'backgroundColor' => $this->customParaBgColor,
+            'borderColor' => $this->customParaBorderColor,
+            'rightIndent' => $this->customParaRightIndent,
         ];
 
         if ($applyToAllOnPage) {
@@ -1846,6 +1883,154 @@ trait HandlesNaskahStudio
         $this->notify('Paragraf Disisipkan', "Paragraf baru ditambahkan pada Halaman {$pageNumber}.", 'success');
 
         return $insertAtGlobal;
+    }
+
+    /**
+     * Cari dan ganti teks khusus pada paragraf di halaman tertentu.
+     */
+    public function findAndReplaceOnPage(int $pageNumber, ?string $search = null, ?string $replace = null, bool $caseSensitive = false): int
+    {
+        $search = $search ?? $this->pageSearchQuery;
+        $replace = $replace ?? $this->pageReplaceQuery;
+
+        if ($search === '') {
+            $this->notify('Kata Kunci Kosong', 'Masukkan kata kunci yang ingin dicari pada halaman.', 'warning');
+
+            return 0;
+        }
+
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if ($paragraphs === []) {
+            return 0;
+        }
+
+        $this->pushUndo();
+        $totalReplacements = 0;
+        foreach ($paragraphs as $p) {
+            $gIdx = $p['globalIndex'];
+            $currentText = (string) ($this->blocks[$gIdx]['text'] ?? '');
+            $count = 0;
+            if ($caseSensitive) {
+                $newText = str_replace($search, $replace, $currentText, $count);
+            } else {
+                $newText = str_ireplace($search, $replace, $currentText, $count);
+            }
+
+            if ($count > 0) {
+                $totalReplacements += $count;
+                $this->blocks[$gIdx]['text'] = $newText;
+                $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns($this->blocks[$gIdx]['runs'] ?? [], $newText);
+            }
+        }
+
+        if ($totalReplacements > 0) {
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Cari & Ganti Selesai', "{$totalReplacements} kemunculan teks pada Halaman {$pageNumber} berhasil diganti.", 'success');
+        } else {
+            $this->notify('Tidak Ditemukan', "Kata '{$search}' tidak ditemukan pada Halaman {$pageNumber}.", 'info');
+        }
+
+        return $totalReplacements;
+    }
+
+    /**
+     * Audit kepatuhan kaidah tipografi akademik untuk paragraf pada halaman tertentu.
+     *
+     * @return array{pageNumber: int, score: int, grade: string, paragraphCount: int, words: int, issues: array<int, string>, recommendations: array<int, string>}
+     */
+    public function auditPageParagraphCompliance(int $pageNumber): array
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        $totalWords = 0;
+        $issues = [];
+        $recommendations = [];
+
+        foreach ($paragraphs as $idx => $p) {
+            $b = $p['block'];
+            $text = strip_tags((string) ($b['text'] ?? ''));
+            $words = str_word_count($text);
+            $totalWords += $words;
+
+            $paraNum = $idx + 1;
+            $type = (string) ($b['type'] ?? 'paragraph');
+
+            if ($type === 'paragraph') {
+                $align = (string) ($b['align'] ?? 'left');
+                if ($align !== 'justify') {
+                    $issues[] = "Paragraf #{$paraNum} menggunakan perataan '{$align}', standar akademik mewajibkan 'justify'.";
+                }
+                if (empty($b['firstLineIndent']) && $idx > 0) {
+                    $issues[] = "Paragraf #{$paraNum} belum memiliki indentasi alinea pertama (1.27 cm).";
+                }
+                if ($words < 30) {
+                    $issues[] = "Paragraf #{$paraNum} terlalu pendek ({$words} kata), kembangkan dengan kalimat penjelas.";
+                }
+            }
+        }
+
+        $penalty = min(80, count($issues) * 15);
+        $score = max(20, 100 - $penalty);
+        $grade = match (true) {
+            $score >= 85 => 'Sangat Baik (Sesuai Pedoman)',
+            $score >= 70 => 'Baik (Perlu Perapian Kecil)',
+            default => 'Perlu Penyesuaian Tipografi',
+        };
+
+        if ($issues === []) {
+            $recommendations[] = 'Seluruh paragraf pada halaman ini telah memenuhi kaidah tipografi akademik.';
+        } else {
+            $recommendations[] = "Gunakan tombol '⚡ APA 1.5' atau '⚡ IEEE 1.0' untuk merapikan seluruh paragraf secara instan.";
+        }
+
+        return [
+            'pageNumber' => $pageNumber,
+            'score' => $score,
+            'grade' => $grade,
+            'paragraphCount' => count($paragraphs),
+            'words' => $totalWords,
+            'issues' => $issues,
+            'recommendations' => $recommendations,
+        ];
+    }
+
+    /**
+     * Ekspor seluruh teks paragraf pada halaman tertentu ke format Markdown, HTML, atau Plain Text.
+     */
+    public function exportPageParagraphs(int $pageNumber, string $format = 'markdown'): string
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        $pageBlocks = array_map(static fn (array $p): array => $p['block'], $paragraphs);
+
+        return match (strtolower($format)) {
+            'html' => $this->model->toHtml($pageBlocks, "Halaman {$pageNumber}"),
+            'text', 'txt' => $this->model->toPlainText($pageBlocks),
+            default => $this->model->toMarkdown($pageBlocks, "Halaman {$pageNumber}"),
+        };
+    }
+
+    /**
+     * Impor teks multi-paragraf ke dalam halaman tertentu.
+     */
+    public function importParagraphsToPage(int $pageNumber, string $rawText, string $position = 'end'): int
+    {
+        $lines = preg_split('/\n{2,}/u', trim($rawText)) ?: [];
+        $added = 0;
+
+        foreach ($lines as $pText) {
+            $trimmed = trim($pText);
+            if ($trimmed === '') {
+                continue;
+            }
+            $this->insertCustomParagraphOnPage($pageNumber, $trimmed, [], $position);
+            $added++;
+        }
+
+        if ($added > 0) {
+            $this->notify('Paragraf Diimpor', "{$added} paragraf berhasil ditambahkan ke Halaman {$pageNumber}.", 'success');
+        }
+
+        return $added;
     }
 
     // =====================================================================
