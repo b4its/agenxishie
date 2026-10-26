@@ -35,6 +35,64 @@ final class NaskahRichModel
     public const ALL_TYPES = ['title', 'subtitle', 'heading', 'paragraph', 'quote', 'bullet', 'numbered', 'table', 'image', 'pagebreak', 'footnote-ref', 'callout', 'toc', 'equation'];
 
     /**
+     * Preset kaidah tata letak paragraf akademik baku.
+     *
+     * @var array<string, array{label: string, align: string, lineSpacing: float, firstLineIndent: bool, indent: int, spacingBefore: float, spacingAfter: float, dropCap: bool}>
+     */
+    public const PARAGRAPH_PRESETS = [
+        'academic_standard' => [
+            'label' => 'Standar Akademik (APA/Scopus)',
+            'align' => 'justify',
+            'lineSpacing' => 1.5,
+            'firstLineIndent' => true,
+            'indent' => 0,
+            'spacingBefore' => 0.0,
+            'spacingAfter' => 6.0,
+            'dropCap' => false,
+        ],
+        'journal_ieee' => [
+            'label' => 'Jurnal IEEE / ACM (Rapat)',
+            'align' => 'justify',
+            'lineSpacing' => 1.0,
+            'firstLineIndent' => true,
+            'indent' => 0,
+            'spacingBefore' => 0.0,
+            'spacingAfter' => 4.0,
+            'dropCap' => false,
+        ],
+        'thesis_dikti' => [
+            'label' => 'Skripsi / Tesis DIKTI (Spasi Ganda)',
+            'align' => 'justify',
+            'lineSpacing' => 2.0,
+            'firstLineIndent' => true,
+            'indent' => 0,
+            'spacingBefore' => 0.0,
+            'spacingAfter' => 6.0,
+            'dropCap' => false,
+        ],
+        'abstract_block' => [
+            'label' => 'Abstrak / Rangkuman (Block)',
+            'align' => 'justify',
+            'lineSpacing' => 1.15,
+            'firstLineIndent' => false,
+            'indent' => 0,
+            'spacingBefore' => 6.0,
+            'spacingAfter' => 6.0,
+            'dropCap' => false,
+        ],
+        'block_quote' => [
+            'label' => 'Kutipan Langsung (Blockquote)',
+            'align' => 'justify',
+            'lineSpacing' => 1.0,
+            'firstLineIndent' => false,
+            'indent' => 2,
+            'spacingBefore' => 6.0,
+            'spacingAfter' => 6.0,
+            'dropCap' => false,
+        ],
+    ];
+
+    /**
      * Normalisasi satu set blok (termasuk migrasi dokumen lama).
      *
      * @param  array<int|string, mixed>  $blocks
@@ -1345,6 +1403,76 @@ final class NaskahRichModel
         }
 
         return $formattedPages;
+    }
+
+    /**
+     * Terapkan atribut tata letak/format paragraf pada blok naskah.
+     *
+     * @param  array<string, mixed>  $block
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    public function formatParagraphBlock(array $block, array $attributes): array
+    {
+        if (isset($attributes['text'])) {
+            $block['text'] = (string) $attributes['text'];
+            $block['runs'] = $this->normalizeRuns($block['runs'] ?? [], $block['text']);
+        }
+
+        if (isset($attributes['align'])) {
+            $block['align'] = in_array($attributes['align'], ['left', 'center', 'right', 'justify'], true)
+                ? $attributes['align']
+                : 'left';
+        }
+
+        if (isset($attributes['indent'])) {
+            $block['indent'] = max(0, min(8, (int) $attributes['indent']));
+        }
+
+        if (isset($attributes['firstLineIndent'])) {
+            $block['firstLineIndent'] = (bool) $attributes['firstLineIndent'];
+        }
+
+        if (isset($attributes['lineSpacing'])) {
+            $block['lineSpacing'] = max(0.8, min(3.0, (float) $attributes['lineSpacing']));
+        }
+
+        if (isset($attributes['spacingBefore'])) {
+            $block['spacingBefore'] = max(0.0, min(72.0, (float) $attributes['spacingBefore']));
+        }
+
+        if (isset($attributes['spacingAfter'])) {
+            $block['spacingAfter'] = max(0.0, min(72.0, (float) $attributes['spacingAfter']));
+        }
+
+        if (isset($attributes['dropCap'])) {
+            $block['dropCap'] = (bool) $attributes['dropCap'];
+        }
+
+        if (isset($attributes['type']) && in_array($attributes['type'], self::ALL_TYPES, true)) {
+            $block['type'] = $attributes['type'];
+        }
+
+        if (isset($attributes['calloutType']) && in_array($attributes['calloutType'], ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true)) {
+            $block['calloutType'] = $attributes['calloutType'];
+        }
+
+        return $block;
+    }
+
+    /**
+     * Terapkan preset tata letak paragraf akademik baku ke blok naskah.
+     *
+     * @param  array<string, mixed>  $block
+     * @return array<string, mixed>
+     */
+    public function applyPresetToBlock(array $block, string $presetKey): array
+    {
+        if (! isset(self::PARAGRAPH_PRESETS[$presetKey])) {
+            return $block;
+        }
+
+        return $this->formatParagraphBlock($block, self::PARAGRAPH_PRESETS[$presetKey]);
     }
 
     private function align(mixed $align): string

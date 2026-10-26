@@ -22,10 +22,12 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|export|autocorrect}
+                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph}
                             {documentId? : ID dokumen naskah}
                             {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
-                            {--output= : Path berkas luaran}';
+                            {--output= : Path berkas luaran}
+                            {--page=1 : Nomor halaman target untuk inspeksi atau format paragraf}
+                            {--preset=academic_standard : Preset paragraf (academic_standard, journal_ieee, thesis_dikti, abstract_block, block_quote)}';
 
     /**
      * @var string
@@ -73,6 +75,8 @@ class NaskahStudioCommand extends Command
             'stats' => $this->handleStats($document, $blocks, $model),
             'export' => $this->handleExport($document, $blocks, $model, $docx, $odt),
             'autocorrect' => $this->handleAutoCorrect($document, $blocks, $model),
+            'paragraphs' => $this->handleParagraphs($document, $blocks, $model),
+            'format-paragraph' => $this->handleFormatParagraph($document, $blocks, $model),
             default => $this->handleUnknownAction($action),
         };
     }
@@ -184,9 +188,131 @@ class NaskahStudioCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleParagraphs(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $paginated = $model->paginate($blocks);
+
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id} (total: ".count($paginated).' halaman).');
+
+            return self::FAILURE;
+        }
+
+        $rows = [];
+        $totalWords = 0;
+        foreach ($targetPage['blocks'] as $item) {
+            $idx = $item['index'];
+            $b = $item['block'];
+            $type = (string) ($b['type'] ?? 'paragraph');
+            if (! in_array($type, ['paragraph', 'quote', 'bullet', 'numbered', 'heading', 'callout', 'subtitle', 'title'], true)) {
+                continue;
+            }
+
+            $text = trim((string) ($b['text'] ?? ''));
+            $words = $text === '' ? 0 : count(preg_split('/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+            $totalWords += $words;
+
+            $snippet = mb_strlen($text) > 45 ? mb_substr($text, 0, 42).'...' : $text;
+            $align = (string) ($b['align'] ?? 'left');
+            $lineSpacing = (string) ($b['lineSpacing'] ?? '1.5');
+            $indent = (int) ($b['indent'] ?? 0);
+            $firstLineIndent = ! empty($b['firstLineIndent']) ? 'Ya (1.27cm)' : 'Tidak';
+            $spacing = ($b['spacingBefore'] ?? 0).'pt / '.($b['spacingAfter'] ?? 6).'pt';
+
+            $rows[] = [
+                $idx,
+                $type,
+                $align,
+                $lineSpacing,
+                $firstLineIndent,
+                $indent,
+                $spacing,
+                $words,
+                $snippet,
+            ];
+        }
+
+        $this->info("=== DAFTAR PARAGRAF HALAMAN #{$pageNumber} [Dokumen #{$document->id}: {$document->title}] ===");
+        $this->table(
+            ['Index', 'Tipe', 'Align', 'Spasi', 'Indent 1st', 'Indent (tab)', 'Spasi (Atas/Bwh)', 'Kata', 'Cuplikan'],
+            $rows
+        );
+        $this->line('Total paragraf: '.count($rows)." | Total kata pada halaman ini: {$totalWords}");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleFormatParagraph(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $presetKey = (string) $this->option('preset');
+
+        if (! isset(NaskahRichModel::PARAGRAPH_PRESETS[$presetKey])) {
+            $available = implode(', ', array_keys(NaskahRichModel::PARAGRAPH_PRESETS));
+            $this->error("Preset '{$presetKey}' tidak valid. Pilihan preset yang tersedia: {$available}");
+
+            return self::FAILURE;
+        }
+
+        $paginated = $model->paginate($blocks);
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id} (total: ".count($paginated).' halaman).');
+
+            return self::FAILURE;
+        }
+
+        $updatedCount = 0;
+        foreach ($targetPage['blocks'] as $item) {
+            $idx = $item['index'];
+            $b = $blocks[$idx] ?? null;
+            if ($b === null) {
+                continue;
+            }
+
+            $type = (string) ($b['type'] ?? 'paragraph');
+            if (in_array($type, ['paragraph', 'quote', 'bullet', 'numbered', 'callout'], true)) {
+                $blocks[$idx] = $model->applyPresetToBlock($b, $presetKey);
+                $updatedCount++;
+            }
+        }
+
+        $document->update([
+            'blocks' => $blocks,
+            'word_count' => $model->countWords($blocks),
+        ]);
+
+        $presetLabel = NaskahRichModel::PARAGRAPH_PRESETS[$presetKey]['label'];
+        $this->info("Berhasil memformat {$updatedCount} paragraf pada halaman #{$pageNumber} dengan preset '{$presetLabel}'.");
+
+        return self::SUCCESS;
+    }
+
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph.");
 
         return self::FAILURE;
     }

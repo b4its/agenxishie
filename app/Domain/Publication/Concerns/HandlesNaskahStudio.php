@@ -291,58 +291,7 @@ trait HandlesNaskahStudio
     /**
      * Preset kaidah paragraf akademik baku.
      */
-    public const PARAGRAPH_PRESETS = [
-        'academic_standard' => [
-            'label' => 'Standar Akademik (APA/Scopus)',
-            'align' => 'justify',
-            'lineSpacing' => 1.5,
-            'firstLineIndent' => true,
-            'indent' => 0,
-            'spacingBefore' => 0.0,
-            'spacingAfter' => 6.0,
-            'dropCap' => false,
-        ],
-        'journal_ieee' => [
-            'label' => 'Jurnal IEEE / ACM (Rapat)',
-            'align' => 'justify',
-            'lineSpacing' => 1.0,
-            'firstLineIndent' => true,
-            'indent' => 0,
-            'spacingBefore' => 0.0,
-            'spacingAfter' => 4.0,
-            'dropCap' => false,
-        ],
-        'thesis_dikti' => [
-            'label' => 'Skripsi / Tesis DIKTI (Spasi Ganda)',
-            'align' => 'justify',
-            'lineSpacing' => 2.0,
-            'firstLineIndent' => true,
-            'indent' => 0,
-            'spacingBefore' => 0.0,
-            'spacingAfter' => 6.0,
-            'dropCap' => false,
-        ],
-        'abstract_block' => [
-            'label' => 'Abstrak / Rangkuman (Block)',
-            'align' => 'justify',
-            'lineSpacing' => 1.15,
-            'firstLineIndent' => false,
-            'indent' => 0,
-            'spacingBefore' => 6.0,
-            'spacingAfter' => 6.0,
-            'dropCap' => false,
-        ],
-        'block_quote' => [
-            'label' => 'Kutipan Langsung (Blockquote)',
-            'align' => 'justify',
-            'lineSpacing' => 1.0,
-            'firstLineIndent' => false,
-            'indent' => 2,
-            'spacingBefore' => 6.0,
-            'spacingAfter' => 6.0,
-            'dropCap' => false,
-        ],
-    ];
+    public const PARAGRAPH_PRESETS = NaskahRichModel::PARAGRAPH_PRESETS;
 
     // ===== Xishie Assistant =====
     public bool $assistantOpen = false;
@@ -1347,52 +1296,7 @@ trait HandlesNaskahStudio
         }
 
         $this->pushUndo();
-        $b = &$this->blocks[$globalIndex];
-
-        if (isset($attributes['text'])) {
-            $b['text'] = (string) $attributes['text'];
-            $b['runs'] = $this->model->normalizeRuns($b['runs'] ?? [], $b['text']);
-        }
-
-        if (isset($attributes['align'])) {
-            $b['align'] = in_array($attributes['align'], ['left', 'center', 'right', 'justify'], true)
-                ? $attributes['align']
-                : 'left';
-        }
-
-        if (isset($attributes['indent'])) {
-            $b['indent'] = max(0, min(8, (int) $attributes['indent']));
-        }
-
-        if (isset($attributes['firstLineIndent'])) {
-            $b['firstLineIndent'] = (bool) $attributes['firstLineIndent'];
-        }
-
-        if (isset($attributes['lineSpacing'])) {
-            $b['lineSpacing'] = max(0.8, min(3.0, (float) $attributes['lineSpacing']));
-        }
-
-        if (isset($attributes['spacingBefore'])) {
-            $b['spacingBefore'] = max(0.0, min(72.0, (float) $attributes['spacingBefore']));
-        }
-
-        if (isset($attributes['spacingAfter'])) {
-            $b['spacingAfter'] = max(0.0, min(72.0, (float) $attributes['spacingAfter']));
-        }
-
-        if (isset($attributes['dropCap'])) {
-            $b['dropCap'] = (bool) $attributes['dropCap'];
-        }
-
-        if (isset($attributes['calloutType'])) {
-            $b['calloutType'] = in_array($attributes['calloutType'], ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true)
-                ? $attributes['calloutType']
-                : 'info';
-        }
-
-        if (isset($attributes['type']) && in_array($attributes['type'], NaskahRichModel::ALL_TYPES, true)) {
-            $b['type'] = $attributes['type'];
-        }
+        $this->blocks[$globalIndex] = $this->model->formatParagraphBlock($this->blocks[$globalIndex], $attributes);
 
         $this->dirty = true;
         $this->editorRevision++;
