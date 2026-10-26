@@ -2063,3 +2063,95 @@ it('executes polish-page and align-page actions via artisan naskah:manage', func
     $doc->refresh();
     expect($doc->blocks[0]['text'])->toStartWith('Pengukuran sensor');
 });
+
+it('interacts with naskah studio API endpoints for page export, audit, clean, and format', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Naskah API Studio',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Analisis data kuantitatif dilakukan dengan teliti   .'],
+        ],
+        'word_count' => 7,
+    ]);
+
+    // 1. Uji GET /api/v1/naskah/documents/{id}/export-page
+    $this->getJson("/api/v1/naskah/documents/{$doc->id}/export-page?page=1&format=md")
+        ->assertOk()
+        ->assertHeader('Content-Type', 'text/markdown; charset=UTF-8');
+
+    // 2. Uji POST /api/v1/naskah/documents/{id}/audit-page
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/audit-page", ['page' => 1])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonStructure(['data' => ['page', 'score', 'grade', 'paragraphs_count', 'words_count']]);
+
+    // 3. Uji POST /api/v1/naskah/documents/{id}/clean-page
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/clean-page", ['page' => 1])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('cleaned_count', 1);
+
+    // 4. Uji POST /api/v1/naskah/documents/{id}/format-paragraph
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/format-paragraph", [
+        'page' => 1,
+        'preset' => 'academic_standard',
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('preset', 'academic_standard')
+        ->assertJsonPath('updated_count', 1);
+
+    $doc->refresh();
+    expect($doc->blocks[0]['align'])->toBe('justify')
+        ->and($doc->blocks[0]['lineSpacing'])->toBe(1.5);
+});
+
+it('formats paragraph via external integration API and validates JSON outputs in CLI commands', function (): void {
+    $client = ExternalClient::create([
+        'name' => 'External Testing Agent',
+        'client_slug' => 'external-testing-agent',
+        'api_key' => 'xsh_test_api_key_12345',
+        'target_url' => 'http://localhost:8208',
+        'allowed_models' => ['*'],
+        'status' => 'online',
+        'is_active' => true,
+    ]);
+
+    // 1. Uji POST /api/v1/external/format-paragraph
+    $this->withHeaders(['X-Api-Key' => 'xsh_test_api_key_12345'])
+        ->postJson('/api/v1/external/format-paragraph', [
+            'text' => 'Teks   paragraf   eksternal   dengan   spasi   berlebih.',
+            'preset' => 'journal_ieee',
+        ])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('preset', 'journal_ieee')
+        ->assertJsonPath('rules.align', 'justify')
+        ->assertJsonPath('rules.line_spacing', 1);
+
+    // 2. Uji CLI artisan xishie:ping-clients --json
+    $this->artisan('xishie:ping-clients', ['--json' => true])
+        ->expectsOutputToContain('"total_clients"')
+        ->assertSuccessful();
+
+    // 3. Uji CLI artisan omnigensi:graph --json --validate
+    $this->artisan('omnigensi:graph', ['--json' => true, '--validate' => true])
+        ->expectsOutputToContain('"valid": true')
+        ->assertSuccessful();
+});
+
+it('executes /catatan-kaki slash command for Chicago and Turabian academic guidance', function (): void {
+    $project = makeProject(['title' => 'Proyek Uji Catatan Kaki']);
+    $service = app(XishieAssistantService::class);
+
+    // 1. Eksekusi tanpa argumen (panduan umum)
+    $resGeneral = $service->handle($project, '/catatan-kaki');
+    expect($resGeneral['command'])->toBe('/catatan-kaki')
+        ->and($resGeneral['reply'])->toContain('Format Chicago / Turabian')
+        ->and($resGeneral['data']['style'])->toBe('chicago_turabian');
+
+    // 2. Eksekusi dengan argumen kutipan spesifik
+    $resWithArg = $service->handle($project, '/catatan-kaki Teori efisiensi pasar Eugene Fama');
+    expect($resWithArg['command'])->toBe('/catatan-kaki')
+        ->and($resWithArg['reply'])->toContain('Teori efisiensi pasar Eugene Fama [^1]')
+        ->and($resWithArg['data']['footnote_marker'])->toBe('[^1]');
+});
