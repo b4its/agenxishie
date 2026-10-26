@@ -345,6 +345,8 @@
                         <button type="submit" class="rb-button">&#128225; Probe HTTP Saja</button>
                     </form>
                     <a href="{{ route('connected-projects.index') }}" class="rb-button">&#8635; Segarkan Data</a>
+                    <a href="{{ route('connected-projects.export', 'csv') }}" class="rb-button" title="Unduh data diagnostik sebagai CSV">&#128190; Ekspor CSV</a>
+                    <a href="{{ route('connected-projects.export', 'json') }}" class="rb-button" title="Unduh data diagnostik sebagai JSON">&#128196; Ekspor JSON</a>
                     <button type="button" class="rb-button" onclick="document.getElementById('registerFormWindow').scrollIntoView({behavior:'smooth'});">&#43; Daftarkan Proyek Baru</button>
                     <label class="rb-mono" style="font-size:.68rem; margin-left:auto; display:flex; align-items:center; gap:.4rem; cursor:pointer;">
                         <input type="checkbox" id="autoRefreshCheckbox" onchange="toggleAutoRefresh(this.checked);" /> Auto-Refresh (10s)

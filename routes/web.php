@@ -29,6 +29,7 @@ Route::get('/ux-analytics', fn () => redirect()->route('studio.analytics'))->nam
 
 // Halaman Manajemen & Monitoring Proyek Terhubung (Akses Publik / Langsung)
 Route::get('/connected-projects', [ExternalProjectsWebController::class, 'index'])->name('connected-projects.index');
+Route::get('/connected-projects/export/{format}', [ExternalProjectsWebController::class, 'export'])->name('connected-projects.export');
 Route::post('/connected-projects', [ExternalProjectsWebController::class, 'store'])->name('connected-projects.store');
 Route::post('/connected-projects/ping-all', [ExternalProjectsWebController::class, 'pingAll'])->name('connected-projects.ping-all');
 Route::post('/connected-projects/{client}/ping', [ExternalProjectsWebController::class, 'ping'])->name('connected-projects.ping');

@@ -119,6 +119,17 @@ class NaskahStudioWebController extends Controller
                 "{$slug}.html",
                 ['Content-Type' => 'text/html; charset=utf-8']
             ),
+            'json' => response()->streamDownload(
+                fn () => print ((string) json_encode([
+                    'id' => $doc->id,
+                    'title' => $title,
+                    'word_count' => $doc->word_count,
+                    'page_setup' => $pageSetup,
+                    'blocks' => $blocks,
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
+                "{$slug}.json",
+                ['Content-Type' => 'application/json; charset=utf-8']
+            ),
             default => response()->streamDownload(
                 fn () => print ($this->model->toPlainText($blocks)),
                 "{$slug}.txt",

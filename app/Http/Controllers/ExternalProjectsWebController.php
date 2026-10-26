@@ -10,6 +10,7 @@ use App\Models\ExternalClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Controller Web Publik untuk Halaman Proyek Terhubung & Integrasi Modular.
@@ -277,5 +278,81 @@ class ExternalProjectsWebController extends Controller
 
         return redirect()->route('connected-projects.index')
             ->with('status_message', "Proyek '{$name}' telah dihapus dari registri.");
+    }
+
+    /**
+     * Ekspor seluruh data klien dan metrik diagnostik ke CSV atau JSON (akses publik).
+     */
+    public function export(string $format = 'csv'): StreamedResponse
+    {
+        $clients = ExternalClient::latest()->get();
+        $format = strtolower($format) === 'json' ? 'json' : 'csv';
+        $timestamp = now()->format('Ymd-His');
+        $filename = 'external-clients-hub-'.$timestamp.'.'.$format;
+
+        if ($format === 'json') {
+            $data = [
+                'exported_at' => now()->toIso8601String(),
+                'total_clients' => $clients->count(),
+                'online_clients' => $clients->where('status', 'online')->count(),
+                'clients' => $clients->map(static fn (ExternalClient $c): array => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'target_url' => $c->target_url,
+                    'status' => $c->status,
+                    'connection_state' => $c->connection_state->value,
+                    'last_latency_ms' => $c->last_latency_ms,
+                    'uptime_percentage' => $c->getUptimePercentage(),
+                    'inbound_requests_count' => $c->inbound_requests_count,
+                    'webhook_url' => $c->webhook_url,
+                    'is_active' => (bool) $c->is_active,
+                    'last_ping_at' => $c->last_ping_at?->toIso8601String(),
+                ])->all(),
+            ];
+            $content = (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $mime = 'application/json';
+        } else {
+            $handle = fopen('php://temp', 'r+');
+            fputcsv($handle, [
+                'No',
+                'Nama Klien',
+                'Target URL',
+                'Status HTTP',
+                'Status Koneksi',
+                'Latensi (ms)',
+                'Uptime (%)',
+                'Inbound Requests',
+                'Webhook URL',
+                'Terakhir Di-probe',
+                'Status Aktif',
+            ]);
+
+            foreach ($clients as $idx => $c) {
+                fputcsv($handle, [
+                    $idx + 1,
+                    $c->name,
+                    $c->target_url,
+                    strtoupper((string) $c->status),
+                    $c->connection_state->label(),
+                    $c->last_latency_ms ?? '-',
+                    $c->getUptimePercentage().'%',
+                    $c->inbound_requests_count ?? 0,
+                    $c->webhook_url ?? '-',
+                    $c->last_ping_at ? $c->last_ping_at->format('Y-m-d H:i:s') : '-',
+                    $c->is_active ? 'Aktif' : 'Nonaktif',
+                ]);
+            }
+
+            rewind($handle);
+            $content = stream_get_contents($handle) ?: '';
+            fclose($handle);
+            $mime = 'text/csv';
+        }
+
+        return response()->streamDownload(
+            static fn () => print $content,
+            $filename,
+            ['Content-Type' => $mime],
+        );
     }
 }
