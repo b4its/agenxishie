@@ -169,7 +169,7 @@ window.wordStudioApp = function(config) {
                     const clone = el.cloneNode(true);
                     clone.querySelectorAll('button, .word-tool-btn, .word-table-actions, .word-callout-actions, .word-image-actions, .word-equation-actions').forEach(btn => btn.remove());
                     clone.querySelectorAll('[contenteditable="false"]').forEach(ui => {
-                        if (!ui.matches('.word-toc-block, .word-equation-block, .word-image-figure, .word-footnote-block')) {
+                        if (!ui.matches('.word-toc-block, .word-equation-block, .word-image-figure, .word-footnote-block, .word-callout-box, .word-page-break-marker, .word-page-divider')) {
                             ui.remove();
                         }
                     });
@@ -207,7 +207,7 @@ window.wordStudioApp = function(config) {
                 const clone = el.cloneNode(true);
                 clone.querySelectorAll('button, .word-tool-btn, .word-table-actions, .word-callout-actions, .word-image-actions, .word-equation-actions').forEach(btn => btn.remove());
                 clone.querySelectorAll('[contenteditable="false"]').forEach(ui => {
-                    if (!ui.matches('.word-toc-block, .word-equation-block, .word-image-figure, .word-footnote-block')) {
+                    if (!ui.matches('.word-toc-block, .word-equation-block, .word-image-figure, .word-footnote-block, .word-callout-box, .word-page-break-marker, .word-page-divider')) {
                         ui.remove();
                     }
                 });

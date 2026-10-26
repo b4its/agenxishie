@@ -3439,7 +3439,7 @@ trait HandlesNaskahStudio
         $uiNodes = [];
         foreach ($xpath->query('.//*[@contenteditable="false" or contains(@class, "word-tool-btn") or contains(@class, "word-table-actions") or contains(@class, "word-callout-actions") or contains(@class, "word-image-actions") or name()="button"]', $root) as $uiNode) {
             $uClass = (string) ($uiNode instanceof \DOMElement ? $uiNode->getAttribute('class') : '');
-            if (str_contains($uClass, 'word-equation-block') || str_contains($uClass, 'word-toc-block') || str_contains($uClass, 'word-callout-box') || str_contains($uClass, 'word-image-figure') || str_contains($uClass, 'word-footnote-block')) {
+            if (str_contains($uClass, 'word-equation-block') || str_contains($uClass, 'word-toc-block') || str_contains($uClass, 'word-callout-box') || str_contains($uClass, 'word-image-figure') || str_contains($uClass, 'word-footnote-block') || str_contains($uClass, 'word-page-break-marker') || str_contains($uClass, 'word-page-divider')) {
                 continue;
             }
             $uiNodes[] = $uiNode;
@@ -3451,9 +3451,9 @@ trait HandlesNaskahStudio
         }
 
         // 3. Buka (unwrap) seluruh kontainer pembungkus alinea .word-para-item-wrapper
-        // agar setiap alinea di dalamnya (termasuk hasil pemisahan Enter) tidak hilang
+        // dan kontainer lembar halaman jika terikut, agar setiap elemen di dalamnya tidak hilang atau tergabung
         $wrappers = [];
-        foreach ($xpath->query('.//*[contains(@class, "word-para-item-wrapper")]', $root) as $w) {
+        foreach ($xpath->query('.//*[contains(@class, "word-para-item-wrapper") or contains(@class, "word-sheet-content") or contains(@class, "word-paper-sheet") or contains(@class, "ns-page")]', $root) as $w) {
             $wrappers[] = $w;
         }
         foreach ($wrappers as $w) {
@@ -3623,6 +3623,8 @@ trait HandlesNaskahStudio
             $backgroundColor = null;
             $borderColor = null;
             $lineSpacing = 1.0;
+            $spacingBefore = 0.0;
+            $spacingAfter = 0.0;
             $indent = 0;
             $rightIndent = 0;
             $dropCap = str_contains($class, 'word-drop-cap');
@@ -3664,6 +3666,20 @@ trait HandlesNaskahStudio
                 if (str_contains($styleCandidate, 'margin-right')) {
                     if (preg_match('/margin-right:\s*([\d\.]+)\s*rem/i', $styleCandidate, $mrMatch)) {
                         $rightIndent = max(0, min(8, (int) round(((float) $mrMatch[1]) / 1.5)));
+                    }
+                }
+
+                if (str_contains($styleCandidate, 'margin-top')) {
+                    if (preg_match('/margin-top:\s*([\d\.]+)\s*(?:pt|px)/i', $styleCandidate, $mtMatch)) {
+                        $val = (float) $mtMatch[1];
+                        $spacingBefore = str_contains($mtMatch[0], 'px') ? $val * 0.75 : $val;
+                    }
+                }
+
+                if (str_contains($styleCandidate, 'margin-bottom')) {
+                    if (preg_match('/margin-bottom:\s*([\d\.]+)\s*(?:pt|px)/i', $styleCandidate, $mbMatch)) {
+                        $val = (float) $mbMatch[1];
+                        $spacingAfter = str_contains($mbMatch[0], 'px') ? $val * 0.75 : $val;
                     }
                 }
 
@@ -3793,6 +3809,12 @@ trait HandlesNaskahStudio
                 if ($lineSpacing > 0 && abs($lineSpacing - 1.0) > 0.01) {
                     $createdBlock['lineSpacing'] = $lineSpacing;
                 }
+                if ($spacingBefore > 0) {
+                    $createdBlock['spacingBefore'] = $spacingBefore;
+                }
+                if ($spacingAfter > 0) {
+                    $createdBlock['spacingAfter'] = $spacingAfter;
+                }
                 if ($sourceIndex !== null) {
                     $createdBlock['_sourceIndex'] = $sourceIndex;
                 }
@@ -3855,26 +3877,37 @@ trait HandlesNaskahStudio
                         } elseif (! empty($b['hangingIndent'])) {
                             $merged['hangingIndent'] = true;
                             unset($merged['firstLineIndent']);
+                        } else {
+                            $merged['firstLineIndent'] = false;
+                            unset($merged['hangingIndent']);
                         }
 
-                        if (isset($b['backgroundColor'])) {
+                        if (! empty($b['backgroundColor'])) {
                             $merged['backgroundColor'] = $b['backgroundColor'];
+                        } else {
+                            unset($merged['backgroundColor']);
                         }
-                        if (isset($b['borderColor'])) {
+
+                        if (! empty($b['borderColor'])) {
                             $merged['borderColor'] = $b['borderColor'];
+                        } else {
+                            unset($merged['borderColor']);
                         }
-                        if (isset($b['indent'])) {
-                            $merged['indent'] = $b['indent'];
-                        }
-                        if (isset($b['rightIndent'])) {
-                            $merged['rightIndent'] = $b['rightIndent'];
-                        }
-                        if (isset($b['dropCap'])) {
-                            $merged['dropCap'] = $b['dropCap'];
-                        }
-                        if (isset($b['lineSpacing'])) {
+
+                        $merged['indent'] = (int) ($b['indent'] ?? 0);
+                        $merged['rightIndent'] = (int) ($b['rightIndent'] ?? 0);
+                        $merged['dropCap'] = ! empty($b['dropCap']);
+
+                        if (isset($b['lineSpacing']) && $b['lineSpacing'] > 0) {
                             $merged['lineSpacing'] = $b['lineSpacing'];
                         }
+                        if (isset($b['spacingBefore'])) {
+                            $merged['spacingBefore'] = $b['spacingBefore'];
+                        }
+                        if (isset($b['spacingAfter'])) {
+                            $merged['spacingAfter'] = $b['spacingAfter'];
+                        }
+
                         if (isset($b['table'])) {
                             $merged['table'] = $b['table'];
                         }
@@ -3900,29 +3933,55 @@ trait HandlesNaskahStudio
                 $allBlocks[] = $b;
             }
 
-            // Pertahankan pemisah halaman (pagebreak) jika antar halaman ada pagebreak pada model asli
+            // Pertahankan pemisah halaman (pagebreak) di antara lembar halaman
             if ($pIdx < $totalPages - 1) {
-                $from = null;
-                for ($i = count($pBlocks) - 1; $i >= 0; $i--) {
-                    if (isset($pBlocks[$i]['_sourceIndex'])) {
-                        $from = (int) $pBlocks[$i]['_sourceIndex'];
-                        break;
-                    }
-                }
+                $lastBlock = end($allBlocks);
+                $hasTrailingBreak = ($lastBlock !== false && ($lastBlock['type'] ?? '') === 'pagebreak');
 
-                $to = null;
-                if (! empty($parsedPagesBlocks[$pIdx + 1])) {
-                    foreach ($parsedPagesBlocks[$pIdx + 1] as $nb) {
-                        if (isset($nb['_sourceIndex'])) {
-                            $to = (int) $nb['_sourceIndex'];
-                            break;
+                if (! $hasTrailingBreak) {
+                    $nextPageFirst = $parsedPagesBlocks[$pIdx + 1][0] ?? null;
+                    $nextHasLeadingBreak = ($nextPageFirst !== null && ($nextPageFirst['type'] ?? '') === 'pagebreak');
+
+                    if (! $nextHasLeadingBreak) {
+                        $currIndices = [];
+                        foreach ($pBlocks as $pb) {
+                            if (isset($pb['_sourceIndex'])) {
+                                $currIndices[] = (int) $pb['_sourceIndex'];
+                            }
                         }
-                    }
-                }
+                        $nextIndices = [];
+                        if (! empty($parsedPagesBlocks[$pIdx + 1])) {
+                            foreach ($parsedPagesBlocks[$pIdx + 1] as $nb) {
+                                if (isset($nb['_sourceIndex'])) {
+                                    $nextIndices[] = (int) $nb['_sourceIndex'];
+                                }
+                            }
+                        }
 
-                if ($from !== null && $to !== null && $from < $to) {
-                    for ($k = $from + 1; $k < $to; $k++) {
-                        if (($currentBlocks[$k]['type'] ?? '') === 'pagebreak') {
+                        $shouldInsertBreak = false;
+                        if (! empty($currIndices) && ! empty($nextIndices)) {
+                            $maxCurr = max($currIndices);
+                            $minNext = min($nextIndices);
+                            if ($maxCurr < $minNext) {
+                                for ($k = $maxCurr + 1; $k < $minNext; $k++) {
+                                    if (($currentBlocks[$k]['type'] ?? '') === 'pagebreak') {
+                                        $shouldInsertBreak = true;
+                                        break;
+                                    }
+                                }
+                            } else {
+                                foreach ($currentBlocks as $cIdx => $cBlock) {
+                                    if (($cBlock['type'] ?? '') === 'pagebreak') {
+                                        if (in_array($cIdx - 1, $currIndices, true) || in_array($cIdx + 1, $nextIndices, true)) {
+                                            $shouldInsertBreak = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if ($shouldInsertBreak) {
                             $allBlocks[] = $this->model->newBlock('pagebreak', '');
                         }
                     }

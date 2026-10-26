@@ -2986,3 +2986,161 @@ it('performs black box verification of saving manually formatted naskah studio w
     $jsonResponse = $reloadedComponent->instance()->export('json');
     expect($jsonResponse)->not->toBeNull();
 });
+
+it('performs white box verification on pagebreak marker retention, sheet unwrapping, and paragraph spacing', function (): void {
+    $studio = Livewire::test(NaskahStudioApp::class)->instance();
+
+    // 1. Uji pemisah halaman (pagebreak) dengan contenteditable="false" tidak terhapus
+    $pagebreakHtml = <<<'HTML'
+    <p class="word-paragraph-text" data-block-index="0">Alinea terakhir pada lembar pertama naskah.</p>
+    <div class="word-page-break-marker" contenteditable="false" style="border-top:2px dashed #0078d4;">
+        <span>——— Pemisah Halaman (Page Break) ———</span>
+    </div>
+    <p class="word-paragraph-text" data-block-index="2">Alinea pembuka pada lembar kedua naskah.</p>
+    HTML;
+
+    $pbBlocks = $studio->parseHtmlToBlocks($pagebreakHtml);
+    expect(count($pbBlocks))->toBe(3)
+        ->and($pbBlocks[0]['type'])->toBe('paragraph')
+        ->and($pbBlocks[1]['type'])->toBe('pagebreak')
+        ->and($pbBlocks[2]['type'])->toBe('paragraph');
+
+    // 2. Uji kontainer lembar .word-sheet-content dan .word-paper-sheet di-unwrap dan tidak menciut menjadi 1 blok raksasa
+    $sheetHtml = <<<'HTML'
+    <div class="word-paper-sheet" id="word-page-1">
+        <div class="word-sheet-content" id="word-page-content-1">
+            <h1 class="word-title-text" data-block-index="0">Judul Naskah Terstruktur</h1>
+            <h2 class="word-heading-1" data-block-index="1">Pendahuluan</h2>
+            <div class="word-para-item-wrapper">
+                <p class="word-paragraph-text" data-block-index="2" style="text-indent: 1.27cm; margin-top: 14pt; margin-bottom: 8pt; line-height: 1.5;">
+                    Paragraf pengantar yang telah dirapikan secara manual oleh penulis.
+                </p>
+            </div>
+            <div class="word-para-item-wrapper">
+                <p class="word-paragraph-text" data-block-index="3" style="margin-top: 6pt; margin-bottom: 12pt;">
+                    Paragraf kedua tanpa indentasi baris pertama.
+                </p>
+            </div>
+        </div>
+    </div>
+    HTML;
+
+    $sheetBlocks = $studio->parseHtmlToBlocks($sheetHtml);
+    expect(count($sheetBlocks))->toBe(4)
+        ->and($sheetBlocks[0]['type'])->toBe('title')
+        ->and($sheetBlocks[0]['text'])->toBe('Judul Naskah Terstruktur')
+        ->and($sheetBlocks[1]['type'])->toBe('heading')
+        ->and($sheetBlocks[1]['text'])->toBe('Pendahuluan')
+        ->and($sheetBlocks[2]['type'])->toBe('paragraph')
+        ->and($sheetBlocks[2]['firstLineIndent'])->toBeTrue()
+        ->and($sheetBlocks[2]['spacingBefore'])->toBe(14.0)
+        ->and($sheetBlocks[2]['spacingAfter'])->toBe(8.0)
+        ->and($sheetBlocks[2]['lineSpacing'])->toBe(1.5)
+        ->and($sheetBlocks[3]['type'])->toBe('paragraph')
+        ->and($sheetBlocks[3]['firstLineIndent'])->toBeFalse()
+        ->and($sheetBlocks[3]['spacingBefore'])->toBe(6.0)
+        ->and($sheetBlocks[3]['spacingAfter'])->toBe(12.0);
+
+    // 3. Uji rekonsiliasi cerdas saat penulis menghapus indentasi atau menghapus warna sorotan
+    $studio->blocks = [
+        $sheetBlocks[0],
+        $sheetBlocks[1],
+        array_merge($sheetBlocks[2], [
+            'backgroundColor' => '#fef08a',
+            'firstLineIndent' => true,
+        ]),
+    ];
+
+    // Penulis menghapus indentasi dan menghapus warna kuning pada blok indeks 2
+    $editedHtml = <<<'HTML'
+    <h1 class="word-title-text" data-block-index="0">Judul Naskah Terstruktur</h1>
+    <h2 class="word-heading-1" data-block-index="1">Pendahuluan</h2>
+    <p class="word-paragraph-text" data-block-index="2" style="line-height: 1.5;">
+        Paragraf pengantar yang telah dirapikan secara manual oleh penulis tanpa indentasi dan tanpa warna.
+    </p>
+    HTML;
+
+    $studio->syncManuscriptPages([$editedHtml]);
+    $reconciled = $studio->blocks;
+
+    expect(count($reconciled))->toBe(3)
+        ->and($reconciled[2]['firstLineIndent'])->toBeFalse()
+        ->and($reconciled[2]['backgroundColor'] ?? null)->toBeNull()
+        ->and($reconciled[2]['text'])->toContain('tanpa indentasi dan tanpa warna');
+});
+
+it('performs black box verification of multi-page save fidelity with manual breaks and rearranged blocks', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+    $component->call('newDocument');
+    $component->set('docTitle', 'Naskah Multi-Lembar Teratur');
+
+    $model = app(NaskahRichModel::class);
+    $initialBlocks = [
+        $model->newBlock('title', 'Naskah Multi-Lembar Teratur'),
+        array_merge($model->newBlock('paragraph', 'Paragraf lembar pertama dengan spasi sebelum dan sesudah alinea.'), [
+            'spacingBefore' => 12.0,
+            'spacingAfter' => 6.0,
+            'firstLineIndent' => true,
+        ]),
+        $model->newBlock('pagebreak', ''),
+        array_merge($model->newBlock('paragraph', 'Paragraf lembar kedua yang diatur secara manual.'), [
+            'spacingBefore' => 18.0,
+            'spacingAfter' => 12.0,
+            'hangingIndent' => true,
+        ]),
+    ];
+    $component->set('blocks', $initialBlocks);
+
+    // Simulasi pengiriman HTML multi-halaman dari penyunting browser lengkap dengan wrapper lembar
+    $domSheet1 = <<<'HTML'
+    <div class="word-sheet-content" id="word-page-content-1">
+        <h1 class="word-title-text" data-block-index="0">Naskah Multi-Lembar Teratur</h1>
+        <div class="word-para-item-wrapper">
+            <p class="word-paragraph-text" data-block-index="1" style="margin-top: 12pt; margin-bottom: 6pt; text-indent: 1.27cm;">
+                Paragraf lembar pertama dengan spasi sebelum dan sesudah alinea.
+            </p>
+        </div>
+        <div class="word-page-break-marker" contenteditable="false">
+            <span>——— Pemisah Halaman ———</span>
+        </div>
+    </div>
+    HTML;
+
+    $domSheet2 = <<<'HTML'
+    <div class="word-sheet-content" id="word-page-content-2">
+        <div class="word-para-item-wrapper">
+            <p class="word-paragraph-text" data-block-index="3" style="margin-top: 18pt; margin-bottom: 12pt; padding-left: 1.27cm; text-indent: -1.27cm;">
+                Paragraf lembar kedua yang diatur secara manual.
+            </p>
+        </div>
+    </div>
+    HTML;
+
+    // Simpan dokumen
+    $component->call('save', [$domSheet1, $domSheet2])
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast');
+
+    $savedBlocks = $component->get('blocks');
+
+    // Pastikan tidak ada blok yang hilang atau menciut
+    expect(count($savedBlocks))->toBe(4)
+        ->and($savedBlocks[0]['type'])->toBe('title')
+        ->and($savedBlocks[1]['type'])->toBe('paragraph')
+        ->and($savedBlocks[1]['spacingBefore'])->toBe(12.0)
+        ->and($savedBlocks[1]['spacingAfter'])->toBe(6.0)
+        ->and($savedBlocks[1]['firstLineIndent'])->toBeTrue()
+        ->and($savedBlocks[2]['type'])->toBe('pagebreak')
+        ->and($savedBlocks[3]['type'])->toBe('paragraph')
+        ->and($savedBlocks[3]['spacingBefore'])->toBe(18.0)
+        ->and($savedBlocks[3]['spacingAfter'])->toBe(12.0)
+        ->and($savedBlocks[3]['hangingIndent'])->toBeTrue();
+
+    // Verifikasi database
+    $docId = $component->get('documentId');
+    $dbDoc = NaskahDocument::query()->find($docId);
+    expect($dbDoc)->not->toBeNull()
+        ->and(count($dbDoc->blocks))->toBe(4)
+        ->and($dbDoc->blocks[2]['type'])->toBe('pagebreak')
+        ->and($dbDoc->blocks[1]['spacingBefore'])->toEqual(12.0);
+});
