@@ -3329,3 +3329,122 @@ it('performs white box verification on OmnigensiChatClient integration when exec
         ->and($lastEntry['data']['source'])->toBe('llm')
         ->and($lastEntry['data']['latency_ms'])->toBe(145);
 });
+
+it('performs white box verification on automatic bibliography generation, review mode, and regeneration in studio', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+    $initialBlocks = $component->get('blocks');
+    $initialCount = count($initialBlocks);
+
+    // 1. Eksekusi prompt "buatkan daftar pustaka"
+    $component->call('executeCurrentModel', 'buatkan daftar pustaka', 'append')
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast');
+
+    // Pastikan masuk ke mode review hasil model
+    expect($component->get('isReviewingModelOutput'))->toBeTrue()
+        ->and($component->get('modelGenerationCount'))->toBe(1)
+        ->and($component->get('lastExecutedModelPrompt'))->toBe('buatkan daftar pustaka')
+        ->and($component->get('backupBlocksBeforeReview'))->toEqual($initialBlocks);
+
+    $blocksAfterGen = $component->get('blocks');
+    expect(count($blocksAfterGen))->toBeGreaterThan($initialCount);
+
+    // Cari heading "Daftar Pustaka" dan entri referensi
+    $hasBiblioHeading = false;
+    $hasHangingIndentEntry = false;
+    foreach ($blocksAfterGen as $b) {
+        if (($b['type'] ?? '') === 'heading' && str_contains((string) ($b['text'] ?? ''), 'Daftar Pustaka')) {
+            $hasBiblioHeading = true;
+        }
+        if (($b['type'] ?? '') === 'paragraph' && ! empty($b['hangingIndent'])) {
+            $hasHangingIndentEntry = true;
+        }
+    }
+    expect($hasBiblioHeading)->toBeTrue()
+        ->and($hasHangingIndentEntry)->toBeTrue();
+
+    // 2. Simulasi review: jika belum sesuai, lakukan generate ulang
+    $revisionBeforeRegen = $component->get('editorRevision');
+    $component->call('regenerateCurrentModel')
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast');
+
+    // Status review tetap aktif, versi generasi meningkat ke #2
+    expect($component->get('isReviewingModelOutput'))->toBeTrue()
+        ->and($component->get('modelGenerationCount'))->toBe(2)
+        ->and($component->get('editorRevision'))->toBeGreaterThan($revisionBeforeRegen);
+
+    // 3. Terima hasil review (accept)
+    $component->call('acceptModelOutput');
+    expect($component->get('isReviewingModelOutput'))->toBeFalse()
+        ->and($component->get('pendingReviewBlockIndices'))->toBeEmpty()
+        ->and($component->get('backupBlocksBeforeReview'))->toBeEmpty();
+
+    // 4. Uji tolak (discard) pada generasi baru
+    $savedBlocksCount = count($component->get('blocks'));
+    $component->call('executeCurrentModel', 'tuliskan kesimpulan tambahan', 'append');
+    expect($component->get('isReviewingModelOutput'))->toBeTrue();
+
+    // Batalkan / tolak hasil
+    $component->call('discardModelOutput')
+        ->assertDispatched('studio-toast');
+
+    expect($component->get('isReviewingModelOutput'))->toBeFalse()
+        ->and(count($component->get('blocks')))->toBe($savedBlocksCount);
+});
+
+it('performs black box verification of prompting buatkan daftar pustaka with review and regeneration into database', function (): void {
+    // 1. Dokumen naskah awal di basis data
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Naskah Analisis Kolaboratif Studio',
+        'blocks' => [
+            ['type' => 'title', 'level' => 0, 'text' => 'Naskah Analisis Kolaboratif Studio'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Penelitian ini menelaah efisiensi penggunaan sumber daya pada studio terbuka.'],
+        ],
+        'word_count' => 17,
+    ]);
+
+    // 2. Mount Livewire NaskahStudioApp
+    $component = Livewire::test(NaskahStudioApp::class, ['documentId' => $doc->id]);
+
+    // 3. Pengguna memasukkan prompt "buatkan daftar pustaka" di UI dan submit
+    $component->set('executeModelPrompt', 'buatkan daftar pustaka')
+        ->set('executeModelTarget', 'append')
+        ->call('submitExecuteModel')
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast');
+
+    // Verifikasi kanvas terisi dan review aktif
+    expect($component->get('isReviewingModelOutput'))->toBeTrue()
+        ->and(count($component->get('blocks')))->toBeGreaterThan(2);
+
+    // 4. Pengguna me-review hasil di kanvas dan menekan tombol Generate Ulang
+    $component->call('regenerateCurrentModel')
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast');
+
+    expect($component->get('modelGenerationCount'))->toBe(2);
+
+    // 5. Pengguna merasa hasil generasi ke-2 sudah sesuai lalu menekan Terima & Terapkan
+    $component->call('acceptModelOutput');
+    expect($component->get('isReviewingModelOutput'))->toBeFalse();
+
+    // 6. Simpan ke database
+    $component->call('saveDocument')
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast');
+
+    // 7. Verifikasi persistensi di database
+    $dbDoc = NaskahDocument::query()->find($doc->id);
+    expect($dbDoc)->not->toBeNull()
+        ->and(count($dbDoc->blocks))->toBeGreaterThan(2);
+
+    $foundDaftarPustaka = false;
+    foreach ($dbDoc->blocks as $block) {
+        if (str_contains((string) ($block['text'] ?? ''), 'Daftar Pustaka')) {
+            $foundDaftarPustaka = true;
+            break;
+        }
+    }
+    expect($foundDaftarPustaka)->toBeTrue();
+});

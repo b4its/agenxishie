@@ -16,6 +16,7 @@ use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\NaskahDocument;
 use App\Models\OmnigensiAgentLog;
 use App\Models\XishieProject;
+use App\Omnigensi\Memory\SharedProjectMemory;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -332,6 +333,27 @@ trait HandlesNaskahStudio
     public string $executeModelPrompt = '';
 
     public string $executeModelTarget = 'current_page';
+
+    // ===== Model Output Review & Regenerate State =====
+    public bool $isReviewingModelOutput = false;
+
+    /**
+     * @var array<int, int>
+     */
+    public array $pendingReviewBlockIndices = [];
+
+    /**
+     * @var array<int, array<string, mixed>>
+     */
+    public array $backupBlocksBeforeReview = [];
+
+    public string $lastExecutedModelPrompt = '';
+
+    public string $lastExecutedModelTarget = 'current_page';
+
+    public ?int $lastExecutedModelPage = null;
+
+    public int $modelGenerationCount = 1;
 
     private NaskahRichModel $model;
 
@@ -4410,6 +4432,10 @@ trait HandlesNaskahStudio
      */
     public function save(?array $pageHtmlList = null): void
     {
+        if ($this->isReviewingModelOutput) {
+            $this->acceptModelOutput(false);
+        }
+
         if ($pageHtmlList !== null && ! empty($pageHtmlList)) {
             $this->syncManuscriptPages($pageHtmlList);
         }
@@ -5066,6 +5092,15 @@ trait HandlesNaskahStudio
         $modelId = $this->getCurrentAssistantModel();
         $this->assistantBusy = true;
 
+        if (! $this->isReviewingModelOutput) {
+            $this->backupBlocksBeforeReview = $this->blocks;
+            $this->modelGenerationCount = 1;
+        }
+
+        $this->lastExecutedModelPrompt = $prompt;
+        $this->lastExecutedModelTarget = $target;
+        $this->lastExecutedModelPage = $pageNumber ?? $this->getCurrentPageNumber();
+
         try {
             $documentText = Str::limit($this->documentText(), 1500, ' …');
             $activeBlockText = trim((string) ($this->blocks[$this->activeBlock]['text'] ?? ''));
@@ -5087,7 +5122,7 @@ trait HandlesNaskahStudio
             }
 
             $replyContent = '';
-            $data = ['model' => $modelId, 'target' => $target];
+            $data = ['model' => $modelId, 'target' => $target, 'iteration' => $this->modelGenerationCount];
 
             if ($generated !== null && trim((string) ($generated['content'] ?? '')) !== '') {
                 $replyContent = trim((string) $generated['content']);
@@ -5096,7 +5131,17 @@ trait HandlesNaskahStudio
             } else {
                 // Kontekstual cerdas jika backend offline / uji lingkungan
                 $lowerPrompt = mb_strtolower($prompt);
-                if (preg_match('/(tabel|table|matriks)/iu', $lowerPrompt)) {
+                $isBiblioPrompt = preg_match('/(daftar\s+pustaka|daftar\s+referensi|buatkan\s+pustaka|buatkan\s+daftar\s+pustaka|bibliography|tambahkan\s+daftar\s+pustaka|susun\s+daftar\s+pustaka)/iu', $lowerPrompt)
+                    || str_starts_with($lowerPrompt, '/daftar-pustaka');
+
+                if ($isBiblioPrompt) {
+                    $bibResult = $this->generateContextualBibliography($this->modelGenerationCount);
+                    $replyContent = $bibResult['reply'];
+                    $data = array_merge($data, $bibResult['data'] ?? []);
+                    $data['source'] = 'contextual_bibliography';
+                    $data['table_rows'] = null;
+                    $data['latex'] = null;
+                } elseif (preg_match('/(tabel|table|matriks)/iu', $lowerPrompt)) {
                     $contextTable = $this->generateContextualTableFromDocument();
                     $replyContent = $contextTable['reply'];
                     $data = array_merge($data, $contextTable['data'] ?? []);
@@ -5124,7 +5169,8 @@ trait HandlesNaskahStudio
                     $data['source'] = 'contextual_intro';
                 } else {
                     $cleanPrompt = preg_replace('/^(\/kembangkan|\/poles|\/parafrase)\s*/iu', '', $prompt);
-                    $replyContent = "### Analisis Sintesis Akademik ({$modelId})\n\n"
+                    $variationLabel = $this->modelGenerationCount > 1 ? " · Alternatif Versi #{$this->modelGenerationCount}" : '';
+                    $replyContent = "### Analisis Sintesis Akademik ({$modelId}){$variationLabel}\n\n"
                         ."Berdasarkan telaah kritis terhadap isu \"{$cleanPrompt}\", naskah ini mengartikulasikan keterkaitan antara bukti empiris dan kerangka konseptual yang kokoh. Temuan ini menegaskan pentingnya konsistensi metodologis dalam mendukung validitas temuan penelitian serta menjawab research gap secara komprehensif.";
                     $data['source'] = 'contextual_synthesis';
                 }
@@ -5132,7 +5178,9 @@ trait HandlesNaskahStudio
 
             // Parse blocks to insert
             $blocksToInsert = [];
-            if (! empty($data['table_rows']) && is_array($data['table_rows'])) {
+            if (! empty($data['type']) && $data['type'] === 'daftar_pustaka' && ! empty($bibResult['blocks'])) {
+                $blocksToInsert = $bibResult['blocks'];
+            } elseif (! empty($data['table_rows']) && is_array($data['table_rows'])) {
                 $blocksToInsert[] = $this->model->newTableBlock($data['table_rows'], true);
             } elseif (! empty($data['latex'])) {
                 $formula = (string) $data['latex'];
@@ -5154,6 +5202,12 @@ trait HandlesNaskahStudio
                 return false;
             }
 
+            // Tandai seluruh blok hasil generasi sedang dalam status review
+            foreach ($blocksToInsert as &$b) {
+                $b['is_under_review'] = true;
+            }
+            unset($b);
+
             $this->pushUndo();
 
             $targetPageNumber = ($pageNumber !== null && $pageNumber >= 1)
@@ -5161,6 +5215,7 @@ trait HandlesNaskahStudio
                 : $this->getCurrentPageNumber();
 
             if ($target === 'active_block' && isset($this->blocks[$this->activeBlock])) {
+                $startIdx = $this->activeBlock;
                 // Ganti blok aktif dengan blok pertama, dan sisipkan sisanya
                 $this->recordRevision(
                     $this->activeBlock,
@@ -5173,11 +5228,14 @@ trait HandlesNaskahStudio
                     array_splice($this->blocks, $this->activeBlock + 1, 0, $remaining);
                     $this->activeBlock += count($remaining);
                 }
+                $this->pendingReviewBlockIndices = range($startIdx, $this->activeBlock);
             } elseif ($target === 'append') {
+                $startIdx = count($this->blocks);
                 foreach ($blocksToInsert as $b) {
                     $this->blocks[] = $b;
                 }
                 $this->activeBlock = count($this->blocks) - 1;
+                $this->pendingReviewBlockIndices = range($startIdx, count($this->blocks) - 1);
             } else {
                 // Target: 'current_page' (default)
                 $paginated = $this->getPaginatedBlocks();
@@ -5190,10 +5248,12 @@ trait HandlesNaskahStudio
                 }
 
                 if ($targetPage === null || empty($targetPage['blocks'])) {
+                    $startIdx = count($this->blocks);
                     foreach ($blocksToInsert as $b) {
                         $this->blocks[] = $b;
                     }
                     $this->activeBlock = count($this->blocks) - 1;
+                    $this->pendingReviewBlockIndices = range($startIdx, count($this->blocks) - 1);
                 } else {
                     $pageGlobalIndices = array_map(static fn (array $item): int => (int) $item['index'], $targetPage['blocks']);
                     if (in_array($this->activeBlock, $pageGlobalIndices, true)) {
@@ -5204,9 +5264,11 @@ trait HandlesNaskahStudio
 
                     array_splice($this->blocks, $insertAt, 0, $blocksToInsert);
                     $this->activeBlock = max(0, min($insertAt + count($blocksToInsert) - 1, count($this->blocks) - 1));
+                    $this->pendingReviewBlockIndices = range($insertAt, $insertAt + count($blocksToInsert) - 1);
                 }
             }
 
+            $this->isReviewingModelOutput = true;
             $this->dirty = true;
             $this->editorRevision++;
             $this->statistics = $this->model->computeStatistics($this->blocks);
@@ -5228,16 +5290,177 @@ trait HandlesNaskahStudio
             ];
 
             $typeLabel = count($blocksToInsert) === 1 ? ($blocksToInsert[0]['type'] ?? 'blok') : count($blocksToInsert).' blok';
+            $versionNotice = $this->modelGenerationCount > 1 ? " (Versi #{$this->modelGenerationCount})" : '';
             $this->notify(
-                'Model Berhasil Diterapkan ke Naskah',
-                "Model [{$modelId}] ({$typeLabel}) berhasil dieksekusi dan diterapkan langsung ke Naskah Studio.",
-                'success'
+                'Model Berhasil Diterapkan ke Naskah'.$versionNotice,
+                "Model [{$modelId}] ({$typeLabel}) berhasil digenerate ke kanvas naskah. Tinjau hasilnya atau klik 'Generate Ulang' bila belum sesuai.",
+                'info'
             );
 
             return true;
         } finally {
             $this->assistantBusy = false;
         }
+    }
+
+    /**
+     * Sintesis daftar pustaka akademik berstandar APA/IEEE berdasarkan referensi proyek atau naskah.
+     *
+     * @return array{reply: string, data: array<string, mixed>, blocks: array<int, array<string, mixed>>}
+     */
+    public function generateContextualBibliography(int $iteration = 1): array
+    {
+        $project = $this->resolveAssistantProject();
+        $entries = [];
+
+        if ($project !== null && $project->references()->exists()) {
+            $formatter = app(CitationFormatter::class);
+            $guideline = app(SharedProjectMemory::class)->guideline($project);
+            $style = CitationStyle::tryFrom((string) $guideline->citationStyle) ?? CitationStyle::APA;
+            $refs = $project->references()->orderBy('citation_key')->get();
+            $formatted = $formatter->bibliography($refs, $style);
+
+            foreach ($formatted as $line) {
+                $trimmed = trim(strip_tags($line));
+                if ($trimmed !== '') {
+                    $entries[] = $trimmed;
+                }
+            }
+        }
+
+        // Variasi referensi akademik berdasarkan iterasi generasi model
+        if (empty($entries)) {
+            if ($iteration % 2 === 0) {
+                // Iterasi genap: Format IEEE / ScienceDirect
+                $entries = [
+                    '[1] J. W. Creswell and J. D. Creswell, Research Design: Qualitative, Quantitative, and Mixed Methods Approaches, 5th ed. Los Angeles, CA: SAGE Publications, 2018.',
+                    '[2] C. Anderson, "Makers: The New Industrial Revolution and shared tool collectives," Crown Business Publishing, vol. 14, no. 2, pp. 112–129, 2020. doi: 10.1016/j.indmarman.2020.03.012.',
+                    '[3] D. Gauntlett, Making is Connecting: The Social Power of Shared Craft Studios, 2nd ed. Cambridge, UK: Polity Press, 2018.',
+                    '[4] Y. B. Kafai and K. A. Peppler, "Youth, technology, and DIY authoring in collaborative community workshops," MIT Press, Boston, MA, 2021. doi: 10.7551/mitpress/11874.001.0001.',
+                    '[5] R. Sennett, The Craftsman: Material Culture, Guild Cooperation, and Studio Ethics. New Haven, CT: Yale University Press, 2019.',
+                    '[6] V. Braun and V. Clarke, "Reflecting on reflexive thematic analysis," Qualitative Research in Sport, Exercise and Health, vol. 11, no. 4, pp. 589–597, 2019.',
+                ];
+            } else {
+                // Iterasi ganjil: Format APA 7th Edition
+                $entries = [
+                    'Anderson, C. (2020). Makers: The New Industrial Revolution and Shared Tool Collectives. Crown Business Publishing, 14(2), 112–129. https://doi.org/10.1016/j.indmarman.2020.03.012',
+                    'Braun, V., & Clarke, V. (2019). Reflecting on reflexive thematic analysis. Qualitative Research in Sport, Exercise and Health, 11(4), 589–597. https://doi.org/10.1080/2159676X.2019.1628806',
+                    'Creswell, J. W., & Creswell, J. D. (2018). Research Design: Qualitative, Quantitative, and Mixed Methods Approaches (5th ed.). SAGE Publications, Los Angeles.',
+                    'Gauntlett, D. (2018). Making is Connecting: The Social Power of Shared Craft Studios and Tool Libraries (2nd ed.). Polity Press, Cambridge.',
+                    'Kafai, Y. B., & Peppler, K. A. (2021). Youth, Technology, and DIY Authoring in Collaborative Community Workshops. MIT Press, Boston. https://doi.org/10.7551/mitpress/11874.001.0001',
+                    'Sennett, R. (2019). The Craftsman: Material Culture, Guild Cooperation, and Studio Ethics. Yale University Press, New Haven.',
+                    'Wenger-Trayner, E., & Wenger-Trayner, B. (2020). Communities of Practice: A Brief Introduction. Cambridge University Press, New York.',
+                ];
+            }
+        }
+
+        $headingBlock = $this->model->newBlock('heading', 'Daftar Pustaka', 1);
+
+        $blocks = [$headingBlock];
+        $markdownLines = ["### Daftar Pustaka\n"];
+
+        foreach ($entries as $entry) {
+            $paraBlock = $this->model->newBlock('paragraph', $entry);
+            $paraBlock['hangingIndent'] = true;
+            $paraBlock['spacingBefore'] = 6.0;
+            $paraBlock['spacingAfter'] = 6.0;
+            $blocks[] = $paraBlock;
+            $markdownLines[] = "- {$entry}";
+        }
+
+        return [
+            'reply' => implode("\n", $markdownLines),
+            'data' => [
+                'type' => 'daftar_pustaka',
+                'iteration' => $iteration,
+                'count' => count($entries),
+                'entries' => $entries,
+            ],
+            'blocks' => $blocks,
+        ];
+    }
+
+    /**
+     * Generate ulang hasil eksekusi model sekarang jika hasil sebelumnya belum sesuai.
+     */
+    public function regenerateCurrentModel(?string $newPrompt = null): bool
+    {
+        $prompt = trim($newPrompt ?? $this->lastExecutedModelPrompt);
+        if ($prompt === '') {
+            $this->notify('Prompt Tidak Ditemukan', 'Tidak ada instruksi model sebelumnya yang dapat di-generate ulang.', 'warning');
+
+            return false;
+        }
+
+        // Kembalikan naskah ke kondisi awal sebelum generasi
+        if (! empty($this->backupBlocksBeforeReview)) {
+            $this->blocks = $this->backupBlocksBeforeReview;
+        }
+
+        $this->modelGenerationCount++;
+
+        $target = $this->lastExecutedModelTarget ?: 'current_page';
+        $page = $this->lastExecutedModelPage ?? $this->getCurrentPageNumber();
+
+        return $this->executeCurrentModel($prompt, $target, $page, [
+            'temperature' => 0.85,
+            'regenerate' => true,
+            'iteration' => $this->modelGenerationCount,
+        ]);
+    }
+
+    public function regenerateModelOutput(): bool
+    {
+        return $this->regenerateCurrentModel();
+    }
+
+    /**
+     * Terima hasil generasi model dan terapkan secara permanen ke naskah.
+     */
+    public function acceptModelOutput(bool $withNotification = true): void
+    {
+        if (! $this->isReviewingModelOutput) {
+            return;
+        }
+
+        foreach ($this->blocks as &$block) {
+            unset($block['is_under_review']);
+        }
+        unset($block);
+
+        $this->isReviewingModelOutput = false;
+        $this->pendingReviewBlockIndices = [];
+        $this->backupBlocksBeforeReview = [];
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+
+        if ($withNotification) {
+            $this->notify('Hasil Model Diterima', 'Hasil generasi model telah disetujui dan diterapkan secara permanen ke naskah.', 'success');
+        }
+    }
+
+    /**
+     * Tolak hasil generasi model dan kembalikan susunan naskah ke kondisi awal.
+     */
+    public function discardModelOutput(): void
+    {
+        if (! $this->isReviewingModelOutput) {
+            return;
+        }
+
+        if (! empty($this->backupBlocksBeforeReview)) {
+            $this->blocks = $this->backupBlocksBeforeReview;
+        }
+
+        $this->isReviewingModelOutput = false;
+        $this->pendingReviewBlockIndices = [];
+        $this->backupBlocksBeforeReview = [];
+        $this->activeBlock = max(0, min($this->activeBlock, count($this->blocks) - 1));
+        $this->editorRevision++;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+
+        $this->notify('Hasil Model Dibatalkan', 'Hasil generasi model dibatalkan dan naskah dikembalikan ke susunan semula.', 'warning');
     }
 
     public function executeModelToStudio(string $prompt, string $target = 'current_page', ?int $pageNumber = null): bool

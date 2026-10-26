@@ -1630,6 +1630,38 @@
                 wire:key="manuscript-canvas-{{ $pageCount }}"
                 style="width: 100%; display: flex; flex-direction: column; align-items: center;">
 
+                {{-- Review Hasil Generasi Model Bar --}}
+                @if ($isReviewingModelOutput)
+                    <div class="word-model-review-banner" style="width: 100%; max-width: 820px; margin: 0 auto 16px auto; background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border: 2px solid #6366f1; border-radius: 8px; box-shadow: 0 6px 20px rgba(99,102,241,0.22); padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 14px; position: sticky; top: 12px; z-index: 50;">
+                        <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                            <div style="width: 36px; height: 36px; border-radius: 9px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(79,70,229,0.3);">
+                                ✨
+                            </div>
+                            <div style="min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <strong style="font-size: 13.5px; color: #1e1b4b;">Tinjau Hasil Generasi: {{ $currentAssistantModel }}</strong>
+                                    <span style="font-size: 10.5px; background: #e0e7ff; color: #4338ca; padding: 2px 7px; border-radius: 4px; font-weight: 700;">Versi #{{ $modelGenerationCount }}</span>
+                                    <span style="font-size: 11px; color: #6366f1; font-weight: 600;">({{ count($pendingReviewBlockIndices) }} blok ditambahkan ke naskah)</span>
+                                </div>
+                                <div style="font-size: 11.5px; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 520px; margin-top: 3px;">
+                                    Instruksi: &ldquo;<strong>{{ $lastExecutedModelPrompt }}</strong>&rdquo;
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                            <button type="button" wire:click="acceptModelOutput" class="word-btn-pill" style="background: #16a34a; color: #ffffff; border: 1px solid #15803d; font-weight: 700; height: 32px; padding: 0 14px; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(22,163,74,0.3);" title="Terima hasil ini dan terapkan secara permanen ke naskah">
+                                <span>✓</span> Terima &amp; Terapkan
+                            </button>
+                            <button type="button" wire:click="regenerateCurrentModel" wire:loading.attr="disabled" wire:target="regenerateCurrentModel" class="word-btn-pill" style="background: #ffffff; color: #4338ca; border: 1.5px solid #a5b4fc; font-weight: 700; height: 32px; padding: 0 14px; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);" title="Belum sesuai? Generate ulang draf alternatif dari model saat ini">
+                                <span>🔄</span> Generate Ulang
+                            </button>
+                            <button type="button" wire:click="discardModelOutput" class="word-btn-pill" style="background: #ffffff; color: #dc2626; border: 1px solid #fca5a5; font-weight: 600; height: 32px; padding: 0 12px; font-size: 12px;" title="Tolak hasil generasi ini dan kembalikan naskah ke kondisi semula">
+                                ✕ Tolak
+                            </button>
+                        </div>
+                    </div>
+                @endif
+
                 @foreach ($paginatedPages as $pageData)
                     @php
                         $pageNumber = $pageData['pageNumber'];
@@ -2159,6 +2191,34 @@
                             </button>
                         </div>
                     </div>
+
+                    {{-- Review Panel di Panel Asisten --}}
+                    @if ($isReviewingModelOutput)
+                        <div class="word-assistant-review-panel" style="padding:8px 10px; background:linear-gradient(135deg, #eef2ff 0%, #fdf4ff 100%); border-bottom:1px solid #c7d2fe; font-size:11px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
+                                <span style="font-weight:700; color:#312e81; display:inline-flex; align-items:center; gap:4px;">
+                                    <span>🔍</span> Review Hasil Model
+                                </span>
+                                <span style="font-size:9.5px; background:#e0e7ff; color:#4338ca; padding:1px 6px; border-radius:3px; font-weight:700;">
+                                    Versi #{{ $modelGenerationCount }}
+                                </span>
+                            </div>
+                            <div style="font-size:10.5px; color:#475569; margin-bottom:7px; line-height:1.4;">
+                                Draf &ldquo;<em>{{ Str::limit($lastExecutedModelPrompt, 38) }}</em>&rdquo; sedang aktif di naskah.
+                            </div>
+                            <div style="display:flex; gap:4px;">
+                                <button type="button" wire:click="acceptModelOutput" style="flex:1; height:26px; font-size:10px; font-weight:700; background:#16a34a; color:#ffffff; border:none; border-radius:4px; cursor:pointer;" title="Terima hasil ini">
+                                    ✓ Terima
+                                </button>
+                                <button type="button" wire:click="regenerateCurrentModel" wire:loading.attr="disabled" wire:target="regenerateCurrentModel" style="flex:1.2; height:26px; font-size:10px; font-weight:700; background:#ffffff; color:#4338ca; border:1px solid #c7d2fe; border-radius:4px; cursor:pointer;" title="Generate ulang draf alternatif">
+                                    🔄 Generate Ulang
+                                </button>
+                                <button type="button" wire:click="discardModelOutput" style="height:26px; padding:0 8px; font-size:10px; font-weight:600; background:#ffffff; color:#dc2626; border:1px solid #fecaca; border-radius:4px; cursor:pointer;" title="Tolak hasil ini">
+                                    ✕ Tolak
+                                </button>
+                            </div>
+                        </div>
+                    @endif
 
                     <!-- Quick Command Chips Bar -->
                     <div class="word-assistant-tools-bar">
