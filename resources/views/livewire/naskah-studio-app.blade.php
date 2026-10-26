@@ -2486,6 +2486,18 @@
                         <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="word-dialog__body" style="display:flex; flex-direction:column; gap:12px; max-height:75vh; overflow-y:auto;">
+                        <!-- Preset Cepat Kaidah Akademik -->
+                        <div style="background:rgba(15,108,189,0.04); border:1px solid rgba(15,108,189,0.15); border-radius:4px; padding:8px 10px;">
+                            <label style="display:block; font-weight:700; font-size:11px; color:#0f6cbd; margin-bottom:6px;">⚡ Terapkan Preset Kaidah Akademik:</label>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                <button type="button" class="word-tool-btn" wire:click="loadPresetIntoCustomizer('academic_standard')" style="padding:2px 8px; font-size:11px;">APA 1.5</button>
+                                <button type="button" class="word-tool-btn" wire:click="loadPresetIntoCustomizer('journal_ieee')" style="padding:2px 8px; font-size:11px;">IEEE / ACM 1.0</button>
+                                <button type="button" class="word-tool-btn" wire:click="loadPresetIntoCustomizer('thesis_dikti')" style="padding:2px 8px; font-size:11px;">Skripsi DIKTI 2.0</button>
+                                <button type="button" class="word-tool-btn" wire:click="loadPresetIntoCustomizer('abstract_block')" style="padding:2px 8px; font-size:11px;">Abstrak Block</button>
+                                <button type="button" class="word-tool-btn" wire:click="loadPresetIntoCustomizer('block_quote')" style="padding:2px 8px; font-size:11px;">Kutipan Langsung</button>
+                            </div>
+                        </div>
+
                         @php
                             $pageParas = $this->getPageParagraphs($customParaPage);
                         @endphp

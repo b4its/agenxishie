@@ -1273,6 +1273,80 @@ final class NaskahRichModel
         return $blocks;
     }
 
+    /**
+     * Membagi blok naskah ke dalam lembar halaman dinamis berdasarkan kapasitas visual dan pemisah manual.
+     *
+     * @param  array<int, array<string, mixed>>  $blocks
+     * @return array<int, array{pageNumber: int, isFirstPage: bool, blocks: array<int, array{index: int, block: array<string, mixed>>}}>
+     */
+    public function paginate(array $blocks, int $pageCapacity = 800): array
+    {
+        $pages = [];
+        $currentPageBlocks = [];
+        $currentEstimatedHeight = 0;
+
+        foreach ($blocks as $index => $block) {
+            $type = (string) ($block['type'] ?? 'paragraph');
+
+            if ($type === 'pagebreak') {
+                if (! empty($currentPageBlocks)) {
+                    $pages[] = $currentPageBlocks;
+                    $currentPageBlocks = [];
+                    $currentEstimatedHeight = 0;
+                }
+
+                continue;
+            }
+
+            $text = (string) ($block['text'] ?? '');
+            $charCount = mb_strlen(strip_tags($text));
+            $lines = max(1, (int) ceil($charCount / 80));
+
+            $blockHeight = match ($type) {
+                'title' => 54 + ($lines * 32),
+                'subtitle' => 30 + ($lines * 22),
+                'heading' => match ((int) ($block['level'] ?? 1)) {
+                    1 => 44 + ($lines * 28),
+                    2 => 32 + ($lines * 24),
+                    default => 24 + ($lines * 20),
+                },
+                'quote' => 36 + ($lines * 22),
+                'bullet', 'numbered' => 10 + ($lines * 20),
+                'table' => max(90, count($block['table']['rows'] ?? []) * 32),
+                'toc' => max(100, count($block['table']['rows'] ?? []) * 26),
+                'callout' => 32 + ($lines * 22),
+                default => 12 + ($lines * 22),
+            };
+
+            if ($currentEstimatedHeight > 0 && ($currentEstimatedHeight + $blockHeight) > $pageCapacity) {
+                $pages[] = $currentPageBlocks;
+                $currentPageBlocks = [];
+                $currentEstimatedHeight = 0;
+            }
+
+            $currentPageBlocks[] = [
+                'index' => $index,
+                'block' => $block,
+            ];
+            $currentEstimatedHeight += $blockHeight;
+        }
+
+        if (! empty($currentPageBlocks) || empty($pages)) {
+            $pages[] = $currentPageBlocks;
+        }
+
+        $formattedPages = [];
+        foreach ($pages as $pIdx => $pBlocks) {
+            $formattedPages[] = [
+                'pageNumber' => $pIdx + 1,
+                'isFirstPage' => $pIdx === 0,
+                'blocks' => $pBlocks,
+            ];
+        }
+
+        return $formattedPages;
+    }
+
     private function align(mixed $align): string
     {
         return in_array($align, ['left', 'center', 'right', 'justify'], true) ? $align : 'left';

@@ -288,6 +288,62 @@ trait HandlesNaskahStudio
 
     public string $customParaType = 'paragraph';
 
+    /**
+     * Preset kaidah paragraf akademik baku.
+     */
+    public const PARAGRAPH_PRESETS = [
+        'academic_standard' => [
+            'label' => 'Standar Akademik (APA/Scopus)',
+            'align' => 'justify',
+            'lineSpacing' => 1.5,
+            'firstLineIndent' => true,
+            'indent' => 0,
+            'spacingBefore' => 0.0,
+            'spacingAfter' => 6.0,
+            'dropCap' => false,
+        ],
+        'journal_ieee' => [
+            'label' => 'Jurnal IEEE / ACM (Rapat)',
+            'align' => 'justify',
+            'lineSpacing' => 1.0,
+            'firstLineIndent' => true,
+            'indent' => 0,
+            'spacingBefore' => 0.0,
+            'spacingAfter' => 4.0,
+            'dropCap' => false,
+        ],
+        'thesis_dikti' => [
+            'label' => 'Skripsi / Tesis DIKTI (Spasi Ganda)',
+            'align' => 'justify',
+            'lineSpacing' => 2.0,
+            'firstLineIndent' => true,
+            'indent' => 0,
+            'spacingBefore' => 0.0,
+            'spacingAfter' => 6.0,
+            'dropCap' => false,
+        ],
+        'abstract_block' => [
+            'label' => 'Abstrak / Rangkuman (Block)',
+            'align' => 'justify',
+            'lineSpacing' => 1.15,
+            'firstLineIndent' => false,
+            'indent' => 0,
+            'spacingBefore' => 6.0,
+            'spacingAfter' => 6.0,
+            'dropCap' => false,
+        ],
+        'block_quote' => [
+            'label' => 'Kutipan Langsung (Blockquote)',
+            'align' => 'justify',
+            'lineSpacing' => 1.0,
+            'firstLineIndent' => false,
+            'indent' => 2,
+            'spacingBefore' => 6.0,
+            'spacingAfter' => 6.0,
+            'dropCap' => false,
+        ],
+    ];
+
     // ===== Xishie Assistant =====
     public bool $assistantOpen = false;
 
@@ -1560,6 +1616,141 @@ trait HandlesNaskahStudio
         $this->dialog = '';
     }
 
+    /**
+     * Terapkan preset paragraf akademik baku ke blok naskah tertentu.
+     */
+    public function applyParagraphPreset(int $globalIndex, string $presetKey): bool
+    {
+        if (! isset(self::PARAGRAPH_PRESETS[$presetKey]) || ! isset($this->blocks[$globalIndex])) {
+            return false;
+        }
+
+        $preset = self::PARAGRAPH_PRESETS[$presetKey];
+
+        return $this->customParagraph($globalIndex, [
+            'align' => $preset['align'],
+            'lineSpacing' => $preset['lineSpacing'],
+            'firstLineIndent' => $preset['firstLineIndent'],
+            'indent' => $preset['indent'],
+            'spacingBefore' => $preset['spacingBefore'],
+            'spacingAfter' => $preset['spacingAfter'],
+            'dropCap' => $preset['dropCap'],
+        ]);
+    }
+
+    /**
+     * Terapkan preset paragraf akademik baku ke seluruh paragraf pada halaman tertentu.
+     */
+    public function applyParagraphPresetToPage(int $pageNumber, string $presetKey): int
+    {
+        if (! isset(self::PARAGRAPH_PRESETS[$presetKey])) {
+            return 0;
+        }
+
+        $preset = self::PARAGRAPH_PRESETS[$presetKey];
+
+        return $this->customAllPageParagraphs($pageNumber, [
+            'align' => $preset['align'],
+            'lineSpacing' => $preset['lineSpacing'],
+            'firstLineIndent' => $preset['firstLineIndent'],
+            'indent' => $preset['indent'],
+            'spacingBefore' => $preset['spacingBefore'],
+            'spacingAfter' => $preset['spacingAfter'],
+            'dropCap' => $preset['dropCap'],
+        ]);
+    }
+
+    /**
+     * Duplikasi paragraf tertentu pada halaman terpilih.
+     */
+    public function duplicatePageParagraph(int $pageNumber, int $paragraphIndexOnPage): int
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return -1;
+        }
+
+        $globalIndex = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $this->duplicateBlock($globalIndex);
+        $this->notify('Paragraf diduplikasi', "Paragraf pada Halaman {$pageNumber} berhasil diduplikasi.", 'success');
+
+        return $globalIndex + 1;
+    }
+
+    /**
+     * Geser posisi paragraf pada halaman (naik atau turun).
+     */
+    public function movePageParagraph(int $pageNumber, int $paragraphIndexOnPage, int $direction): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $targetIndex = $paragraphIndexOnPage + $direction;
+        if ($targetIndex < 0 || $targetIndex >= count($paragraphs)) {
+            return false;
+        }
+
+        $globalFrom = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $globalTo = $paragraphs[$targetIndex]['globalIndex'];
+
+        $this->pushUndo();
+        $item = array_splice($this->blocks, $globalFrom, 1)[0];
+        array_splice($this->blocks, $globalTo, 0, [$item]);
+        $this->activeBlock = $globalTo;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Urutan paragraf diubah', '', 'success');
+
+        return true;
+    }
+
+    /**
+     * Ambil statistik teks dan jumlah paragraf untuk nomor halaman tertentu.
+     *
+     * @return array{pageNumber: int, paragraphCount: int, words: int, characters: int, estimatedReadingSeconds: int}
+     */
+    public function getPageParagraphStats(int $pageNumber): array
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        $totalWords = 0;
+        $totalChars = 0;
+
+        foreach ($paragraphs as $p) {
+            $text = strip_tags((string) ($p['block']['text'] ?? ''));
+            $totalWords += str_word_count($text);
+            $totalChars += mb_strlen($text);
+        }
+
+        return [
+            'pageNumber' => $pageNumber,
+            'paragraphCount' => count($paragraphs),
+            'words' => $totalWords,
+            'characters' => $totalChars,
+            'estimatedReadingSeconds' => (int) ceil(($totalWords / 200) * 60),
+        ];
+    }
+
+    /**
+     * Muat pengaturan preset langsung ke dalam form modal kustomisasi paragraf.
+     */
+    public function loadPresetIntoCustomizer(string $presetKey): void
+    {
+        if (! isset(self::PARAGRAPH_PRESETS[$presetKey])) {
+            return;
+        }
+
+        $p = self::PARAGRAPH_PRESETS[$presetKey];
+        $this->customParaAlign = $p['align'];
+        $this->customParaLineSpacing = (float) $p['lineSpacing'];
+        $this->customParaFirstLineIndent = (bool) $p['firstLineIndent'];
+        $this->customParaIndent = (int) $p['indent'];
+        $this->customParaSpacingBefore = (float) $p['spacingBefore'];
+        $this->customParaSpacingAfter = (float) $p['spacingAfter'];
+        $this->customParaDropCap = (bool) $p['dropCap'];
+    }
+
     // =====================================================================
     // Tabel
     // =====================================================================
@@ -2410,76 +2601,7 @@ trait HandlesNaskahStudio
      */
     public function getPaginatedBlocks(): array
     {
-        $pages = [];
-        $currentPageBlocks = [];
-        $currentEstimatedHeight = 0;
-        // Kapasitas tinggi visual area konten lembar A4 standar Word (~800px)
-        $pageCapacity = 800;
-
-        foreach ($this->blocks as $index => $block) {
-            $type = $block['type'] ?? 'paragraph';
-
-            if ($type === 'pagebreak') {
-                if (! empty($currentPageBlocks)) {
-                    $pages[] = $currentPageBlocks;
-                    $currentPageBlocks = [];
-                    $currentEstimatedHeight = 0;
-                }
-
-                continue;
-            }
-
-            $text = (string) ($block['text'] ?? '');
-            $charCount = mb_strlen(strip_tags($text));
-            // Standar baris Word ~75-85 karakter per baris
-            $lines = max(1, (int) ceil($charCount / 80));
-
-            // Estimasi tinggi elemen naskah dalam pixel
-            $blockHeight = match ($type) {
-                'title' => 54 + ($lines * 32),
-                'subtitle' => 30 + ($lines * 22),
-                'heading' => match ((int) ($block['level'] ?? 1)) {
-                    1 => 44 + ($lines * 28),
-                    2 => 32 + ($lines * 24),
-                    default => 24 + ($lines * 20),
-                },
-                'quote' => 36 + ($lines * 22),
-                'bullet', 'numbered' => 10 + ($lines * 20),
-                'table' => max(90, count($block['table']['rows'] ?? []) * 32),
-                'toc' => max(100, count($block['table']['rows'] ?? []) * 26),
-                'callout' => 32 + ($lines * 22),
-                default => 12 + ($lines * 22),
-            };
-
-            // Jika lembar saat ini sudah memiliki konten dan penambahan blok melebihi kapasitas,
-            // buat lembar halaman baru persis Microsoft Word
-            if ($currentEstimatedHeight > 0 && ($currentEstimatedHeight + $blockHeight) > $pageCapacity) {
-                $pages[] = $currentPageBlocks;
-                $currentPageBlocks = [];
-                $currentEstimatedHeight = 0;
-            }
-
-            $currentPageBlocks[] = [
-                'index' => $index,
-                'block' => $block,
-            ];
-            $currentEstimatedHeight += $blockHeight;
-        }
-
-        if (! empty($currentPageBlocks) || empty($pages)) {
-            $pages[] = $currentPageBlocks;
-        }
-
-        $formattedPages = [];
-        foreach ($pages as $pIdx => $pBlocks) {
-            $formattedPages[] = [
-                'pageNumber' => $pIdx + 1,
-                'isFirstPage' => $pIdx === 0,
-                'blocks' => $pBlocks,
-            ];
-        }
-
-        return $formattedPages;
+        return $this->model->paginate($this->blocks);
     }
 
     /**
