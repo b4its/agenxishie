@@ -22,7 +22,7 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph}
+                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page}
                             {documentId? : ID dokumen naskah}
                             {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
                             {--output= : Path berkas luaran}
@@ -77,6 +77,7 @@ class NaskahStudioCommand extends Command
             'autocorrect' => $this->handleAutoCorrect($document, $blocks, $model),
             'paragraphs' => $this->handleParagraphs($document, $blocks, $model),
             'format-paragraph' => $this->handleFormatParagraph($document, $blocks, $model),
+            'clean-page' => $this->handleCleanPage($document, $blocks, $model),
             default => $this->handleUnknownAction($action),
         };
     }
@@ -310,9 +311,56 @@ class NaskahStudioCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleCleanPage(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $paginated = $model->paginate($blocks);
+
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id} (total: ".count($paginated).' halaman).');
+
+            return self::FAILURE;
+        }
+
+        $cleanedCount = 0;
+        foreach ($targetPage['blocks'] as $item) {
+            $idx = $item['index'];
+            if (! isset($blocks[$idx])) {
+                continue;
+            }
+            $currentText = (string) ($blocks[$idx]['text'] ?? '');
+            $newText = $model->cleanTextSpacing($currentText);
+            if ($newText !== $currentText) {
+                $blocks[$idx]['text'] = $newText;
+                $blocks[$idx]['runs'] = $model->normalizeRuns($blocks[$idx]['runs'] ?? [], $newText);
+                $cleanedCount++;
+            }
+        }
+
+        $document->update([
+            'blocks' => $blocks,
+            'word_count' => $model->countWords($blocks),
+        ]);
+
+        $this->info("Berhasil merapikan spasi pada {$cleanedCount} paragraf di halaman #{$pageNumber} dokumen #{$document->id}.");
+
+        return self::SUCCESS;
+    }
+
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page.");
 
         return self::FAILURE;
     }
