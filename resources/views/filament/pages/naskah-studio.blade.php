@@ -1964,17 +1964,35 @@
                                         title="Rapikan spasi berlebih pada seluruh paragraf Halaman {{ $pageNumber }}">
                                         🧹 Rapikan Spasi
                                     </button>
+                                    <button type="button"
+                                        wire:click="setPageParagraphColumns({{ $pageNumber }}, {{ ($pageOverrides[$pageNumber]['columns'] ?? 1) === 1 ? 2 : 1 }})"
+                                        class="ns-btn"
+                                        style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
+                                        title="Ganti tata letak 1 atau 2 kolom untuk Halaman {{ $pageNumber }}">
+                                        📰 {{ ($pageOverrides[$pageNumber]['columns'] ?? 1) === 2 ? '2 Kolom' : '1 Kolom' }}
+                                    </button>
+                                    <button type="button"
+                                        wire:click="togglePageParagraphLineNumbers({{ $pageNumber }})"
+                                        class="ns-btn {{ !empty($pageOverrides[$pageNumber]['lineNumbers']) ? 'active' : '' }}"
+                                        style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
+                                        title="Tampilkan / sembunyikan nomor baris di Halaman {{ $pageNumber }}">
+                                        🔢 Nomor Baris
+                                    </button>
                                 </div>
                                 <span>Halaman {{ $pageNumber }} dari {{ $pageCount }}</span>
                             </div>
 
                             {{-- Kanvas Lembar Naskah WYSIWYG (Microsoft Word 365 & LibreOffice Writer) --}}
+                            @php
+                                $pageCols = (int) ($pageOverrides[$pageNumber]['columns'] ?? $pageSetup['columns'] ?? 1);
+                                $colStyle = $pageCols > 1 ? "column-count: {$pageCols}; column-gap: 1.5rem;" : '';
+                            @endphp
                             <div class="word-sheet-content"
                                  id="word-page-content-{{ $pageNumber }}"
                                  data-page-number="{{ $pageNumber }}"
                                  wire:key="filament-content-{{ $documentId ?? 'new' }}-p{{ $pageNumber }}-v{{ $editorRevision }}"
                                  wire:ignore
-                                 style="outline: none; min-height: 720px; line-height: {{ $pageSetup['lineSpacing'] ?? '1.5' }};"
+                                 style="outline: none; min-height: 720px; line-height: {{ $pageSetup['lineSpacing'] ?? '1.5' }}; {{ $colStyle }}"
                                  contenteditable="true"
                                  spellcheck="false"
                                  @keydown="handleContentKeydown($event)"
@@ -2126,9 +2144,29 @@
                                                         {!! $text ?: '<br>' !!}
                                                     </p>
                                                 @else
-                                                    <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="{{ $this->blockInlineStyle($block) }}">
-                                                        {!! $text ?: '<br>' !!}
-                                                    </p>
+                                                    @php
+                                                        $pIdxOnPage = 0;
+                                                        foreach ($this->getPageParagraphs($pageNumber) as $pItem) {
+                                                            if ($pItem['globalIndex'] === $index) {
+                                                                $pIdxOnPage = $pItem['pageIndex'];
+                                                                break;
+                                                            }
+                                                        }
+                                                    @endphp
+                                                    <div class="word-para-item-wrapper" style="position:relative;" x-data="{ hovered: false }" @mouseenter="hovered = true" @mouseleave="hovered = false">
+                                                        <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="{{ $this->blockInlineStyle($block) }}">
+                                                            {!! $text ?: '<br>' !!}
+                                                        </p>
+                                                        <div x-show="hovered" contenteditable="false" style="position:absolute; right:4px; top:-12px; z-index:20; display:flex; gap:3px; background:#ffffff; border:1px solid #cbd5e1; border-radius:4px; padding:2px 4px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="openParagraphCustomizer({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Kustomisasi paragraf ini">⚙️</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="movePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }}, -1)" title="Geser naik">⬆️</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="movePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }}, 1)" title="Geser turun">⬇️</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="duplicatePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Duplikat paragraf">📄</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="splitPageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Pecah paragraf">✂️</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="polishPageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Poles bahasa akademik">✨</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px; color:#d13438;" wire:click="deletePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Hapus paragraf">🗑️</button>
+                                                        </div>
+                                                    </div>
                                                 @endif
                                             @endif
                                         @endif

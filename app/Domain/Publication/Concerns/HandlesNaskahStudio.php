@@ -299,6 +299,13 @@ trait HandlesNaskahStudio
     public string $customParaType = 'paragraph';
 
     /**
+     * Pengaturan override per nomor halaman (kolom, nomor baris, dll).
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $pageOverrides = [];
+
+    /**
      * Preset kaidah paragraf akademik baku.
      */
     public const PARAGRAPH_PRESETS = NaskahRichModel::PARAGRAPH_PRESETS;
@@ -2031,6 +2038,102 @@ trait HandlesNaskahStudio
         }
 
         return $added;
+    }
+
+    /**
+     * Poles bahasa akademik dan perbaiki kohesi kalimat pada paragraf halaman tertentu.
+     */
+    public function polishPageParagraph(int $pageNumber, int $paragraphIndexOnPage): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $gIdx = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $currentText = trim((string) ($this->blocks[$gIdx]['text'] ?? ''));
+        if ($currentText === '') {
+            return false;
+        }
+
+        $autocorrect = $this->model->autoCorrect($currentText);
+        $polishedText = $this->model->cleanTextSpacing($autocorrect['text']);
+
+        $sentences = preg_split('/(?<=[.!?])\s+/u', $polishedText, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($sentences !== []) {
+            $sentences[0] = ucfirst($sentences[0]);
+            $polishedText = implode(' ', $sentences);
+        }
+
+        $this->pushUndo();
+        $this->blocks[$gIdx]['text'] = $polishedText;
+        $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns([], $polishedText);
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Paragraf Dipoles', 'Paragraf #'.($paragraphIndexOnPage + 1)." pada Halaman {$pageNumber} berhasil dipoles secara akademik.", 'success');
+
+        return true;
+    }
+
+    /**
+     * Sematkan sitasi pustaka ke akhir paragraf tertentu pada halaman.
+     */
+    public function citePageParagraph(int $pageNumber, int $paragraphIndexOnPage, string $citationKey, string $style = 'apa'): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $gIdx = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $currentText = rtrim((string) ($this->blocks[$gIdx]['text'] ?? ''));
+        if ($currentText === '') {
+            return false;
+        }
+
+        $cleanKey = trim($citationKey, ' ()[]');
+        $marker = strtolower($style) === 'ieee' ? "[{$cleanKey}]" : "({$cleanKey})";
+
+        if (str_ends_with($currentText, '.')) {
+            $baseText = rtrim(substr($currentText, 0, -1));
+            $newText = "{$baseText} {$marker}.";
+        } else {
+            $newText = "{$currentText} {$marker}.";
+        }
+
+        $this->pushUndo();
+        $this->blocks[$gIdx]['text'] = $newText;
+        $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns([], $newText);
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Sitasi Disematkan', "Sitasi {$marker} ditambahkan pada paragraf #".($paragraphIndexOnPage + 1)." Halaman {$pageNumber}.", 'success');
+
+        return true;
+    }
+
+    /**
+     * Atur jumlah kolom tata letak paragraf khusus untuk halaman tertentu.
+     */
+    public function setPageParagraphColumns(int $pageNumber, int $columns = 1): void
+    {
+        $cols = max(1, min(3, $columns));
+        $this->pageOverrides[$pageNumber]['columns'] = $cols;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Tata Letak Kolom', "Halaman {$pageNumber} diubah menjadi {$cols} kolom.", 'success');
+    }
+
+    /**
+     * Aktifkan atau nonaktifkan nomor baris pada halaman tertentu.
+     */
+    public function togglePageParagraphLineNumbers(int $pageNumber): void
+    {
+        $current = (bool) ($this->pageOverrides[$pageNumber]['lineNumbers'] ?? false);
+        $this->pageOverrides[$pageNumber]['lineNumbers'] = ! $current;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $status = ! $current ? 'diaktifkan' : 'dinonaktifkan';
+        $this->notify('Nomor Baris', "Nomor baris pada Halaman {$pageNumber} {$status}.", 'info');
     }
 
     // =====================================================================
@@ -5069,6 +5172,7 @@ trait HandlesNaskahStudio
             'pendingRevisionCount' => collect($this->revisions)->where('status', 'pending')->count(),
             'resolvedCommentCount' => collect($this->comments)->where('resolved', true)->count(),
             'pageSetup' => $this->pageSetup,
+            'pageOverrides' => $this->pageOverrides,
             'styleMeta' => $this->styleMeta,
             'snapshots' => $this->snapshots,
             'metadata' => $this->metadata,
