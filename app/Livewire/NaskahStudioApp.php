@@ -62,12 +62,15 @@ class NaskahStudioApp extends Component
 
     public int $aiTotalSuggestions = 0;
 
-    public function mount(?int $documentId = null): void
+    public function mount(?int $documentId = null, ?int $project = null, ?string $stage = null): void
     {
         $this->bootHandlesNaskahStudio();
 
         $targetDocId = $documentId ?? (request()->query('document') !== null ? (int) request()->query('document') : null);
-        $this->mountHandlesNaskahStudio($targetDocId);
+        $targetProjId = $project ?? (request('project') !== null ? (int) request('project') : null);
+        $targetStage = $stage ?? request('stage');
+
+        $this->mountHandlesNaskahStudio($targetDocId, $targetProjId, $targetStage);
 
         $this->sessionStartedAt = Carbon::now()->toIso8601String();
         $this->sessionSeconds = 0;

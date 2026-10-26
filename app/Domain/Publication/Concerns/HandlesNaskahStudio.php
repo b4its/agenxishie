@@ -287,7 +287,7 @@ trait HandlesNaskahStudio
         $this->model = app(NaskahRichModel::class);
     }
 
-    public function mountHandlesNaskahStudio(?int $documentId = null): void
+    public function mountHandlesNaskahStudio(?int $documentId = null, ?int $projectId = null, ?string $stage = null): void
     {
         $this->model = app(NaskahRichModel::class);
 
@@ -303,10 +303,10 @@ trait HandlesNaskahStudio
             }
         }
 
-        $projectId = request()->query('project') !== null ? (int) request()->query('project') : null;
+        $projectId = $projectId ?? (request('project') !== null ? (int) request('project') : null);
         if (is_numeric($projectId) && $projectId > 0) {
             $this->sourceProjectId = (int) $projectId;
-            $this->sourceProjectStage = (string) request()->query('stage', ProjectStage::DRAFT->value);
+            $this->sourceProjectStage = $stage ?? (string) request('stage', ProjectStage::DRAFT->value);
             $this->loadFromProject();
 
             if (! empty($this->blocks)) {
