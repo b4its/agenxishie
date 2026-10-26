@@ -22,12 +22,14 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page}
+                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace}
                             {documentId? : ID dokumen naskah}
                             {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
                             {--output= : Path berkas luaran}
                             {--page=1 : Nomor halaman target untuk inspeksi atau format paragraf}
-                            {--preset=academic_standard : Preset paragraf (academic_standard, journal_ieee, thesis_dikti, abstract_block, block_quote)}';
+                            {--preset=academic_standard : Preset paragraf (academic_standard, journal_ieee, thesis_dikti, abstract_block, block_quote)}
+                            {--search= : Kata kunci pencarian untuk aksi find-replace}
+                            {--replace= : Teks pengganti untuk aksi find-replace}';
 
     /**
      * @var string
@@ -78,6 +80,8 @@ class NaskahStudioCommand extends Command
             'paragraphs' => $this->handleParagraphs($document, $blocks, $model),
             'format-paragraph' => $this->handleFormatParagraph($document, $blocks, $model),
             'clean-page' => $this->handleCleanPage($document, $blocks, $model),
+            'audit-page' => $this->handleAuditPage($document, $blocks, $model),
+            'find-replace' => $this->handleFindReplace($document, $blocks, $model),
             default => $this->handleUnknownAction($action),
         };
     }
@@ -358,9 +362,129 @@ class NaskahStudioCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleAuditPage(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $paginated = $model->paginate($blocks);
+
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id}.");
+
+            return self::FAILURE;
+        }
+
+        $issues = [];
+        $totalWords = 0;
+        $parasCount = 0;
+
+        foreach ($targetPage['blocks'] as $item) {
+            $b = $item['block'];
+            $type = (string) ($b['type'] ?? 'paragraph');
+            if ($type !== 'paragraph') {
+                continue;
+            }
+            $parasCount++;
+            $text = strip_tags((string) ($b['text'] ?? ''));
+            $words = str_word_count($text);
+            $totalWords += $words;
+
+            if (($b['align'] ?? 'left') !== 'justify') {
+                $issues[] = "Paragraf #{$parasCount} tidak rata justify ({$b['align']}).";
+            }
+            if (empty($b['firstLineIndent']) && $parasCount > 1) {
+                $issues[] = "Paragraf #{$parasCount} tidak memiliki first-line indent.";
+            }
+            if ($words < 30) {
+                $issues[] = "Paragraf #{$parasCount} terlalu pendek ({$words} kata).";
+            }
+        }
+
+        $score = max(20, 100 - (count($issues) * 15));
+        $this->info("=== AUDIT KEPATUHAN PARAGRAF HALAMAN #{$pageNumber} [Dokumen #{$document->id}] ===");
+        $this->line("Skor Kepatuhan: {$score}% (".($score >= 80 ? 'Sesuai' : 'Perlu Perbaikan').')');
+        $this->line("Total Paragraf: {$parasCount} | Total Kata: {$totalWords}");
+
+        if ($issues !== []) {
+            $this->warn("\nCatatan Tipografi:");
+            foreach ($issues as $issue) {
+                $this->line("  • {$issue}");
+            }
+        } else {
+            $this->info("\nSemua paragraf pada halaman ini memenuhi kaidah tipografi akademik.");
+        }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleFindReplace(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $search = (string) $this->option('search');
+        $replace = (string) $this->option('replace');
+
+        if ($search === '') {
+            $this->error('Tentukan kata yang dicari dengan opsi --search="..."');
+
+            return self::FAILURE;
+        }
+
+        $paginated = $model->paginate($blocks);
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id}.");
+
+            return self::FAILURE;
+        }
+
+        $totalReplacements = 0;
+        foreach ($targetPage['blocks'] as $item) {
+            $idx = $item['index'];
+            if (! isset($blocks[$idx])) {
+                continue;
+            }
+            $text = (string) ($blocks[$idx]['text'] ?? '');
+            $newText = str_ireplace($search, $replace, $text, $count);
+            if ($count > 0) {
+                $totalReplacements += $count;
+                $blocks[$idx]['text'] = $newText;
+                $blocks[$idx]['runs'] = $model->normalizeRuns($blocks[$idx]['runs'] ?? [], $newText);
+            }
+        }
+
+        $document->update([
+            'blocks' => $blocks,
+            'word_count' => $model->countWords($blocks),
+        ]);
+
+        $this->info("Berhasil mengganti {$totalReplacements} kemunculan '{$search}' pada halaman #{$pageNumber}.");
+
+        return self::SUCCESS;
+    }
+
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace.");
 
         return self::FAILURE;
     }
