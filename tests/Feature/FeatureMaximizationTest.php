@@ -7,6 +7,8 @@ namespace Tests\Feature;
 use App\Domain\Assistant\XishieAssistantService;
 use App\Domain\Personalization\Enums\DocumentType;
 use App\Domain\Publication\ManuscriptExporter;
+use App\Domain\Publication\NaskahDocxExporter;
+use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Research\LiteratureMatrixBuilder;
 use App\Domain\Research\ReferenceImportService;
 use App\Domain\Revision\Enums\RevisionStatus;
@@ -30,6 +32,7 @@ use App\Filament\Widgets\AgentActivityTerminalWidget;
 use App\Filament\Widgets\HeartKpiTelemetryWidget;
 use App\Filament\Widgets\ProjectsOverviewWidget;
 use App\Filament\Widgets\WorkspaceKpiBarWidget;
+use App\Livewire\NaskahStudioApp;
 use App\Models\AcademicVenue;
 use App\Models\PlatformRecommendation;
 use App\Models\ProjectRevision;
@@ -38,6 +41,7 @@ use App\Omnigensi\Agents\AcademicScribeAgent;
 use App\Omnigensi\Agents\PeerCriticAgent;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
 use Livewire\Livewire;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 it('converts skripsi to journal manuscript with IMRaD sections and citations', function (): void {
     $project = makeProject(['document_type' => DocumentType::SKRIPSI]);
@@ -758,4 +762,208 @@ it('displays revisions count in projects overview widget', function (): void {
 
     expect($matched)->not->toBeNull()
         ->and($matched['revisions'])->toBe(1);
+});
+
+it('supports tableCalculateColumn in studio for sum and average operations', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+    $component->call('newDocument');
+
+    // Buat tabel dengan angka
+    $component->set('blocks', [
+        [
+            'type' => 'table',
+            'table' => [
+                'header' => true,
+                'rows' => [
+                    [['text' => 'Item'], ['text' => 'Nilai']],
+                    [['text' => 'A'], ['text' => '10']],
+                    [['text' => 'B'], ['text' => '20']],
+                ],
+            ],
+            'align' => 'left',
+        ],
+    ]);
+
+    $component->call('tableCalculateColumn', 0, 1, 'sum');
+    $rows = $component->get('blocks')[0]['table']['rows'];
+    $lastRow = end($rows);
+    expect((string) $lastRow[1]['text'])->toContain('30');
+
+    // Reset table dan uji rata-rata
+    $component->set('blocks', [
+        [
+            'type' => 'table',
+            'table' => [
+                'header' => true,
+                'rows' => [
+                    [['text' => 'Item'], ['text' => 'Nilai']],
+                    [['text' => 'A'], ['text' => '10']],
+                    [['text' => 'B'], ['text' => '20']],
+                ],
+            ],
+            'align' => 'left',
+        ],
+    ]);
+    $component->call('tableCalculateColumn', 0, 1, 'avg');
+    $updatedRows = $component->get('blocks')[0]['table']['rows'];
+    $newLastRow = end($updatedRows);
+    expect((string) $newLastRow[1]['text'])->toContain('15');
+});
+
+it('preserves first-line indent through sync, docx export, and rich model html', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+
+    $html = '<p style="text-indent: 1.27cm;">Paragraf naskah dengan indentasi baris pertama baku.</p>';
+    $component->call('save', [$html]);
+
+    $blocks = $component->get('blocks');
+    expect($blocks)->not->toBeEmpty()
+        ->and($blocks[0]['firstLineIndent'] ?? false)->toBeTrue();
+
+    // Pastikan DOCX menyertakan firstLine 720 dxa
+    $docxExporter = app(NaskahDocxExporter::class);
+    $docxBinary = $docxExporter->build($blocks, 'Test First Line');
+    expect(strlen($docxBinary))->toBeGreaterThan(100);
+
+    $zip = new \ZipArchive;
+    $temp = tempnam(sys_get_temp_dir(), 'docx_test');
+    file_put_contents($temp, $docxBinary);
+    $zip->open($temp);
+    $docXml = $zip->getFromName('word/document.xml');
+    $zip->close();
+    @unlink($temp);
+
+    expect($docXml)->toContain('w:firstLine="720"');
+
+    // Pastikan RichModel toHtml menghasilkan text-indent:1.27cm
+    $model = app(NaskahRichModel::class);
+    $htmlOutput = $model->toHtml($blocks, 'Test First Line');
+    expect($htmlOutput)->toContain('text-indent:1.27cm');
+});
+
+it('exports naskah studio as structured json file', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+    $component->call('newDocument');
+    $component->set('docTitle', 'Judul Riset JSON');
+    $component->set('blocks', [
+        ['type' => 'paragraph', 'text' => 'Isi paragraf ilmiah.', 'runs' => [], 'align' => 'left'],
+    ]);
+
+    $response = $component->instance()->export('json');
+    expect($response)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $response->sendContent();
+    $json = ob_get_clean();
+
+    $decoded = json_decode($json, true);
+    expect($decoded)->toBeArray()
+        ->and($decoded['title'])->toBe('Judul Riset JSON')
+        ->and($decoded['blocks'])->toHaveCount(1);
+});
+
+it('renders native ODT OpenDocument archive from ManuscriptExporter', function (): void {
+    $project = makeProject(['title' => 'Project ODT Export']);
+    seedReferences($project);
+
+    $exporter = app(ManuscriptExporter::class);
+    expect($exporter->isSupported('odt'))->toBeTrue();
+
+    $binary = $exporter->render($project, 'odt');
+    expect(strlen($binary))->toBeGreaterThan(100);
+
+    $zip = new \ZipArchive;
+    $temp = tempnam(sys_get_temp_dir(), 'odt_test');
+    file_put_contents($temp, $binary);
+    $zip->open($temp);
+    $contentXml = $zip->getFromName('content.xml');
+    $manifestXml = $zip->getFromName('META-INF/manifest.xml');
+    $zip->close();
+    @unlink($temp);
+
+    expect($contentXml)->toContain('Project ODT Export')
+        ->and($manifestXml)->toContain('application/vnd.oasis.opendocument.text');
+});
+
+it('downloads Response to Reviewers as professional Word docx file', function (): void {
+    $project = makeProject();
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::FINAL);
+
+    $revision = ProjectRevision::create([
+        'project_id' => $project->id,
+        'stage_id' => $stage->id,
+        'reviewer_role' => 'Reviewer 1 Scopus',
+        'status' => RevisionStatus::PENDING,
+        'raw_feedback' => "1. Perjelas novelty pada introduction.\n2. Tambahkan komparasi metode.",
+        'action_items' => [
+            ['id' => 1, 'task' => 'Perjelas novelty pada introduction', 'section_key' => 'introduction', 'status' => 'resolved'],
+            ['id' => 2, 'task' => 'Tambahkan komparasi metode', 'section_key' => 'methods', 'status' => 'pending'],
+        ],
+    ]);
+
+    $critic = app(PeerCriticAgent::class);
+    $docxBinary = $critic->renderResponseMatrixDocx($revision);
+    expect(strlen($docxBinary))->toBeGreaterThan(200);
+
+    $response = Livewire::test(SmartRevisionCenterPage::class)
+        ->instance()->downloadResponseMatrix($revision->id, 'docx');
+
+    expect($response)->toBeInstanceOf(StreamedResponse::class);
+});
+
+it('exports filtered venue catalog to CSV and JSON formats', function (): void {
+    AcademicVenue::create([
+        'journal_name' => 'Jurnal Teknologi Informasi SINTA 2',
+        'publisher' => 'Universitas Indonesia',
+        'scope_type' => 'nasional',
+        'index_tier' => 'S2',
+        'field_of_study' => 'Informatika',
+        'aims_and_scope' => 'Fokus kajian ilmu komputer, rekayasa perangkat lunak, dan kecerdasan buatan.',
+        'apc_estimate' => 1500000,
+        'review_time_days' => 45,
+        'is_active' => true,
+    ]);
+
+    $page = Livewire::test(VenueCatalogPage::class);
+
+    // Ekspor CSV
+    $csvResponse = $page->instance()->exportCatalog('csv');
+    expect($csvResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $csvResponse->sendContent();
+    $csv = ob_get_clean();
+
+    expect($csv)->toContain('Jurnal Teknologi Informasi SINTA 2')
+        ->and($csv)->toContain('Universitas Indonesia')
+        ->and($csv)->toContain('S2');
+
+    // Ekspor JSON
+    $jsonResponse = $page->instance()->exportCatalog('json');
+    expect($jsonResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $jsonResponse->sendContent();
+    $json = ob_get_clean();
+
+    $decoded = json_decode($json, true);
+    expect($decoded)->toBeArray()
+        ->and($decoded['total'])->toBeGreaterThanOrEqual(1)
+        ->and($decoded['venues'][0]['journal_name'])->toBe('Jurnal Teknologi Informasi SINTA 2');
+});
+
+it('answers /rumus with Einstein, Bayes, and Gaussian distributions', function (): void {
+    $project = makeProject();
+    $assistant = app(XishieAssistantService::class);
+
+    $einstein = $assistant->handle($project, '/rumus einstein');
+    expect($einstein['reply'])->toContain('E = m c^2')
+        ->and($einstein['data']['name'])->toContain('Einstein');
+
+    $bayes = $assistant->handle($project, '/rumus bayes');
+    expect($bayes['reply'])->toContain('P(A|B)')
+        ->and($bayes['data']['name'])->toContain('Bayes');
+
+    $gaussian = $assistant->handle($project, '/rumus gaussian');
+    expect($gaussian['reply'])->toContain('Distribusi Normal Gaussian');
 });

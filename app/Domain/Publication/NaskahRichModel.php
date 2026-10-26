@@ -126,6 +126,7 @@ final class NaskahRichModel
             'pageBreak' => (bool) ($block['pageBreak'] ?? false),
             'dropCap' => (bool) ($block['dropCap'] ?? false),
             'calloutType' => in_array($block['calloutType'] ?? '', ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true) ? $block['calloutType'] : 'info',
+            'firstLineIndent' => (bool) ($block['firstLineIndent'] ?? false),
         ];
     }
 
