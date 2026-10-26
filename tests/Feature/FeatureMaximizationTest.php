@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Domain\Assistant\XishieAssistantService;
+use App\Domain\GuidelineEngine\CustomGuidelineParser;
+use App\Domain\GuidelineEngine\Enums\CitationStyle;
+use App\Domain\GuidelineEngine\GuidelinePresetFactory;
 use App\Domain\Personalization\Enums\DocumentType;
+use App\Domain\Publication\CitationFormatter;
 use App\Domain\Publication\ManuscriptExporter;
 use App\Domain\Publication\NaskahDocxExporter;
 use App\Domain\Publication\NaskahRichModel;
@@ -21,6 +25,7 @@ use App\Domain\Workspace\StageStateManager;
 use App\Domain\Workspace\UxKpiTelemetryService;
 use App\Filament\Pages\AcademicWorkspacePage;
 use App\Filament\Pages\AiChatPage;
+use App\Filament\Pages\ExternalProjectsPage;
 use App\Filament\Pages\OmnigensiMonitoringPage;
 use App\Filament\Pages\PlatformMatcherPage;
 use App\Filament\Pages\ProjectOnboardingWizard;
@@ -34,6 +39,7 @@ use App\Filament\Widgets\ProjectsOverviewWidget;
 use App\Filament\Widgets\WorkspaceKpiBarWidget;
 use App\Livewire\NaskahStudioApp;
 use App\Models\AcademicVenue;
+use App\Models\ExternalClient;
 use App\Models\PlatformRecommendation;
 use App\Models\ProjectRevision;
 use App\Models\XishieProject;
@@ -1066,4 +1072,84 @@ it('exports AI chat transcript to JSON and TXT formats', function (): void {
     expect($txt)->toContain('TRANSKRIP PERCAKAPAN AI CHAT')
         ->and($txt)->toContain('Bagaimana metodologi penelitian kuantitatif?')
         ->and($txt)->toContain('Metodologi kuantitatif berfokus pada data numerik.');
+});
+
+it('formats Harvard citation style and extracts it from guideline text', function (): void {
+    $project = makeProject();
+    seedReferences($project);
+    $reference = $project->references()->first();
+
+    $formatter = app(CitationFormatter::class);
+    $formatted = $formatter->format($reference, CitationStyle::HARVARD);
+
+    expect($formatted)->toContain('Prasetyo')
+        ->and($formatted)->toContain((string) $reference->title)
+        ->and(CitationStyle::HARVARD->label())->toBe('Harvard');
+
+    $parser = app(CustomGuidelineParser::class);
+    $fallback = app(GuidelinePresetFactory::class)->forDocumentType(DocumentType::JOURNAL, 'ieee');
+    $guideline = $parser->parse('Pedoman sitasi penulisan naskah menggunakan gaya Harvard format referensi.', $fallback);
+    expect($guideline->citationStyle)->toBe(CitationStyle::HARVARD->value);
+});
+
+it('exports literature review matrix to DOCX format in academic workspace', function (): void {
+    $project = makeProject();
+    seedReferences($project);
+
+    // Direct builder test
+    $builder = app(LiteratureMatrixBuilder::class);
+    $docxBinary = $builder->toDocx($project);
+    expect(strlen($docxBinary))->toBeGreaterThan(100)
+        ->and(substr($docxBinary, 0, 2))->toBe('PK'); // ZIP archive header
+
+    // Workspace Livewire export test
+    $component = Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id]);
+    $response = $component->instance()->exportLiteratureMatrix('docx');
+    expect($response)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $response->sendContent();
+    $content = ob_get_clean();
+
+    expect(strlen((string) $content))->toBeGreaterThan(100)
+        ->and(substr((string) $content, 0, 2))->toBe('PK');
+});
+
+it('exports connected external clients roster to CSV and JSON formats', function (): void {
+    ExternalClient::factory()->create([
+        'name' => 'Test External Agency',
+        'target_url' => 'https://api.example.com',
+        'api_key' => 'xsh_test_key_12345678901234567890',
+        'status' => 'online',
+        'last_latency_ms' => 42,
+        'inbound_requests_count' => 150,
+        'is_active' => true,
+    ]);
+
+    $component = Livewire::test(ExternalProjectsPage::class);
+
+    // CSV
+    $csvResponse = $component->instance()->exportClients('csv');
+    expect($csvResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $csvResponse->sendContent();
+    $csv = ob_get_clean();
+
+    expect($csv)->toContain('Nama Klien')
+        ->and($csv)->toContain('Test External Agency')
+        ->and($csv)->toContain('https://api.example.com');
+
+    // JSON
+    $jsonResponse = $component->instance()->exportClients('json');
+    expect($jsonResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $jsonResponse->sendContent();
+    $json = ob_get_clean();
+
+    $decoded = json_decode($json, true);
+    expect($decoded)->toBeArray()
+        ->and($decoded['total_clients'])->toBeGreaterThanOrEqual(1)
+        ->and(collect($decoded['clients'])->pluck('name'))->toContain('Test External Agency');
 });
