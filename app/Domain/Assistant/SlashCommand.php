@@ -30,6 +30,8 @@ enum SlashCommand: string
     case PEMBAHASAN = '/pembahasan';
     case KESIMPULAN = '/kesimpulan';
     case TINJAUAN_PUSTAKA = '/tinjauan-pustaka';
+    case DAFTAR_ISI = '/daftar-isi';
+    case DAFTAR_PUSTAKA = '/daftar-pustaka';
 
     public function description(): string
     {
@@ -54,6 +56,8 @@ enum SlashCommand: string
             self::PEMBAHASAN => 'Sintesis pembahasan kritis, komparasi temuan empiris dengan rujukan terdahulu.',
             self::KESIMPULAN => 'Rumuskan kesimpulan bernas, kontribusi teoretis/praktis, limitasi, dan saran.',
             self::TINJAUAN_PUSTAKA => 'Bangun kerangka teoretis, landasan konseptual, dan sintesis literatur.',
+            self::DAFTAR_ISI => 'Susun bagan struktur dan daftar isi naskah sesuai jenis dokumen dan pedoman.',
+            self::DAFTAR_PUSTAKA => 'Susun daftar pustaka lengkap dari referensi proyek sesuai gaya sitasi aktif.',
         };
     }
 
@@ -96,6 +100,12 @@ enum SlashCommand: string
         }
         if (in_array($firstToken, ['/literatur', '/teori', '/kerangka-teori', '/tinjauan', '/literature'], true)) {
             return self::TINJAUAN_PUSTAKA;
+        }
+        if (in_array($firstToken, ['/toc', '/outline', '/struktur'], true)) {
+            return self::DAFTAR_ISI;
+        }
+        if (in_array($firstToken, ['/bibliografi', '/pustaka', '/references', '/bibliography'], true)) {
+            return self::DAFTAR_PUSTAKA;
         }
 
         return self::tryFrom($firstToken);

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Assistant;
 
 use App\Domain\GuidelineEngine\Data\GuidelineDefinition;
+use App\Domain\GuidelineEngine\Enums\CitationStyle;
+use App\Domain\Publication\CitationFormatter;
 use App\Domain\Research\LiteratureMatrixBuilder;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\ProjectStageRecord;
@@ -61,6 +63,8 @@ final class XishieAssistantService
             SlashCommand::PEMBAHASAN => $this->pembahasan($project, $argument),
             SlashCommand::KESIMPULAN => $this->kesimpulan($project, $argument),
             SlashCommand::TINJAUAN_PUSTAKA => $this->tinjauanPustaka($project, $argument),
+            SlashCommand::DAFTAR_ISI => $this->daftarIsi($project, $argument),
+            SlashCommand::DAFTAR_PUSTAKA => $this->daftarPustaka($project, $argument),
         };
     }
 
@@ -643,6 +647,112 @@ final class XishieAssistantService
             'command' => SlashCommand::TINJAUAN_PUSTAKA->value,
             'reply' => $reply,
             'data' => ['section' => 'tinjauan-pustaka', 'focus' => $focus],
+        ];
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function daftarIsi(XishieProject $project, string $argument): array
+    {
+        /** @var GuidelineDefinition $guideline */
+        $guideline = $this->memory->guideline($project);
+        $sections = $guideline->sections;
+        $docType = $project->document_type->label();
+
+        $lines = [
+            "### Bagan Struktur & Daftar Isi Naskah ({$docType})",
+            '',
+            "- **Proyek**: {$project->title}",
+            "- **Jenis Dokumen**: {$docType}",
+            "- **Target Total Kata**: {$guideline->minTotalWords} – {$guideline->maxTotalWords} kata",
+            '- **Gaya Sitasi**: '.strtoupper($guideline->citationStyle),
+            '',
+            '| No | Bagian / Sub-Bab | Target Kata | Status |',
+            '| --- | --- | --- | --- |',
+        ];
+
+        foreach ($sections as $index => $sec) {
+            $heading = (string) ($sec['heading'] ?? $sec['key'] ?? 'Bagian');
+            $min = (int) ($sec['min_words'] ?? 0);
+            $max = (int) ($sec['max_words'] ?? 0);
+            $wordBudget = ($min > 0 && $max > 0) ? "{$min}–{$max} kata" : ($min > 0 ? "min {$min} kata" : 'fleksibel');
+            $status = ! empty($sec['required']) ? 'Wajib' : 'Opsional';
+            $lines[] = sprintf('| %d | %s | %s | %s |', $index + 1, $heading, $wordBudget, $status);
+        }
+
+        if ($argument !== '') {
+            $lines[] = '';
+            $lines[] = "> [!NOTE]\n> Fokus penekanan struktural dialokasikan untuk topik: \"{$argument}\".";
+        }
+
+        return [
+            'command' => SlashCommand::DAFTAR_ISI->value,
+            'reply' => implode("\n", $lines),
+            'data' => [
+                'document_type' => $project->document_type->value,
+                'sections' => $sections,
+                'min_total_words' => $guideline->minTotalWords,
+                'max_total_words' => $guideline->maxTotalWords,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function daftarPustaka(XishieProject $project, string $argument): array
+    {
+        /** @var GuidelineDefinition $guideline */
+        $guideline = $this->memory->guideline($project);
+        $style = CitationStyle::tryFrom((string) $guideline->citationStyle) ?? CitationStyle::IEEE;
+
+        $query = $project->references()->orderBy('citation_key');
+        if ($argument !== '') {
+            $query->where(function ($q) use ($argument): void {
+                $q->where('title', 'like', "%{$argument}%")
+                    ->orWhere('citation_key', 'like', "%{$argument}%")
+                    ->orWhere('authors', 'like', "%{$argument}%");
+            });
+        }
+
+        $references = $query->get();
+
+        if ($references->isEmpty()) {
+            $reply = $argument !== ''
+                ? "Tidak ditemukan referensi yang cocok dengan filter \"{$argument}\"."
+                : 'Belum ada referensi terdaftar pada proyek ini. Tambahkan referensi terlebih dahulu melalui Academic Workspace.';
+
+            return [
+                'command' => SlashCommand::DAFTAR_PUSTAKA->value,
+                'reply' => $reply,
+                'data' => ['references' => [], 'count' => 0],
+            ];
+        }
+
+        $formatter = app(CitationFormatter::class);
+        $entries = $formatter->bibliography($references, $style);
+
+        $lines = [
+            "### Daftar Pustaka Terformat ({$style->label()})",
+            '',
+            "- **Total Entri**: {$references->count()}",
+            '- **Gaya Sitasi**: '.$style->label(),
+            '',
+        ];
+
+        foreach ($entries as $index => $entry) {
+            $lines[] = $style === CitationStyle::IEEE ? $entry : ($index + 1).'. '.$entry;
+        }
+
+        return [
+            'command' => SlashCommand::DAFTAR_PUSTAKA->value,
+            'reply' => implode("\n\n", $lines),
+            'data' => [
+                'style' => $style->value,
+                'count' => $references->count(),
+                'entries' => $entries,
+            ],
         ];
     }
 
