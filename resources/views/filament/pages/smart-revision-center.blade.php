@@ -156,6 +156,22 @@
                                     type="button"
                                     class="rb-button"
                                     style="padding:.15rem .5rem; font-size:.6rem;"
+                                    wire:click="downloadResponseMatrix({{ $revision->id }}, 'html')"
+                                    wire:loading.attr="disabled"
+                                    title="Unduh matriks sebagai berkas HTML"
+                                >&#11015; HTML</button>
+                                <button
+                                    type="button"
+                                    class="rb-button"
+                                    style="padding:.15rem .5rem; font-size:.6rem;"
+                                    wire:click="downloadResponseMatrix({{ $revision->id }}, 'rtf')"
+                                    wire:loading.attr="disabled"
+                                    title="Unduh matriks sebagai berkas Rich Text (.rtf)"
+                                >&#11015; RTF</button>
+                                <button
+                                    type="button"
+                                    class="rb-button"
+                                    style="padding:.15rem .5rem; font-size:.6rem;"
                                     wire:click="downloadResponseMatrix({{ $revision->id }}, 'json')"
                                     wire:loading.attr="disabled"
                                     title="Unduh matriks sebagai JSON"

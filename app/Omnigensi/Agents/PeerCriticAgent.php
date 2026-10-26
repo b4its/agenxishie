@@ -493,4 +493,66 @@ final class PeerCriticAgent implements XishieAgentContract
 
         return $html;
     }
+
+    /**
+     * Susun dokumen matriks Response to Reviewers sebagai berkas Rich Text Format (.rtf).
+     */
+    public function renderResponseMatrixRtf(ProjectRevision $revision): string
+    {
+        $rtfEsc = static function (string $text): string {
+            $out = '';
+            $len = mb_strlen($text);
+            for ($i = 0; $i < $len; $i++) {
+                $char = mb_substr($text, $i, 1);
+                $ord = mb_ord($char);
+                if ($ord < 128) {
+                    if ($char === '\\' || $char === '{' || $char === '}') {
+                        $out .= '\\'.$char;
+                    } elseif ($char === "\n") {
+                        $out .= '\\par ';
+                    } else {
+                        $out .= $char;
+                    }
+                } else {
+                    $out .= '\\u'.$ord.'?';
+                }
+            }
+
+            return $out;
+        };
+
+        $projectTitle = (string) ($revision->project?->title ?? 'Naskah Ilmiah');
+        $reviewer = (string) $revision->reviewer_role;
+        $status = (string) $revision->status->label();
+        $percentage = $revision->resolutionPercentage();
+
+        $out = "{\\rtf1\\ansi\\deff0\n{\\fonttbl{\\f0\\froman\\fcharset0 Times New Roman;}{\\f1\\fswiss\\fcharset0 Arial;}}\n";
+        $out .= "{\\colortbl ;\\red30\\green64\\blue175;\\red22\\green163\\blue74;\\red217\\green119\\blue6;}\n";
+
+        // Judul Utama
+        $out .= '\\pard\\qc\\b\\fs32\\cf1 Response to Reviewers Matrix\\b0\\par\\par\n';
+        $out .= '\\pard\\ql\\fs22\\b Proyek: \\b0 '.$rtfEsc($projectTitle)."\\par\n";
+        $out .= '\\pard\\ql\\fs22\\b Reviewer: \\b0 '.$rtfEsc($reviewer)."\\par\n";
+        $out .= '\\pard\\ql\\fs22\\b Status Revisi: \\b0 '.$rtfEsc($status)." ({$percentage}% Selesai)\\par\\par\n";
+
+        // Poin-poin perbaikan
+        $out .= "\\pard\\ql\\b\\fs24 Poin Tanggapan dan Perbaikan Naskah:\\b0\\par\\par\n";
+
+        foreach ((array) ($revision->action_items ?? []) as $item) {
+            $id = (int) ($item['id'] ?? 1);
+            $task = (string) ($item['task'] ?? '');
+            $sec = (string) ($item['section_key'] ?? '-');
+            $st = (string) ($item['status'] ?? 'pending');
+            $cfColor = $st === 'resolved' ? '\\cf2' : '\\cf3';
+
+            $out .= "\\pard\\ql\\b [Poin #{$id}] Sub-bab: \\b0 ".$rtfEsc($sec)."\\par\n";
+            $out .= '\\pard\\ql\\i Catatan Reviewer: \\i0 '.$rtfEsc($task)."\\par\n";
+            $out .= "\\pard\\ql\\b Status: {$cfColor}".strtoupper($st)."\\cf0\\b0\\par\n";
+            $out .= "\\pard\\ql\\b Tanggapan Penulis: \\b0 Perbaikan telah diintegrasikan pada sub-bab terkait sesuai saran reviewer.\\par\\par\n";
+        }
+
+        $out .= "}\n";
+
+        return $out;
+    }
 }

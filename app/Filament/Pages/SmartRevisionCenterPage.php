@@ -441,6 +441,10 @@ class SmartRevisionCenterPage extends Page implements HasForms
             $filename = $base.'-response-to-reviewers-'.$revision->id.'.html';
             $body = app(PeerCriticAgent::class)->renderResponseMatrixHtml($revision);
             $mime = 'text/html; charset=UTF-8';
+        } elseif ($format === 'rtf') {
+            $filename = $base.'-response-to-reviewers-'.$revision->id.'.rtf';
+            $body = app(PeerCriticAgent::class)->renderResponseMatrixRtf($revision);
+            $mime = 'application/rtf';
         } else {
             $filename = $base.'-response-to-reviewers-'.$revision->id.'.md';
             $body = '# Response to Reviewers'."\n\n";
