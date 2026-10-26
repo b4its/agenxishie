@@ -2155,3 +2155,57 @@ it('executes /catatan-kaki slash command for Chicago and Turabian academic guida
         ->and($resWithArg['reply'])->toContain('Teori efisiensi pasar Eugene Fama [^1]')
         ->and($resWithArg['data']['footnote_marker'])->toBe('[^1]');
 });
+
+it('exports literature matrix, response to reviewers, catalog, recommendations, and projects in html and markdown formats', function (): void {
+    $project = makeProject(['title' => 'Proyek Uji Ekspor Multi Format']);
+    seedReferences($project);
+
+    // 1. Uji LiteratureMatrixBuilder::toHtml dan AcademicWorkspacePage exportLiteratureMatrix('html')
+    $builder = app(LiteratureMatrixBuilder::class);
+    $matrixHtml = $builder->toHtml($project);
+    expect($matrixHtml)->toContain('<!DOCTYPE html>')
+        ->and($matrixHtml)->toContain('Tabel Matriks Literatur (State-of-the-Art)')
+        ->and($matrixHtml)->toContain($project->title);
+
+    Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id])
+        ->call('exportLiteratureMatrix', 'html')
+        ->assertSuccessful();
+
+    // 2. Uji PeerCriticAgent::renderResponseMatrixHtml dan SmartRevisionCenterPage downloadResponseMatrix('html')
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+    $revision = ProjectRevision::create([
+        'project_id' => $project->id,
+        'stage_id' => $stage->id,
+        'reviewer_role' => 'reviewer_jurnal',
+        'status' => RevisionStatus::PENDING,
+        'raw_feedback' => 'Perbaiki gap riset pada pendahuluan',
+        'action_items' => [
+            ['id' => 1, 'task' => 'Perbaiki gap riset', 'section_key' => 'pendahuluan', 'status' => 'pending'],
+        ],
+    ]);
+
+    $criticAgent = app(PeerCriticAgent::class);
+    $respHtml = $criticAgent->renderResponseMatrixHtml($revision);
+    expect($respHtml)->toContain('<!DOCTYPE html>')
+        ->and($respHtml)->toContain('Response to Reviewers Matrix')
+        ->and($respHtml)->toContain('Perbaiki gap riset');
+
+    Livewire::test(SmartRevisionCenterPage::class, ['project' => $project->id])
+        ->call('downloadResponseMatrix', $revision->id, 'html')
+        ->assertSuccessful();
+
+    // 3. Uji VenueCatalogPage::exportCatalog('markdown')
+    Livewire::test(VenueCatalogPage::class, ['project' => $project->id])
+        ->call('exportCatalog', 'markdown')
+        ->assertSuccessful();
+
+    // 4. Uji PlatformMatcherPage::exportRecommendations('html')
+    Livewire::test(PlatformMatcherPage::class, ['project' => $project->id])
+        ->call('exportRecommendations', 'html')
+        ->assertSuccessful();
+
+    // 5. Uji ProjectsPage::exportProjects('markdown')
+    Livewire::test(ProjectsPage::class)
+        ->call('exportProjects', 'markdown')
+        ->assertSuccessful();
+});
