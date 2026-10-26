@@ -1454,3 +1454,89 @@ it('loads project naskah blocks automatically when project query parameter is pa
         ->and($studio->get('docTitle'))->toContain($project->title)
         ->and(count($studio->get('blocks')))->toBeGreaterThanOrEqual(1);
 });
+
+it('retrieves paragraphs for a specific page and customizes paragraph attributes per page in studio', function (): void {
+    $studio = Livewire::test(NaskahStudioApp::class);
+    $instance = $studio->instance();
+
+    // 1. Ambil paragraf di Halaman 1
+    $page1Paras = $instance->getPageParagraphs(1);
+    expect($page1Paras)->toBeArray()
+        ->and(count($page1Paras))->toBeGreaterThanOrEqual(1);
+
+    $firstParaGlobalIndex = $page1Paras[0]['globalIndex'];
+
+    // 2. Kustomisasi paragraf tertentu pada Halaman 1
+    $success = $instance->customPageParagraph(1, 0, [
+        'align' => 'justify',
+        'firstLineIndent' => true,
+        'lineSpacing' => 1.75,
+        'spacingBefore' => 12.0,
+        'spacingAfter' => 6.0,
+    ]);
+    expect($success)->toBeTrue();
+
+    $blocks = $instance->blocks;
+    expect($blocks[$firstParaGlobalIndex]['align'])->toBe('justify')
+        ->and($blocks[$firstParaGlobalIndex]['firstLineIndent'])->toBeTrue()
+        ->and($blocks[$firstParaGlobalIndex]['lineSpacing'])->toBe(1.75)
+        ->and($blocks[$firstParaGlobalIndex]['spacingBefore'])->toBe(12.0)
+        ->and($blocks[$firstParaGlobalIndex]['spacingAfter'])->toBe(6.0);
+
+    // 3. Uji blockInlineStyle() menghasilkan CSS yang tepat
+    $styleString = $instance->blockInlineStyle($blocks[$firstParaGlobalIndex]);
+    expect($styleString)->toContain('text-align: justify')
+        ->and($styleString)->toContain('text-indent: 1.27cm')
+        ->and($styleString)->toContain('line-height: 1.75')
+        ->and($styleString)->toContain('margin-top: 12pt')
+        ->and($styleString)->toContain('margin-bottom: 6pt');
+
+    // 4. Sisipkan paragraf kustom baru ke Halaman 1
+    $newIndex = $instance->insertCustomParagraphOnPage(1, 'Paragraf empiris kustom baru.', [
+        'align' => 'center',
+        'calloutType' => 'theorem',
+    ], 'start');
+    expect($newIndex)->toBeInt();
+    expect($instance->blocks[$newIndex]['text'])->toBe('Paragraf empiris kustom baru.')
+        ->and($instance->blocks[$newIndex]['align'])->toBe('center');
+
+    // 5. Format seluruh paragraf pada Halaman 1 secara kolektif
+    $updatedCount = $instance->customAllPageParagraphs(1, [
+        'align' => 'justify',
+        'lineSpacing' => 1.5,
+    ]);
+    expect($updatedCount)->toBeGreaterThanOrEqual(2);
+
+    // 6. Uji alur dialog Paragraph Customizer
+    $instance->openParagraphCustomizer(1, 0);
+    expect($instance->dialog)->toBe('paragraphCustomizer')
+        ->and($instance->customParaPage)->toBe(1);
+
+    $instance->customParaText = 'Teks disunting melalui dialog kustomisasi paragraf.';
+    $instance->customParaAlign = 'right';
+    $instance->applyParagraphCustomizer(false);
+    expect($instance->dialog)->toBe('');
+});
+
+it('customizes section paragraphs in academic workspace editor', function (): void {
+    $project = makeProject();
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+    $stage->forceFill([
+        'sections_content' => [
+            [
+                'key' => 'intro',
+                'heading' => 'Pendahuluan',
+                'content' => "Paragraf pertama latar belakang penelitian.\n\nParagraf kedua urgensi rumusan masalah.",
+            ],
+        ],
+        'status' => StageStatus::IN_PROGRESS,
+    ])->save();
+
+    $component = Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id]);
+    $component->call('customSectionParagraphs', 0, ['first_line_indent' => true])
+        ->assertSuccessful();
+
+    $sections = $component->get('editorSections');
+    expect($sections[0]['content'])->toContain('    Paragraf pertama')
+        ->and($sections[0]['content'])->toContain('    Paragraf kedua');
+});
