@@ -4113,8 +4113,28 @@ trait HandlesNaskahStudio
 
     public function tableCalculateColumn(int $index, int $colIndex, string $operation = 'sum'): void
     {
-        if ($operation === 'avg' || $operation === 'average') {
+        $op = strtolower($operation);
+
+        if ($op === 'avg' || $op === 'average') {
             $this->tableAverageColumn($index, $colIndex);
+        } elseif ($op === 'min') {
+            if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+                return;
+            }
+
+            $this->pushUndo();
+            $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'min');
+            $this->dirty = true;
+            $this->notify('Kalkulasi Tabel', "Nilai minimum kolom #{$colIndex} dihitung.", 'success');
+        } elseif ($op === 'max') {
+            if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+                return;
+            }
+
+            $this->pushUndo();
+            $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'max');
+            $this->dirty = true;
+            $this->notify('Kalkulasi Tabel', "Nilai maksimum kolom #{$colIndex} dihitung.", 'success');
         } else {
             $this->tableSumColumn($index, $colIndex);
         }
