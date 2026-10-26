@@ -967,3 +967,103 @@ it('answers /rumus with Einstein, Bayes, and Gaussian distributions', function (
     $gaussian = $assistant->handle($project, '/rumus gaussian');
     expect($gaussian['reply'])->toContain('Distribusi Normal Gaussian');
 });
+
+it('duplicates editor section in academic workspace', function (): void {
+    $project = makeProject();
+    $stage = $project->stages()->where('stage_name', ProjectStage::DRAFT->value)->first();
+    $stage->update([
+        'sections_content' => [
+            ['heading' => 'Pendahuluan', 'content' => 'Latar belakang penelitian ini...'],
+            ['heading' => 'Metodologi', 'content' => 'Metode yang digunakan adalah...'],
+        ],
+    ]);
+
+    $component = Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id]);
+
+    $initialCount = count($component->get('editorSections'));
+    expect($initialCount)->toBe(2);
+
+    $firstSection = $component->get('editorSections')[0];
+    $component->call('duplicateEditorSection', 0);
+
+    $newSections = $component->get('editorSections');
+    expect(count($newSections))->toBe(3)
+        ->and($newSections[1]['heading'])->toBe($firstSection['heading'].' (Salinan)')
+        ->and($newSections[1]['content'])->toBe($firstSection['content']);
+});
+
+it('updates paper size and switches orientation in naskah studio', function (): void {
+    $studio = Livewire::test(NaskahStudioApp::class)
+        ->call('setPaperSize', 'b5')
+        ->call('setOrientation', 'landscape');
+
+    expect($studio->get('pageSetup')['size'])->toBe('B5')
+        ->and($studio->get('pageSetup')['orientation'])->toBe('landscape')
+        ->and($studio->get('dirty'))->toBeTrue();
+
+    $studio->call('setOrientation', 'portrait');
+    expect($studio->get('pageSetup')['orientation'])->toBe('portrait');
+});
+
+it('exports projects roster to CSV and JSON formats', function (): void {
+    makeProject(['title' => 'Studi AI Deep Learning']);
+
+    $component = Livewire::test(ProjectsPage::class);
+
+    // CSV
+    $csvResponse = $component->instance()->exportProjects('csv');
+    expect($csvResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $csvResponse->sendContent();
+    $csv = ob_get_clean();
+
+    expect($csv)->toContain('Judul Proyek')
+        ->and($csv)->toContain('Studi AI Deep Learning');
+
+    // JSON
+    $jsonResponse = $component->instance()->exportProjects('json');
+    expect($jsonResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $jsonResponse->sendContent();
+    $json = ob_get_clean();
+
+    $decoded = json_decode($json, true);
+    expect($decoded)->toBeArray()
+        ->and($decoded['total_projects'])->toBeGreaterThanOrEqual(1)
+        ->and(collect($decoded['projects'])->pluck('title'))->toContain('Studi AI Deep Learning');
+});
+
+it('exports AI chat transcript to JSON and TXT formats', function (): void {
+    $component = Livewire::test(AiChatPage::class)
+        ->set('messages', [
+            ['role' => 'user', 'content' => 'Bagaimana metodologi penelitian kuantitatif?'],
+            ['role' => 'assistant', 'content' => 'Metodologi kuantitatif berfokus pada data numerik.', 'model' => 'gpt-4o', 'latency_ms' => 120],
+        ]);
+
+    // JSON
+    $jsonResponse = $component->instance()->exportChat('json');
+    expect($jsonResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $jsonResponse->sendContent();
+    $json = ob_get_clean();
+
+    $decoded = json_decode($json, true);
+    expect($decoded)->toBeArray()
+        ->and($decoded['total_messages'])->toBe(2)
+        ->and($decoded['messages'][0]['content'])->toBe('Bagaimana metodologi penelitian kuantitatif?');
+
+    // TXT
+    $txtResponse = $component->instance()->exportChat('txt');
+    expect($txtResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $txtResponse->sendContent();
+    $txt = ob_get_clean();
+
+    expect($txt)->toContain('TRANSKRIP PERCAKAPAN AI CHAT')
+        ->and($txt)->toContain('Bagaimana metodologi penelitian kuantitatif?')
+        ->and($txt)->toContain('Metodologi kuantitatif berfokus pada data numerik.');
+});
