@@ -424,6 +424,83 @@ class AcademicWorkspacePage extends Page
     }
 
     /**
+     * Parafrase konten sub-bab ke dalam ragam kalimat akademik baku dan objektif.
+     */
+    public function paraphraseSectionParagraph(int $index): void
+    {
+        if (! isset($this->editorSections[$index])) {
+            return;
+        }
+
+        $content = trim((string) ($this->editorSections[$index]['content'] ?? ''));
+        if ($content === '') {
+            return;
+        }
+
+        $patterns = [
+            '/\bbanyak sekali\b/ui' => 'sejumlah besar',
+            '/\bsangat bagus\b/ui' => 'optimal dan signifikan',
+            '/\bsangat penting\b/ui' => 'esensial dan krusial',
+            '/\bseperti yang kita tahu\b/ui' => 'sebagaimana diuraikan dalam literatur ilmiah',
+            '/\bhal ini membuktikan bahwa\b/ui' => 'temuan empiris ini mengindikasikan bahwa',
+            '/\bdapat disimpulkan bahwa\b/ui' => 'sintesis hasil penelitian menunjukkan bahwa',
+            '/\bkami rasa\b/ui' => 'berdasarkan bukti analitis',
+            '/\bmembuat\b/ui' => 'menghasilkan',
+            '/\bmenggunakan\b/ui' => 'menerapkan',
+            '/\bdikarenakan\b/ui' => 'karena',
+            '/\bdimana\b/ui' => 'tempat',
+            '/\bdaripada\b/ui' => 'dibandingkan dengan',
+        ];
+
+        $paraphrased = (string) preg_replace(array_keys($patterns), array_values($patterns), $content);
+        $clean = preg_replace('/[ \t]+/u', ' ', $paraphrased);
+
+        $this->editorSections[$index]['content'] = trim((string) $clean);
+        $this->editorDirty = true;
+
+        Notification::make()
+            ->title('Sub-bab Diparafrase')
+            ->body("Konten '{$this->editorSections[$index]['heading']}' berhasil diparafrase ke ragam baku.")
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Sisipkan catatan kaki (footnote) ke dalam konten sub-bab.
+     */
+    public function insertSectionFootnote(int $index, string $footnoteText): void
+    {
+        if (! isset($this->editorSections[$index])) {
+            return;
+        }
+
+        $cleanNote = trim($footnoteText);
+        if ($cleanNote === '') {
+            return;
+        }
+
+        $content = rtrim((string) ($this->editorSections[$index]['content'] ?? ''));
+        preg_match_all('/\[\^(\d+)\]/', $content, $matches);
+        $nextNumber = ! empty($matches[1]) ? max(array_map('intval', $matches[1])) + 1 : 1;
+
+        if (str_ends_with($content, '.')) {
+            $base = rtrim(substr($content, 0, -1));
+            $newContent = "{$base} [^{$nextNumber}].\n\n[^{$nextNumber}]: {$cleanNote}";
+        } else {
+            $newContent = "{$content} [^{$nextNumber}].\n\n[^{$nextNumber}]: {$cleanNote}";
+        }
+
+        $this->editorSections[$index]['content'] = $newContent;
+        $this->editorDirty = true;
+
+        Notification::make()
+            ->title('Catatan Kaki Disisipkan')
+            ->body("Catatan kaki [^{$nextNumber}] ditambahkan pada '{$this->editorSections[$index]['heading']}'.")
+            ->success()
+            ->send();
+    }
+
+    /**
      * Geser sub-bab naik/turun untuk mengatur urutan naskah.
      */
     public function moveEditorSection(int $index, int $direction): void
