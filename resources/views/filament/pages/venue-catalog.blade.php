@@ -47,6 +47,8 @@
                     </select>
                 </div>
                 <button type="button" class="rb-button" wire:click="resetFilters">&#8635; Reset</button>
+                <button type="button" class="rb-button" wire:click="exportCatalog('csv')" title="Unduh hasil filter katalog jurnal sebagai file CSV">&#128229; Ekspor CSV</button>
+                <button type="button" class="rb-button" wire:click="exportCatalog('json')" title="Unduh hasil filter katalog jurnal sebagai JSON">&#128229; Ekspor JSON</button>
             </div>
         </div>
 

@@ -9,6 +9,7 @@ use App\Models\PlatformRecommendation;
 use App\Models\XishieProject;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * VenueCatalogPage: jelajahi katalog jurnal SINTA / Scopus / WoS — pencarian
@@ -190,6 +191,79 @@ class VenueCatalogPage extends Page
             'review_time_days' => $venue->review_time_days,
             'aims_and_scope' => (string) $venue->aims_and_scope,
         ])->all();
+    }
+
+    /**
+     * Ekspor daftar jurnal hasil filter ke format CSV atau JSON.
+     */
+    public function exportCatalog(string $format = 'csv'): ?StreamedResponse
+    {
+        $venues = $this->venues();
+
+        if (empty($venues)) {
+            Notification::make()->title('Tidak ada venue yang lolos filter untuk diekspor')->warning()->send();
+
+            return null;
+        }
+
+        $timestamp = now()->format('Ymd_His');
+
+        if ($format === 'json') {
+            $filename = "katalog-jurnal-{$timestamp}.json";
+            $data = [
+                'total' => count($venues),
+                'exported_at' => now()->toIso8601String(),
+                'filters' => [
+                    'search' => $this->search,
+                    'scope' => $this->scope,
+                    'tier' => $this->tier,
+                    'sort_by' => $this->sortBy,
+                ],
+                'venues' => $venues,
+            ];
+            $content = (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $mime = 'application/json';
+        } else {
+            $filename = "katalog-jurnal-{$timestamp}.csv";
+            $handle = fopen('php://temp', 'r+');
+            fputcsv($handle, ['No', 'Nama Jurnal', 'Penerbit', 'Scope', 'Tier', 'Bidang Keilmuan', 'Estimasi APC', 'Waktu Review (Hari)', 'URL Submission', 'Aims and Scope']);
+
+            foreach ($venues as $idx => $v) {
+                $apc = $v['apc'] !== null && (float) $v['apc'] > 0
+                    ? 'Rp '.number_format((float) $v['apc'], 0, ',', '.')
+                    : 'Gratis';
+
+                fputcsv($handle, [
+                    $idx + 1,
+                    $v['journal_name'],
+                    $v['publisher'] ?? '-',
+                    strtoupper((string) $v['scope_type']),
+                    $v['index_tier'],
+                    $v['field_of_study'] ?? '-',
+                    $apc,
+                    $v['review_time_days'] ?? '-',
+                    $v['submission_url'] ?? '-',
+                    str_replace(["\r", "\n"], ' ', (string) ($v['aims_and_scope'] ?? '')),
+                ]);
+            }
+
+            rewind($handle);
+            $content = stream_get_contents($handle);
+            fclose($handle);
+            $mime = 'text/csv';
+        }
+
+        Notification::make()
+            ->title('Katalog Jurnal Diekspor')
+            ->body(count($venues)." jurnal berhasil diekspor ke format {$format}.")
+            ->success()
+            ->send();
+
+        return response()->streamDownload(
+            static fn () => print (string) $content,
+            $filename,
+            ['Content-Type' => $mime],
+        );
     }
 
     /**
