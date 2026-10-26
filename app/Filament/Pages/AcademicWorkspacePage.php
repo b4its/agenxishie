@@ -365,6 +365,35 @@ class AcademicWorkspacePage extends Page
     }
 
     /**
+     * Cari dan ganti teks di dalam sub-bab tertentu.
+     */
+    public function findAndReplaceInSection(int $index, string $search, string $replace, bool $caseSensitive = false): int
+    {
+        if (! isset($this->editorSections[$index]) || trim($search) === '') {
+            return 0;
+        }
+
+        $content = (string) ($this->editorSections[$index]['content'] ?? '');
+        $count = 0;
+        $newContent = $caseSensitive
+            ? str_replace($search, $replace, $content, $count)
+            : str_ireplace($search, $replace, $content, $count);
+
+        if ($count > 0) {
+            $this->editorSections[$index]['content'] = $newContent;
+            $this->editorDirty = true;
+
+            Notification::make()
+                ->title('Teks diganti')
+                ->body("{$count} kemunculan teks pada '{$this->editorSections[$index]['heading']}' berhasil diganti.")
+                ->success()
+                ->send();
+        }
+
+        return $count;
+    }
+
+    /**
      * Geser sub-bab naik/turun untuk mengatur urutan naskah.
      */
     public function moveEditorSection(int $index, int $direction): void
