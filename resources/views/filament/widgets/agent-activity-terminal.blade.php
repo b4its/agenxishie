@@ -9,6 +9,8 @@
                     <option value="{{ $pid }}">{{ \Illuminate\Support\Str::limit($ptitle, 25) }}</option>
                 @endforeach
             </select>
+            <button type="button" class="rb-button" style="padding:.1rem .35rem; font-size:.58rem;" wire:click="exportLogs('csv')" title="Unduh log agen sebagai CSV">&#11015; CSV</button>
+            <button type="button" class="rb-button" style="padding:.1rem .35rem; font-size:.58rem;" wire:click="exportLogs('json')" title="Unduh log agen sebagai JSON">&#11015; JSON</button>
             <span class="rb-window__controls">
                 <span class="rb-window__control">-</span>
                 <span class="rb-window__control">&#9633;</span>
