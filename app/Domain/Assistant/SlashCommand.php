@@ -32,6 +32,7 @@ enum SlashCommand: string
     case TINJAUAN_PUSTAKA = '/tinjauan-pustaka';
     case DAFTAR_ISI = '/daftar-isi';
     case DAFTAR_PUSTAKA = '/daftar-pustaka';
+    case FORMAT_PARAGRAF = '/format-paragraf';
 
     public function description(): string
     {
@@ -58,6 +59,7 @@ enum SlashCommand: string
             self::TINJAUAN_PUSTAKA => 'Bangun kerangka teoretis, landasan konseptual, dan sintesis literatur.',
             self::DAFTAR_ISI => 'Susun bagan struktur dan daftar isi naskah sesuai jenis dokumen dan pedoman.',
             self::DAFTAR_PUSTAKA => 'Susun daftar pustaka lengkap dari referensi proyek sesuai gaya sitasi aktif.',
+            self::FORMAT_PARAGRAF => 'Panduan kaidah tipografi paragraf akademik dan rekomendasi preset tata letak.',
         };
     }
 
@@ -106,6 +108,9 @@ enum SlashCommand: string
         }
         if (in_array($firstToken, ['/bibliografi', '/pustaka', '/references', '/bibliography'], true)) {
             return self::DAFTAR_PUSTAKA;
+        }
+        if (in_array($firstToken, ['/paragraf', '/aturan-paragraf', '/format-paragraf', '/paragraph-rules', '/paragraph'], true)) {
+            return self::FORMAT_PARAGRAF;
         }
 
         return self::tryFrom($firstToken);

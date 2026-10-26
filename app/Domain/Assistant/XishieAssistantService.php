@@ -7,6 +7,7 @@ namespace App\Domain\Assistant;
 use App\Domain\GuidelineEngine\Data\GuidelineDefinition;
 use App\Domain\GuidelineEngine\Enums\CitationStyle;
 use App\Domain\Publication\CitationFormatter;
+use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Research\LiteratureMatrixBuilder;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\ProjectStageRecord;
@@ -65,6 +66,7 @@ final class XishieAssistantService
             SlashCommand::TINJAUAN_PUSTAKA => $this->tinjauanPustaka($project, $argument),
             SlashCommand::DAFTAR_ISI => $this->daftarIsi($project, $argument),
             SlashCommand::DAFTAR_PUSTAKA => $this->daftarPustaka($project, $argument),
+            SlashCommand::FORMAT_PARAGRAF => $this->formatParagraf($project, $argument),
         };
     }
 
@@ -752,6 +754,76 @@ final class XishieAssistantService
                 'style' => $style->value,
                 'count' => $references->count(),
                 'entries' => $entries,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function formatParagraf(XishieProject $project, string $argument): array
+    {
+        $docType = strtolower((string) ($project->document_type ?? 'skripsi'));
+
+        if (trim($argument) !== '') {
+            $words = count(preg_split('/\s+/u', trim($argument), -1, PREG_SPLIT_NO_EMPTY) ?: []);
+            $sentences = count(preg_split('/[.!?]+/u', trim($argument), -1, PREG_SPLIT_NO_EMPTY) ?: []);
+            $avgWordsPerSentence = $sentences > 0 ? round($words / $sentences, 1) : 0;
+
+            $densityEvaluation = match (true) {
+                $words < 50 => '⚠️ Paragraf terlalu ringkas (kurang dari 50 kata). Disarankan mengelaborasi ide pokok dengan kalimat penjelas dan bukti rujukan.',
+                $words > 250 => '⚠️ Paragraf terlalu panjang (lebih dari 250 kata). Sebaiknya dipecah menjadi dua alinea agar alur gagasan tetap koheren.',
+                default => '✅ Panjang paragraf ideal (100–200 kata) untuk karya ilmiah bereputasi.',
+            };
+
+            $reply = "### Analisis & Kaidah Format Paragraf\n\n"
+                ."- **Jumlah Kata**: {$words} kata\n"
+                ."- **Jumlah Kalimat**: {$sentences} kalimat\n"
+                ."- **Rata-rata Panjang Kalimat**: {$avgWordsPerSentence} kata/kalimat\n"
+                ."- **Evaluasi Kepadatan**: {$densityEvaluation}\n\n"
+                ."**Rekomendasi Tipografi Naskah:**\n"
+                ."- **Perataan (Alignment)**: Justify (rata kiri-kanan)\n"
+                .'- **Spasi Baris**: '.($docType === 'journal' ? '1.0 / 1.15 (Format Jurnal)' : '1.5 atau 2.0 (Skripsi/Tesis)')."\n"
+                ."- **Indentasi Baris Pertama**: 1.27 cm (0.5 inci) untuk alinea baru\n"
+                ."- **Jarak Antar Paragraf**: Spasi setelah (Space After) 4–6 pt\n\n"
+                .'💡 *Tips: Anda dapat memformat paragraf ini langsung di Naskah Studio dengan preset `academic_standard` atau `journal_ieee`.*';
+
+            return [
+                'command' => SlashCommand::FORMAT_PARAGRAF->value,
+                'reply' => $reply,
+                'data' => [
+                    'words' => $words,
+                    'sentences' => $sentences,
+                    'avgWordsPerSentence' => $avgWordsPerSentence,
+                    'documentType' => $docType,
+                ],
+            ];
+        }
+
+        $reply = "### Panduan Standar Kaidah Paragraf Akademik\n\n"
+            ."1. **Struktur Isi Paragraf Ilmiah (Kaidah MEAL / P-E-E-L)**:\n"
+            ."   - **Main Point / Point (Topik Utama)**: 1 kalimat tesis pembuka yang memuat ide pokok.\n"
+            ."   - **Evidence / Explanation (Bukti & Elaborasi)**: 2–4 kalimat penjelas menyertakan data, sitasi, atau argumen ilmiah.\n"
+            ."   - **Link / Concluding (Simpulan & Transisi)**: 1 kalimat pengait ke paragraf berikutnya.\n\n"
+            ."2. **Kaidah Tipografi & Tata Letak per Halaman**:\n"
+            ."   - **Perataan (Alignment)**: Wajib Justify (rata kiri-kanan) tanpa sungai putih (*rivers of white*).\n"
+            ."   - **Indentasi Awal (First-Line Indent)**: 1.27 cm (0.5 inci / 1 tab). Paragraf pembuka bab/sub-bab boleh dibuat *block* (0 cm).\n"
+            ."   - **Spasi Baris**: 1.5 untuk draf tesis/skripsi umum; 2.0 untuk naskah cetak DIKTI; 1.0/1.15 untuk artikel jurnal IEEE/Scopus.\n"
+            ."   - **Jarak Antar Paragraf**: 0 pt (Spacing Before) dan 4–6 pt (Spacing After).\n\n"
+            ."3. **Preset Siap Pakai di Naskah Studio**:\n"
+            ."   - `academic_standard`: Standar APA / Scopus (Justify, 1.5 spasi, indent 1.27cm)\n"
+            ."   - `journal_ieee`: Format Jurnal IEEE/ACM (Justify, 1.0 spasi, indent 1.27cm)\n"
+            ."   - `thesis_dikti`: Format Skripsi/Tesis DIKTI (Justify, 2.0 spasi, indent 1.27cm)\n"
+            ."   - `abstract_block`: Format Abstrak / Executive Summary (Justify, 1.15 spasi, tanpa indentasi)\n"
+            ."   - `block_quote`: Format Kutipan Langsung > 40 kata (Justify, 1.0 spasi, margin tab kiri 2)\n\n"
+            .'*Gunakan tombol **Custom Paragraf Hal. [N]** pada Naskah Studio atau jalankan `php artisan naskah:manage format-paragraph [ID] --page=[N] --preset=academic_standard`.*';
+
+        return [
+            'command' => SlashCommand::FORMAT_PARAGRAF->value,
+            'reply' => $reply,
+            'data' => [
+                'documentType' => $docType,
+                'presets' => array_keys(NaskahRichModel::PARAGRAPH_PRESETS),
             ],
         ];
     }
