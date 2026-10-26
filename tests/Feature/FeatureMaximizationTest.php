@@ -1657,3 +1657,99 @@ it('executes /format-paragraf slash command for academic typography and density 
         ->and(SlashCommand::tryParse('/paragraf'))->toBe(SlashCommand::FORMAT_PARAGRAF)
         ->and(SlashCommand::tryParse('/aturan-paragraf'))->toBe(SlashCommand::FORMAT_PARAGRAF);
 });
+
+it('cleans spacing, transforms casing, merges, splits, and inserts paragraphs per page', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Pengujian Manipulasi Paragraf Hal',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Paragraf   pertama   dengan   spasi  ganda , dan tanda baca yang salah .'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'paragraf kedua huruf kecil semua. kalimat kedua di sini.'],
+        ],
+        'word_count' => 18,
+    ]);
+
+    $app = Livewire::test(NaskahStudioApp::class);
+    $instance = $app->instance();
+    $instance->blocks = (array) $doc->blocks;
+
+    // 1. Uji cleanPageParagraphSpaces
+    $cleanedCount = $instance->cleanPageParagraphSpaces(1);
+    expect($cleanedCount)->toBe(1);
+    expect($instance->blocks[0]['text'])->toBe('Paragraf pertama dengan spasi ganda, dan tanda baca yang salah.');
+
+    // 2. Uji transformPageParagraphCase (Sentence Case)
+    $transformedCount = $instance->transformPageParagraphCase(1, 'sentence');
+    expect($transformedCount)->toBeGreaterThanOrEqual(1);
+    expect($instance->blocks[1]['text'])->toContain('Paragraf kedua huruf kecil semua.');
+
+    // 3. Uji insertPageParagraphAt (sisipkan setelah paragraf 0)
+    $insertedGlobalIndex = $instance->insertPageParagraphAt(1, 0, 'Paragraf sisipan baru.', ['align' => 'center'], 'after');
+    expect($insertedGlobalIndex)->toBe(1);
+    expect($instance->blocks[1]['text'])->toBe('Paragraf sisipan baru.')
+        ->and($instance->blocks[1]['align'])->toBe('center');
+
+    // 4. Uji splitPageParagraph (pecah paragraf)
+    $instance->blocks[0]['text'] = 'Kalimat pertama bagian awal. Kalimat kedua bagian akhir.';
+    $splitSuccess = $instance->splitPageParagraph(1, 0);
+    expect($splitSuccess)->toBeTrue();
+    expect($instance->blocks[0]['text'])->toBe('Kalimat pertama bagian awal.')
+        ->and($instance->blocks[1]['text'])->toBe('Kalimat kedua bagian akhir.');
+
+    // 5. Uji mergePageParagraphs (gabungkan paragraf 0 dan 1)
+    $mergeSuccess = $instance->mergePageParagraphs(1, 0);
+    expect($mergeSuccess)->toBeTrue();
+    expect($instance->blocks[0]['text'])->toContain('Kalimat pertama bagian awal. Kalimat kedua bagian akhir.');
+});
+
+it('cleans spacing and transforms casing in academic workspace section paragraphs', function (): void {
+    $project = makeProject();
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+    $stage->forceFill([
+        'sections_content' => [
+            [
+                'key' => 'methods',
+                'heading' => 'Metode Penelitian',
+                'content' => "data  primer   diperoleh   melalui   survei  ,  wawancara  . \n\nanalisis  dilakukan   secara   kuantitatif  .",
+            ],
+        ],
+        'status' => StageStatus::IN_PROGRESS,
+    ])->save();
+
+    $component = Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id]);
+
+    // 1. Bersihkan spasi
+    $component->call('cleanSectionParagraphs', 0)
+        ->assertSuccessful();
+
+    $sectionsAfterClean = $component->get('editorSections');
+    expect($sectionsAfterClean[0]['content'])->toContain('data primer diperoleh melalui survei, wawancara.');
+
+    // 2. Ubah kapitalisasi ke sentence case
+    $component->call('transformSectionParagraphsCase', 0, 'sentence')
+        ->assertSuccessful();
+
+    $sectionsAfterCase = $component->get('editorSections');
+    expect($sectionsAfterCase[0]['content'])->toContain('Data primer')
+        ->and($sectionsAfterCase[0]['content'])->toContain('Analisis dilakukan');
+});
+
+it('executes clean-page action via artisan naskah:manage to normalize paragraph spacing', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen CLI Clean Spacing',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Teks   CLI   dengan   spasi   ganda  .'],
+        ],
+        'word_count' => 6,
+    ]);
+
+    $this->artisan('naskah:manage', [
+        'action' => 'clean-page',
+        'documentId' => $doc->id,
+        '--page' => 1,
+    ])
+        ->expectsOutputToContain('Berhasil merapikan spasi pada 1 paragraf di halaman #1')
+        ->assertSuccessful();
+
+    $doc->refresh();
+    expect($doc->blocks[0]['text'])->toBe('Teks CLI dengan spasi ganda.');
+});
