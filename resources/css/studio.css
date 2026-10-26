@@ -1315,6 +1315,17 @@ dialog#livewire-error {
     margin-bottom: 12px;
 }
 
+.word-drop-cap::first-letter {
+    float: left;
+    font-size: 3.2em;
+    line-height: 0.8;
+    padding-top: 4px;
+    padding-right: 8px;
+    padding-bottom: 2px;
+    font-weight: 700;
+    color: var(--rb-primary, #0f6cbd);
+}
+
 .dark .word-paragraph-text,
 .dark .word-sheet-content p {
     color: #e5e5e5;

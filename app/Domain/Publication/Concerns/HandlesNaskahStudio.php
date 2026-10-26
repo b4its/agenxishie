@@ -2136,6 +2136,179 @@ trait HandlesNaskahStudio
         $this->notify('Nomor Baris', "Nomor baris pada Halaman {$pageNumber} {$status}.", 'info');
     }
 
+    /**
+     * Atur perataan seluruh paragraf pada halaman tertentu sekaligus (justify, left, center, right).
+     */
+    public function setPageParagraphAlignment(int $pageNumber, string $align = 'justify'): int
+    {
+        $validAligns = ['left', 'center', 'right', 'justify'];
+        if (! in_array($align, $validAligns, true)) {
+            $align = 'justify';
+        }
+
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if ($paragraphs === []) {
+            return 0;
+        }
+
+        $this->pushUndo();
+        $count = 0;
+        foreach ($paragraphs as $item) {
+            $gIdx = $item['globalIndex'];
+            $this->blocks[$gIdx]['align'] = $align;
+            $count++;
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Perataan Paragraf', "Perataan {$count} paragraf pada Halaman {$pageNumber} disetel ke '{$align}'.", 'success');
+
+        return $count;
+    }
+
+    /**
+     * Aktifkan atau nonaktifkan Drop Cap (huruf kapital awal alinea membesar) pada paragraf halaman.
+     */
+    public function togglePageParagraphDropCap(int $pageNumber, int $paragraphIndexOnPage): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $gIdx = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $currentDropCap = (bool) ($this->blocks[$gIdx]['dropCap'] ?? false);
+
+        $this->pushUndo();
+        $this->blocks[$gIdx]['dropCap'] = ! $currentDropCap;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $status = ! $currentDropCap ? 'diaktifkan' : 'dinonaktifkan';
+        $this->notify('Drop Cap Paragraf', "Huruf awal membesar (Drop Cap) {$status} pada Halaman {$pageNumber}.", 'info');
+
+        return true;
+    }
+
+    /**
+     * Parafrase paragraf halaman ke dalam ragam kalimat akademik baku dan objektif.
+     */
+    public function paraphrasePageParagraph(int $pageNumber, int $paragraphIndexOnPage, string $tone = 'academic'): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $gIdx = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $currentText = trim((string) ($this->blocks[$gIdx]['text'] ?? ''));
+        if ($currentText === '') {
+            return false;
+        }
+
+        $patterns = [
+            '/\bbanyak sekali\b/ui' => 'sejumlah besar',
+            '/\bsangat bagus\b/ui' => 'optimal dan signifikan',
+            '/\bsangat penting\b/ui' => 'esensial dan krusial',
+            '/\bseperti yang kita tahu\b/ui' => 'sebagaimana diuraikan dalam literatur ilmiah',
+            '/\bhal ini membuktikan bahwa\b/ui' => 'temuan empiris ini mengindikasikan bahwa',
+            '/\bdapat disimpulkan bahwa\b/ui' => 'sintesis hasil penelitian menunjukkan bahwa',
+            '/\bkami rasa\b/ui' => 'berdasarkan bukti analitis',
+            '/\bmembuat\b/ui' => 'menghasilkan',
+            '/\bmenggunakan\b/ui' => 'menerapkan',
+            '/\bdikarenakan\b/ui' => 'karena',
+            '/\bdimana\b/ui' => 'tempat',
+            '/\bdaripada\b/ui' => 'dibandingkan dengan',
+        ];
+
+        $paraphrased = (string) preg_replace(array_keys($patterns), array_values($patterns), $currentText);
+        $paraphrased = $this->model->cleanTextSpacing($paraphrased);
+
+        $this->pushUndo();
+        $this->blocks[$gIdx]['text'] = $paraphrased;
+        $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns([], $paraphrased);
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Parafrase Akademik', 'Paragraf #'.($paragraphIndexOnPage + 1)." pada Halaman {$pageNumber} berhasil diparafrase ke ragam baku.", 'success');
+
+        return true;
+    }
+
+    /**
+     * Sisipkan catatan kaki (footnote) pada paragraf tertentu di suatu halaman.
+     */
+    public function insertPageParagraphFootnote(int $pageNumber, int $paragraphIndexOnPage, string $footnoteText): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $gIdx = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $cleanNote = trim($footnoteText);
+        if ($cleanNote === '') {
+            return false;
+        }
+
+        $existingFootnotes = count(array_filter($this->blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'footnote-ref'));
+        $fnNumber = $existingFootnotes + 1;
+
+        $currentText = rtrim((string) ($this->blocks[$gIdx]['text'] ?? ''));
+        if (str_ends_with($currentText, '.')) {
+            $baseText = rtrim(substr($currentText, 0, -1));
+            $newText = "{$baseText} [^{$fnNumber}].";
+        } else {
+            $newText = "{$currentText} [^{$fnNumber}].";
+        }
+
+        $this->pushUndo();
+        $this->blocks[$gIdx]['text'] = $newText;
+        $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns([], $newText);
+
+        $newBlock = $this->model->newBlock('footnote-ref', "[^{$fnNumber}] {$cleanNote}");
+        array_splice($this->blocks, $gIdx + 1, 0, [$newBlock]);
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Catatan Kaki Ditambahkan', "Catatan kaki [^{$fnNumber}] ditambahkan pada paragraf #".($paragraphIndexOnPage + 1)." Halaman {$pageNumber}.", 'success');
+
+        return true;
+    }
+
+    /**
+     * Urutkan ulang urutan paragraf pada halaman tertentu berdasarkan indeks relatif.
+     *
+     * @param  array<int, int>  $newOrder  Daftar indeks asal paragraf (misal [1, 0])
+     */
+    public function reorderPageParagraphs(int $pageNumber, array $newOrder): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        $count = count($paragraphs);
+        if ($count < 2 || count($newOrder) !== $count) {
+            return false;
+        }
+
+        $sortedOrder = $newOrder;
+        sort($sortedOrder);
+        if ($sortedOrder !== range(0, $count - 1)) {
+            return false;
+        }
+
+        $this->pushUndo();
+        $globalIndices = array_map(static fn (array $p): int => (int) $p['globalIndex'], $paragraphs);
+        $originalBlocks = array_map(fn (int $gIdx): array => $this->blocks[$gIdx], $globalIndices);
+
+        foreach ($newOrder as $targetPos => $origPos) {
+            $targetGIdx = $globalIndices[$targetPos];
+            $this->blocks[$targetGIdx] = $originalBlocks[$origPos];
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Urutan Paragraf Ditata', "Susunan alinea pada Halaman {$pageNumber} berhasil diperbarui.", 'success');
+
+        return true;
+    }
+
     // =====================================================================
     // Tabel
     // =====================================================================

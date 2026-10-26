@@ -752,6 +752,16 @@
             margin-bottom: 12px;
             outline: none;
         }
+        .word-drop-cap::first-letter {
+            float: left;
+            font-size: 3.2em;
+            line-height: 0.8;
+            padding-top: 4px;
+            padding-right: 8px;
+            padding-bottom: 2px;
+            font-weight: 700;
+            color: var(--rb-primary, #0f6cbd);
+        }
         .word-quote-block {
             border-left: 4px solid #3b82f6;
             padding: 8px 16px;
@@ -1978,6 +1988,20 @@
                                         title="Tampilkan / sembunyikan nomor baris di Halaman {{ $pageNumber }}">
                                         🔢 Nomor Baris
                                     </button>
+                                    <button type="button"
+                                        wire:click="setPageParagraphAlignment({{ $pageNumber }}, 'justify')"
+                                        class="ns-btn"
+                                        style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
+                                        title="Rata Kiri-Kanan (Justify) seluruh alinea Halaman {{ $pageNumber }}">
+                                        ≡ Rata Penuh
+                                    </button>
+                                    <button type="button"
+                                        wire:click="setPageParagraphAlignment({{ $pageNumber }}, 'left')"
+                                        class="ns-btn"
+                                        style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
+                                        title="Rata Kiri seluruh alinea Halaman {{ $pageNumber }}">
+                                        = Rata Kiri
+                                    </button>
                                 </div>
                                 <span>Halaman {{ $pageNumber }} dari {{ $pageCount }}</span>
                             </div>
@@ -2154,15 +2178,17 @@
                                                         }
                                                     @endphp
                                                     <div class="word-para-item-wrapper" style="position:relative;" x-data="{ hovered: false }" @mouseenter="hovered = true" @mouseleave="hovered = false">
-                                                        <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="{{ $this->blockInlineStyle($block) }}">
+                                                        <p class="word-paragraph-text {{ !empty($block['dropCap']) ? 'word-drop-cap' : '' }}" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="{{ $this->blockInlineStyle($block) }}">
                                                             {!! $text ?: '<br>' !!}
                                                         </p>
                                                         <div x-show="hovered" contenteditable="false" style="position:absolute; right:4px; top:-12px; z-index:20; display:flex; gap:3px; background:#ffffff; border:1px solid #cbd5e1; border-radius:4px; padding:2px 4px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="openParagraphCustomizer({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Kustomisasi paragraf ini">⚙️</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="togglePageParagraphDropCap({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Huruf kapital awal membesar (Drop Cap)">🔤</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="movePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }}, -1)" title="Geser naik">⬆️</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="movePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }}, 1)" title="Geser turun">⬇️</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="duplicatePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Duplikat paragraf">📄</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="splitPageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Pecah paragraf">✂️</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="paraphrasePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Parafrase kalimat ragam akademik">🔄</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="polishPageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Poles bahasa akademik">✨</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px; color:#d13438;" wire:click="deletePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Hapus paragraf">🗑️</button>
                                                         </div>
