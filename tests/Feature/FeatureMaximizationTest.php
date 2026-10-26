@@ -1342,3 +1342,115 @@ it('exports HEART and AARRR framework KPI metrics to CSV and JSON formats', func
     $aarrrDecoded = json_decode((string) $aarrrOutput, true);
     expect($aarrrDecoded['framework'])->toBe('AARRR');
 });
+
+it('exports xishie assistant transcripts in markdown, json, and txt formats', function (): void {
+    $project = makeProject(['title' => 'Proyek Uji Asisten Ekspor']);
+
+    $component = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+    $component->set('log', [
+        ['role' => 'user', 'content' => 'Bagaimana cara memvalidasi hipotesis?'],
+        ['role' => 'assistant', 'content' => 'Gunakan uji signifikansi empiris dan metrik evaluasi yang tepat.'],
+    ]);
+
+    // 1. Markdown (.md)
+    $mdResponse = $component->instance()->exportTranscript('markdown');
+    expect($mdResponse)->toBeInstanceOf(StreamedResponse::class);
+    ob_start();
+    $mdResponse->sendContent();
+    $mdOutput = ob_get_clean();
+    expect($mdOutput)->toContain('Transkrip Sesi Xishie Assistant')
+        ->and($mdOutput)->toContain('Proyek Uji Asisten Ekspor')
+        ->and($mdOutput)->toContain('uji signifikansi empiris');
+
+    // 2. JSON (.json)
+    $jsonResponse = $component->instance()->exportTranscript('json');
+    expect($jsonResponse)->toBeInstanceOf(StreamedResponse::class);
+    ob_start();
+    $jsonResponse->sendContent();
+    $jsonOutput = ob_get_clean();
+    $jsonDecoded = json_decode((string) $jsonOutput, true);
+    expect($jsonDecoded['project']['title'])->toBe('Proyek Uji Asisten Ekspor')
+        ->and($jsonDecoded['total_messages'])->toBe(2)
+        ->and($jsonDecoded['messages'][0]['content'])->toContain('memvalidasi hipotesis');
+
+    // 3. Plain Text (.txt)
+    $txtResponse = $component->instance()->exportTranscript('txt');
+    expect($txtResponse)->toBeInstanceOf(StreamedResponse::class);
+    ob_start();
+    $txtResponse->sendContent();
+    $txtOutput = ob_get_clean();
+    expect($txtOutput)->toContain('TRANSKRIP PERCAKAPAN XISHIE ASSISTANT')
+        ->and($txtOutput)->toContain('[Peneliti]')
+        ->and($txtOutput)->toContain('[Xishie Assistant]');
+});
+
+it('executes /daftar-isi and /daftar-pustaka slash commands with structure and formatted bibliography', function (): void {
+    $project = makeProject(['title' => 'Riset Evaluasi Algoritma']);
+    seedReferences($project);
+
+    $service = app(XishieAssistantService::class);
+
+    // 1. /daftar-isi
+    $tocResult = $service->handle($project, '/daftar-isi');
+    expect($tocResult['command'])->toBe('/daftar-isi')
+        ->and($tocResult['reply'])->toContain('Bagan Struktur & Daftar Isi Naskah')
+        ->and($tocResult['reply'])->toContain('Abstract')
+        ->and($tocResult['reply'])->toContain('Introduction')
+        ->and($tocResult['data']['sections'])->toBeArray();
+
+    // Alias /toc
+    $aliasToc = $service->handle($project, '/toc');
+    expect($aliasToc['command'])->toBe('/daftar-isi');
+
+    // 2. /daftar-pustaka
+    $bibResult = $service->handle($project, '/daftar-pustaka');
+    expect($bibResult['command'])->toBe('/daftar-pustaka')
+        ->and($bibResult['reply'])->toContain('Daftar Pustaka Terformat')
+        ->and($bibResult['data']['count'])->toBeGreaterThanOrEqual(1);
+
+    // Alias /bibliografi
+    $aliasBib = $service->handle($project, '/bibliografi');
+    expect($aliasBib['command'])->toBe('/daftar-pustaka');
+});
+
+it('applies law governance and fintech economics templates in onboarding wizard', function (): void {
+    $component = Livewire::test(ProjectOnboardingWizard::class);
+
+    // 1. Law & Governance
+    $component->call('applyTemplate', 'law_governance')
+        ->assertSuccessful();
+
+    $data = $component->get('data');
+    expect($data['title'])->toContain('Perlindungan Data Pribadi')
+        ->and($data['target_tier'])->toBe('SINTA 1')
+        ->and($data['citation_style'])->toBe('harvard');
+
+    // 2. FinTech & Economics
+    $component->call('applyTemplate', 'fintech_economics')
+        ->assertSuccessful();
+
+    $data = $component->get('data');
+    expect($data['title'])->toContain('Central Bank Digital Currency')
+        ->and($data['target_tier'])->toBe('Q1')
+        ->and($data['citation_style'])->toBe('harvard');
+});
+
+it('loads project naskah blocks automatically when project query parameter is passed to naskah studio', function (): void {
+    $project = makeProject(['title' => 'Proyek Naskah Studio Query']);
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+    $stage->forceFill([
+        'sections_content' => [
+            ['key' => 'intro', 'heading' => 'Pendahuluan Query', 'content' => 'Paragraf pembuka otomatis masuk ke canvas studio.'],
+        ],
+        'status' => StageStatus::IN_PROGRESS,
+    ])->save();
+
+    $studio = Livewire::test(NaskahStudioApp::class, [
+        'project' => $project->id,
+        'stage' => ProjectStage::DRAFT->value,
+    ]);
+    expect($studio->get('sourceProjectId'))->toBe($project->id)
+        ->and($studio->get('sourceType'))->toBe('project')
+        ->and($studio->get('docTitle'))->toContain($project->title)
+        ->and(count($studio->get('blocks')))->toBeGreaterThanOrEqual(1);
+});
