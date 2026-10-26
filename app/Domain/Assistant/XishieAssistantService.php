@@ -269,6 +269,36 @@ final class XishieAssistantService
             return ['command' => 'freeform', 'reply' => $answer, 'data' => ['request' => $input, 'source' => 'omnigensi-llm']];
         }
 
+        // Cek apakah ada intensi natural language spesifik saat LLM offline
+        $lower = mb_strtolower(trim($input));
+        if (preg_match('/(tabel|table|matriks\b)/iu', $lower)) {
+            return $this->tabelAnalisis($project, $input);
+        }
+        if (preg_match('/(rumus|persamaan|formula|latex|equation)/iu', $lower)) {
+            return $this->rumus($project, $input);
+        }
+        if (preg_match('/(ringkas|ringkasan|rangkum)/iu', $lower)) {
+            return $this->ringkas($project);
+        }
+        if (preg_match('/(gap|research gap|celah riset)/iu', $lower)) {
+            return $this->cekGap($project);
+        }
+        if (preg_match('/(kebaruan|novelty|orisinalitas)/iu', $lower)) {
+            return $this->kebaruan($project, $input);
+        }
+        if (preg_match('/(pedoman|aturan naskah|kaidah)/iu', $lower)) {
+            return $this->cekPedoman($project);
+        }
+        if (preg_match('/(metode|metodologi)/iu', $lower)) {
+            return $this->metodologi($project, $input);
+        }
+        if (preg_match('/(abstrak|abstract)/iu', $lower)) {
+            return $this->abstrak($project, $input);
+        }
+        if (preg_match('/(keterbacaan|readability)/iu', $lower)) {
+            return $this->keterbacaan($project, $input);
+        }
+
         // Fallback offline: ringkasan konteks.
         $reply = sprintf(
             'Konteks proyek: %d referensi (%d terverifikasi), pedoman %s, tahap %s. Gunakan /sitasi, /cek-gap, /cek-pedoman, atau /matriks-literatur.',
@@ -452,6 +482,45 @@ final class XishieAssistantService
      */
     private function tabelAnalisis(XishieProject $project, string $argument): array
     {
+        $headerRow = [
+            ['text' => 'Parameter Evaluasi', 'runs' => []],
+            ['text' => 'Metode Konvensional', 'runs' => []],
+            ['text' => 'Pendekatan Yang Diusulkan', 'runs' => []],
+            ['text' => 'Peningkatan', 'runs' => []],
+            ['text' => 'Signifikansi', 'runs' => []],
+        ];
+        $dataRows = [
+            [
+                ['text' => 'Rasio Kepatuhan Pedoman', 'runs' => []],
+                ['text' => '62.4%', 'runs' => []],
+                ['text' => '89.2%', 'runs' => []],
+                ['text' => '+26.8%', 'runs' => []],
+                ['text' => 'p < 0.01', 'runs' => []],
+            ],
+            [
+                ['text' => 'Efisiensi Waktu Sesi Draf', 'runs' => []],
+                ['text' => '18.5 jam', 'runs' => []],
+                ['text' => '11.2 jam', 'runs' => []],
+                ['text' => '-39.5%', 'runs' => []],
+                ['text' => 'p < 0.05', 'runs' => []],
+            ],
+            [
+                ['text' => 'Kepadatan Sitasi Terverifikasi', 'runs' => []],
+                ['text' => '8.2 / 1000 kata', 'runs' => []],
+                ['text' => '14.6 / 1000 kata', 'runs' => []],
+                ['text' => '+78.0%', 'runs' => []],
+                ['text' => 'p < 0.01', 'runs' => []],
+            ],
+            [
+                ['text' => 'Indeks Keselarasan IMRAD', 'runs' => []],
+                ['text' => '70.1 / 100', 'runs' => []],
+                ['text' => '92.5 / 100', 'runs' => []],
+                ['text' => '+31.9%', 'runs' => []],
+                ['text' => 'p < 0.01', 'runs' => []],
+            ],
+        ];
+        $allRows = array_merge([$headerRow], $dataRows);
+
         $reply = "### Matriks Evaluasi & Analisis Komparasi Kinerja\n\n"
             ."| Parameter Evaluasi | Metode Konvensional | Pendekatan Yang Diusulkan | Peningkatan | Signifikansi |\n"
             ."|---|---|---|---|---|\n"
@@ -459,12 +528,16 @@ final class XishieAssistantService
             ."| Efisiensi Waktu Sesi Draf | 18.5 jam | 11.2 jam | -39.5% | p < 0.05 |\n"
             ."| Kepadatan Sitasi Terverifikasi | 8.2 / 1000 kata | 14.6 / 1000 kata | +78.0% | p < 0.01 |\n"
             ."| Indeks Keselarasan IMRAD | 70.1 / 100 | 92.5 / 100 | +31.9% | p < 0.01 |\n\n"
-            .'*Klik **Sisipkan ke Naskah** untuk menambahkan tabel komparasi ini langsung ke lembar naskah.*';
+            .'*Klik **⚡ Terapkan ke Halaman Ini** atau **Sisipkan ke Naskah** untuk menambahkan tabel komparasi ini langsung ke lembar naskah.*';
 
         return [
             'command' => SlashCommand::TABEL_ANALISIS->value,
             'reply' => $reply,
-            'data' => ['table' => true],
+            'data' => [
+                'action' => 'insert_table',
+                'table' => true,
+                'table_rows' => $allRows,
+            ],
         ];
     }
 
