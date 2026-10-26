@@ -1750,14 +1750,21 @@
                 {{-- TAB: ALAT TABEL (TABLE) --}}
                 @elseif ($activeTab === 'table')
                     <div class="ns-group">
+                        <span class="ns-group__label">Sisipkan Tabel</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" @mousedown.prevent="insertTable(3, 3)" title="Sisipkan Tabel 3×3">&#8862; Tabel 3×3</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('table')" title="Konfigurasi Ukuran Grid Tabel">&#9638; Ukuran Kustom</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
                         <span class="ns-group__label">Baris &amp; Kolom</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="tableInsertRow({{ $activeBlock }}, 0)">+ Baris Atas</button>
-                            <button type="button" class="ns-btn" wire:click="tableInsertRow({{ $activeBlock }}, 1)">+ Baris Bawah</button>
-                            <button type="button" class="ns-btn" wire:click="tableDeleteRow({{ $activeBlock }}, 0)">- Hapus Baris</button>
-                            <button type="button" class="ns-btn" wire:click="tableInsertColumn({{ $activeBlock }}, 0)">+ Kolom Kiri</button>
-                            <button type="button" class="ns-btn" wire:click="tableInsertColumn({{ $activeBlock }}, 1)">+ Kolom Kanan</button>
-                            <button type="button" class="ns-btn" wire:click="tableDeleteColumn({{ $activeBlock }}, 0)">- Hapus Kolom</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="insertTableRow(false)" wire:click="tableInsertRow({{ $activeBlock }}, 0)" title="Sisipkan Baris di Atas">+ Baris Atas</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="insertTableRow(true)" wire:click="tableInsertRow({{ $activeBlock }}, 1)" title="Sisipkan Baris di Bawah">+ Baris Bawah</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="deleteTableRow()" wire:click="tableDeleteRow({{ $activeBlock }}, 0)" title="Hapus Baris Terpilih">- Hapus Baris</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="insertTableColumn(false)" wire:click="tableInsertColumn({{ $activeBlock }}, 0)" title="Sisipkan Kolom di Kiri">+ Kolom Kiri</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="insertTableColumn(true)" wire:click="tableInsertColumn({{ $activeBlock }}, 1)" title="Sisipkan Kolom di Kanan">+ Kolom Kanan</button>
+                            <button type="button" class="ns-btn" @mousedown.prevent="deleteTableColumn()" wire:click="tableDeleteColumn({{ $activeBlock }}, 0)" title="Hapus Kolom Terpilih">- Hapus Kolom</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1771,7 +1778,7 @@
                         <span class="ns-group__label">Struktur Tabel</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="tableToggleHeader({{ $activeBlock }})">Toggle Baris Header</button>
-                            <button type="button" class="ns-btn" style="color:#b91c1c;" wire:click="removeBlock({{ $activeBlock }})">&#128465; Hapus Tabel</button>
+                            <button type="button" class="ns-btn" style="color:#b91c1c;" @mousedown.prevent="deleteTable()" wire:click="removeBlock({{ $activeBlock }})" title="Hapus Seluruh Tabel">&#128465; Hapus Tabel</button>
                         </div>
                     </div>
                 @endif

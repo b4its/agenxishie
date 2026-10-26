@@ -187,7 +187,13 @@ final class NaskahDocxExporter
         };
 
         $indent = (int) ($block['indent'] ?? 0);
-        $ind = $indent > 0 ? '<w:ind w:left="'.($indent * 720).'"/>' : '';
+        $firstLine = (bool) ($block['firstLineIndent'] ?? false);
+        $ind = '';
+        if ($indent > 0 || $firstLine) {
+            $leftAttr = $indent > 0 ? ' w:left="'.($indent * 720).'"' : '';
+            $firstLineAttr = $firstLine ? ' w:firstLine="720"' : '';
+            $ind = '<w:ind'.$leftAttr.$firstLineAttr.'/>';
+        }
 
         $spacing = '';
         $before = (int) ($block['spacingBefore'] ?? 0);

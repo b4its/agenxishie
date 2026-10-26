@@ -132,6 +132,15 @@ class NaskahStudioApiController extends Controller
             'latex', 'tex' => [$this->model->toLatex($blocks, $document->title), 'tex', 'application/x-tex; charset=UTF-8'],
             'rtf' => [$this->model->toRtf($blocks, $document->title), 'rtf', 'application/rtf; charset=UTF-8'],
             'txt' => [$this->model->toPlainText($blocks), 'txt', 'text/plain; charset=UTF-8'],
+            'json' => [(string) json_encode([
+                'id' => $document->id,
+                'title' => $document->title,
+                'source_type' => $document->source_type,
+                'word_count' => $document->word_count,
+                'blocks' => $blocks,
+                'page_setup' => $document->page_setup,
+                'style_meta' => $document->style_meta,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'json', 'application/json; charset=UTF-8'],
             default => [$this->model->toMarkdown($blocks, $document->title), 'md', 'text/markdown; charset=UTF-8'],
         };
 

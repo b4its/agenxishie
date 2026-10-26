@@ -632,6 +632,9 @@ final class NaskahRichModel
         if ($indent > 0) {
             $styles[] = 'margin-left:'.($indent * 1.5).'rem';
         }
+        if (! empty($block['firstLineIndent'])) {
+            $styles[] = 'text-indent:1.27cm';
+        }
 
         if (($block['spacingBefore'] ?? 0) > 0) {
             $styles[] = 'margin-top:'.$block['spacingBefore'].'pt';

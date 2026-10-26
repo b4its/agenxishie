@@ -2247,14 +2247,19 @@ trait HandlesNaskahStudio
 
             // Ekstrak perataan teks (left, center, right, justify) sesuai format Word & LibreOffice
             $align = 'left';
+            $firstLineIndent = false;
             if ($node instanceof \DOMElement) {
+                $styleCandidate = strtolower((string) $node->getAttribute('style'));
+                if (str_contains($styleCandidate, 'text-indent') && ! str_contains($styleCandidate, 'text-indent: 0') && ! str_contains($styleCandidate, 'text-indent:0')) {
+                    $firstLineIndent = true;
+                }
+
                 if ($node->hasAttribute('align')) {
                     $alignCandidate = strtolower((string) $node->getAttribute('align'));
                     if (in_array($alignCandidate, ['left', 'center', 'right', 'justify'], true)) {
                         $align = $alignCandidate;
                     }
                 } elseif ($node->hasAttribute('style')) {
-                    $styleCandidate = strtolower((string) $node->getAttribute('style'));
                     if (str_contains($styleCandidate, 'text-align: center') || str_contains($styleCandidate, 'text-align:center')) {
                         $align = 'center';
                     } elseif (str_contains($styleCandidate, 'text-align: right') || str_contains($styleCandidate, 'text-align:right')) {
@@ -2332,6 +2337,9 @@ trait HandlesNaskahStudio
 
             if ($createdBlock !== null) {
                 $createdBlock['align'] = $align;
+                if ($firstLineIndent) {
+                    $createdBlock['firstLineIndent'] = true;
+                }
                 $blocks[] = $createdBlock;
             }
         }
@@ -2842,6 +2850,22 @@ trait HandlesNaskahStudio
             return response()->streamDownload(static function () use ($binary): void {
                 echo $binary;
             }, $base.'.odt', ['Content-Type' => 'application/vnd.oasis.opendocument.text']);
+        }
+
+        if ($format === 'json') {
+            $jsonContent = (string) json_encode([
+                'title' => $this->docTitle,
+                'source_type' => $this->sourceType,
+                'word_count' => $this->model->countWords($blocks),
+                'statistics' => $this->statistics,
+                'blocks' => $blocks,
+                'page_setup' => $this->pageSetup,
+                'style_meta' => $this->styleMeta,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            return response()->streamDownload(static function () use ($jsonContent): void {
+                echo $jsonContent;
+            }, $base.'.json', ['Content-Type' => 'application/json; charset=UTF-8']);
         }
 
         [$content, $extension, $mime] = match ($format) {
@@ -4063,6 +4087,15 @@ trait HandlesNaskahStudio
         $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'average');
         $this->dirty = true;
         $this->notify('Kalkulasi Tabel', "Rata-rata kolom #{$colIndex} dihitung.", 'success');
+    }
+
+    public function tableCalculateColumn(int $index, int $colIndex, string $operation = 'sum'): void
+    {
+        if ($operation === 'avg' || $operation === 'average') {
+            $this->tableAverageColumn($index, $colIndex);
+        } else {
+            $this->tableSumColumn($index, $colIndex);
+        }
     }
 
     public function createSnapshot(?string $label = null): void
