@@ -2599,3 +2599,70 @@ it('executes /kebaruan and /novelty slash command for academic statement of nove
         ->and($resArg['reply'])->toContain('protokol Byzantine Fault Tolerance adaptif')
         ->and($resArg['data']['novelty_focus'])->toBe('protokol Byzantine Fault Tolerance adaptif');
 });
+
+it('synthesizes document-aware table and applies model output directly to manuscript page in naskah studio', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+    $component->call('loadSampleHandbook');
+
+    // 1. Eksekusi permintaan natural language untuk menambahkan tabel menyesuaikan isi dokumen
+    $component->call('sendAssistantWithText', 'tambahkan tabel menyesuaikan dengan isi dokumen');
+
+    $log = $component->get('assistantLog');
+    expect($log)->not->toBeEmpty();
+    $lastLog = end($log);
+    $lastIndex = count($log) - 1;
+
+    expect($lastLog['role'])->toBe('assistant')
+        ->and($lastLog['reply'] ?? $lastLog['content'])->toContain('Tabel Matriks Dokumen')
+        ->and($lastLog['data']['action'])->toBe('insert_table')
+        ->and($lastLog['data']['table_rows'])->toBeArray();
+
+    // Pastikan tabel memuat aspek kontekstual dari dokumen (Why share a studio?, What we agree on, etc.)
+    $headingsInTable = array_map(static fn ($r) => $r[0]['text'] ?? '', $lastLog['data']['table_rows']);
+    expect($headingsInTable)->toContain('Why share a studio?')
+        ->and($headingsInTable)->toContain('What we agree on');
+
+    // 2. Eksekusi dan terapkan model ke halaman aktif dokumen saat ini (Page 1)
+    $initialBlockCount = count($component->get('blocks'));
+    $component->call('applyAssistantToCurrentPage', $lastIndex, 1);
+
+    $blocksAfterTable = $component->get('blocks');
+    expect(count($blocksAfterTable))->toBe($initialBlockCount + 1);
+    $activeBlockIndex = $component->get('activeBlock');
+    $insertedBlock = $blocksAfterTable[$activeBlockIndex];
+    expect($insertedBlock['type'])->toBe('table')
+        ->and(count($insertedBlock['table']['rows']))->toBe(count($lastLog['data']['table_rows']))
+        ->and($insertedBlock['table']['rows'][0][0]['text'])->toBe('Bagian / Aspek Naskah')
+        ->and($insertedBlock['table']['rows'][1][0]['text'])->toBe('Why share a studio?');
+
+    // 3. Uji penerapan rumus LaTeX ke halaman tertentu (Page 2)
+    $component->call('sendAssistantWithText', 'tambahkan rumus normal gaussian');
+    $logAfterFormula = $component->get('assistantLog');
+    $formulaLog = end($logAfterFormula);
+    $formulaLogIndex = count($logAfterFormula) - 1;
+
+    expect($formulaLog['data']['latex'])->toContain('\\frac{1}{\\sigma');
+
+    $component->call('applyAssistantToCurrentPage', $formulaLogIndex, 2);
+    $blocksAfterFormula = $component->get('blocks');
+    $equationBlockIndex = $component->get('activeBlock');
+    $equationBlock = $blocksAfterFormula[$equationBlockIndex];
+    expect($equationBlock['type'])->toBe('equation')
+        ->and($equationBlock['equation']['latex'])->toContain('\\frac{1}{\\sigma');
+
+    // 4. Uji replaceActiveBlockWithAssistant dengan blok tabel
+    $component->set('activeBlock', 0); // Target blok pertama
+    $component->call('replaceActiveBlockWithAssistant', $lastIndex);
+    $blocksAfterReplace = $component->get('blocks');
+    expect($blocksAfterReplace[0]['type'])->toBe('table')
+        ->and(count($blocksAfterReplace[0]['table']['rows']))->toBe(count($lastLog['data']['table_rows']))
+        ->and($blocksAfterReplace[0]['table']['rows'][0][0]['text'])->toBe('Bagian / Aspek Naskah');
+
+    // 5. Uji freeform natural language intent di XishieAssistantService
+    $project = makeProject(['title' => 'Studi Analisis Komparasi Kinerja']);
+    $assistantService = app(XishieAssistantService::class);
+    $freeformTableResult = $assistantService->handle($project, 'buatkan matriks tabel analisis komparasi');
+    expect($freeformTableResult['command'])->toBe('/tabel-analisis')
+        ->and($freeformTableResult['data']['table_rows'])->toBeArray()
+        ->and($freeformTableResult['data']['action'])->toBe('insert_table');
+});
