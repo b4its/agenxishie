@@ -501,6 +501,55 @@ class AcademicWorkspacePage extends Page
     }
 
     /**
+     * Aktifkan atau nonaktifkan indentasi baris pertama pada konten sub-bab.
+     */
+    public function toggleSectionParagraphFirstLineIndent(int $index): void
+    {
+        if (! isset($this->editorSections[$index])) {
+            return;
+        }
+
+        $current = (bool) ($this->editorSections[$index]['firstLineIndent'] ?? false);
+        $this->editorSections[$index]['firstLineIndent'] = ! $current;
+        $this->editorDirty = true;
+
+        $status = ! $current ? 'diaktifkan' : 'dinonaktifkan';
+        Notification::make()
+            ->title('Indentasi Sub-bab')
+            ->body("Indentasi baris pertama {$status} pada '{$this->editorSections[$index]['heading']}'.")
+            ->info()
+            ->send();
+    }
+
+    /**
+     * Hitung metrik statistik keterbacaan untuk sub-bab tertentu.
+     *
+     * @return array<string, mixed>
+     */
+    public function getSectionReadability(int $index): array
+    {
+        if (! isset($this->editorSections[$index])) {
+            return [];
+        }
+
+        $content = strip_tags((string) ($this->editorSections[$index]['content'] ?? ''));
+        $words = str_word_count($content);
+        $sentences = preg_split('/(?<=[.!?])\s+/u', $content, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $sentCount = max(1, count($sentences));
+        $avgWps = round($words / $sentCount, 1);
+
+        return [
+            'section_key' => $this->editorSections[$index]['key'] ?? '',
+            'heading' => $this->editorSections[$index]['heading'] ?? '',
+            'word_count' => $words,
+            'sentence_count' => $sentCount,
+            'avg_words_per_sentence' => $avgWps,
+            'reading_time_seconds' => (int) round(($words / 200) * 60),
+            'readability_level' => $avgWps <= 22.0 ? 'Optimal' : 'Kompleks',
+        ];
+    }
+
+    /**
      * Geser sub-bab naik/turun untuk mengatur urutan naskah.
      */
     public function moveEditorSection(int $index, int $direction): void
