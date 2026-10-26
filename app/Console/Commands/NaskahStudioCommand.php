@@ -22,7 +22,7 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace}
+                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page}
                             {documentId? : ID dokumen naskah}
                             {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
                             {--output= : Path berkas luaran}
@@ -82,6 +82,7 @@ class NaskahStudioCommand extends Command
             'clean-page' => $this->handleCleanPage($document, $blocks, $model),
             'audit-page' => $this->handleAuditPage($document, $blocks, $model),
             'find-replace' => $this->handleFindReplace($document, $blocks, $model),
+            'export-page' => $this->handleExportPage($document, $blocks, $model),
             default => $this->handleUnknownAction($action),
         };
     }
@@ -482,9 +483,50 @@ class NaskahStudioCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleExportPage(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $format = strtolower((string) $this->option('format'));
+        $output = (string) $this->option('output');
+
+        $paginated = $model->paginate($blocks);
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id}.");
+
+            return self::FAILURE;
+        }
+
+        $pageBlocks = array_map(static fn (array $item): array => $item['block'], $targetPage['blocks']);
+        $content = match ($format) {
+            'html' => $model->toHtml($pageBlocks, "{$document->title} - Hal {$pageNumber}"),
+            'text', 'txt' => $model->toPlainText($pageBlocks),
+            default => $model->toMarkdown($pageBlocks, "{$document->title} - Hal {$pageNumber}"),
+        };
+
+        if ($output !== '') {
+            file_put_contents($output, $content);
+            $this->info("Halaman #{$pageNumber} berhasil diekspor ke berkas: {$output}");
+        } else {
+            $this->line($content);
+        }
+
+        return self::SUCCESS;
+    }
+
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page.");
 
         return self::FAILURE;
     }
