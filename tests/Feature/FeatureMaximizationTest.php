@@ -1945,3 +1945,121 @@ it('executes export-page action via artisan naskah:manage to export single page 
         ->expectsOutputToContain('Konten penting halaman pertama yang akan diekspor.')
         ->assertSuccessful();
 });
+
+it('manages drop cap, alignment, footnotes, paraphrasing, and reordering of page paragraphs', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Uji DropCap Dan Footnote',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Banyak sekali data yang dikumpulkan dimana hasilnya sangat penting.', 'align' => 'left'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Eksperimen kedua membuktikan bahwa hipotesis awal valid.', 'align' => 'left'],
+        ],
+        'word_count' => 17,
+    ]);
+
+    $app = Livewire::test(NaskahStudioApp::class);
+    $instance = $app->instance();
+    $instance->blocks = (array) $doc->blocks;
+
+    // 1. Uji setPageParagraphAlignment (mengubah seluruh paragraf halaman ke justify)
+    $alignedCount = $instance->setPageParagraphAlignment(1, 'justify');
+    expect($alignedCount)->toBe(2);
+    expect($instance->blocks[0]['align'])->toBe('justify')
+        ->and($instance->blocks[1]['align'])->toBe('justify');
+
+    // 2. Uji togglePageParagraphDropCap
+    $dropCap = $instance->togglePageParagraphDropCap(1, 0);
+    expect($dropCap)->toBeTrue();
+    expect($instance->blocks[0]['dropCap'])->toBeTrue();
+
+    // 3. Uji paraphrasePageParagraph
+    $paraphrased = $instance->paraphrasePageParagraph(1, 0);
+    expect($paraphrased)->toBeTrue();
+    expect($instance->blocks[0]['text'])->toContain('sejumlah besar')
+        ->and($instance->blocks[0]['text'])->toContain('esensial dan krusial');
+
+    // 4. Uji insertPageParagraphFootnote
+    $footnoteAdded = $instance->insertPageParagraphFootnote(1, 0, 'Lihat rincian survei pada Lampiran B.');
+    expect($footnoteAdded)->toBeTrue();
+    expect($instance->blocks[0]['text'])->toContain('[^1].');
+    expect(count($instance->blocks))->toBe(3);
+    expect($instance->blocks[1]['type'])->toBe('footnote-ref')
+        ->and($instance->blocks[1]['text'])->toContain('Lampiran B');
+
+    // 5. Uji reorderPageParagraphs
+    $instance->blocks = [
+        ['type' => 'paragraph', 'level' => 0, 'text' => 'Alinea Awal Pertama.'],
+        ['type' => 'paragraph', 'level' => 0, 'text' => 'Alinea Kedua Berikutnya.'],
+    ];
+    $reordered = $instance->reorderPageParagraphs(1, [1, 0]);
+    expect($reordered)->toBeTrue();
+    expect($instance->blocks[0]['text'])->toBe('Alinea Kedua Berikutnya.')
+        ->and($instance->blocks[1]['text'])->toBe('Alinea Awal Pertama.');
+});
+
+it('paraphrases and inserts footnotes into section paragraphs in academic workspace', function (): void {
+    $project = makeProject();
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+    $stage->forceFill([
+        'sections_content' => [
+            [
+                'key' => 'results',
+                'heading' => 'Hasil dan Temuan',
+                'content' => 'Banyak sekali responden yang menyatakan bahwa fitur ini sangat bagus.',
+            ],
+        ],
+        'status' => StageStatus::IN_PROGRESS,
+    ])->save();
+
+    $component = Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id]);
+
+    // 1. Uji paraphraseSectionParagraph
+    $component->call('paraphraseSectionParagraph', 0)
+        ->assertSuccessful();
+
+    $sections = $component->get('editorSections');
+    expect($sections[0]['content'])->toContain('sejumlah besar')
+        ->and($sections[0]['content'])->toContain('optimal dan signifikan');
+
+    // 2. Uji insertSectionFootnote
+    $component->call('insertSectionFootnote', 0, 'Data diolah dengan SPSS versi 28.')
+        ->assertSuccessful();
+
+    $sectionsAfterFootnote = $component->get('editorSections');
+    expect($sectionsAfterFootnote[0]['content'])->toContain('[^1].')
+        ->and($sectionsAfterFootnote[0]['content'])->toContain('[^1]: Data diolah dengan SPSS versi 28.');
+});
+
+it('executes polish-page and align-page actions via artisan naskah:manage', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen CLI Polish Dan Align',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'pengukuran sensor dilakukan dengan presisi tinggi  .', 'align' => 'left'],
+        ],
+        'word_count' => 7,
+    ]);
+
+    // 1. Uji align-page
+    $this->artisan('naskah:manage', [
+        'action' => 'align-page',
+        'documentId' => $doc->id,
+        '--page' => 1,
+        '--align' => 'justify',
+    ])
+        ->expectsOutputToContain("Berhasil mengatur perataan 'justify' pada 1 paragraf di halaman #1")
+        ->assertSuccessful();
+
+    $doc->refresh();
+    expect($doc->blocks[0]['align'])->toBe('justify');
+
+    // 2. Uji polish-page
+    $this->artisan('naskah:manage', [
+        'action' => 'polish-page',
+        'documentId' => $doc->id,
+        '--page' => 1,
+    ])
+        ->expectsOutputToContain('Berhasil memoles 1 paragraf pada halaman #1')
+        ->assertSuccessful();
+
+    $doc->refresh();
+    expect($doc->blocks[0]['text'])->toStartWith('Pengukuran sensor');
+});
