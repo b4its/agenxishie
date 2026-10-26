@@ -181,6 +181,7 @@ it('formats bibliography entries for each citation style', function (CitationSty
     'ieee' => [CitationStyle::IEEE, 'Prasetyo 2023'],
     'vancouver' => [CitationStyle::VANCOUVER, 'Prasetyo'],
     'chicago' => [CitationStyle::CHICAGO, 'Prasetyo'],
+    'harvard' => [CitationStyle::HARVARD, 'Prasetyo'],
 ]);
 
 it('builds a markdown literature matrix', function (): void {

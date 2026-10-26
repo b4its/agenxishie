@@ -173,6 +173,7 @@ final class CustomGuidelineParser
             str_contains($lower, 'ieee') => 'ieee',
             str_contains($lower, 'vancouver') => 'vancouver',
             str_contains($lower, 'chicago') => 'chicago',
+            str_contains($lower, 'harvard') => 'harvard',
             default => null,
         };
     }

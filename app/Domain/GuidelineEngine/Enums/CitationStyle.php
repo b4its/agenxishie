@@ -10,6 +10,7 @@ enum CitationStyle: string
     case IEEE = 'ieee';
     case VANCOUVER = 'vancouver';
     case CHICAGO = 'chicago';
+    case HARVARD = 'harvard';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum CitationStyle: string
             self::IEEE => 'IEEE',
             self::VANCOUVER => 'Vancouver',
             self::CHICAGO => 'Chicago',
+            self::HARVARD => 'Harvard',
         };
     }
 
@@ -38,6 +40,7 @@ enum CitationStyle: string
             self::IEEE => '/(?:'.$internal.'|\[\d{1,3}(?:[,\-]\s?\d{1,3})*\])/u',
             self::VANCOUVER => '/(?:'.$internal.'|\(\d{1,3}(?:[,\-]\s?\d{1,3})*\))/u',
             self::CHICAGO => '/(?:'.$internal.'|\([A-Z][A-Za-z\-]+\s\d{4}(?::\s?\d+)?\))/u',
+            self::HARVARD => '/(?:'.$internal.'|\([A-Z][A-Za-z\-]+(?:\s(?:et al\.|&|dan)\s?[A-Za-z\-]*)?,\s\d{4}[a-z]?\))/u',
         };
     }
 

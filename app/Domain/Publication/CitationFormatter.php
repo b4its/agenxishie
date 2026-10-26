@@ -70,6 +70,14 @@ final class CitationFormatter
                 $year,
                 $doi,
             ),
+            CitationStyle::HARVARD => sprintf(
+                '%s (%s) \'%s\', %s.%s',
+                $authors,
+                $year,
+                $title,
+                $journal,
+                $doi,
+            ),
         };
     }
 
@@ -82,7 +90,7 @@ final class CitationFormatter
         }
 
         return match ($style) {
-            CitationStyle::APA7 => $this->apaAuthors($authors),
+            CitationStyle::APA7, CitationStyle::HARVARD => $this->apaAuthors($authors),
             CitationStyle::IEEE => $this->ieeeAuthors($authors),
             CitationStyle::VANCOUVER => implode(', ', array_slice($authors, 0, 6)),
             CitationStyle::CHICAGO => $this->chicagoAuthors($authors),
