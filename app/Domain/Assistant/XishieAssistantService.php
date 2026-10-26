@@ -338,6 +338,31 @@ final class XishieAssistantService
                 'latex' => '\begin{bmatrix} a & b \\ c & d \end{bmatrix}',
                 'caption' => '4',
             ],
+            'einstein', 'relativitas', 'energi' => [
+                'name' => 'Kesetaraan Massa-Energi (Einstein)',
+                'latex' => 'E = m c^2',
+                'caption' => '5',
+            ],
+            'normal', 'gaussian', 'distribusi' => [
+                'name' => 'Distribusi Normal Gaussian',
+                'latex' => 'f(x) = \frac{1}{\sigma \sqrt{2\pi}} e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}',
+                'caption' => '6',
+            ],
+            'bayes', 'probabilitas' => [
+                'name' => 'Teorema Bayes',
+                'latex' => 'P(A|B) = \frac{P(B|A) P(A)}{P(B)}',
+                'caption' => '7',
+            ],
+            'sigmoid', 'aktivasi' => [
+                'name' => 'Fungsi Aktivasi Sigmoid',
+                'latex' => '\sigma(z) = \frac{1}{1 + e^{-z}}',
+                'caption' => '8',
+            ],
+            'loss', 'cross-entropy' => [
+                'name' => 'Fungsi Kerugian Cross-Entropy',
+                'latex' => '\mathcal{L}_{CE} = -\sum_{i=1}^{C} y_i \log(\hat{y}_i)',
+                'caption' => '9',
+            ],
             default => [
                 'name' => 'Model Regresi Linear Empiris',
                 'latex' => 'y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \varepsilon',
@@ -447,6 +472,18 @@ final class XishieAssistantService
             ];
         }
 
+        $context = $this->memory->build($project, $argument);
+        $prompt = "Sebagai penerjemah akademik profesional untuk jurnal internasional bereputasi (Scopus/WoS), terjemahkan teks berikut ke dalam Academic English formal berkaidah ilmiah tinggi:\n\n\"{$argument}\"";
+        $answer = $this->answerWithLlm($project, $prompt, $context);
+
+        if ($answer !== null && trim($answer) !== '') {
+            return [
+                'command' => SlashCommand::TERJEMAHKAN->value,
+                'reply' => trim($answer),
+                'data' => ['translation' => true, 'original' => $argument, 'source' => 'omnigensi-llm'],
+            ];
+        }
+
         $reply = "### Konversi Terjemahan Akademik Baku (Academic English)\n\n"
             ."- **Teks Asal**: \"{$argument}\"\n\n"
             ."- **Terjemahan Akademik Formal**:\n"
@@ -473,6 +510,18 @@ final class XishieAssistantService
             ];
         }
 
+        $context = $this->memory->build($project, $argument);
+        $prompt = "Sebagai auditor bahasa Indonesia baku untuk naskah akademik (PUEBI/KBBI), audit kalimat/paragraf berikut secara cermat:\n\n\"{$argument}\"\n\nBerikan teks hasil koreksi dan jelaskan ringkas perbaikan tata bahasa/ejaannya.";
+        $answer = $this->answerWithLlm($project, $prompt, $context);
+
+        if ($answer !== null && trim($answer) !== '') {
+            return [
+                'command' => SlashCommand::PUEBI->value,
+                'reply' => trim($answer),
+                'data' => ['original' => $argument, 'source' => 'omnigensi-llm'],
+            ];
+        }
+
         $corrected = ucfirst(rtrim($argument, '.')).'.';
         $reply = "### Hasil Audit Ejaan & PUEBI Baku\n\n"
             ."- **Teks Awal**: \"{$argument}\"\n"
@@ -496,6 +545,18 @@ final class XishieAssistantService
                 'command' => SlashCommand::KEMBANGKAN->value,
                 'reply' => 'Pilih blok atau berikan poin teks untuk dikembangkan: /kembangkan [poin]',
                 'data' => [],
+            ];
+        }
+
+        $context = $this->memory->build($project, $argument);
+        $prompt = "Sebagai asisten penulisan artikel ilmiah, kembangkan dan elaborasikan premis/poin berikut menjadi satu atau dua paragraf argumentasi akademik yang mendalam, kohesif, dan kaya analisis:\n\n\"{$argument}\"";
+        $answer = $this->answerWithLlm($project, $prompt, $context);
+
+        if ($answer !== null && trim($answer) !== '') {
+            return [
+                'command' => SlashCommand::KEMBANGKAN->value,
+                'reply' => trim($answer),
+                'data' => ['original' => $argument, 'source' => 'omnigensi-llm'],
             ];
         }
 
