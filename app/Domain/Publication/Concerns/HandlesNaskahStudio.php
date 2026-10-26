@@ -303,6 +303,19 @@ trait HandlesNaskahStudio
             }
         }
 
+        $projectId = request()->query('project') !== null ? (int) request()->query('project') : null;
+        if (is_numeric($projectId) && $projectId > 0) {
+            $this->sourceProjectId = (int) $projectId;
+            $this->sourceProjectStage = (string) request()->query('stage', ProjectStage::DRAFT->value);
+            $this->loadFromProject();
+
+            if (! empty($this->blocks)) {
+                $this->statistics = $this->model->computeStatistics($this->blocks);
+
+                return;
+            }
+        }
+
         if (empty($this->blocks)) {
             $this->loadSampleHandbook();
         }

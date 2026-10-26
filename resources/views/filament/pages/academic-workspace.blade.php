@@ -281,6 +281,7 @@
                             <button type="button" class="rb-button rb-button--primary" wire:click="runPipeline">&#9889; Jalankan Pipeline</button>
                             <button type="button" class="rb-button" wire:click="runMultiAgentGraph">&#129513; Jalankan Multi-Agent Graph</button>
                             <button type="button" class="rb-button" wire:click="advanceStage">Tahap Berikutnya &#8594;</button>
+                            <a href="/admin/naskah-studio-page?project={{ $project->id }}&stage={{ $stage->value }}" class="rb-button" style="text-align:center; text-decoration:none;" title="Buka dan sunting naskah di WYSIWYG Naskah Studio">&#128394; Buka di Naskah Studio</a>
                         </div>
 
                         {{-- Export naskah siap kirim (KPI #15) --}}
