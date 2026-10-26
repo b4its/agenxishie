@@ -1651,6 +1651,10 @@ class AcademicWorkspacePage extends Page
             $content = $builder->toHtml($project);
             $filename = $base.'-literature-matrix.html';
             $mime = 'text/html; charset=UTF-8';
+        } elseif ($format === 'rtf') {
+            $content = $builder->toRtf($project);
+            $filename = $base.'-literature-matrix.rtf';
+            $mime = 'application/rtf';
         } else {
             $content = $builder->toCsv($project);
             $filename = $base.'-literature-matrix.csv';

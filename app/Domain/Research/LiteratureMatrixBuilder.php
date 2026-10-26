@@ -226,6 +226,65 @@ final class LiteratureMatrixBuilder
         return $html;
     }
 
+    /**
+     * Render matriks sebagai berkas Rich Text Format (.rtf).
+     */
+    public function toRtf(XishieProject $project): string
+    {
+        $rows = $this->build($project);
+        $title = $project->title;
+        $field = $project->field_of_study->label();
+
+        $rtfEsc = static function (string $text): string {
+            $out = '';
+            $len = mb_strlen($text);
+            for ($i = 0; $i < $len; $i++) {
+                $char = mb_substr($text, $i, 1);
+                $ord = mb_ord($char);
+                if ($ord < 128) {
+                    if ($char === '\\' || $char === '{' || $char === '}') {
+                        $out .= '\\'.$char;
+                    } elseif ($char === "\n") {
+                        $out .= '\\par ';
+                    } else {
+                        $out .= $char;
+                    }
+                } else {
+                    $out .= '\\u'.$ord.'?';
+                }
+            }
+
+            return $out;
+        };
+
+        $out = "{\\rtf1\\ansi\\deff0\n{\\fonttbl{\\f0\\froman\\fcharset0 Times New Roman;}{\\f1\\fswiss\\fcharset0 Arial;}}\n";
+        $out .= "{\\colortbl ;\\red30\\green64\\blue175;\\red51\\green65\\blue85;}\n";
+
+        $out .= '\\pard\\qc\\b\\fs32\\cf1 Tabel Matriks Literatur (State-of-the-Art)\\b0\\par\\par\n';
+        $out .= '\\pard\\ql\\fs22\\b Proyek: \\b0 '.$rtfEsc($title)."\\par\n";
+        $out .= '\\pard\\ql\\fs22\\b Bidang Ilmu: \\b0 '.$rtfEsc($field)."\\par\n";
+        $out .= '\\pard\\ql\\fs22\\b Total Referensi: \\b0 '.count($rows)." rujukan\\par\\par\n";
+
+        foreach ($rows as $index => $row) {
+            $num = $index + 1;
+            $key = (string) $row['citation_key'];
+            $authors = (string) $row['authors'];
+            $year = (string) ($row['year'] ?? '-');
+            $method = (string) ($row['method'] ?? '-');
+            $result = (string) ($row['result'] ?? '-');
+            $gap = (string) ($row['gap'] ?? '-');
+
+            $out .= "\\pard\\ql\\b [Entry #{$num}] [{$key}] \\b0 {$authors} ({$year})\\par\n";
+            $out .= '\\pard\\ql\\li360\\b Metode: \\b0 '.$rtfEsc($method)."\\par\n";
+            $out .= '\\pard\\ql\\li360\\b Temuan: \\b0 '.$rtfEsc($result)."\\par\n";
+            $out .= '\\pard\\ql\\li360\\b Gap / Limitasi: \\b0 '.$rtfEsc($gap)."\\par\\par\n";
+        }
+
+        $out .= "}\n";
+
+        return $out;
+    }
+
     private function escape(string $value): string
     {
         return str_replace('|', '\\|', $value);
