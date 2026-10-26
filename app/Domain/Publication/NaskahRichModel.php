@@ -436,6 +436,57 @@ final class NaskahRichModel
     }
 
     /**
+     * Rapikan spasi berlebih dan spasi sebelum/sesudah tanda baca pada teks.
+     */
+    public function cleanTextSpacing(string $text): string
+    {
+        // Ganti spasi ganda / horizontal berlebih dengan spasi tunggal
+        $text = (string) preg_replace('/[^\S\r\n]+/u', ' ', $text);
+        // Hapus spasi sebelum tanda baca
+        $text = (string) preg_replace('/\s+([,.:;?!])/u', '$1', $text);
+        // Pastikan ada spasi setelah tanda baca jika diikuti huruf/kata
+        $text = (string) preg_replace('/([,.:;?!])(?=[^\s\d,.:;?!])/u', '$1 ', $text);
+
+        // Trim spasi pada awal dan akhir tiap baris
+        $lines = explode("\n", $text);
+        $lines = array_map(static fn (string $line): string => trim($line), $lines);
+
+        return trim(implode("\n", $lines));
+    }
+
+    /**
+     * Ubah kapitalisasi teks (sentence, title, upper, lower).
+     */
+    public function transformCase(string $text, string $casing): string
+    {
+        return match (strtolower($casing)) {
+            'upper', 'uppercase' => mb_strtoupper($text, 'UTF-8'),
+            'lower', 'lowercase' => mb_strtolower($text, 'UTF-8'),
+            'title', 'titlecase' => mb_convert_case($text, MB_CASE_TITLE, 'UTF-8'),
+            'sentence', 'sentencecase' => (function (string $t): string {
+                $parts = preg_split('/([.?!]\s+)/u', $t, -1, PREG_SPLIT_DELIM_CAPTURE);
+                if ($parts === false || $parts === []) {
+                    return ucfirst(mb_strtolower($t, 'UTF-8'));
+                }
+                $result = '';
+                foreach ($parts as $part) {
+                    if (preg_match('/^[.?!]\s+$/u', $part)) {
+                        $result .= $part;
+                    } else {
+                        $lower = mb_strtolower($part, 'UTF-8');
+                        $firstChar = mb_substr($lower, 0, 1, 'UTF-8');
+                        $rest = mb_substr($lower, 1, null, 'UTF-8');
+                        $result .= mb_strtoupper($firstChar, 'UTF-8').$rest;
+                    }
+                }
+
+                return $result;
+            })($text),
+            default => $text,
+        };
+    }
+
+    /**
      * Hitung formula pada kolom tabel (SUM, AVERAGE, MIN, MAX - LibreOffice Table Calculation).
      *
      * @param  array<string, mixed>  $tableBlock

@@ -1655,6 +1655,199 @@ trait HandlesNaskahStudio
         $this->customParaDropCap = (bool) $p['dropCap'];
     }
 
+    /**
+     * Rapikan spasi ganda, spasi sebelum tanda baca, dan format spasi seluruh paragraf pada halaman tertentu.
+     */
+    public function cleanPageParagraphSpaces(int $pageNumber): int
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if ($paragraphs === []) {
+            return 0;
+        }
+
+        $this->pushUndo();
+        $cleaned = 0;
+        foreach ($paragraphs as $p) {
+            $gIdx = $p['globalIndex'];
+            $currentText = (string) ($this->blocks[$gIdx]['text'] ?? '');
+            $newText = $this->model->cleanTextSpacing($currentText);
+            if ($newText !== $currentText) {
+                $this->blocks[$gIdx]['text'] = $newText;
+                $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns($this->blocks[$gIdx]['runs'] ?? [], $newText);
+                $cleaned++;
+            }
+        }
+
+        if ($cleaned > 0) {
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Spasi Dirapikan', "{$cleaned} paragraf pada Halaman {$pageNumber} berhasil dirapikan.", 'success');
+        } else {
+            $this->notify('Spasi Sudah Rapi', "Seluruh paragraf pada Halaman {$pageNumber} sudah sesuai kaidah spasi.", 'info');
+        }
+
+        return $cleaned;
+    }
+
+    /**
+     * Ubah kapitalisasi (sentence, title, upper, lower) seluruh paragraf pada halaman tertentu.
+     */
+    public function transformPageParagraphCase(int $pageNumber, string $casing): int
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if ($paragraphs === []) {
+            return 0;
+        }
+
+        $this->pushUndo();
+        $count = 0;
+        foreach ($paragraphs as $p) {
+            $gIdx = $p['globalIndex'];
+            $currentText = (string) ($this->blocks[$gIdx]['text'] ?? '');
+            $newText = $this->model->transformCase($currentText, $casing);
+            if ($newText !== $currentText) {
+                $this->blocks[$gIdx]['text'] = $newText;
+                $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns($this->blocks[$gIdx]['runs'] ?? [], $newText);
+                $count++;
+            }
+        }
+
+        if ($count > 0) {
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Kapitalisasi Diubah', "Format huruf {$count} paragraf pada Halaman {$pageNumber} diubah ke {$casing}.", 'success');
+        }
+
+        return $count;
+    }
+
+    /**
+     * Gabungkan paragraf terpilih dengan paragraf berikutnya pada halaman yang sama.
+     */
+    public function mergePageParagraphs(int $pageNumber, int $paragraphIndexOnPage): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage]) || ! isset($paragraphs[$paragraphIndexOnPage + 1])) {
+            $this->notify('Tidak Dapat Menggabungkan', 'Harus ada paragraf berikutnya pada halaman yang sama.', 'warning');
+
+            return false;
+        }
+
+        $gIdxCurrent = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $gIdxNext = $paragraphs[$paragraphIndexOnPage + 1]['globalIndex'];
+
+        $textCurrent = trim((string) ($this->blocks[$gIdxCurrent]['text'] ?? ''));
+        $textNext = trim((string) ($this->blocks[$gIdxNext]['text'] ?? ''));
+
+        $mergedText = $textCurrent.' '.$textNext;
+
+        $this->pushUndo();
+        $this->blocks[$gIdxCurrent]['text'] = $mergedText;
+        $this->blocks[$gIdxCurrent]['runs'] = $this->model->normalizeRuns([], $mergedText);
+
+        array_splice($this->blocks, $gIdxNext, 1);
+        $this->blocks = array_values($this->blocks);
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Paragraf Digabungkan', 'Paragraf #'.($paragraphIndexOnPage + 1).' dan #'.($paragraphIndexOnPage + 2)." pada Halaman {$pageNumber} digabungkan.", 'success');
+
+        return true;
+    }
+
+    /**
+     * Pecah paragraf yang terlalu panjang menjadi dua alinea.
+     */
+    public function splitPageParagraph(int $pageNumber, int $paragraphIndexOnPage, string $delimiter = "\n\n"): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $gIdx = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $text = (string) ($this->blocks[$gIdx]['text'] ?? '');
+
+        $parts = [];
+        if ($delimiter !== '' && str_contains($text, $delimiter)) {
+            $parts = explode($delimiter, $text, 2);
+        } elseif (str_contains($text, '. ')) {
+            // Cari batas kalimat (. ) yang paling dekat dengan tengah paragraf
+            $midpoint = (int) (mb_strlen($text) / 2);
+            $bestPos = null;
+            $minDiff = PHP_INT_MAX;
+            $offset = 0;
+            while (($pos = mb_strpos($text, '. ', $offset)) !== false) {
+                $diff = abs($pos - $midpoint);
+                if ($diff < $minDiff) {
+                    $minDiff = $diff;
+                    $bestPos = $pos;
+                }
+                $offset = $pos + 2;
+            }
+
+            if ($bestPos !== null) {
+                $parts = [
+                    mb_substr($text, 0, $bestPos + 1),
+                    trim(mb_substr($text, $bestPos + 2)),
+                ];
+            }
+        }
+
+        if (count($parts) < 2 || trim($parts[0]) === '' || trim($parts[1]) === '') {
+            $this->notify('Pemisahan Paragraf', 'Tidak ditemukan titik pemisah yang sesuai.', 'info');
+
+            return false;
+        }
+
+        $this->pushUndo();
+        $this->blocks[$gIdx]['text'] = trim($parts[0]);
+        $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns([], trim($parts[0]));
+
+        $newBlock = $this->blocks[$gIdx];
+        $newBlock['text'] = trim($parts[1]);
+        $newBlock['runs'] = $this->model->normalizeRuns([], trim($parts[1]));
+
+        array_splice($this->blocks, $gIdx + 1, 0, [$newBlock]);
+        $this->blocks = array_values($this->blocks);
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Paragraf Dipecah', 'Paragraf #'.($paragraphIndexOnPage + 1)." pada Halaman {$pageNumber} berhasil dipecah menjadi dua alinea.", 'success');
+
+        return true;
+    }
+
+    /**
+     * Sisipkan paragraf baru langsung sebelum atau sesudah paragraf tertentu pada halaman.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function insertPageParagraphAt(int $pageNumber, int $targetParagraphIndexOnPage, string $text = '', array $attributes = [], string $position = 'after'): int
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        $insertAtGlobal = count($this->blocks);
+
+        if (isset($paragraphs[$targetParagraphIndexOnPage])) {
+            $targetGlobal = $paragraphs[$targetParagraphIndexOnPage]['globalIndex'];
+            $insertAtGlobal = $position === 'before' ? $targetGlobal : $targetGlobal + 1;
+        }
+
+        $block = $this->model->newBlock('paragraph', $text !== '' ? $text : "Paragraf baru pada Halaman {$pageNumber}.");
+        $block = $this->model->formatParagraphBlock($block, $attributes);
+
+        $this->pushUndo();
+        array_splice($this->blocks, $insertAtGlobal, 0, [$block]);
+        $this->blocks = array_values($this->blocks);
+
+        $this->activeBlock = $insertAtGlobal;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Paragraf Disisipkan', "Paragraf baru ditambahkan pada Halaman {$pageNumber}.", 'success');
+
+        return $insertAtGlobal;
+    }
+
     // =====================================================================
     // Tabel
     // =====================================================================

@@ -1926,8 +1926,8 @@
                             @endif
 
                             {{-- Header Halaman (Sesuai Konsep Microsoft Word & LibreOffice Writer) --}}
-                            <div class="ns-sheet-header" contenteditable="false" style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#94a3b8; border-bottom:1px dotted #cbd5e1; padding-bottom:6px; margin-bottom:16px; user-select:none;">
-                                <div style="display:flex; align-items:center; gap:8px;">
+                            <div class="ns-sheet-header" contenteditable="false" style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#94a3b8; border-bottom:1px dotted #cbd5e1; padding-bottom:6px; margin-bottom:16px; user-select:none; flex-wrap:wrap; gap:6px;">
+                                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                     <span>{{ $docTitle }}</span>
                                     <button type="button"
                                         wire:click="openParagraphCustomizer({{ $pageNumber }}, 0)"
@@ -1942,6 +1942,27 @@
                                         style="font-size:10px; padding:2px 8px; height:20px; background:rgba(22,163,74,0.08); color:#16a34a; border:1px solid rgba(22,163,74,0.2); border-radius:3px;"
                                         title="Tambah paragraf baru di Halaman {{ $pageNumber }}">
                                         + Paragraf
+                                    </button>
+                                    <button type="button"
+                                        wire:click="applyParagraphPresetToPage({{ $pageNumber }}, 'academic_standard')"
+                                        class="ns-btn"
+                                        style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
+                                        title="Terapkan Standar APA/Scopus (1.5 spasi, indent 1.27cm) ke Halaman {{ $pageNumber }}">
+                                        ⚡ APA 1.5
+                                    </button>
+                                    <button type="button"
+                                        wire:click="applyParagraphPresetToPage({{ $pageNumber }}, 'journal_ieee')"
+                                        class="ns-btn"
+                                        style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
+                                        title="Terapkan Format Jurnal IEEE/ACM (1.0 spasi, indent 1.27cm) ke Halaman {{ $pageNumber }}">
+                                        ⚡ IEEE 1.0
+                                    </button>
+                                    <button type="button"
+                                        wire:click="cleanPageParagraphSpaces({{ $pageNumber }})"
+                                        class="ns-btn"
+                                        style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
+                                        title="Rapikan spasi berlebih pada seluruh paragraf Halaman {{ $pageNumber }}">
+                                        🧹 Rapikan Spasi
                                     </button>
                                 </div>
                                 <span>Halaman {{ $pageNumber }} dari {{ $pageCount }}</span>
@@ -2546,6 +2567,21 @@
                                         <option value="bullet">Daftar Poin (Bullet)</option>
                                         <option value="numbered">Daftar Bernomor (Numbered)</option>
                                     </select>
+                                </div>
+                            </div>
+
+                            <!-- Alat Manipulasi Paragraf -->
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
+                                <label style="display:block; font-weight:700; font-size:.68rem; color:#475569;">🛠️ Alat Manipulasi Paragraf:</label>
+                                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                    <button type="button" class="ns-btn" wire:click="movePageParagraph({{ $customParaPage }}, {{ $customParaIndex }}, -1)" style="padding:2px 8px; font-size:.65rem;" title="Geser naik posisi paragraf pada halaman ini">⬆️ Geser Naik</button>
+                                    <button type="button" class="ns-btn" wire:click="movePageParagraph({{ $customParaPage }}, {{ $customParaIndex }}, 1)" style="padding:2px 8px; font-size:.65rem;" title="Geser turun posisi paragraf pada halaman ini">⬇️ Geser Turun</button>
+                                    <button type="button" class="ns-btn" wire:click="duplicatePageParagraph({{ $customParaPage }}, {{ $customParaIndex }})" style="padding:2px 8px; font-size:.65rem;" title="Duplikasi paragraf ini">📄 Duplikat</button>
+                                    <button type="button" class="ns-btn" wire:click="splitPageParagraph({{ $customParaPage }}, {{ $customParaIndex }})" style="padding:2px 8px; font-size:.65rem;" title="Pecah paragraf panjang menjadi dua alinea">✂️ Pecah Paragraf</button>
+                                    <button type="button" class="ns-btn" wire:click="mergePageParagraphs({{ $customParaPage }}, {{ $customParaIndex }})" style="padding:2px 8px; font-size:.65rem;" title="Gabungkan dengan paragraf berikutnya">🔗 Gabung Berikutnya</button>
+                                    <button type="button" class="ns-btn" wire:click="cleanPageParagraphSpaces({{ $customParaPage }})" style="padding:2px 8px; font-size:.65rem;" title="Rapikan spasi berlebih pada halaman ini">🧹 Rapikan Spasi</button>
+                                    <button type="button" class="ns-btn" wire:click="transformPageParagraphCase({{ $customParaPage }}, 'sentence')" style="padding:2px 8px; font-size:.65rem;" title="Ubah ke Sentence Case">🔤 Sentence Case</button>
+                                    <button type="button" class="ns-btn" wire:click="deletePageParagraph({{ $customParaPage }}, {{ $customParaIndex }})" style="padding:2px 8px; font-size:.65rem; color:#d13438;" wire:confirm="Hapus paragraf ini dari halaman?" title="Hapus paragraf ini">🗑️ Hapus</button>
                                 </div>
                             </div>
 
