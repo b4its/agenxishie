@@ -35,6 +35,7 @@ enum SlashCommand: string
     case FORMAT_PARAGRAF = '/format-paragraf';
     case CATATAN_KAKI = '/catatan-kaki';
     case KETERBACAAN = '/keterbacaan';
+    case KEBARUAN = '/kebaruan';
 
     public function description(): string
     {
@@ -64,6 +65,7 @@ enum SlashCommand: string
             self::FORMAT_PARAGRAF => 'Panduan kaidah tipografi paragraf akademik dan rekomendasi preset tata letak.',
             self::CATATAN_KAKI => 'Panduan penulisan catatan kaki (footnote) dan standar Chicago/Turabian.',
             self::KETERBACAAN => 'Audit keterbacaan, densitas kata, dan estimasi waktu baca naskah akademik.',
+            self::KEBARUAN => 'Rumuskan pernyataan kebaruan ilmiah (novelty statement) dan orisinalitas riset.',
         };
     }
 
@@ -118,6 +120,9 @@ enum SlashCommand: string
         }
         if (in_array($firstToken, ['/readability', '/baca', '/audit-baca', '/skor-baca', '/keterbacaan'], true)) {
             return self::KETERBACAAN;
+        }
+        if (in_array($firstToken, ['/novelty', '/orisinalitas', '/kontribusi', '/kebaruan'], true)) {
+            return self::KEBARUAN;
         }
 
         return self::tryFrom($firstToken);

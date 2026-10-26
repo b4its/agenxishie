@@ -69,6 +69,7 @@ final class XishieAssistantService
             SlashCommand::FORMAT_PARAGRAF => $this->formatParagraf($project, $argument),
             SlashCommand::CATATAN_KAKI => $this->catatanKaki($project, $argument),
             SlashCommand::KETERBACAAN => $this->keterbacaan($project, $argument),
+            SlashCommand::KEBARUAN => $this->kebaruan($project, $argument),
         };
     }
 
@@ -939,6 +940,43 @@ final class XishieAssistantService
                 'avg_words_per_sentence' => $avgWps,
                 'reading_time_seconds' => $readingSecs,
                 'readability_level' => $level,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function kebaruan(XishieProject $project, string $argument): array
+    {
+        $focus = trim($argument);
+        $title = $project->title;
+        $field = $project->field_of_study->label();
+        $docType = $project->document_type->label();
+
+        $noveltyPoint = $focus !== ''
+            ? $focus
+            : "pendekatan terintegrasi pada {$title}";
+
+        $reply = "### Rumusan Pernyataan Kebaruan Ilmiah (Statement of Novelty)\n\n"
+            ."**Konteks Naskah**: {$title} ({$docType} — Bidang {$field})\n\n"
+            ."1. **State of the Art (SOTA) & Batasan Rujukan Terdahulu**:\n"
+            ."   Sebagian besar literatur terdahulu telah mengkaji domain ini secara parsial, namun masih terbatas pada pendekatan konvensional dan belum mengeksplorasi integrasi holistik pada skenario empiris spesifik.\n\n"
+            ."2. **Pernyataan Kebaruan Pokok (Core Novelty Statement)**:\n"
+            ."   *\"Berbeda dengan studi-studi terdahulu, penelitian ini mengusulkan {$noveltyPoint} yang secara spesifik mengatasi celah efisiensi dan reliabilitas melalui kerangka evaluasi empiris yang terukur.\"*\n\n"
+            ."3. **Diferensiasi Komparatif**:\n"
+            ."   - **Metodologis**: Menggabungkan pendekatan validasi sistematis dengan tolok ukur saintifik baku.\n"
+            ."   - **Teoretis**: Memperluas kerangka konseptual pada bidang {$field}.\n"
+            ."   - **Praktis**: Memberikan instrumen replikasi yang siap diadopsi oleh praktisi dan peneliti lanjutan.\n\n"
+            .'*Tips: Letakkan kalimat kebaruan ini pada paragraf akhir Bab Pendahuluan sebelum uraian sistematika penulisan.*';
+
+        return [
+            'command' => SlashCommand::KEBARUAN->value,
+            'reply' => $reply,
+            'data' => [
+                'project_title' => $title,
+                'novelty_focus' => $noveltyPoint,
+                'field_of_study' => $field,
             ],
         ];
     }
