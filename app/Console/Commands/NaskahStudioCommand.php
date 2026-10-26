@@ -22,14 +22,15 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page}
+                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page}
                             {documentId? : ID dokumen naskah}
                             {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
                             {--output= : Path berkas luaran}
                             {--page=1 : Nomor halaman target untuk inspeksi atau format paragraf}
                             {--preset=academic_standard : Preset paragraf (academic_standard, journal_ieee, thesis_dikti, abstract_block, block_quote)}
                             {--search= : Kata kunci pencarian untuk aksi find-replace}
-                            {--replace= : Teks pengganti untuk aksi find-replace}';
+                            {--replace= : Teks pengganti untuk aksi find-replace}
+                            {--align=justify : Pilihan perataan untuk aksi align-page (justify, left, center, right)}';
 
     /**
      * @var string
@@ -83,6 +84,8 @@ class NaskahStudioCommand extends Command
             'audit-page' => $this->handleAuditPage($document, $blocks, $model),
             'find-replace' => $this->handleFindReplace($document, $blocks, $model),
             'export-page' => $this->handleExportPage($document, $blocks, $model),
+            'polish-page' => $this->handlePolishPage($document, $blocks, $model),
+            'align-page' => $this->handleAlignPage($document, $blocks, $model),
             default => $this->handleUnknownAction($action),
         };
     }
@@ -524,9 +527,115 @@ class NaskahStudioCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handlePolishPage(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $paginated = $model->paginate($blocks);
+
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id}.");
+
+            return self::FAILURE;
+        }
+
+        $polishedCount = 0;
+        foreach ($targetPage['blocks'] as $item) {
+            $idx = $item['index'];
+            if (! isset($blocks[$idx]) || ($blocks[$idx]['type'] ?? '') !== 'paragraph') {
+                continue;
+            }
+
+            $currentText = trim((string) ($blocks[$idx]['text'] ?? ''));
+            if ($currentText === '') {
+                continue;
+            }
+
+            $autocorrect = $model->autoCorrect($currentText);
+            $polishedText = $model->cleanTextSpacing($autocorrect['text']);
+
+            $sentences = preg_split('/(?<=[.!?])\s+/u', $polishedText, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if ($sentences !== []) {
+                $sentences[0] = ucfirst($sentences[0]);
+                $polishedText = implode(' ', $sentences);
+            }
+
+            if ($polishedText !== $currentText) {
+                $blocks[$idx]['text'] = $polishedText;
+                $blocks[$idx]['runs'] = $model->normalizeRuns([], $polishedText);
+                $polishedCount++;
+            }
+        }
+
+        $document->update([
+            'blocks' => $blocks,
+            'word_count' => $model->countWords($blocks),
+        ]);
+
+        $this->info("Berhasil memoles {$polishedCount} paragraf pada halaman #{$pageNumber} dokumen #{$document->id}.");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleAlignPage(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $align = strtolower((string) $this->option('align'));
+        if (! in_array($align, ['left', 'center', 'right', 'justify'], true)) {
+            $align = 'justify';
+        }
+
+        $paginated = $model->paginate($blocks);
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id}.");
+
+            return self::FAILURE;
+        }
+
+        $alignedCount = 0;
+        foreach ($targetPage['blocks'] as $item) {
+            $idx = $item['index'];
+            if (! isset($blocks[$idx]) || ($blocks[$idx]['type'] ?? '') !== 'paragraph') {
+                continue;
+            }
+
+            $blocks[$idx]['align'] = $align;
+            $alignedCount++;
+        }
+
+        $document->update([
+            'blocks' => $blocks,
+        ]);
+
+        $this->info("Berhasil mengatur perataan '{$align}' pada {$alignedCount} paragraf di halaman #{$pageNumber} dokumen #{$document->id}.");
+
+        return self::SUCCESS;
+    }
+
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page.");
 
         return self::FAILURE;
     }
