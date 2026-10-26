@@ -33,6 +33,7 @@ enum SlashCommand: string
     case DAFTAR_ISI = '/daftar-isi';
     case DAFTAR_PUSTAKA = '/daftar-pustaka';
     case FORMAT_PARAGRAF = '/format-paragraf';
+    case CATATAN_KAKI = '/catatan-kaki';
 
     public function description(): string
     {
@@ -60,6 +61,7 @@ enum SlashCommand: string
             self::DAFTAR_ISI => 'Susun bagan struktur dan daftar isi naskah sesuai jenis dokumen dan pedoman.',
             self::DAFTAR_PUSTAKA => 'Susun daftar pustaka lengkap dari referensi proyek sesuai gaya sitasi aktif.',
             self::FORMAT_PARAGRAF => 'Panduan kaidah tipografi paragraf akademik dan rekomendasi preset tata letak.',
+            self::CATATAN_KAKI => 'Panduan penulisan catatan kaki (footnote) dan standar Chicago/Turabian.',
         };
     }
 

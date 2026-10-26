@@ -67,6 +67,7 @@ final class XishieAssistantService
             SlashCommand::DAFTAR_ISI => $this->daftarIsi($project, $argument),
             SlashCommand::DAFTAR_PUSTAKA => $this->daftarPustaka($project, $argument),
             SlashCommand::FORMAT_PARAGRAF => $this->formatParagraf($project, $argument),
+            SlashCommand::CATATAN_KAKI => $this->catatanKaki($project, $argument),
         };
     }
 
@@ -824,6 +825,50 @@ final class XishieAssistantService
             'data' => [
                 'documentType' => $docType,
                 'presets' => array_keys(NaskahRichModel::PARAGRAPH_PRESETS),
+            ],
+        ];
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function catatanKaki(XishieProject $project, string $argument): array
+    {
+        if (trim($argument) !== '') {
+            $fnNumber = 1;
+            $reply = "### Format Catatan Kaki (Footnote) Terstruktur\n\n"
+                ."**Teks Utama dengan Penanda**:\n"
+                ."> {$argument} [^{$fnNumber}]\n\n"
+                ."**Entri Catatan Kaki di Bagian Bawah Halaman**:\n"
+                ."`[^{$fnNumber}]: Penulis, Judul Rujukan (Kota Terbit: Penerbit, Tahun), hlm. XX.`\n\n"
+                ."*Tips: Gunakan tombol 'Sisipkan Catatan Kaki' pada lembar Naskah Studio atau shortcut `Ctrl+Alt+F` untuk meletakkannya secara otomatis pada halaman aktif.*";
+
+            return [
+                'command' => SlashCommand::CATATAN_KAKI->value,
+                'reply' => $reply,
+                'data' => [
+                    'argument' => $argument,
+                    'footnote_marker' => "[^{$fnNumber}]",
+                ],
+            ];
+        }
+
+        $reply = "### Panduan Standar Penulisan Catatan Kaki (Footnotes)\n\n"
+            ."1. **Format Chicago / Turabian (Humaniora & Hukum)**:\n"
+            ."   - **Buku**: `Nama Penulis, Judul Buku Cetak Miring (Kota: Penerbit, Tahun), hlm. XX.`\n"
+            ."   - **Jurnal**: `Nama Penulis, \"Judul Artikel,\" Nama Jurnal Vol, no. Issue (Tahun): hlm. XX.`\n"
+            ."   - **Rujukan Berulang**: Gunakan singkatan `Ibid., hlm. XX` atau `Nama Belakang, Judul Singkat, hlm. XX.`\n\n"
+            ."2. **Penomoran & Tata Letak pada Naskah Studio**:\n"
+            ."   - Nomor catatan kaki berurutan (1, 2, 3...) dalam format superskrip [^N].\n"
+            ."   - Teks catatan kaki dicetak dengan ukuran font 10 pt (spasi tunggal 1.0) di bagian kaki halaman (*bottom of page*).\n"
+            ."   - Dipisahkan dari teks utama dengan garis pemisah horizontal 2 inci (*footnote separator line*).\n\n"
+            .'*Gunakan tombol **Sisipkan Catatan Kaki** pada toolbar Naskah Studio atau klik ikon ⚙️ pada paragraf untuk menambahkan catatan kaki per halaman.*';
+
+        return [
+            'command' => SlashCommand::CATATAN_KAKI->value,
+            'reply' => $reply,
+            'data' => [
+                'style' => 'chicago_turabian',
             ],
         ];
     }
