@@ -4415,6 +4415,20 @@ trait HandlesNaskahStudio
             return;
         }
 
+        // 2. Check if assistant response contains structured table rows
+        if (! empty($log['data']['table_rows']) && is_array($log['data']['table_rows'])) {
+            $newBlock = $this->model->newTableBlock($log['data']['table_rows'], true);
+            $insertAt = $this->activeBlock + 1;
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->activeBlock = $insertAt;
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Berhasil Disisipkan', 'Tabel rekomendasi berhasil disisipkan ke naskah.', 'success');
+
+            return;
+        }
+
         $newBlocks = $this->parseMarkdownToBlocks($content);
         if (empty($newBlocks)) {
             return;
@@ -4458,6 +4472,17 @@ trait HandlesNaskahStudio
             return;
         }
 
+        // 2. If assistant has structured table rows, replace active block with table block
+        if (! empty($log['data']['table_rows']) && is_array($log['data']['table_rows'])) {
+            $this->blocks[$this->activeBlock] = $this->model->newTableBlock($log['data']['table_rows'], true);
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Blok Diganti dengan Tabel', '', 'success');
+
+            return;
+        }
+
         $newBlocks = $this->parseMarkdownToBlocks($content);
         $structuredBlock = null;
         foreach ($newBlocks as $nb) {
@@ -4486,6 +4511,123 @@ trait HandlesNaskahStudio
         $this->editorRevision++;
         $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Blok Diperbarui', 'Blok aktif #'.($this->activeBlock + 1).' berhasil diperbarui.', 'success');
+    }
+
+    /**
+     * Dapatkan nomor halaman aktif saat ini berdasarkan posisi activeBlock atau customParaPage.
+     */
+    public function getCurrentPageNumber(): int
+    {
+        $paginated = $this->getPaginatedBlocks();
+        if (empty($paginated)) {
+            return 1;
+        }
+
+        foreach ($paginated as $p) {
+            foreach ($p['blocks'] as $b) {
+                if ((int) $b['index'] === $this->activeBlock) {
+                    return (int) $p['pageNumber'];
+                }
+            }
+        }
+
+        if (isset($this->customParaPage) && $this->customParaPage >= 1 && $this->customParaPage <= count($paginated)) {
+            return $this->customParaPage;
+        }
+
+        return 1;
+    }
+
+    /**
+     * Eksekusi keluaran model assistant dan terapkan langsung ke naskah pada halaman aktif.
+     */
+    public function applyAssistantToCurrentPage(int $logIndex, ?int $pageNumber = null): bool
+    {
+        if (! isset($this->assistantLog[$logIndex])) {
+            $this->notify('Gagal Menerapkan', 'Data rekomendasi model tidak ditemukan.', 'warning');
+
+            return false;
+        }
+
+        $log = $this->assistantLog[$logIndex];
+        $content = trim((string) ($log['content'] ?? ''));
+        $data = (array) ($log['data'] ?? []);
+
+        $blocksToInsert = [];
+
+        // 1. Jika model menghasilkan tabel terstruktur (table_rows)
+        if (! empty($data['table_rows']) && is_array($data['table_rows'])) {
+            $blocksToInsert[] = $this->model->newTableBlock($data['table_rows'], true);
+        }
+        // 2. Jika model menghasilkan rumus LaTeX
+        elseif (! empty($data['latex'])) {
+            $formula = (string) $data['latex'];
+            $caption = (string) ($data['caption'] ?? '(1)');
+            $blocksToInsert[] = $this->model->newEquationBlock($formula, $caption);
+        }
+        // 3. Parse markdown respons model menjadi kumpulan blok terstruktur
+        elseif ($content !== '') {
+            $parsed = $this->parseMarkdownToBlocks($content);
+            if (! empty($parsed)) {
+                $blocksToInsert = $parsed;
+            } else {
+                $cleanText = preg_replace('/^[-*#\s]+/u', '', $content) ?? $content;
+                $blocksToInsert[] = $this->model->newBlock('paragraph', $cleanText);
+            }
+        }
+
+        if (empty($blocksToInsert)) {
+            $this->notify('Tidak Ada Perubahan', 'Tidak ada elemen dokumen yang dapat diterapkan dari rekomendasi ini.', 'info');
+
+            return false;
+        }
+
+        $targetPageNumber = ($pageNumber !== null && $pageNumber >= 1)
+            ? $pageNumber
+            : $this->getCurrentPageNumber();
+
+        $paginated = $this->getPaginatedBlocks();
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $targetPageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        $this->pushUndo();
+
+        $insertedIndex = null;
+        if ($targetPage === null || empty($targetPage['blocks'])) {
+            $insertedIndex = count($this->blocks);
+            foreach ($blocksToInsert as $b) {
+                $this->blocks[] = $b;
+            }
+        } else {
+            $pageGlobalIndices = array_map(static fn (array $item): int => (int) $item['index'], $targetPage['blocks']);
+            if (in_array($this->activeBlock, $pageGlobalIndices, true)) {
+                $insertAt = $this->activeBlock + 1;
+            } else {
+                $insertAt = (int) end($pageGlobalIndices) + 1;
+            }
+
+            array_splice($this->blocks, $insertAt, 0, $blocksToInsert);
+            $insertedIndex = $insertAt + count($blocksToInsert) - 1;
+        }
+
+        $this->activeBlock = max(0, min($insertedIndex ?? (count($this->blocks) - 1), count($this->blocks) - 1));
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+
+        $typeLabel = count($blocksToInsert) === 1 ? ($blocksToInsert[0]['type'] ?? 'blok') : count($blocksToInsert).' blok';
+        $this->notify(
+            'Model Diterapkan ke Naskah',
+            "Rekomendasi model ({$typeLabel}) berhasil dieksekusi dan diterapkan pada Halaman {$targetPageNumber}.",
+            'success'
+        );
+
+        return true;
     }
 
     /**
@@ -4796,6 +4938,147 @@ trait HandlesNaskahStudio
     }
 
     /**
+     * Sintesis tabel analisis kontekstual berdasarkan isi dan struktur naskah aktif.
+     *
+     * @return array{reply: string, data: array<string, mixed>}
+     */
+    public function generateContextualTableFromDocument(): array
+    {
+        $title = $this->docTitle ?: 'Naskah Studio';
+        $blocks = $this->blocks;
+
+        $headings = [];
+        $currentHeading = null;
+        $headingContents = [];
+
+        foreach ($blocks as $b) {
+            $type = (string) ($b['type'] ?? '');
+            $text = trim(strip_tags((string) ($b['text'] ?? '')));
+            if ($text === '') {
+                continue;
+            }
+
+            if (in_array($type, ['heading', 'title'], true)) {
+                if ($type === 'title' && $text === $title) {
+                    continue;
+                }
+                $currentHeading = $text;
+                if (! isset($headingContents[$currentHeading])) {
+                    $headingContents[$currentHeading] = [];
+                    $headings[] = $currentHeading;
+                }
+            } elseif ($currentHeading !== null && in_array($type, ['paragraph', 'quote', 'bullet'], true)) {
+                $headingContents[$currentHeading][] = $text;
+            }
+        }
+
+        // Filter heading "Daftar Pustaka" / "References" jika ada heading lain
+        $contentHeadings = array_values(array_filter(
+            $headings,
+            static fn (string $h): bool => ! in_array(mb_strtolower($h), ['daftar pustaka', 'references', 'bibliografi', 'rujukan'], true)
+        ));
+
+        $headerRow = [
+            ['text' => 'Bagian / Aspek Naskah', 'runs' => []],
+            ['text' => 'Fokus Kajian Dokumen', 'runs' => []],
+            ['text' => 'Poin Kunci / Pedoman', 'runs' => []],
+            ['text' => 'Catatan Implementasi', 'runs' => []],
+        ];
+
+        $dataRows = [];
+
+        if (! empty($contentHeadings)) {
+            foreach ($contentHeadings as $h) {
+                $paras = $headingContents[$h] ?? [];
+                $firstPara = ! empty($paras) ? $paras[0] : '';
+                $firstSentence = preg_split('/(?<=[.!?])\s+/u', $firstPara, 2)[0] ?? $firstPara;
+                if (mb_strlen($firstSentence) > 90) {
+                    $firstSentence = Str::limit($firstSentence, 85, '…');
+                }
+
+                $lowerH = mb_strtolower($h);
+                $focus = match (true) {
+                    str_contains($lowerH, 'why') || str_contains($lowerH, 'latar') || str_contains($lowerH, 'pendahuluan') => 'Urgensi & Landasan Kolaboratif',
+                    str_contains($lowerH, 'agree') || str_contains($lowerH, 'tata') || str_contains($lowerH, 'aturan') => 'Konsensus & Norma Bersama',
+                    str_contains($lowerH, 'equip') || str_contains($lowerH, 'alat') || str_contains($lowerH, 'fasilitas') => 'Inventarisasi & Keamanan Peralatan',
+                    str_contains($lowerH, 'open') || str_contains($lowerH, 'akses') || str_contains($lowerH, 'operasional') => 'Protokol Jam Buka & Akses Studio',
+                    str_contains($lowerH, 'member') || str_contains($lowerH, 'anggota') || str_contains($lowerH, 'komunitas') => 'Keanggotaan & Keberlanjutan Komunitas',
+                    str_contains($lowerH, 'metod') || str_contains($lowerH, 'cara') => 'Prosedur & Metodologi Kerja',
+                    str_contains($lowerH, 'hasil') || str_contains($lowerH, 'temu') => 'Evaluasi Kinerja & Temuan',
+                    default => 'Pilar Operasional Naskah',
+                };
+
+                $note = match (true) {
+                    str_contains($lowerH, 'agree') || str_contains($lowerH, 'aturan') => 'Pedoman disepakati seluruh anggota',
+                    str_contains($lowerH, 'equip') || str_contains($lowerH, 'alat') => 'Orientasi keselamatan wajib sebelum penggunaan',
+                    str_contains($lowerH, 'open') || str_contains($lowerH, 'akses') => 'Kunci dipegang penanggung jawab shift',
+                    str_contains($lowerH, 'member') => 'Iuran bulanan & evaluasi rutin bulanan',
+                    default => 'Tercakup dalam standar baku dokumen',
+                };
+
+                $dataRows[] = [
+                    ['text' => $h, 'runs' => []],
+                    ['text' => $focus, 'runs' => []],
+                    ['text' => $firstSentence !== '' ? $firstSentence : 'Uraian terstruktur pada naskah', 'runs' => []],
+                    ['text' => $note, 'runs' => []],
+                ];
+            }
+        } else {
+            $dataRows = [
+                [
+                    ['text' => '1. Pendahuluan & Latar Belakang', 'runs' => []],
+                    ['text' => 'Urgensi Topik: '.$title, 'runs' => []],
+                    ['text' => 'Menetapkan landasan teoretis dan justifikasi fenomena', 'runs' => []],
+                    ['text' => 'SOTA & Research gap terdefinisi', 'runs' => []],
+                ],
+                [
+                    ['text' => '2. Metodologi / Tata Kelola', 'runs' => []],
+                    ['text' => 'Prosedur Terstruktur', 'runs' => []],
+                    ['text' => 'Instrumen evaluasi dan alur operasional baku', 'runs' => []],
+                    ['text' => 'Kesesuaian pedoman naskah', 'runs' => []],
+                ],
+                [
+                    ['text' => '3. Hasil & Pembahasan', 'runs' => []],
+                    ['text' => 'Sintesis Data Empiris', 'runs' => []],
+                    ['text' => 'Komparasi indikator capaian dan analisis kritis', 'runs' => []],
+                    ['text' => 'Signifikansi teruji', 'runs' => []],
+                ],
+                [
+                    ['text' => '4. Kesimpulan & Rekomendasi', 'runs' => []],
+                    ['text' => 'Implikasi & Tindak Lanjut', 'runs' => []],
+                    ['text' => 'Rangkuman kontribusi dan saran studi masa depan', 'runs' => []],
+                    ['text' => 'Luaran siap dipublikasikan', 'runs' => []],
+                ],
+            ];
+        }
+
+        $allRows = array_merge([$headerRow], $dataRows);
+
+        $mdLines = [
+            "### 📊 Tabel Matriks Dokumen: {$title}",
+            'Tabel berikut disintesis otomatis menyesuaikan struktur dan isi naskah Anda:',
+            '',
+            '| '.implode(' | ', array_map(static fn ($c) => $c['text'], $headerRow)).' |',
+            '|---|---|---|---|',
+        ];
+        foreach ($dataRows as $r) {
+            $mdLines[] = '| '.implode(' | ', array_map(static fn ($c) => $c['text'], $r)).' |';
+        }
+        $mdLines[] = '';
+        $mdLines[] = '*Klik tombol **⚡ Terapkan ke Halaman Ini** untuk mengeksekusi dan menyisipkan tabel ini langsung ke naskah Anda.*';
+
+        return [
+            'reply' => implode("\n", $mdLines),
+            'data' => [
+                'action' => 'insert_table',
+                'table' => true,
+                'title' => "Tabel Analisis: {$title}",
+                'table_rows' => $allRows,
+            ],
+        ];
+    }
+
+    /**
      * @return array{reply: string, data: array<string, mixed>}
      */
     public function answerResponse(?XishieProject $project, string $input): array
@@ -4813,6 +5096,28 @@ trait HandlesNaskahStudio
             if ($fallbackArg !== '') {
                 $effectiveInput = $firstToken.' '.$fallbackArg;
             }
+        }
+
+        $lowerTrimmed = mb_strtolower($trimmed);
+
+        // Deteksi intensi pembuatan tabel kontekstual berbasis isi dan struktur dokumen naskah
+        $isTablePrompt = preg_match('/(tambah|buat|sisip|masuk|generate|buatkan|tambahkan).*(tabel|table|matriks)/iu', $lowerTrimmed)
+            || preg_match('/^(tabel|table|matriks)\b/iu', $lowerTrimmed)
+            || preg_match('/(tabel|table|matriks).*(naskah|dokumen|isi|sesuai)/iu', $lowerTrimmed)
+            || str_starts_with($lowerTrimmed, '/tabel');
+
+        if ($isTablePrompt) {
+            return $this->generateContextualTableFromDocument();
+        }
+
+        // Deteksi intensi rumus/persamaan matematika LaTeX
+        $isEquationPrompt = preg_match('/(tambah|buat|sisip|masuk|generate|buatkan|tambahkan).*(rumus|persamaan|formula|latex|equation)/iu', $lowerTrimmed);
+        if ($isEquationPrompt && ! str_starts_with($lowerTrimmed, '/')) {
+            $typeMatch = 'regresi';
+            if (preg_match('/(normal|gauss|gaussian|pythagoras|integral|kalkulus|kuadrat|abc|akar|matriks|matrix)/iu', $lowerTrimmed, $em)) {
+                $typeMatch = strtolower($em[1]);
+            }
+            $effectiveInput = '/rumus '.$typeMatch;
         }
 
         if ($project !== null) {

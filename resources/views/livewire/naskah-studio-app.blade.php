@@ -2318,6 +2318,9 @@
 
                                         <!-- In-Document Action Buttons -->
                                         <div style="display:flex; flex-wrap:wrap; gap:4px; border-top:1px solid #f1f5f9; padding-top:8px;">
+                                            <button type="button" @click="$wire.applyAssistantToCurrentPage({{ $logIndex }}, typeof activePage !== 'undefined' ? activePage : null)" class="word-assistant-act-btn" style="background:#0f6cbd; color:#ffffff; font-weight:700; border-color:#0f6cbd;" title="Eksekusi rekomendasi model ini langsung ke halaman naskah saat ini">
+                                                <span>⚡ Terapkan ke Halaman Ini</span>
+                                            </button>
                                             <button type="button" wire:click="insertAssistantResponse({{ $logIndex }})" class="word-assistant-act-btn" title="Sisipkan teks ini sebagai paragraf baru di naskah">
                                                 <span>➕ Sisipkan ke Naskah</span>
                                             </button>

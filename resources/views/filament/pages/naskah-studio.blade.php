@@ -2350,6 +2350,9 @@
                                         </div>
                                         @if (($msg['role'] ?? '') === 'assistant')
                                             <div style="display:flex; gap:.3rem; margin-top:.4rem; border-top:1px dashed #cbd5e1; padding-top:.35rem; flex-wrap:wrap; align-items:center;">
+                                                <button type="button" class="ns-btn ns-btn--primary" style="font-size:.62rem; padding:.2rem .45rem; font-weight:700; background:#2563eb; color:#ffffff;" wire:click="applyAssistantToCurrentPage({{ $logIndex }})" title="Eksekusi dan terapkan rekomendasi model ke halaman naskah saat ini">
+                                                    ⚡ Terapkan ke Halaman Ini
+                                                </button>
                                                 <button type="button" class="ns-btn ns-btn--primary" style="font-size:.58rem; padding:.15rem .4rem;" wire:click="insertAssistantResponse({{ $logIndex }})" title="Sisipkan rekomendasi ini ke naskah">
                                                     ➕ Sisipkan ke Naskah
                                                 </button>
