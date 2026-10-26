@@ -28,6 +28,7 @@ final class OmnigensiGraphCommand extends Command
         {--max-revisions=3 : Batas siklus revisi reviewer}
         {--schema= : Path berkas JSON skema graf (default: skema baku)}
         {--mermaid : Tampilkan representasi visual graf sebagai diagram Mermaid}
+        {--json : Cetak luaran skema dan validasi sebagai JSON terstruktur}
         {--validate : Hanya validasi skema graf, tanpa eksekusi}';
 
     protected $description = 'Validasi/jalankan graf multi-agen Omnigensi (dynamic workflow graph)';
@@ -50,6 +51,19 @@ final class OmnigensiGraphCommand extends Command
         }
 
         $this->info(sprintf('Graf valid: %d node, %d edge. Entry: %s', $validation->nodeCount, $validation->edgeCount, $validation->entryPoint ?? '-'));
+
+        if ($this->option('json')) {
+            $this->line((string) json_encode([
+                'valid' => $validation->valid,
+                'summary' => $validation->summary(),
+                'node_count' => $validation->nodeCount,
+                'edge_count' => $validation->edgeCount,
+                'entry_point' => $validation->entryPoint,
+                'schema' => $schema,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+            return self::SUCCESS;
+        }
 
         if ($this->option('mermaid')) {
             $graph = WorkflowGraphSchema::fromArray($schema);

@@ -15,7 +15,9 @@ class MonitorExternalProjectsCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'xishie:ping-clients {--client= : ID atau slug spesifik klien}';
+    protected $signature = 'xishie:ping-clients
+                            {--client= : ID atau slug spesifik klien}
+                            {--json : Cetak luaran sebagai JSON terstruktur}';
 
     /**
      * The console command description.
@@ -59,9 +61,19 @@ class MonitorExternalProjectsCommand extends Command
             ];
         }
 
-        $this->table(['ID', 'Proyek', 'Target URL', 'Status', 'HTTP', 'Latensi', 'Server', 'Uptime'], $rows);
-
         $onlineCount = count(array_filter($rows, static fn ($r): bool => $r['Status'] === 'ONLINE'));
+
+        if ($this->option('json')) {
+            $this->line((string) json_encode([
+                'total_clients' => $clients->count(),
+                'online_count' => $onlineCount,
+                'probes' => $rows,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+            return self::SUCCESS;
+        }
+
+        $this->table(['ID', 'Proyek', 'Target URL', 'Status', 'HTTP', 'Latensi', 'Server', 'Uptime'], $rows);
         $this->info("Probe selesai: {$onlineCount}/{$clients->count()} proyek merespon aktif.");
 
         return self::SUCCESS;
