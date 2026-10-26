@@ -8,6 +8,7 @@ use App\Domain\Assistant\XishieAssistantService;
 use App\Domain\GuidelineEngine\Enums\CitationStyle;
 use App\Domain\GuidelineEngine\GuidelineResolverService;
 use App\Domain\Publication\ManuscriptExporter;
+use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Research\LiteratureMatrixBuilder;
 use App\Domain\Research\ReferenceImportService;
 use App\Domain\Workspace\Enums\ControlMode;
@@ -303,6 +304,62 @@ class AcademicWorkspacePage extends Page
         Notification::make()
             ->title('Paragraf sub-bab dikustomisasi')
             ->body("'{$this->editorSections[$index]['heading']}' berhasil diformat.")
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Rapikan spasi dan tipografi seluruh paragraf dalam sub-bab tertentu.
+     */
+    public function cleanSectionParagraphs(int $index): void
+    {
+        if (! isset($this->editorSections[$index])) {
+            return;
+        }
+
+        $model = app(NaskahRichModel::class);
+        $content = (string) ($this->editorSections[$index]['content'] ?? '');
+        $paragraphs = preg_split('/\n{2,}/u', trim($content)) ?: [];
+        $cleaned = [];
+
+        foreach ($paragraphs as $p) {
+            $cleaned[] = $model->cleanTextSpacing($p);
+        }
+
+        $this->editorSections[$index]['content'] = implode("\n\n", $cleaned);
+        $this->editorDirty = true;
+
+        Notification::make()
+            ->title('Spasi sub-bab dirapikan')
+            ->body("Tipografi '{$this->editorSections[$index]['heading']}' berhasil dirapikan.")
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Ubah format kapitalisasi teks seluruh paragraf dalam sub-bab tertentu.
+     */
+    public function transformSectionParagraphsCase(int $index, string $casing): void
+    {
+        if (! isset($this->editorSections[$index])) {
+            return;
+        }
+
+        $model = app(NaskahRichModel::class);
+        $content = (string) ($this->editorSections[$index]['content'] ?? '');
+        $paragraphs = preg_split('/\n{2,}/u', trim($content)) ?: [];
+        $transformed = [];
+
+        foreach ($paragraphs as $p) {
+            $transformed[] = $model->transformCase($p, $casing);
+        }
+
+        $this->editorSections[$index]['content'] = implode("\n\n", $transformed);
+        $this->editorDirty = true;
+
+        Notification::make()
+            ->title('Kapitalisasi sub-bab diubah')
+            ->body("Format huruf '{$this->editorSections[$index]['heading']}' diubah ke {$casing}.")
             ->success()
             ->send();
     }

@@ -481,6 +481,8 @@
                                         <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="moveEditorSection({{ $index }}, 1)" title="Turunkan urutan" @disabled($index === $editorSectionCount - 1)>&#9660;</button>
                                         <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="duplicateEditorSection({{ $index }})" title="Duplikasi sub-bab ini">&#10697; Duplikasi</button>
                                         <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="customSectionParagraphs({{ $index }}, { first_line_indent: true })" title="Kustomisasi format paragraf menjorok">&#8677; Format Paragraf</button>
+                                        <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="cleanSectionParagraphs({{ $index }})" title="Rapikan spasi berlebih dan tanda baca">&#129529; Rapikan Spasi</button>
+                                        <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="transformSectionParagraphsCase({{ $index }}, 'sentence')" title="Ubah huruf ke kalimat (Sentence Case)">&#128292; Sentence Case</button>
                                         @if (! empty($section['key']))
                                             <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="regenerateSingleSection('{{ $section['key'] }}')" wire:loading.attr="disabled" title="Tulis ulang sub-bab ini dengan agen">&#8635; Tulis Ulang</button>
                                         @endif
