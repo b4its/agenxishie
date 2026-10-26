@@ -1598,6 +1598,10 @@ class AcademicWorkspacePage extends Page
             $content = $builder->toJson($project);
             $filename = $base.'-literature-matrix.json';
             $mime = 'application/json';
+        } elseif ($format === 'html') {
+            $content = $builder->toHtml($project);
+            $filename = $base.'-literature-matrix.html';
+            $mime = 'text/html; charset=UTF-8';
         } else {
             $content = $builder->toCsv($project);
             $filename = $base.'-literature-matrix.csv';
