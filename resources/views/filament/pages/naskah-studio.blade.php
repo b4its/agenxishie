@@ -1927,7 +1927,23 @@
 
                             {{-- Header Halaman (Sesuai Konsep Microsoft Word & LibreOffice Writer) --}}
                             <div class="ns-sheet-header" contenteditable="false" style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#94a3b8; border-bottom:1px dotted #cbd5e1; padding-bottom:6px; margin-bottom:16px; user-select:none;">
-                                <span>{{ $docTitle }}</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span>{{ $docTitle }}</span>
+                                    <button type="button"
+                                        wire:click="openParagraphCustomizer({{ $pageNumber }}, 0)"
+                                        class="ns-btn"
+                                        style="font-size:10px; padding:2px 8px; height:20px; background:rgba(15,108,189,0.08); color:var(--rb-primary, #0f6cbd); border:1px solid rgba(15,108,189,0.2); border-radius:3px;"
+                                        title="Kustomisasi paragraf di Halaman {{ $pageNumber }}">
+                                        ⚙️ Custom Paragraf Hal. {{ $pageNumber }}
+                                    </button>
+                                    <button type="button"
+                                        wire:click="insertCustomParagraphOnPage({{ $pageNumber }}, 'Paragraf baru pada halaman {{ $pageNumber }}.')"
+                                        class="ns-btn"
+                                        style="font-size:10px; padding:2px 8px; height:20px; background:rgba(22,163,74,0.08); color:#16a34a; border:1px solid rgba(22,163,74,0.2); border-radius:3px;"
+                                        title="Tambah paragraf baru di Halaman {{ $pageNumber }}">
+                                        + Paragraf
+                                    </button>
+                                </div>
                                 <span>Halaman {{ $pageNumber }} dari {{ $pageCount }}</span>
                             </div>
 
@@ -2085,11 +2101,11 @@
                                                 </div>
                                             @else
                                                 @if ($inBibliographySection)
-                                                    <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $align }}; margin-bottom:.5rem;">
+                                                    <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="{{ $this->blockInlineStyle($block) }}">
                                                         {!! $text ?: '<br>' !!}
                                                     </p>
                                                 @else
-                                                    <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $align }}; margin-bottom:.5rem;">
+                                                    <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="{{ $this->blockInlineStyle($block) }}">
                                                         {!! $text ?: '<br>' !!}
                                                     </p>
                                                 @endif
@@ -2429,6 +2445,107 @@
                         </div>
                         <div class="ns-dialog__footer">
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="closeDialog">Tutup</button>
+                        </div>
+
+                    {{-- Dialog Kustomisasi Paragraf Per Halaman --}}
+                    @elseif ($dialog === 'paragraphCustomizer')
+                        <div class="ns-dialog__header">
+                            <span>&#9881; Kustomisasi Paragraf Halaman {{ $customParaPage }}</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body" style="display:flex; flex-direction:column; gap:12px; max-height:75vh; overflow-y:auto;">
+                            @php
+                                $pageParas = $this->getPageParagraphs($customParaPage);
+                            @endphp
+                            <div>
+                                <label style="font-weight:600; font-size:.7rem; display:block; margin-bottom:4px;">Pilih Paragraf di Halaman {{ $customParaPage }}:</label>
+                                <select wire:change="selectPageParagraphForCustomizer($event.target.value)" class="ns-btn" style="width:100%; height:32px;">
+                                    @forelse ($pageParas as $p)
+                                        <option value="{{ $p['pageIndex'] }}" {{ $customParaIndex === $p['pageIndex'] ? 'selected' : '' }}>
+                                            Paragraf #{{ $p['pageIndex'] + 1 }} ({{ ucfirst($p['block']['type'] ?? 'paragraph') }}): {{ Str::limit(strip_tags($p['block']['text'] ?? ''), 55) }}
+                                        </option>
+                                    @empty
+                                        <option value="0">(Belum ada paragraf di halaman ini)</option>
+                                    @endforelse
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="font-weight:600; font-size:.7rem; display:block; margin-bottom:4px;">Sunting Isi Teks Paragraf:</label>
+                                <textarea wire:model="customParaText" class="ns-btn" rows="3" style="width:100%; font-size:.75rem; line-height:1.4; padding:6px; border:1px solid #cbd5e1; border-radius:3px;"></textarea>
+                            </div>
+
+                            <div>
+                                <label style="font-weight:600; font-size:.7rem; display:block; margin-bottom:4px;">Perataan Teks (Alignment):</label>
+                                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+                                    <button type="button" class="ns-btn {{ $customParaAlign === 'left' ? 'ns-btn--primary' : '' }}" wire:click="$set('customParaAlign', 'left')" style="text-align:center;">⬅️ Kiri</button>
+                                    <button type="button" class="ns-btn {{ $customParaAlign === 'center' ? 'ns-btn--primary' : '' }}" wire:click="$set('customParaAlign', 'center')" style="text-align:center;">↔️ Tengah</button>
+                                    <button type="button" class="ns-btn {{ $customParaAlign === 'right' ? 'ns-btn--primary' : '' }}" wire:click="$set('customParaAlign', 'right')" style="text-align:center;">➡️ Kanan</button>
+                                    <button type="button" class="ns-btn {{ $customParaAlign === 'justify' ? 'ns-btn--primary' : '' }}" wire:click="$set('customParaAlign', 'justify')" style="text-align:center;">📶 Justify</button>
+                                </div>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem; display:block; margin-bottom:4px;">Jarak Baris:</label>
+                                    <select wire:model="customParaLineSpacing" class="ns-btn" style="width:100%; height:30px;">
+                                        <option value="1.0">1.0 (Single)</option>
+                                        <option value="1.15">1.15</option>
+                                        <option value="1.5">1.5 (Academic 1.5)</option>
+                                        <option value="2.0">2.0 (Double)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem; display:block; margin-bottom:4px;">Spasi Sebelum (pt):</label>
+                                    <input type="number" min="0" max="72" step="2" wire:model="customParaSpacingBefore" class="ns-btn" style="width:100%; height:30px;">
+                                </div>
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem; display:block; margin-bottom:4px;">Spasi Sesudah (pt):</label>
+                                    <input type="number" min="0" max="72" step="2" wire:model="customParaSpacingAfter" class="ns-btn" style="width:100%; height:30px;">
+                                </div>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem; display:block; margin-bottom:4px;">Indentasi Kiri (Level):</label>
+                                    <input type="number" min="0" max="8" wire:model="customParaIndent" class="ns-btn" style="width:100%; height:30px;">
+                                </div>
+                                <div style="display:flex; align-items:center; margin-top:16px;">
+                                    <label style="display:flex; align-items:center; gap:6px; font-size:.7rem; font-weight:600; cursor:pointer;">
+                                        <input type="checkbox" wire:model="customParaFirstLineIndent">
+                                        Paragraf Menjorok (1.27cm)
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                <div style="display:flex; align-items:center;">
+                                    <label style="display:flex; align-items:center; gap:6px; font-size:.7rem; font-weight:600; cursor:pointer;">
+                                        <input type="checkbox" wire:model="customParaDropCap">
+                                        Gaya Drop Cap (Huruf Besar)
+                                    </label>
+                                </div>
+                                <div>
+                                    <label style="font-weight:600; font-size:.68rem; display:block; margin-bottom:4px;">Tipe Blok:</label>
+                                    <select wire:model="customParaType" class="ns-btn" style="width:100%; height:30px;">
+                                        <option value="paragraph">Paragraf Standar</option>
+                                        <option value="quote">Kutipan (Blockquote)</option>
+                                        <option value="callout">Kotak Catatan (Callout)</option>
+                                        <option value="bullet">Daftar Poin (Bullet)</option>
+                                        <option value="numbered">Daftar Bernomor (Numbered)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px; border-top:1px solid #e2e8f0; padding-top:10px; flex-wrap:wrap;">
+                                <button type="button" class="ns-btn" wire:click="closeDialog" style="padding:6px 12px;">Batal</button>
+                                <button type="button" class="ns-btn" wire:click="applyParagraphCustomizer(true)" style="padding:6px 12px; font-weight:600;" title="Terapkan perataan, line spacing, dan indentasi ke seluruh paragraf di halaman ini">
+                                    Terapkan ke Semua Paragraf Hal. {{ $customParaPage }}
+                                </button>
+                                <button type="button" class="ns-btn ns-btn--primary" wire:click="applyParagraphCustomizer(false)" style="padding:6px 14px; font-weight:700;">
+                                    Simpan Paragraf Ini
+                                </button>
+                            </div>
                         </div>
 
                     {{-- Dialog Tata Letak Kertas (Page Setup) --}}

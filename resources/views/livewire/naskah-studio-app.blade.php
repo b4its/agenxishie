@@ -1667,14 +1667,32 @@
                         @endif
 
                         <!-- Header Halaman (Sesuai Konsep Microsoft Word & Gambar 1) -->
-                        <div class="word-sheet-header" contenteditable="false">
-                            <span class="word-sheet-title">{{ $docTitle }}</span>
-                            @if ($isFirstPage)
-                                <span class="word-sheet-edition">Spring edition</span>
-                            @else
-                                <!-- BAB Selanjutnya: Nomor Halaman di Kanan Atas (Sesuai Gambar 1) -->
-                                <span class="word-sheet-page-top" title="Halaman {{ $pageNumber }}">{{ $pageNumber }}</span>
-                            @endif
+                        <div class="word-sheet-header" contenteditable="false" style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="word-sheet-title">{{ $docTitle }}</span>
+                                <button type="button"
+                                    wire:click="openParagraphCustomizer({{ $pageNumber }}, 0)"
+                                    class="word-tool-btn"
+                                    style="font-size:10px; padding:2px 8px; height:20px; background:rgba(15,108,189,0.08); color:var(--ms-blue, #0f6cbd); border:1px solid rgba(15,108,189,0.2); border-radius:3px;"
+                                    title="Kustomisasi paragraf di Halaman {{ $pageNumber }}">
+                                    ⚙️ Custom Paragraf Hal. {{ $pageNumber }}
+                                </button>
+                                <button type="button"
+                                    wire:click="insertCustomParagraphOnPage({{ $pageNumber }}, 'Paragraf baru pada halaman {{ $pageNumber }}.')"
+                                    class="word-tool-btn"
+                                    style="font-size:10px; padding:2px 8px; height:20px; background:rgba(22,163,74,0.08); color:#16a34a; border:1px solid rgba(22,163,74,0.2); border-radius:3px;"
+                                    title="Tambah paragraf baru di Halaman {{ $pageNumber }}">
+                                    + Paragraf
+                                </button>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                @if ($isFirstPage)
+                                    <span class="word-sheet-edition">Halaman 1</span>
+                                @else
+                                    <!-- BAB Selanjutnya: Nomor Halaman di Kanan Atas (Sesuai Gambar 1) -->
+                                    <span class="word-sheet-page-top" title="Halaman {{ $pageNumber }}">{{ $pageNumber }}</span>
+                                @endif
+                            </div>
                         </div>
 
                         <!-- Konten Lembar Halaman (Continuous Flow Inside Page) -->
@@ -1931,11 +1949,11 @@
                                             </div>
                                         @else
                                             @if ($inBibliographySection)
-                                                <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">
+                                                <p class="word-bib-entry" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="{{ $this->blockInlineStyle($block) }}">
                                                     {!! $text !!}
                                                 </p>
                                             @else
-                                                <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="text-align: {{ $block['align'] ?? 'left' }};">
+                                                <p class="word-paragraph-text" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="{{ $this->blockInlineStyle($block) }}">
                                                     {!! $text !!}
                                                 </p>
                                             @endif
@@ -2459,6 +2477,107 @@
                     </div>
                     <div class="word-dialog__footer">
                         <button type="button" class="word-btn-pill word-btn-share" wire:click="closeDialog">Close</button>
+                    </div>
+
+                {{-- PARAGRAPH CUSTOMIZER PER HALAMAN --}}
+                @elseif ($dialog === 'paragraphCustomizer')
+                    <div class="word-dialog__header">
+                        <span>⚙️ Kustomisasi Paragraf Halaman {{ $customParaPage }}</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
+                    </div>
+                    <div class="word-dialog__body" style="display:flex; flex-direction:column; gap:12px; max-height:75vh; overflow-y:auto;">
+                        @php
+                            $pageParas = $this->getPageParagraphs($customParaPage);
+                        @endphp
+                        <div>
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Pilih Paragraf di Halaman {{ $customParaPage }}:</label>
+                            <select wire:change="selectPageParagraphForCustomizer($event.target.value)" class="word-select" style="width:100%; height:32px;">
+                                @forelse ($pageParas as $p)
+                                    <option value="{{ $p['pageIndex'] }}" {{ $customParaIndex === $p['pageIndex'] ? 'selected' : '' }}>
+                                        Paragraf #{{ $p['pageIndex'] + 1 }} ({{ ucfirst($p['block']['type'] ?? 'paragraph') }}): {{ Str::limit(strip_tags($p['block']['text'] ?? ''), 55) }}
+                                    </option>
+                                @empty
+                                    <option value="0">(Belum ada paragraf di halaman ini)</option>
+                                @endforelse
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Sunting Isi Teks Paragraf:</label>
+                            <textarea wire:model="customParaText" class="word-textarea" rows="3" style="width:100%; font-size:12px; line-height:1.4; padding:6px; border:1px solid #d1d1d1; border-radius:3px;"></textarea>
+                        </div>
+
+                        <div>
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Perataan Teks (Alignment):</label>
+                            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+                                <button type="button" class="word-tool-btn {{ $customParaAlign === 'left' ? 'active' : '' }}" wire:click="$set('customParaAlign', 'left')" style="justify-content:center; padding:6px;">⬅️ Kiri</button>
+                                <button type="button" class="word-tool-btn {{ $customParaAlign === 'center' ? 'active' : '' }}" wire:click="$set('customParaAlign', 'center')" style="justify-content:center; padding:6px;">↔️ Tengah</button>
+                                <button type="button" class="word-tool-btn {{ $customParaAlign === 'right' ? 'active' : '' }}" wire:click="$set('customParaAlign', 'right')" style="justify-content:center; padding:6px;">➡️ Kanan</button>
+                                <button type="button" class="word-tool-btn {{ $customParaAlign === 'justify' ? 'active' : '' }}" wire:click="$set('customParaAlign', 'justify')" style="justify-content:center; padding:6px;">📶 Justify</button>
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:11px; margin-bottom:4px;">Jarak Baris:</label>
+                                <select wire:model="customParaLineSpacing" class="word-select" style="width:100%; height:30px; font-size:11px;">
+                                    <option value="1.0">1.0 (Single)</option>
+                                    <option value="1.15">1.15</option>
+                                    <option value="1.5">1.5 (Academic 1.5)</option>
+                                    <option value="2.0">2.0 (Double)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:11px; margin-bottom:4px;">Spasi Sebelum (pt):</label>
+                                <input type="number" min="0" max="72" step="2" wire:model="customParaSpacingBefore" class="word-input" style="width:100%; height:30px; font-size:11px;">
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:11px; margin-bottom:4px;">Spasi Sesudah (pt):</label>
+                                <input type="number" min="0" max="72" step="2" wire:model="customParaSpacingAfter" class="word-input" style="width:100%; height:30px; font-size:11px;">
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:11px; margin-bottom:4px;">Indentasi Kiri (Level):</label>
+                                <input type="number" min="0" max="8" wire:model="customParaIndent" class="word-input" style="width:100%; height:30px; font-size:11px;">
+                            </div>
+                            <div style="display:flex; align-items:center; margin-top:18px;">
+                                <label style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; cursor:pointer;">
+                                    <input type="checkbox" wire:model="customParaFirstLineIndent">
+                                    Paragraf Menjorok (1.27cm)
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                            <div style="display:flex; align-items:center;">
+                                <label style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; cursor:pointer;">
+                                    <input type="checkbox" wire:model="customParaDropCap">
+                                    Gaya Drop Cap (Huruf Besar)
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; font-size:11px; margin-bottom:4px;">Tipe Blok:</label>
+                                <select wire:model="customParaType" class="word-select" style="width:100%; height:30px; font-size:11px;">
+                                    <option value="paragraph">Paragraf Standar</option>
+                                    <option value="quote">Kutipan (Blockquote)</option>
+                                    <option value="callout">Kotak Catatan (Callout)</option>
+                                    <option value="bullet">Daftar Poin (Bullet)</option>
+                                    <option value="numbered">Daftar Bernomor (Numbered)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px; border-top:1px solid #edebe9; padding-top:10px; flex-wrap:wrap;">
+                            <button type="button" class="word-tool-btn" wire:click="closeDialog" style="padding:6px 12px;">Batal</button>
+                            <button type="button" class="word-tool-btn" wire:click="applyParagraphCustomizer(true)" style="padding:6px 12px; background:#f3f2f1; font-weight:600;" title="Terapkan perataan, line spacing, dan indentasi ke seluruh paragraf di halaman ini">
+                                Terapkan ke Semua Paragraf Hal. {{ $customParaPage }}
+                            </button>
+                            <button type="button" class="word-tool-btn" wire:click="applyParagraphCustomizer(false)" style="padding:6px 14px; background:#0f6cbd; color:#ffffff; font-weight:700;">
+                                Simpan Paragraf Ini
+                            </button>
+                        </div>
                     </div>
 
                 {{-- PAGE SETUP --}}

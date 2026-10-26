@@ -263,6 +263,31 @@ trait HandlesNaskahStudio
         'keywords' => '',
     ];
 
+    // ===== Custom Paragraph per Halaman =====
+    public int $customParaPage = 1;
+
+    public int $customParaIndex = 0;
+
+    public string $customParaText = '';
+
+    public string $customParaAlign = 'left';
+
+    public int $customParaIndent = 0;
+
+    public bool $customParaFirstLineIndent = false;
+
+    public float $customParaLineSpacing = 1.5;
+
+    public float $customParaSpacingBefore = 0.0;
+
+    public float $customParaSpacingAfter = 6.0;
+
+    public bool $customParaDropCap = false;
+
+    public string $customParaCalloutType = 'info';
+
+    public string $customParaType = 'paragraph';
+
     // ===== Xishie Assistant =====
     public bool $assistantOpen = false;
 
@@ -1193,6 +1218,346 @@ trait HandlesNaskahStudio
 
         $this->activeBlock = 0;
         $this->dirty = true;
+    }
+
+    /**
+     * Ambil seluruh blok paragraf (dan teks terkait) pada nomor halaman tertentu.
+     *
+     * @return array<int, array{globalIndex: int, pageIndex: int, block: array<string, mixed>}>
+     */
+    public function getPageParagraphs(int $pageNumber): array
+    {
+        $paginated = $this->getPaginatedBlocks();
+        $pageData = null;
+
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $pageData = $p;
+                break;
+            }
+        }
+
+        if ($pageData === null) {
+            return [];
+        }
+
+        $paragraphs = [];
+        $pIdx = 0;
+
+        foreach ($pageData['blocks'] as $item) {
+            $b = $item['block'];
+            $type = (string) ($b['type'] ?? 'paragraph');
+            if (in_array($type, ['paragraph', 'quote', 'bullet', 'numbered', 'heading', 'callout', 'subtitle', 'title'], true)) {
+                $paragraphs[] = [
+                    'globalIndex' => (int) $item['index'],
+                    'pageIndex' => $pIdx++,
+                    'block' => $b,
+                ];
+            }
+        }
+
+        return $paragraphs;
+    }
+
+    /**
+     * Sunting teks atau kustomisasi atribut paragraf tertentu pada sebuah halaman.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function customPageParagraph(int $pageNumber, int $paragraphIndexOnPage, array $attributes): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            $this->notify('Paragraf tidak ditemukan', "Halaman {$pageNumber} tidak memiliki paragraf ke-{$paragraphIndexOnPage}.", 'warning');
+
+            return false;
+        }
+
+        $globalIndex = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+
+        return $this->customParagraph($globalIndex, $attributes);
+    }
+
+    /**
+     * Kustomisasi atribut dan gaya sebuah blok paragraf berdasarkan indeks global.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function customParagraph(int $globalIndex, array $attributes): bool
+    {
+        if (! isset($this->blocks[$globalIndex])) {
+            return false;
+        }
+
+        $this->pushUndo();
+        $b = &$this->blocks[$globalIndex];
+
+        if (isset($attributes['text'])) {
+            $b['text'] = (string) $attributes['text'];
+            $b['runs'] = $this->model->normalizeRuns($b['runs'] ?? [], $b['text']);
+        }
+
+        if (isset($attributes['align'])) {
+            $b['align'] = in_array($attributes['align'], ['left', 'center', 'right', 'justify'], true)
+                ? $attributes['align']
+                : 'left';
+        }
+
+        if (isset($attributes['indent'])) {
+            $b['indent'] = max(0, min(8, (int) $attributes['indent']));
+        }
+
+        if (isset($attributes['firstLineIndent'])) {
+            $b['firstLineIndent'] = (bool) $attributes['firstLineIndent'];
+        }
+
+        if (isset($attributes['lineSpacing'])) {
+            $b['lineSpacing'] = max(0.8, min(3.0, (float) $attributes['lineSpacing']));
+        }
+
+        if (isset($attributes['spacingBefore'])) {
+            $b['spacingBefore'] = max(0.0, min(72.0, (float) $attributes['spacingBefore']));
+        }
+
+        if (isset($attributes['spacingAfter'])) {
+            $b['spacingAfter'] = max(0.0, min(72.0, (float) $attributes['spacingAfter']));
+        }
+
+        if (isset($attributes['dropCap'])) {
+            $b['dropCap'] = (bool) $attributes['dropCap'];
+        }
+
+        if (isset($attributes['calloutType'])) {
+            $b['calloutType'] = in_array($attributes['calloutType'], ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true)
+                ? $attributes['calloutType']
+                : 'info';
+        }
+
+        if (isset($attributes['type']) && in_array($attributes['type'], NaskahRichModel::ALL_TYPES, true)) {
+            $b['type'] = $attributes['type'];
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Paragraf diperbarui', 'Kustomisasi paragraf berhasil diterapkan.', 'success');
+
+        return true;
+    }
+
+    /**
+     * Terapkan aturan format kustom ke seluruh paragraf pada halaman tertentu.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function customAllPageParagraphs(int $pageNumber, array $attributes): int
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+
+        if ($paragraphs === []) {
+            $this->notify('Halaman kosong', "Halaman {$pageNumber} tidak memiliki paragraf untuk diformat.", 'warning');
+
+            return 0;
+        }
+
+        $this->pushUndo();
+        $count = 0;
+
+        foreach ($paragraphs as $p) {
+            $idx = $p['globalIndex'];
+            if (in_array($this->blocks[$idx]['type'] ?? '', ['paragraph', 'quote', 'bullet', 'numbered'], true)) {
+                $this->customParagraph($idx, $attributes);
+                $count++;
+            }
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify("Format Halaman {$pageNumber} Diterapkan", "Berhasil mengustomisasi {$count} paragraf pada halaman {$pageNumber}.", 'success');
+
+        return $count;
+    }
+
+    /**
+     * Sisipkan paragraf kustom baru ke dalam halaman tertentu (di awal atau akhir halaman).
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function insertCustomParagraphOnPage(int $pageNumber, string $text = '', array $attributes = [], string $position = 'end'): int
+    {
+        $paginated = $this->getPaginatedBlocks();
+        $targetPage = null;
+
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        $newBlock = $this->model->newBlock('paragraph', $text);
+        foreach ($attributes as $k => $v) {
+            $newBlock[$k] = $v;
+        }
+        $newBlock = $this->model->normalizeBlock($newBlock);
+
+        $this->pushUndo();
+
+        if ($targetPage === null || empty($targetPage['blocks'])) {
+            $this->blocks[] = $newBlock;
+            $insertedIndex = count($this->blocks) - 1;
+        } else {
+            if ($position === 'start') {
+                $firstIndex = (int) $targetPage['blocks'][0]['index'];
+                array_splice($this->blocks, $firstIndex, 0, [$newBlock]);
+                $insertedIndex = $firstIndex;
+            } else {
+                $lastIndex = (int) end($targetPage['blocks'])['index'];
+                array_splice($this->blocks, $lastIndex + 1, 0, [$newBlock]);
+                $insertedIndex = $lastIndex + 1;
+            }
+        }
+
+        $this->activeBlock = $insertedIndex;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Paragraf Ditambahkan', "Paragraf kustom disisipkan pada Halaman {$pageNumber}.", 'success');
+
+        return $insertedIndex;
+    }
+
+    /**
+     * Hapus paragraf tertentu pada halaman yang dipilih.
+     */
+    public function deletePageParagraph(int $pageNumber, int $paragraphIndexOnPage): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $globalIndex = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $this->deleteBlock($globalIndex);
+
+        return true;
+    }
+
+    /**
+     * Hitung inline style CSS untuk sebuah blok naskah.
+     *
+     * @param  array<string, mixed>  $block
+     */
+    public function blockInlineStyle(array $block): string
+    {
+        $styles = [];
+
+        $align = (string) ($block['align'] ?? 'left');
+        $styles[] = "text-align: {$align}";
+
+        $indent = (int) ($block['indent'] ?? 0);
+        if ($indent > 0) {
+            $rem = $indent * 1.5;
+            $styles[] = "margin-left: {$rem}rem";
+        }
+
+        if (! empty($block['firstLineIndent'])) {
+            $styles[] = 'text-indent: 1.27cm';
+        }
+
+        $lineSpacing = (float) ($block['lineSpacing'] ?? 0);
+        if ($lineSpacing >= 0.8 && $lineSpacing <= 3.0 && abs($lineSpacing - 1.0) > 0.01) {
+            $styles[] = "line-height: {$lineSpacing}";
+        }
+
+        $spacingBefore = (float) ($block['spacingBefore'] ?? 0);
+        if ($spacingBefore > 0) {
+            $styles[] = "margin-top: {$spacingBefore}pt";
+        }
+
+        $spacingAfter = (float) ($block['spacingAfter'] ?? 0);
+        if ($spacingAfter > 0) {
+            $styles[] = "margin-bottom: {$spacingAfter}pt";
+        }
+
+        return implode('; ', $styles).';';
+    }
+
+    /**
+     * Buka dialog kustomisasi paragraf untuk halaman tertentu.
+     */
+    public function openParagraphCustomizer(int $pageNumber = 1, int $paraIndex = 0): void
+    {
+        $this->customParaPage = $pageNumber;
+        $this->customParaIndex = $paraIndex;
+        $paras = $this->getPageParagraphs($pageNumber);
+
+        if (isset($paras[$paraIndex])) {
+            $b = $paras[$paraIndex]['block'];
+            $this->customParaText = (string) ($b['text'] ?? '');
+            $this->customParaAlign = (string) ($b['align'] ?? 'left');
+            $this->customParaIndent = (int) ($b['indent'] ?? 0);
+            $this->customParaFirstLineIndent = (bool) ($b['firstLineIndent'] ?? false);
+            $this->customParaLineSpacing = (float) ($b['lineSpacing'] ?? 1.5);
+            $this->customParaSpacingBefore = (float) ($b['spacingBefore'] ?? 0.0);
+            $this->customParaSpacingAfter = (float) ($b['spacingAfter'] ?? 6.0);
+            $this->customParaDropCap = (bool) ($b['dropCap'] ?? false);
+            $this->customParaCalloutType = (string) ($b['calloutType'] ?? 'info');
+            $this->customParaType = (string) ($b['type'] ?? 'paragraph');
+        }
+
+        $this->dialog = 'paragraphCustomizer';
+    }
+
+    /**
+     * Pilih paragraf spesifik dari dropdown modal kustomisasi paragraf.
+     */
+    public function selectPageParagraphForCustomizer(int|string $pageIndex): void
+    {
+        $this->customParaIndex = (int) $pageIndex;
+        $paras = $this->getPageParagraphs($this->customParaPage);
+
+        if (isset($paras[$this->customParaIndex])) {
+            $b = $paras[$this->customParaIndex]['block'];
+            $this->customParaText = (string) ($b['text'] ?? '');
+            $this->customParaAlign = (string) ($b['align'] ?? 'left');
+            $this->customParaIndent = (int) ($b['indent'] ?? 0);
+            $this->customParaFirstLineIndent = (bool) ($b['firstLineIndent'] ?? false);
+            $this->customParaLineSpacing = (float) ($b['lineSpacing'] ?? 1.5);
+            $this->customParaSpacingBefore = (float) ($b['spacingBefore'] ?? 0.0);
+            $this->customParaSpacingAfter = (float) ($b['spacingAfter'] ?? 6.0);
+            $this->customParaDropCap = (bool) ($b['dropCap'] ?? false);
+            $this->customParaCalloutType = (string) ($b['calloutType'] ?? 'info');
+            $this->customParaType = (string) ($b['type'] ?? 'paragraph');
+        }
+    }
+
+    /**
+     * Terapkan kustomisasi paragraf dari dialog modal.
+     */
+    public function applyParagraphCustomizer(bool $applyToAllOnPage = false): void
+    {
+        $payload = [
+            'text' => $this->customParaText,
+            'align' => $this->customParaAlign,
+            'indent' => $this->customParaIndent,
+            'firstLineIndent' => $this->customParaFirstLineIndent,
+            'lineSpacing' => $this->customParaLineSpacing,
+            'spacingBefore' => $this->customParaSpacingBefore,
+            'spacingAfter' => $this->customParaSpacingAfter,
+            'dropCap' => $this->customParaDropCap,
+            'calloutType' => $this->customParaCalloutType,
+            'type' => $this->customParaType,
+        ];
+
+        if ($applyToAllOnPage) {
+            unset($payload['text'], $payload['type']);
+            $this->customAllPageParagraphs($this->customParaPage, $payload);
+        } else {
+            $this->customPageParagraph($this->customParaPage, $this->customParaIndex, $payload);
+        }
+
+        $this->dialog = '';
     }
 
     // =====================================================================
