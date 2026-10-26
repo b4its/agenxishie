@@ -53,7 +53,9 @@ final class OmnigensiGraphCommand extends Command
 
         if ($this->option('mermaid')) {
             $graph = WorkflowGraphSchema::fromArray($schema);
-            $this->line($graph->toMermaid());
+            foreach (explode("\n", $graph->toMermaid()) as $line) {
+                $this->line($line);
+            }
 
             return self::SUCCESS;
         }

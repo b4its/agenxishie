@@ -40,6 +40,8 @@ use App\Filament\Widgets\WorkspaceKpiBarWidget;
 use App\Livewire\NaskahStudioApp;
 use App\Models\AcademicVenue;
 use App\Models\ExternalClient;
+use App\Models\NaskahDocument;
+use App\Models\OmnigensiAgentLog;
 use App\Models\PlatformRecommendation;
 use App\Models\ProjectRevision;
 use App\Models\XishieProject;
@@ -1152,4 +1154,119 @@ it('exports connected external clients roster to CSV and JSON formats', function
     expect($decoded)->toBeArray()
         ->and($decoded['total_clients'])->toBeGreaterThanOrEqual(1)
         ->and(collect($decoded['clients'])->pluck('name'))->toContain('Test External Agency');
+});
+
+it('renders Mermaid workflow graph and exports studio CLI to JSON', function (): void {
+    // 1. omnigensi:graph --mermaid
+    $this->artisan('omnigensi:graph --mermaid')
+        ->expectsOutputToContain('flowchart TD')
+        ->expectsOutputToContain('scout --> scribe')
+        ->expectsOutputToContain('critic -->|approve| venue')
+        ->assertSuccessful();
+
+    // 2. naskah:manage export --format=json
+    $document = NaskahDocument::query()->create([
+        'title' => 'Dokumen CLI Export JSON',
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Teks naskah uji coba ekspor json.'],
+        ],
+        'word_count' => 7,
+    ]);
+
+    $tempFile = tempnam(sys_get_temp_dir(), 'naskah_json_').'.json';
+
+    $this->artisan('naskah:manage export '.$document->id.' --format=json --output='.$tempFile)
+        ->assertSuccessful();
+
+    expect(file_exists($tempFile))->toBeTrue();
+    $content = file_get_contents($tempFile);
+    $decoded = json_decode((string) $content, true);
+
+    expect($decoded)->toBeArray()
+        ->and($decoded['title'])->toBe('Dokumen CLI Export JSON')
+        ->and(count($decoded['blocks']))->toBe(2);
+
+    @unlink($tempFile);
+});
+
+it('exports agent activity terminal logs to CSV and JSON formats', function (): void {
+    $project = makeProject(['title' => 'Audit Proyek Log Agen']);
+
+    OmnigensiAgentLog::create([
+        'project_id' => $project->id,
+        'agent_name' => 'ScholarScoutAgent',
+        'action' => 'literature_search',
+        'ttft_ms' => 150,
+        'execution_time_ms' => 450,
+        'token_usage' => 800,
+        'status' => 'success',
+    ]);
+
+    $widget = Livewire::test(AgentActivityTerminalWidget::class, ['projectId' => $project->id]);
+
+    // CSV
+    $csvResponse = $widget->instance()->exportLogs('csv');
+    expect($csvResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $csvResponse->sendContent();
+    $csv = ob_get_clean();
+
+    expect($csv)->toContain('ScholarScoutAgent')
+        ->and($csv)->toContain('literature_search')
+        ->and($csv)->toContain('Audit Proyek Log Agen');
+
+    // JSON
+    $jsonResponse = $widget->instance()->exportLogs('json');
+    expect($jsonResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $jsonResponse->sendContent();
+    $json = ob_get_clean();
+
+    $decoded = json_decode($json, true);
+    expect($decoded)->toBeArray()
+        ->and($decoded['total_logs'])->toBeGreaterThanOrEqual(1)
+        ->and(collect($decoded['logs'])->pluck('agent_name'))->toContain('ScholarScoutAgent');
+});
+
+it('autocorrects scientific symbols and calculates min max on studio table columns', function (): void {
+    // 1. autoCorrect scientific symbols
+    $richModel = app(NaskahRichModel::class);
+    $corrected = $richModel->autoCorrect('P != Q, suhu 25 degC, A <= B, C >= D, X <=> Y, nilai approx 3.14');
+    expect($corrected['text'])->toContain('≠')
+        ->and($corrected['text'])->toContain('°C')
+        ->and($corrected['text'])->toContain('≤')
+        ->and($corrected['text'])->toContain('≥')
+        ->and($corrected['text'])->toContain('⇔')
+        ->and($corrected['text'])->toContain('≈')
+        ->and($corrected['count'])->toBeGreaterThanOrEqual(6);
+
+    // 2. tableCalculateColumn min and max
+    $studio = Livewire::test(NaskahStudioApp::class)
+        ->set('blocks', [
+            [
+                'type' => 'table',
+                'table' => [
+                    'rows' => [
+                        [['text' => 'Tahun'], ['text' => 'Skor']],
+                        [['text' => '2021'], ['text' => '70']],
+                        [['text' => '2022'], ['text' => '90']],
+                        [['text' => '2023'], ['text' => '50']],
+                    ],
+                    'header' => true,
+                ],
+            ],
+        ]);
+
+    // Test MIN
+    $studio->call('tableCalculateColumn', 0, 1, 'min');
+    $rowsAfterMin = $studio->get('blocks')[0]['table']['rows'];
+    expect(end($rowsAfterMin)[1]['text'])->toBe('50');
+
+    // Test MAX
+    $studio->call('tableCalculateColumn', 0, 1, 'max');
+    $rowsAfterMax = $studio->get('blocks')[0]['table']['rows'];
+    expect(end($rowsAfterMax)[1]['text'])->toBe('90');
 });
