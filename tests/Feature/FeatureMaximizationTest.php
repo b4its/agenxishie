@@ -1753,3 +1753,98 @@ it('executes clean-page action via artisan naskah:manage to normalize paragraph 
     $doc->refresh();
     expect($doc->blocks[0]['text'])->toBe('Teks CLI dengan spasi ganda.');
 });
+
+it('performs find-replace, compliance audit, export, and import of page paragraphs', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Uji Find Replace Dan Audit',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Kecerdasan buatan berbasis deep learning memberikan efisiensi tinggi.'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Penerapan deep learning pada diagnostik medis sangat krusial.'],
+        ],
+        'word_count' => 17,
+    ]);
+
+    $app = Livewire::test(NaskahStudioApp::class);
+    $instance = $app->instance();
+    $instance->blocks = (array) $doc->blocks;
+
+    // 1. Uji findAndReplaceOnPage
+    $replaceCount = $instance->findAndReplaceOnPage(1, 'deep learning', 'machine learning');
+    expect($replaceCount)->toBe(2);
+    expect($instance->blocks[0]['text'])->toContain('machine learning')
+        ->and($instance->blocks[1]['text'])->toContain('machine learning');
+
+    // 2. Uji auditPageParagraphCompliance
+    $audit = $instance->auditPageParagraphCompliance(1);
+    expect($audit['score'])->toBeInt()
+        ->and($audit['paragraphCount'])->toBe(2)
+        ->and($audit['grade'])->toBeString();
+
+    // 3. Uji exportPageParagraphs (Markdown & Plain text)
+    $mdExport = $instance->exportPageParagraphs(1, 'markdown');
+    expect($mdExport)->toContain('machine learning');
+
+    $txtExport = $instance->exportPageParagraphs(1, 'txt');
+    expect($txtExport)->toContain('diagnostik medis');
+
+    // 4. Uji importParagraphsToPage
+    $importedCount = $instance->importParagraphsToPage(1, "Alinea impor pertama.\n\nAlinea impor kedua.");
+    expect($importedCount)->toBe(2);
+    expect(count($instance->blocks))->toBe(4);
+});
+
+it('performs find and replace in academic workspace section', function (): void {
+    $project = makeProject();
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+    $stage->forceFill([
+        'sections_content' => [
+            [
+                'key' => 'discussion',
+                'heading' => 'Pembahasan',
+                'content' => 'Metode lama menghasilkan akurasi rendah. Metode lama tidak efisien.',
+            ],
+        ],
+        'status' => StageStatus::IN_PROGRESS,
+    ])->save();
+
+    $component = Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id]);
+    $component->call('findAndReplaceInSection', 0, 'Metode lama', 'Metode terbarukan')
+        ->assertSuccessful();
+
+    $sections = $component->get('editorSections');
+    expect($sections[0]['content'])->toContain('Metode terbarukan menghasilkan akurasi rendah')
+        ->and($sections[0]['content'])->not->toContain('Metode lama');
+});
+
+it('executes audit-page and find-replace actions via artisan naskah:manage', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen CLI Audit Dan Replace',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Model lama terbukti memiliki latensi tinggi pada inferensi real-time.'],
+        ],
+        'word_count' => 10,
+    ]);
+
+    // 1. CLI audit-page
+    $this->artisan('naskah:manage', [
+        'action' => 'audit-page',
+        'documentId' => $doc->id,
+        '--page' => 1,
+    ])
+        ->expectsOutputToContain('AUDIT KEPATUHAN PARAGRAF HALAMAN #1')
+        ->assertSuccessful();
+
+    // 2. CLI find-replace
+    $this->artisan('naskah:manage', [
+        'action' => 'find-replace',
+        'documentId' => $doc->id,
+        '--page' => 1,
+        '--search' => 'Model lama',
+        '--replace' => 'Model mutakhir',
+    ])
+        ->expectsOutputToContain("Berhasil mengganti 1 kemunculan 'Model lama' pada halaman #1")
+        ->assertSuccessful();
+
+    $doc->refresh();
+    expect($doc->blocks[0]['text'])->toBe('Model mutakhir terbukti memiliki latensi tinggi pada inferensi real-time.');
+});
