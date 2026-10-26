@@ -356,7 +356,7 @@ class ExternalIntegrationApiController extends Controller
         }
 
         $validated = $request->validate([
-            'format' => ['required', 'string', 'in:docx,latex,markdown,html,json,bibtex,text'],
+            'format' => ['required', 'string', 'in:docx,odt,latex,markdown,html,json,bibtex,text'],
             'title' => ['required', 'string', 'max:255'],
             'abstract' => ['nullable', 'string'],
             'keywords' => ['nullable', 'array'],
@@ -386,6 +386,7 @@ class ExternalIntegrationApiController extends Controller
             'html' => 'toHtml',
             'json' => 'toJson',
             'text' => 'toText',
+            'bibtex' => 'toBibtex',
             default => 'toMarkdown',
         };
 
@@ -399,6 +400,20 @@ class ExternalIntegrationApiController extends Controller
                 'format' => 'docx',
                 'filename' => Str::slug($validated['title']).'.docx',
                 'mime' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'base64' => base64_encode((string) $binary),
+            ]);
+        }
+
+        if ($format === 'odt') {
+            $method = $reflection->getMethod('toOdt');
+            $method->setAccessible(true);
+            $binary = $method->invoke($exporter, $manuscript);
+
+            return response()->json([
+                'success' => true,
+                'format' => 'odt',
+                'filename' => Str::slug($validated['title']).'.odt',
+                'mime' => 'application/vnd.oasis.opendocument.text',
                 'base64' => base64_encode((string) $binary),
             ]);
         }

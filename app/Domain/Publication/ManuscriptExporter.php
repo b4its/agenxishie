@@ -35,6 +35,8 @@ final class ManuscriptExporter
 
     public const FORMAT_DOCX = 'docx';
 
+    public const FORMAT_ODT = 'odt';
+
     public const FORMAT_HTML = 'html';
 
     public const FORMAT_JSON = 'json';
@@ -52,6 +54,7 @@ final class ManuscriptExporter
     {
         return [
             self::FORMAT_DOCX => ['label' => 'Word (DOCX)', 'extension' => 'docx', 'mime' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+            self::FORMAT_ODT => ['label' => 'OpenDocument (ODT)', 'extension' => 'odt', 'mime' => 'application/vnd.oasis.opendocument.text'],
             self::FORMAT_MARKDOWN => ['label' => 'Markdown', 'extension' => 'md', 'mime' => 'text/markdown'],
             self::FORMAT_LATEX => ['label' => 'LaTeX', 'extension' => 'tex', 'mime' => 'application/x-tex'],
             self::FORMAT_HTML => ['label' => 'HTML (Web/Cetak)', 'extension' => 'html', 'mime' => 'text/html'],
@@ -98,6 +101,7 @@ final class ManuscriptExporter
             self::FORMAT_BIBTEX => $this->toBibtex($project),
             self::FORMAT_TEXT => $this->toText($manuscript),
             self::FORMAT_DOCX => $this->toDocx($manuscript),
+            self::FORMAT_ODT => $this->toOdt($manuscript),
         };
     }
 
@@ -414,39 +418,96 @@ final class ManuscriptExporter
         return $out;
     }
 
-    private function toBibtex(XishieProject $project): string
+    /**
+     * @param  XishieProject|array<string, mixed>  $projectOrManuscript
+     */
+    private function toBibtex(XishieProject|array $projectOrManuscript): string
     {
+        if ($projectOrManuscript instanceof XishieProject) {
+            $entries = [];
+
+            /** @var ProjectReference $reference */
+            foreach ($projectOrManuscript->references()->orderBy('citation_key')->get() as $reference) {
+                $authors = implode(' and ', array_map(static fn ($a): string => (string) $a, (array) ($reference->authors ?? [])));
+                $type = $reference->journal_name !== null ? 'article' : 'misc';
+                $key = (string) $reference->citation_key;
+
+                $fields = [
+                    'title' => (string) $reference->title,
+                    'author' => $authors !== '' ? $authors : 'Anonim',
+                    'year' => (string) ($reference->year ?? 'n.d.'),
+                ];
+
+                if ($reference->journal_name !== null) {
+                    $fields['journal'] = (string) $reference->journal_name;
+                }
+
+                if ($reference->doi !== null) {
+                    $fields['doi'] = (string) $reference->doi;
+                }
+
+                $lines = ["@{$type}{{$key},"];
+                foreach ($fields as $name => $value) {
+                    $lines[] = "  {$name} = {".str_replace(['{', '}'], '', $value).'}';
+                }
+
+                $entries[] = implode(",\n", $lines)."\n}";
+            }
+
+            return implode("\n\n", $entries).($entries === [] ? '' : "\n");
+        }
+
+        $bibliography = (array) ($projectOrManuscript['bibliography'] ?? []);
         $entries = [];
-
-        /** @var ProjectReference $reference */
-        foreach ($project->references()->orderBy('citation_key')->get() as $reference) {
-            $authors = implode(' and ', array_map(static fn ($a): string => (string) $a, (array) ($reference->authors ?? [])));
-            $type = $reference->journal_name !== null ? 'article' : 'misc';
-            $key = (string) $reference->citation_key;
-
-            $fields = [
-                'title' => (string) $reference->title,
-                'author' => $authors !== '' ? $authors : 'Anonim',
-                'year' => (string) ($reference->year ?? 'n.d.'),
-            ];
-
-            if ($reference->journal_name !== null) {
-                $fields['journal'] = (string) $reference->journal_name;
-            }
-
-            if ($reference->doi !== null) {
-                $fields['doi'] = (string) $reference->doi;
-            }
-
-            $lines = ["@{$type}{{$key},"];
-            foreach ($fields as $name => $value) {
-                $lines[] = "  {$name} = {".str_replace(['{', '}'], '', $value).'}';
-            }
-
-            $entries[] = implode(",\n", $lines)."\n}";
+        foreach ($bibliography as $idx => $entry) {
+            $key = 'ref'.($idx + 1);
+            $lines = ["@misc{{$key},", '  title = {'.str_replace(['{', '}'], '', (string) $entry).'}', '}'];
+            $entries[] = implode("\n", $lines);
         }
 
         return implode("\n\n", $entries).($entries === [] ? '' : "\n");
+    }
+
+    /**
+     * @param  array{title: string, abstract: string, keywords: array<int, string>, sections: array<int, array{heading: string, content: string}>, bibliography: array<int, string>, citation_style: string}  $m
+     */
+    private function toOdt(array $m): string
+    {
+        $blocks = [];
+
+        if ($m['abstract'] !== '') {
+            $blocks[] = ['type' => 'heading', 'level' => 1, 'text' => 'Abstrak'];
+            foreach (preg_split('/\n{2,}/', $m['abstract']) ?: [] as $para) {
+                if (trim($para) !== '') {
+                    $blocks[] = ['type' => 'paragraph', 'text' => trim($para)];
+                }
+            }
+        }
+
+        if ($m['keywords'] !== []) {
+            $blocks[] = ['type' => 'paragraph', 'text' => 'Kata kunci: '.implode(', ', $m['keywords'])];
+        }
+
+        foreach ($m['sections'] as $section) {
+            if ($section['heading'] !== '') {
+                $blocks[] = ['type' => 'heading', 'level' => 1, 'text' => $section['heading']];
+            }
+
+            foreach (preg_split('/\n{2,}/', $section['content']) ?: [] as $para) {
+                if (trim($para) !== '') {
+                    $blocks[] = ['type' => 'paragraph', 'text' => trim($para)];
+                }
+            }
+        }
+
+        if ($m['bibliography'] !== []) {
+            $blocks[] = ['type' => 'heading', 'level' => 1, 'text' => 'Daftar Pustaka'];
+            foreach ($m['bibliography'] as $entry) {
+                $blocks[] = ['type' => 'paragraph', 'text' => $entry];
+            }
+        }
+
+        return app(NaskahOdtExporter::class)->build($blocks, $m['title']);
     }
 
     /**
