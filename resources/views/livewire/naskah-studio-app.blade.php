@@ -1747,6 +1747,13 @@
                                     title="Atur Spasi 1.0 Halaman {{ $pageNumber }}">
                                     ↕ 1.0
                                 </button>
+                                <button type="button"
+                                    wire:click="batchIndentPageParagraphs({{ $pageNumber }}, 'first-line')"
+                                    class="word-tool-btn"
+                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
+                                    title="Terapkan Indentasi Baris Pertama (1.27cm) ke seluruh alinea Halaman {{ $pageNumber }}">
+                                    📐 Indent
+                                </button>
                             </div>
                             <div style="display:flex; align-items:center; gap:8px;">
                                 @if ($isFirstPage)

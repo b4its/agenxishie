@@ -2465,6 +2465,79 @@ trait HandlesNaskahStudio
         ];
     }
 
+    /**
+     * Terapkan indentasi (first-line atau hanging) secara serentak ke semua paragraf pada halaman tertentu.
+     */
+    public function batchIndentPageParagraphs(int $pageNumber, string $type = 'first-line'): int
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if ($paragraphs === []) {
+            return 0;
+        }
+
+        $this->pushUndo();
+        $count = 0;
+
+        foreach ($paragraphs as $item) {
+            $gIdx = $item['globalIndex'];
+            if (($this->blocks[$gIdx]['type'] ?? '') !== 'paragraph') {
+                continue;
+            }
+
+            if ($type === 'first-line') {
+                $this->blocks[$gIdx]['firstLineIndent'] = true;
+                unset($this->blocks[$gIdx]['hangingIndent']);
+            } elseif ($type === 'hanging') {
+                $this->blocks[$gIdx]['hangingIndent'] = true;
+                unset($this->blocks[$gIdx]['firstLineIndent']);
+            } else {
+                unset($this->blocks[$gIdx]['firstLineIndent'], $this->blocks[$gIdx]['hangingIndent']);
+            }
+            $count++;
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Indentasi Halaman', "Indentasi {$type} diterapkan pada {$count} alinea di Halaman {$pageNumber}.", 'success');
+
+        return $count;
+    }
+
+    /**
+     * Sorot seluruh paragraf pada halaman tertentu atau hapus sorotan.
+     */
+    public function highlightPageParagraphs(int $pageNumber, string $color = '#fef08a'): int
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if ($paragraphs === []) {
+            return 0;
+        }
+
+        $this->pushUndo();
+        $count = 0;
+
+        foreach ($paragraphs as $item) {
+            $gIdx = $item['globalIndex'];
+            if (($this->blocks[$gIdx]['type'] ?? '') !== 'paragraph') {
+                continue;
+            }
+
+            if ($color === 'none' || $color === '') {
+                unset($this->blocks[$gIdx]['backgroundColor']);
+            } else {
+                $this->blocks[$gIdx]['backgroundColor'] = $color;
+            }
+            $count++;
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $label = ($color === 'none' || $color === '') ? 'dihapus' : 'diterapkan';
+        $this->notify('Sorotan Halaman', "Warna sorot {$label} pada {$count} alinea di Halaman {$pageNumber}.", 'success');
+
+        return $count;
+    }
+
     // =====================================================================
     // Tabel
     // =====================================================================

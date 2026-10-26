@@ -2016,6 +2016,13 @@
                                         title="Atur Spasi 1.0 Halaman {{ $pageNumber }}">
                                         ↕ 1.0
                                     </button>
+                                    <button type="button"
+                                        wire:click="batchIndentPageParagraphs({{ $pageNumber }}, 'first-line')"
+                                        class="ns-btn"
+                                        style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
+                                        title="Terapkan Indentasi Baris Pertama (1.27cm) ke seluruh alinea Halaman {{ $pageNumber }}">
+                                        📐 Indent
+                                    </button>
                                 </div>
                                 <span>Halaman {{ $pageNumber }} dari {{ $pageCount }}</span>
                             </div>
