@@ -198,6 +198,22 @@ class ProjectOnboardingWizard extends Page implements HasForms
                 'target_tier' => 'SINTA 2',
                 'citation_style' => CitationStyle::APA7->value,
             ],
+            'law_governance' => [
+                'title' => 'Transformasi Regulasi Perlindungan Data Pribadi dan AI di Indonesia',
+                'field_of_study' => FieldOfStudy::LAW_POLICY->value,
+                'document_type' => DocumentType::JOURNAL->value,
+                'target_scope' => PublicationTarget::NATIONAL_SINTA->value,
+                'target_tier' => 'SINTA 1',
+                'citation_style' => CitationStyle::HARVARD->value,
+            ],
+            'fintech_economics' => [
+                'title' => 'Analisis Volatilitas Aset Kripto dan Adopsi Central Bank Digital Currency',
+                'field_of_study' => FieldOfStudy::ECONOMICS_BUSINESS->value,
+                'document_type' => DocumentType::JOURNAL->value,
+                'target_scope' => PublicationTarget::INTERNATIONAL_SCOPUS->value,
+                'target_tier' => 'Q1',
+                'citation_style' => CitationStyle::HARVARD->value,
+            ],
         ];
 
         if (! isset($templates[$templateKey])) {

@@ -30,6 +30,8 @@
                             <button type="button" class="rb-button" style="font-size:.62rem; padding:.2rem .45rem;" wire:click="applyTemplate('nlp_health')">NLP Biomedis (Scopus Q1)</button>
                             <button type="button" class="rb-button" style="font-size:.62rem; padding:.2rem .45rem;" wire:click="applyTemplate('cyber_security')">Keamanan Cloud (SINTA 2)</button>
                             <button type="button" class="rb-button" style="font-size:.62rem; padding:.2rem .45rem;" wire:click="applyTemplate('social_education')">AI Pendidikan (Tesis SINTA 2)</button>
+                            <button type="button" class="rb-button" style="font-size:.62rem; padding:.2rem .45rem;" wire:click="applyTemplate('law_governance')">Hukum AI &amp; PDP (SINTA 1)</button>
+                            <button type="button" class="rb-button" style="font-size:.62rem; padding:.2rem .45rem;" wire:click="applyTemplate('fintech_economics')">FinTech &amp; CBDC (Scopus Q1)</button>
                         </div>
                     </div>
                 @endif
