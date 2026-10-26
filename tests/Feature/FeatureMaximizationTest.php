@@ -2331,3 +2331,144 @@ it('manages page line spacing and page readability via artisan cli', function ()
         ->expectsOutputToContain('Total Paragraf: 2')
         ->expectsOutputToContain('Total Kata:');
 });
+
+it('exports academic manuscripts in rich text format (RTF) with full layout and bibliography hanging indent', function (): void {
+    $project = makeProject(['title' => 'Pengaruh Otomatisasi AI Terhadap Produktivitas Riset']);
+    seedReferences($project);
+
+    $exporter = app(ManuscriptExporter::class);
+    expect($exporter->isSupported('rtf'))->toBeTrue();
+
+    // 1. Render RTF langsung dari ManuscriptExporter
+    $rtf = $exporter->render($project, 'rtf');
+    expect($rtf)->toContain('{\\rtf1\\ansi\\deff0')
+        ->and($rtf)->toContain('Pengaruh Otomatisasi AI')
+        ->and($rtf)->toContain('DAFTAR PUSTAKA')
+        ->and($rtf)->toContain('\\fi-720'); // Hanging indent untuk sitasi/bibliografi
+
+    // 2. Unduh via AcademicWorkspacePage
+    Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id])
+        ->call('exportManuscript', 'rtf')
+        ->assertSuccessful();
+});
+
+it('executes /keterbacaan slash command and aliases for academic readability and word density audit', function (): void {
+    $project = makeProject(['title' => 'Proyek Audit Keterbacaan']);
+    $stage = $project->stages()->where('stage_name', ProjectStage::DRAFT->value)->first();
+    $stage->update([
+        'sections_content' => [
+            [
+                'heading' => 'Pendahuluan',
+                'content' => 'Penelitian ini menyelidiki dinamika transformasi digital pada perguruan tinggi negeri. Metodologi yang digunakan adalah pendekatan kualitatif dengan wawancara mendalam.',
+            ],
+        ],
+    ]);
+
+    $service = app(XishieAssistantService::class);
+
+    // 1. Eksekusi /keterbacaan dari stage aktif proyek
+    $resDraft = $service->handle($project, '/keterbacaan');
+    expect($resDraft['command'])->toBe('/keterbacaan')
+        ->and($resDraft['reply'])->toContain('Laporan Analisis Keterbacaan Naskah')
+        ->and($resDraft['reply'])->toContain('Jumlah Kata')
+        ->and($resDraft['data']['word_count'])->toBeGreaterThan(15)
+        ->and($resDraft['data']['sentence_count'])->toBe(2)
+        ->and($resDraft['data']['reading_time_seconds'])->toBeGreaterThanOrEqual(1);
+
+    // 2. Eksekusi dengan teks kustom dan alias /readability
+    $customText = 'Kajian ini berfokus pada sintesis literatur. Evaluasi empiris dilakukan melalui eksperimen komparatif.';
+    $resCustom = $service->handle($project, '/readability '.$customText);
+    expect($resCustom['command'])->toBe('/keterbacaan')
+        ->and($resCustom['data']['word_count'])->toBe(12)
+        ->and($resCustom['data']['sentence_count'])->toBe(2)
+        ->and($resCustom['data']['readability_level'])->toBe('Mudah Dibaca (Ringan)');
+});
+
+it('applies batch page paragraph indentation via artisan naskah:manage indent-page', function (): void {
+    $project = makeProject();
+    $doc = NaskahDocument::query()->create([
+        'project_id' => $project->id,
+        'title' => 'Naskah Uji CLI Indentasi Halaman',
+        'document_type' => 'thesis',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Alinea awal pengujian batch indentasi naskah studio.'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Alinea penutup pengujian CLI batch indentasi.'],
+        ],
+        'word_count' => 16,
+    ]);
+
+    // 1. Uji indent-page first-line
+    $this->artisan("naskah:manage indent-page {$doc->id} --page=1 --type=first-line")
+        ->assertSuccessful()
+        ->expectsOutputToContain("Berhasil menerapkan indentasi 'first-line'");
+
+    $doc->refresh();
+    expect($doc->blocks[0]['firstLineIndent'])->toBeTrue()
+        ->and(isset($doc->blocks[0]['hangingIndent']))->toBeFalse();
+
+    // 2. Uji indent-page hanging
+    $this->artisan("naskah:manage indent-page {$doc->id} --page=1 --type=hanging")
+        ->assertSuccessful()
+        ->expectsOutputToContain("Berhasil menerapkan indentasi 'hanging'");
+
+    $doc->refresh();
+    expect($doc->blocks[0]['hangingIndent'])->toBeTrue()
+        ->and(isset($doc->blocks[0]['firstLineIndent']))->toBeFalse();
+});
+
+it('interacts with naskah studio api for readability-page and align-page, and external readability service', function (): void {
+    $project = makeProject();
+    $doc = NaskahDocument::query()->create([
+        'project_id' => $project->id,
+        'title' => 'Dokumen API Readability dan Align',
+        'document_type' => 'journal',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Kajian teoritis membuktikan efisiensi sistem AI. Hasil pengujian menunjukkan peningkatan performa signifikan.'],
+        ],
+        'word_count' => 13,
+    ]);
+
+    // 1. Uji GET /api/v1/naskah/documents/{id}/readability-page
+    $this->getJson("/api/v1/naskah/documents/{$doc->id}/readability-page?page=1")
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('page', 1)
+        ->assertJsonPath('paragraph_count', 1)
+        ->assertJsonPath('word_count', 12)
+        ->assertJsonPath('sentence_count', 2);
+
+    // 2. Uji POST /api/v1/naskah/documents/{id}/align-page
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/align-page", [
+        'page' => 1,
+        'align' => 'center',
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('align', 'center')
+        ->assertJsonPath('aligned_count', 1);
+
+    $doc->refresh();
+    expect($doc->blocks[0]['align'])->toBe('center');
+
+    // 3. Uji POST /api/v1/external/readability
+    $client = ExternalClient::query()->create([
+        'name' => 'Readability Testing Client',
+        'client_slug' => 'readability-testing-client',
+        'api_key' => 'xsh_readability_key_9999',
+        'target_url' => 'http://localhost:8208',
+        'allowed_models' => ['*'],
+        'status' => 'online',
+        'is_active' => true,
+    ]);
+
+    $this->withHeaders(['X-Api-Key' => 'xsh_readability_key_9999'])
+        ->postJson('/api/v1/external/readability', [
+            'text' => 'Implementasi sistem terdesentralisasi memberikan keamanan data tinggi. Verifikasi kriptografi menjamin integritas transaksi.',
+        ])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('client', 'readability-testing-client')
+        ->assertJsonPath('word_count', 12)
+        ->assertJsonPath('sentence_count', 2)
+        ->assertJsonPath('avg_words_per_sentence', 6);
+});
