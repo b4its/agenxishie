@@ -2666,3 +2666,302 @@ it('synthesizes document-aware table and applies model output directly to manusc
         ->and($freeformTableResult['data']['table_rows'])->toBeArray()
         ->and($freeformTableResult['data']['action'])->toBe('insert_table');
 });
+
+it('performs white box verification on NaskahRichModel normalizeBlock and formatParagraphBlock preserving manual formatting', function (): void {
+    $model = app(NaskahRichModel::class);
+
+    // 1. Uji normalizeBlock dengan atribut manual lengkap
+    $rawBlock = [
+        'type' => 'paragraph',
+        'text' => 'Sennett, R. (2019). The Craftsman. Material Culture, Solid Cooperation, and Studio Ethics.',
+        'hangingIndent' => true,
+        'firstLineIndent' => true, // Harus otomatis di-unset karena hangingIndent bernilai true
+        'backgroundColor' => '#fef08a',
+        'borderColor' => '#3b82f6',
+        'rightIndent' => 2,
+        'citation' => 'Sennett2019',
+        'footnote' => 'Catatan kaki penjelasan edisi Yale University Press.',
+        'dropCap' => true,
+        'lineSpacing' => 1.5,
+    ];
+
+    $normalized = $model->normalizeBlock($rawBlock);
+
+    expect($normalized['hangingIndent'])->toBeTrue()
+        ->and($normalized['firstLineIndent'] ?? false)->toBeFalse()
+        ->and($normalized['backgroundColor'])->toBe('#fef08a')
+        ->and($normalized['borderColor'])->toBe('#3b82f6')
+        ->and($normalized['rightIndent'])->toBe(2)
+        ->and($normalized['citation'])->toBe('Sennett2019')
+        ->and($normalized['footnote'])->toBe('Catatan kaki penjelasan edisi Yale University Press.')
+        ->and($normalized['dropCap'])->toBeTrue()
+        ->and($normalized['lineSpacing'])->toBe(1.5);
+
+    // 2. Uji formatParagraphBlock dengan pergantian hanging indent dan first line indent
+    $para = $model->newBlock('paragraph', 'Paragraf pengujian format');
+    $formattedHanging = $model->formatParagraphBlock($para, [
+        'hangingIndent' => true,
+        'backgroundColor' => '#dbeafe',
+        'borderColor' => '#2563eb',
+    ]);
+    expect($formattedHanging['hangingIndent'])->toBeTrue()
+        ->and($formattedHanging['firstLineIndent'] ?? false)->toBeFalse()
+        ->and($formattedHanging['backgroundColor'])->toBe('#dbeafe')
+        ->and($formattedHanging['borderColor'])->toBe('#2563eb');
+
+    // Beralih ke first line indent harus menghapus hanging indent
+    $formattedFirstLine = $model->formatParagraphBlock($formattedHanging, [
+        'firstLineIndent' => true,
+    ]);
+    expect($formattedFirstLine['firstLineIndent'])->toBeTrue()
+        ->and($formattedFirstLine['hangingIndent'] ?? false)->toBeFalse();
+});
+
+it('performs white box verification on parseHtmlToBlocks stripping UI buttons and parsing sourceIndex and styles', function (): void {
+    $studio = Livewire::test(NaskahStudioApp::class)->instance();
+
+    // Simulasi HTML halaman naskah dengan tombol UI hover, alinea hanging indent, dan tabel
+    $html = <<<'HTML'
+    <div class="word-para-item-wrapper" style="position:relative;">
+        <p class="word-paragraph-text" id="word-block-1" data-block-index="1" style="text-align: justify; padding-left: 1.27cm; text-indent: -1.27cm; background-color: #fef08a; border-left: 3px solid #3b82f6; line-height: 1.5;">
+            Sennett, R. (2019). The Craftsman. Material Culture, Solid Cooperation, and Studio Ethics. Yale University Press.
+        </p>
+        <div contenteditable="false" style="position:absolute; right:4px;">
+            <button type="button" class="word-tool-btn">⚙️</button>
+            <button type="button" class="word-tool-btn">📐</button>
+            <button type="button" class="word-tool-btn">🖍️</button>
+            <button type="button" class="word-tool-btn">🔤</button>
+            <button type="button" class="word-tool-btn">⬆️</button>
+            <button type="button" class="word-tool-btn">⬇️</button>
+            <button type="button" class="word-tool-btn">📄</button>
+            <button type="button" class="word-tool-btn">✂️</button>
+            <button type="button" class="word-tool-btn">🔄</button>
+            <button type="button" class="word-tool-btn">✨</button>
+            <button type="button" class="word-tool-btn">🗑️</button>
+        </div>
+    </div>
+    <div class="word-equation-block" data-block-index="2" data-latex="E = mc^2" data-caption="Einstein" contenteditable="false">
+        <div class="word-equation-actions">
+            <button type="button">✏️ Edit Rumus</button>
+        </div>
+        <span>E = mc^2</span>
+    </div>
+    <ul data-block-index="3">
+        <li data-block-index="3">Poin pertama</li>
+        <li data-block-index="4">Poin kedua</li>
+    </ul>
+    HTML;
+
+    $blocks = $studio->parseHtmlToBlocks($html);
+
+    // 1. Blok 0 (Paragraf): Pastikan tidak ada tombol aksi/emoji yang bocor ke dalam teks
+    expect($blocks[0]['type'])->toBe('paragraph')
+        ->and($blocks[0]['text'])->toContain('Sennett, R. (2019)')
+        ->and($blocks[0]['text'])->not->toContain('⚙️')
+        ->and($blocks[0]['text'])->not->toContain('word-tool-btn')
+        ->and($blocks[0]['text'])->not->toContain('<button')
+        ->and($blocks[0]['_sourceIndex'])->toBe(1)
+        ->and($blocks[0]['hangingIndent'])->toBeTrue()
+        ->and($blocks[0]['firstLineIndent'] ?? false)->toBeFalse()
+        ->and($blocks[0]['backgroundColor'])->toBe('#fef08a')
+        ->and($blocks[0]['borderColor'])->toBe('#3b82f6')
+        ->and($blocks[0]['align'])->toBe('justify')
+        ->and($blocks[0]['lineSpacing'])->toBe(1.5);
+
+    // 2. Blok 1 (Equation): Pastikan tidak terhapus dan tombol aksinya bersih
+    expect($blocks[1]['type'])->toBe('equation')
+        ->and($blocks[1]['_sourceIndex'])->toBe(2)
+        ->and($blocks[1]['equation']['latex'])->toBe('E = mc^2')
+        ->and($blocks[1]['equation']['caption'])->toBe('Einstein');
+
+    // 3. Blok 2 & 3 (Bullet List): Pastikan _sourceIndex terbaca dari <li>
+    expect($blocks[2]['type'])->toBe('bullet')
+        ->and($blocks[2]['text'])->toBe('Poin pertama')
+        ->and($blocks[2]['_sourceIndex'])->toBe(3)
+        ->and($blocks[3]['type'])->toBe('bullet')
+        ->and($blocks[3]['text'])->toBe('Poin kedua')
+        ->and($blocks[3]['_sourceIndex'])->toBe(4);
+});
+
+it('performs white box verification on syncManuscriptPages smart reconciliation and pagebreak retention', function (): void {
+    $studio = Livewire::test(NaskahStudioApp::class)->instance();
+
+    // Inisialisasi blok awal: Judul (0), Paragraf (1), Pagebreak (2), Paragraf (3)
+    $model = app(NaskahRichModel::class);
+    $initialBlocks = [
+        $model->newBlock('title', 'Naskah Uji Rekonsiliasi'),
+        array_merge($model->newBlock('paragraph', 'Alinea awal Halaman 1'), [
+            'firstLineIndent' => true,
+            'backgroundColor' => '#fef08a',
+            'dropCap' => true,
+        ]),
+        $model->newBlock('pagebreak', ''),
+        array_merge($model->newBlock('paragraph', 'Alinea awal Halaman 2'), [
+            'hangingIndent' => true,
+        ]),
+    ];
+    $studio->blocks = $initialBlocks;
+
+    // Simulasi HTML dari dua halaman yang dikirim browser
+    $page1Html = <<<'HTML'
+    <h1 class="word-title-text" data-block-index="0">Naskah Uji Rekonsiliasi Tersunting</h1>
+    <div class="word-para-item-wrapper">
+        <p class="word-paragraph-text word-drop-cap" data-block-index="1" style="text-indent: 1.27cm; background-color: #fef08a;">
+            Alinea awal Halaman 1 yang disunting user dalam contenteditable
+        </p>
+    </div>
+    HTML;
+
+    $page2Html = <<<'HTML'
+    <div class="word-para-item-wrapper">
+        <p class="word-paragraph-text" data-block-index="3" style="padding-left: 1.27cm; text-indent: -1.27cm;">
+            Alinea awal Halaman 2 yang disunting teksnya
+        </p>
+    </div>
+    HTML;
+
+    $studio->syncManuscriptPages([$page1Html, $page2Html]);
+
+    $synced = $studio->blocks;
+
+    // Pastikan total 4 blok tetap lengkap termasuk pemisah halaman (pagebreak) di antara halaman 1 dan 2
+    expect(count($synced))->toBe(4)
+        ->and($synced[0]['type'])->toBe('title')
+        ->and($synced[0]['text'])->toBe('Naskah Uji Rekonsiliasi Tersunting')
+        ->and($synced[1]['type'])->toBe('paragraph')
+        ->and($synced[1]['text'])->toContain('yang disunting user dalam contenteditable')
+        ->and($synced[1]['firstLineIndent'])->toBeTrue()
+        ->and($synced[1]['backgroundColor'])->toBe('#fef08a')
+        ->and($synced[1]['dropCap'])->toBeTrue()
+        ->and($synced[2]['type'])->toBe('pagebreak')
+        ->and($synced[3]['type'])->toBe('paragraph')
+        ->and($synced[3]['text'])->toBe('Alinea awal Halaman 2 yang disunting teksnya')
+        ->and($synced[3]['hangingIndent'])->toBeTrue();
+});
+
+it('performs black box verification of saving manually formatted naskah studio without losing styling or leaking buttons', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+
+    // 1. Terapkan tata letak manual yang rapi melalui aksi studio
+    $component->call('newDocument');
+    $component->set('docTitle', 'The Open Studio Handbook');
+
+    // Buat susunan blok manual yang kaya format
+    $model = app(NaskahRichModel::class);
+    $manualBlocks = [
+        $model->newBlock('title', 'The Open Studio Handbook'),
+        $model->newBlock('heading', 'Why share a studio?', 2),
+        array_merge($model->newBlock('paragraph', 'Paragraf pertama dengan indentasi baris pertama baku 1.27cm dan sorotan kuning.'), [
+            'firstLineIndent' => true,
+            'backgroundColor' => '#fef08a',
+            'lineSpacing' => 1.5,
+        ]),
+        $model->newBlock('pagebreak', ''),
+        $model->newBlock('heading', 'Daftar Pustaka', 2),
+        array_merge($model->newBlock('paragraph', 'Sennett, R. (2019). The Craftsman. Material Culture, Solid Cooperation, and Studio Ethics. Yale University Press, New Haven.'), [
+            'hangingIndent' => true,
+            'lineSpacing' => 1.5,
+        ]),
+    ];
+    $component->set('blocks', $manualBlocks);
+
+    // 2. Simulasi DOM browser yang dikirimkan saat Save (Ctrl+S / tombol Simpan)
+    // Berisi tombol-tombol interaktif dan wrapper alinea
+    $domPage1 = <<<'HTML'
+    <h1 class="word-title-text" id="doc-title" data-block-index="0">The Open Studio Handbook</h1>
+    <h3 class="word-heading-2" id="heading-1" data-block-index="1">Why share a studio?</h3>
+    <div class="word-para-item-wrapper" style="position:relative;">
+        <p class="word-paragraph-text" id="word-block-2" data-block-index="2" style="text-align: left; text-indent: 1.27cm; line-height: 1.5; background-color: #fef08a; padding: 6px 10px; border-radius: 4px;">
+            Paragraf pertama dengan indentasi baris pertama baku 1.27cm dan sorotan kuning yang rapi.
+        </p>
+        <div contenteditable="false" style="position:absolute; right:4px; top:-12px;">
+            <button type="button" class="word-tool-btn">⚙️</button>
+            <button type="button" class="word-tool-btn">📐</button>
+            <button type="button" class="word-tool-btn">🖍️</button>
+            <button type="button" class="word-tool-btn">🔤</button>
+            <button type="button" class="word-tool-btn">⬆️</button>
+            <button type="button" class="word-tool-btn">⬇️</button>
+            <button type="button" class="word-tool-btn">📄</button>
+            <button type="button" class="word-tool-btn">✂️</button>
+            <button type="button" class="word-tool-btn">🔄</button>
+            <button type="button" class="word-tool-btn">✨</button>
+            <button type="button" class="word-tool-btn">🗑️</button>
+        </div>
+    </div>
+    HTML;
+
+    $domPage2 = <<<'HTML'
+    <h3 class="word-heading-2" id="heading-4" data-block-index="4">Daftar Pustaka</h3>
+    <p class="word-bib-entry" id="word-block-5" data-block-index="5" style="text-align: left; padding-left: 1.27cm; text-indent: -1.27cm; line-height: 1.5;">
+        Sennett, R. (2019). The Craftsman. Material Culture, Solid Cooperation, and Studio Ethics. Yale University Press, New Haven.
+    </p>
+    HTML;
+
+    // 3. Panggil aksi Simpan (save) dengan DOM HTML lembar halaman
+    $component->call('save', [$domPage1, $domPage2])
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast');
+
+    // 4. Verifikasi State Komponen setelah Simpan
+    $savedBlocks = $component->get('blocks');
+    expect(count($savedBlocks))->toBe(6);
+
+    // Periksa bahwa tidak ada tombol aksi/emoji yang bocor ke dalam teks paragraf
+    foreach ($savedBlocks as $b) {
+        $text = $b['text'] ?? '';
+        expect($text)->not->toContain('⚙️')
+            ->and($text)->not->toContain('word-tool-btn')
+            ->and($text)->not->toContain('<button');
+    }
+
+    // Periksa keutuhan atribut alinea 1 (Halaman 1)
+    expect($savedBlocks[2]['type'])->toBe('paragraph')
+        ->and($savedBlocks[2]['text'])->toContain('Paragraf pertama dengan indentasi baris pertama baku 1.27cm')
+        ->and($savedBlocks[2]['firstLineIndent'])->toBeTrue()
+        ->and($savedBlocks[2]['hangingIndent'] ?? false)->toBeFalse()
+        ->and($savedBlocks[2]['backgroundColor'])->toBe('#fef08a')
+        ->and($savedBlocks[2]['lineSpacing'])->toBe(1.5);
+
+    // Periksa pemisah halaman (pagebreak) tetap berada di antara halaman 1 dan 2
+    expect($savedBlocks[3]['type'])->toBe('pagebreak');
+
+    // Periksa keutuhan alinea Daftar Pustaka (Halaman 2): Hanging Indent 1.27cm sesuai Gambar Pengguna
+    expect($savedBlocks[4]['type'])->toBe('heading')
+        ->and($savedBlocks[4]['text'])->toBe('Daftar Pustaka')
+        ->and($savedBlocks[5]['type'])->toBe('paragraph')
+        ->and($savedBlocks[5]['text'])->toContain('Sennett, R. (2019)')
+        ->and($savedBlocks[5]['hangingIndent'])->toBeTrue()
+        ->and($savedBlocks[5]['firstLineIndent'] ?? false)->toBeFalse()
+        ->and($savedBlocks[5]['lineSpacing'])->toBe(1.5);
+
+    // 5. Verifikasi Persistensi Database (Tabel naskah_documents)
+    $docId = $component->get('documentId');
+    expect($docId)->not->toBeNull();
+
+    $documentRecord = NaskahDocument::query()->find($docId);
+    expect($documentRecord)->not->toBeNull()
+        ->and($documentRecord->title)->toBe('The Open Studio Handbook')
+        ->and($documentRecord->word_count)->toBeGreaterThan(10);
+
+    $dbBlocks = $documentRecord->blocks;
+    expect(count($dbBlocks))->toBe(6)
+        ->and($dbBlocks[2]['firstLineIndent'])->toBeTrue()
+        ->and($dbBlocks[2]['backgroundColor'])->toBe('#fef08a')
+        ->and($dbBlocks[3]['type'])->toBe('pagebreak')
+        ->and($dbBlocks[5]['hangingIndent'])->toBeTrue();
+
+    // 6. Verifikasi re-load dokumen naskah (Simulasi pengguna membuka kembali dokumen)
+    $reloadedComponent = Livewire::test(NaskahStudioApp::class, ['document' => $docId]);
+    $reloadedBlocks = $reloadedComponent->get('blocks');
+
+    expect(count($reloadedBlocks))->toBe(6)
+        ->and($reloadedBlocks[2]['firstLineIndent'])->toBeTrue()
+        ->and($reloadedBlocks[2]['backgroundColor'])->toBe('#fef08a')
+        ->and($reloadedBlocks[3]['type'])->toBe('pagebreak')
+        ->and($reloadedBlocks[5]['hangingIndent'])->toBeTrue()
+        ->and($reloadedBlocks[5]['text'])->toContain('Sennett, R. (2019)');
+
+    // 7. Verifikasi Ekspor JSON mempertahankan struktur tata letak manual
+    $jsonResponse = $reloadedComponent->instance()->export('json');
+    expect($jsonResponse)->not->toBeNull();
+});
