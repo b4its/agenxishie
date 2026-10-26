@@ -2209,3 +2209,125 @@ it('exports literature matrix, response to reviewers, catalog, recommendations, 
         ->call('exportProjects', 'markdown')
         ->assertSuccessful();
 });
+
+it('customizes page paragraphs with first line indent, hanging indent, line spacing, highlight, and readability metrics', function (): void {
+    $project = makeProject();
+    $doc = NaskahDocument::query()->create([
+        'project_id' => $project->id,
+        'title' => 'Naskah Analisis Spasi dan Indentasi',
+        'document_type' => 'thesis',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Kajian ini menganalisis dampak digitalisasi pada produktivitas riset akademis di perguruan tinggi.'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Daftar pustaka referensi: Doe, J. (2025). Digital Humanities. Jakarta: Pustaka Sains.'],
+        ],
+        'word_count' => 24,
+    ]);
+
+    $app = Livewire::test(NaskahStudioApp::class);
+    $instance = $app->instance();
+    $instance->blocks = (array) $doc->blocks;
+
+    // 1. Uji setPageParagraphLineSpacing
+    $instance->setPageParagraphLineSpacing(1, 1.5);
+    expect($instance->pageOverrides[1]['lineSpacing'])->toBe(1.5);
+
+    // 2. Uji togglePageParagraphFirstLineIndent (aktifkan lalu nonaktifkan)
+    $toggled = $instance->togglePageParagraphFirstLineIndent(1, 0);
+    expect($toggled)->toBeTrue();
+    expect($instance->blocks[0]['firstLineIndent'])->toBeTrue();
+    expect($instance->blockInlineStyle($instance->blocks[0]))->toContain('text-indent: 1.27cm');
+
+    $toggledOff = $instance->togglePageParagraphFirstLineIndent(1, 0);
+    expect($toggledOff)->toBeTrue();
+    expect($instance->blocks[0]['firstLineIndent'])->toBeFalse();
+
+    // 3. Uji togglePageParagraphHangingIndent (aktifkan hanging indent untuk referensi/sitasi)
+    $hangingOn = $instance->togglePageParagraphHangingIndent(1, 1);
+    expect($hangingOn)->toBeTrue();
+    expect($instance->blocks[1]['hangingIndent'])->toBeTrue();
+    expect($instance->blocks[1]['firstLineIndent'] ?? false)->toBeFalse();
+    expect($instance->blockInlineStyle($instance->blocks[1]))->toContain('padding-left: 1.27cm; text-indent: -1.27cm');
+
+    // 4. Uji highlightPageParagraph
+    $highlighted = $instance->highlightPageParagraph(1, 0, '#fef08a');
+    expect($highlighted)->toBeTrue();
+    expect($instance->blocks[0]['backgroundColor'])->toBe('#fef08a');
+
+    // Toggle off highlight
+    $unhighlighted = $instance->highlightPageParagraph(1, 0, '#fef08a');
+    expect($unhighlighted)->toBeTrue();
+    expect(isset($instance->blocks[0]['backgroundColor']))->toBeFalse();
+
+    // 5. Uji getPageParagraphReadability
+    $readability = $instance->getPageParagraphReadability(1);
+    expect($readability)->toBeArray()
+        ->and($readability['page'])->toBe(1)
+        ->and($readability['paragraph_count'])->toBe(2)
+        ->and($readability['word_count'])->toBeGreaterThan(15)
+        ->and($readability['sentence_count'])->toBeGreaterThanOrEqual(2)
+        ->and($readability['reading_time_seconds'])->toBeGreaterThanOrEqual(1)
+        ->and($readability['readability_level'])->toBeString();
+});
+
+it('toggles section paragraph indent and computes section readability in academic workspace', function (): void {
+    $project = makeProject();
+    $stage = $project->stages()->where('stage_name', ProjectStage::DRAFT->value)->first();
+    $stage->update([
+        'sections_content' => [
+            [
+                'key' => 'pendahuluan',
+                'heading' => 'Pendahuluan',
+                'content' => 'Perkembangan kecerdasan artifisial membawa disrupsi signifikan. Berbagai sektor industri mengalami otomatisasi tingkat tinggi.',
+            ],
+        ],
+    ]);
+
+    $component = Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id]);
+    $instance = $component->instance();
+
+    // Uji toggleSectionParagraphFirstLineIndent
+    expect($instance->editorSections[0]['firstLineIndent'] ?? false)->toBeFalse();
+    $instance->toggleSectionParagraphFirstLineIndent(0);
+    expect($instance->editorSections[0]['firstLineIndent'])->toBeTrue();
+    $instance->toggleSectionParagraphFirstLineIndent(0);
+    expect($instance->editorSections[0]['firstLineIndent'])->toBeFalse();
+
+    // Uji getSectionReadability
+    $readability = $instance->getSectionReadability(0);
+    expect($readability['section_key'])->toBe('pendahuluan')
+        ->and($readability['heading'])->toBe('Pendahuluan')
+        ->and($readability['word_count'])->toBe(13)
+        ->and($readability['sentence_count'])->toBe(2)
+        ->and($readability['avg_words_per_sentence'])->toBe(6.5)
+        ->and($readability['readability_level'])->toBe('Optimal');
+});
+
+it('manages page line spacing and page readability via artisan cli', function (): void {
+    $project = makeProject();
+    $doc = NaskahDocument::query()->create([
+        'project_id' => $project->id,
+        'title' => 'Dokumen CLI Spasi dan Keterbacaan',
+        'document_type' => 'article',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Kalimat pertama dalam bab pendahuluan untuk pengujian CLI.'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Kalimat kedua memberikan elaborasi lebih mendalam atas metode.'],
+        ],
+        'word_count' => 16,
+    ]);
+
+    // Uji linespacing-page
+    $this->artisan("naskah:manage linespacing-page {$doc->id} --page=1 --spacing=1.5")
+        ->assertSuccessful()
+        ->expectsOutputToContain("Berhasil mengatur spasi baris '1.5'");
+
+    $doc->refresh();
+    expect($doc->blocks[0]['lineSpacing'])->toBe(1.5)
+        ->and($doc->blocks[1]['lineSpacing'])->toBe(1.5);
+
+    // Uji readability-page
+    $this->artisan("naskah:manage readability-page {$doc->id} --page=1")
+        ->assertSuccessful()
+        ->expectsOutputToContain('STATISTIK KETERBACAAN HALAMAN #1')
+        ->expectsOutputToContain('Total Paragraf: 2')
+        ->expectsOutputToContain('Total Kata:');
+});
