@@ -745,6 +745,46 @@ class ExternalClientManager
     }
 
     /**
+     * Hitung metrik keterbacaan teks dan diagnosis akademik untuk klien eksternal.
+     *
+     * @return array<string, mixed>
+     */
+    public function handleReadability(
+        ExternalClient $client,
+        string $text,
+    ): array {
+        if (! $client->isModelAllowed('AcademicScribeAgent') && ! $client->isModelAllowed('GuidelineEngine') && ! $client->isModelAllowed('*')) {
+            throw new AuthorizationException("Klien '{$client->name}' tidak memiliki izin untuk layanan Keterbacaan.");
+        }
+
+        $client->recordInboundHit('/api/v1/external/readability');
+
+        $cleanText = strip_tags(trim($text));
+        $words = str_word_count($cleanText);
+        $sentences = preg_split('/(?<=[.!?])\s+/u', $cleanText, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $sentenceCount = max(1, count($sentences));
+        $avgWps = round($words / $sentenceCount, 1);
+        $readingSecs = (int) round(($words / 200) * 60);
+
+        $level = match (true) {
+            $avgWps <= 14.0 => 'Mudah Dibaca (Ringan)',
+            $avgWps <= 22.0 => 'Standar Akademik Optimal',
+            default => 'Kompleks / Padat Teori',
+        };
+
+        return [
+            'status' => 'success',
+            'client' => $client->client_slug,
+            'word_count' => $words,
+            'sentence_count' => $sentenceCount,
+            'avg_words_per_sentence' => $avgWps,
+            'reading_time_seconds' => $readingSecs,
+            'readability_level' => $level,
+            'analyzed_at' => now()->toIso8601String(),
+        ];
+    }
+
+    /**
      * Kirim webhook event ke proyek eksternal dengan signature HMAC-SHA256.
      *
      * @param  array<string, mixed>  $payload

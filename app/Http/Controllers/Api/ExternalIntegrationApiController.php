@@ -378,6 +378,36 @@ class ExternalIntegrationApiController extends Controller
     }
 
     /**
+     * Audit dan evaluasi keterbacaan teks untuk klien eksternal.
+     */
+    public function readability(Request $request): JsonResponse
+    {
+        $client = $this->resolveClient($request);
+        if ($client instanceof JsonResponse) {
+            return $client;
+        }
+
+        $validated = $request->validate([
+            'text' => ['required', 'string', 'max:50000'],
+        ]);
+
+        try {
+            $result = $this->clientManager->handleReadability(
+                client: $client,
+                text: $validated['text'],
+            );
+
+            return response()->json($result);
+        } catch (AuthorizationException $e) {
+            return response()->json(['error' => $e->getMessage()], 403);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => 'Gagal menganalisis keterbacaan: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Konversi dan ekspor naskah ke berbagai format ilmiah.
      */
     public function export(Request $request): JsonResponse

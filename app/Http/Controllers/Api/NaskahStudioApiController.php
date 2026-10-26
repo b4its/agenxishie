@@ -355,4 +355,115 @@ class NaskahStudioApiController extends Controller
             'page' => $pageNumber,
         ]);
     }
+
+    public function readabilityPage(Request $request, int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $pageNumber = max(1, (int) $request->input('page', 1));
+        $blocks = $this->model->normalize((array) $document->blocks);
+        $paginated = $this->model->paginate($blocks);
+
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            return response()->json(['status' => 'error', 'message' => "Halaman #{$pageNumber} tidak ditemukan"], 404);
+        }
+
+        $totalWords = 0;
+        $totalSentences = 0;
+        $parasCount = 0;
+
+        foreach ($targetPage['blocks'] as $item) {
+            $b = $item['block'];
+            if (($b['type'] ?? '') !== 'paragraph') {
+                continue;
+            }
+            $parasCount++;
+            $text = strip_tags((string) ($b['text'] ?? ''));
+            $words = str_word_count($text);
+            $totalWords += $words;
+
+            $sentences = preg_split('/(?<=[.!?])\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $totalSentences += max(1, count($sentences));
+        }
+
+        $avgWps = $totalSentences > 0 ? round($totalWords / $totalSentences, 1) : 0.0;
+        $readingSecs = (int) round(($totalWords / 200) * 60);
+
+        $level = match (true) {
+            $avgWps <= 14.0 => 'Mudah Dibaca (Ringan)',
+            $avgWps <= 22.0 => 'Standar Akademik Optimal',
+            default => 'Kompleks / Padat Teori',
+        };
+
+        return response()->json([
+            'status' => 'success',
+            'page' => $pageNumber,
+            'paragraph_count' => $parasCount,
+            'word_count' => $totalWords,
+            'sentence_count' => $totalSentences,
+            'avg_words_per_sentence' => $avgWps,
+            'reading_time_seconds' => $readingSecs,
+            'readability_level' => $level,
+        ]);
+    }
+
+    public function alignPage(Request $request, int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $pageNumber = max(1, (int) $request->input('page', 1));
+        $align = (string) $request->input('align', 'justify');
+        if (! in_array($align, ['justify', 'left', 'center', 'right'], true)) {
+            $align = 'justify';
+        }
+
+        $blocks = $this->model->normalize((array) $document->blocks);
+        $paginated = $this->model->paginate($blocks);
+
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            return response()->json(['status' => 'error', 'message' => "Halaman #{$pageNumber} tidak ditemukan"], 404);
+        }
+
+        $alignedCount = 0;
+        foreach ($targetPage['blocks'] as $item) {
+            $idx = $item['index'];
+            if (! isset($blocks[$idx]) || ($blocks[$idx]['type'] ?? '') !== 'paragraph') {
+                continue;
+            }
+            $blocks[$idx]['align'] = $align;
+            $alignedCount++;
+        }
+
+        $document->update(['blocks' => $blocks]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Berhasil mengatur perataan '{$align}' pada {$alignedCount} paragraf di halaman #{$pageNumber}.",
+            'align' => $align,
+            'aligned_count' => $alignedCount,
+            'page' => $pageNumber,
+        ]);
+    }
 }
