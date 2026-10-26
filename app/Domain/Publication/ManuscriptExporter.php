@@ -37,6 +37,8 @@ final class ManuscriptExporter
 
     public const FORMAT_ODT = 'odt';
 
+    public const FORMAT_RTF = 'rtf';
+
     public const FORMAT_HTML = 'html';
 
     public const FORMAT_JSON = 'json';
@@ -55,6 +57,7 @@ final class ManuscriptExporter
         return [
             self::FORMAT_DOCX => ['label' => 'Word (DOCX)', 'extension' => 'docx', 'mime' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
             self::FORMAT_ODT => ['label' => 'OpenDocument (ODT)', 'extension' => 'odt', 'mime' => 'application/vnd.oasis.opendocument.text'],
+            self::FORMAT_RTF => ['label' => 'Rich Text (RTF)', 'extension' => 'rtf', 'mime' => 'application/rtf'],
             self::FORMAT_MARKDOWN => ['label' => 'Markdown', 'extension' => 'md', 'mime' => 'text/markdown'],
             self::FORMAT_LATEX => ['label' => 'LaTeX', 'extension' => 'tex', 'mime' => 'application/x-tex'],
             self::FORMAT_HTML => ['label' => 'HTML (Web/Cetak)', 'extension' => 'html', 'mime' => 'text/html'],
@@ -102,6 +105,7 @@ final class ManuscriptExporter
             self::FORMAT_TEXT => $this->toText($manuscript),
             self::FORMAT_DOCX => $this->toDocx($manuscript),
             self::FORMAT_ODT => $this->toOdt($manuscript),
+            self::FORMAT_RTF => $this->toRtf($manuscript),
         };
     }
 
@@ -508,6 +512,79 @@ final class ManuscriptExporter
         }
 
         return app(NaskahOdtExporter::class)->build($blocks, $m['title']);
+    }
+
+    /**
+     * @param  array{title: string, abstract: string, keywords: array<int, string>, sections: array<int, array{heading: string, content: string}>, bibliography: array<int, string>, citation_style: string}  $m
+     */
+    private function toRtf(array $m): string
+    {
+        $rtfEsc = static function (string $text): string {
+            $out = '';
+            $len = mb_strlen($text);
+            for ($i = 0; $i < $len; $i++) {
+                $char = mb_substr($text, $i, 1);
+                $ord = mb_ord($char);
+                if ($ord < 128) {
+                    if ($char === '\\' || $char === '{' || $char === '}') {
+                        $out .= '\\'.$char;
+                    } elseif ($char === "\n") {
+                        $out .= '\\par ';
+                    } else {
+                        $out .= $char;
+                    }
+                } else {
+                    $out .= '\\u'.$ord.'?';
+                }
+            }
+
+            return $out;
+        };
+
+        $out = "{\\rtf1\\ansi\\deff0\n{\\fonttbl{\\f0\\froman\\fcharset0 Times New Roman;}{\\f1\\fswiss\\fcharset0 Arial;}}\n";
+        $out .= "{\\colortbl ;\\red30\\green64\\blue175;\\red51\\green65\\blue85;}\n";
+
+        // Judul naskah
+        $out .= '\\pard\\qc\\b\\fs36\\cf1 '.$rtfEsc($m['title'])."\\b0\\par\\par\n";
+
+        // Abstrak
+        if ($m['abstract'] !== '') {
+            $out .= "\\pard\\ql\\b\\fs26\\cf1 ABSTRAK\\b0\\par\n";
+            $out .= '\\pard\\qj\\li720\\ri720\\i\\fs22 '.$rtfEsc($m['abstract'])."\\i0\\par\n";
+            if ($m['keywords'] !== []) {
+                $out .= '\\pard\\qj\\li720\\ri720\\fs22\\b Kata Kunci: \\b0 '.$rtfEsc(implode(', ', $m['keywords']))."\\par\\par\n";
+            } else {
+                $out .= "\\par\n";
+            }
+        }
+
+        // Sub-bab naskah
+        foreach ($m['sections'] as $sec) {
+            $out .= '\\pard\\ql\\b\\fs28\\cf1 '.$rtfEsc($sec['heading'])."\\b0\\fs24\\cf0\\par\n";
+            $content = trim($sec['content']);
+            if ($content !== '') {
+                $paragraphs = explode("\n", $content);
+                foreach ($paragraphs as $para) {
+                    $para = trim($para);
+                    if ($para !== '') {
+                        $out .= '\\pard\\qj\\fi720\\fs24 '.$rtfEsc($para)."\\par\n";
+                    }
+                }
+            }
+            $out .= "\\par\n";
+        }
+
+        // Daftar pustaka dengan hanging indent (\li720\fi-720)
+        if ($m['bibliography'] !== []) {
+            $out .= "\\pard\\ql\\b\\fs28\\cf1 DAFTAR PUSTAKA\\b0\\fs24\\cf0\\par\n";
+            foreach ($m['bibliography'] as $entry) {
+                $out .= '\\pard\\qj\\li720\\fi-720\\fs24 '.$rtfEsc($entry)."\\par\n";
+            }
+        }
+
+        $out .= "}\n";
+
+        return $out;
     }
 
     /**
