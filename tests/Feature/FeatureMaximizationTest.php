@@ -2781,6 +2781,20 @@ it('performs white box verification on parseHtmlToBlocks stripping UI buttons an
         ->and($blocks[3]['type'])->toBe('bullet')
         ->and($blocks[3]['text'])->toBe('Poin kedua')
         ->and($blocks[3]['_sourceIndex'])->toBe(4);
+
+    // 4. Uji alinea jamak di dalam pembungkus wrapper (misal pengguna menekan tombol Enter)
+    $enterHtml = <<<'HTML'
+    <div class="word-para-item-wrapper">
+        <p class="word-paragraph-text" data-block-index="5">Baris alinea pertama sebelum enter</p>
+        <p>Baris alinea kedua hasil tombol Enter pengguna</p>
+    </div>
+    HTML;
+    $enterBlocks = $studio->parseHtmlToBlocks($enterHtml);
+    expect(count($enterBlocks))->toBe(2)
+        ->and($enterBlocks[0]['text'])->toBe('Baris alinea pertama sebelum enter')
+        ->and($enterBlocks[0]['_sourceIndex'])->toBe(5)
+        ->and($enterBlocks[1]['text'])->toBe('Baris alinea kedua hasil tombol Enter pengguna')
+        ->and($enterBlocks[1]['_sourceIndex'] ?? null)->toBeNull();
 });
 
 it('performs white box verification on syncManuscriptPages smart reconciliation and pagebreak retention', function (): void {
@@ -2898,9 +2912,16 @@ it('performs black box verification of saving manually formatted naskah studio w
     HTML;
 
     // 3. Panggil aksi Simpan (save) dengan DOM HTML lembar halaman
+    $initialRevision = $component->get('editorRevision');
     $component->call('save', [$domPage1, $domPage2])
         ->assertSuccessful()
         ->assertDispatched('studio-toast');
+
+    expect($component->get('editorRevision'))->toBeGreaterThan($initialRevision);
+
+    // Lakukan simpan beruntun kedua untuk memastikan tidak ada degradasi format bertingkat
+    $component->call('save', [$domPage1, $domPage2])
+        ->assertSuccessful();
 
     // 4. Verifikasi State Komponen setelah Simpan
     $savedBlocks = $component->get('blocks');

@@ -3450,6 +3450,22 @@ trait HandlesNaskahStudio
             }
         }
 
+        // 3. Buka (unwrap) seluruh kontainer pembungkus alinea .word-para-item-wrapper
+        // agar setiap alinea di dalamnya (termasuk hasil pemisahan Enter) tidak hilang
+        $wrappers = [];
+        foreach ($xpath->query('.//*[contains(@class, "word-para-item-wrapper")]', $root) as $w) {
+            $wrappers[] = $w;
+        }
+        foreach ($wrappers as $w) {
+            if ($w->parentNode !== null) {
+                while ($w->hasChildNodes()) {
+                    $child = $w->firstChild;
+                    $w->parentNode->insertBefore($child, $w);
+                }
+                $w->parentNode->removeChild($w);
+            }
+        }
+
         $blocks = [];
         foreach ($root->childNodes as $node) {
             // Tangkap teks langsung yang tidak dibungkus elemen HTML (misal saat mengetik bebas)
@@ -4367,6 +4383,7 @@ trait HandlesNaskahStudio
         $this->blocks = $blocks;
         $this->dirty = false;
         $this->lastSavedAt = 'baru saja';
+        $this->editorRevision++;
 
         $this->notify('Naskah tersimpan', $wordCount.' kata · '.count($blocks).' blok.', 'success');
     }
