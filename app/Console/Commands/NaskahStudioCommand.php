@@ -22,7 +22,7 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page}
+                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page|indent-page}
                             {documentId? : ID dokumen naskah}
                             {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
                             {--output= : Path berkas luaran}
@@ -31,7 +31,8 @@ class NaskahStudioCommand extends Command
                             {--search= : Kata kunci pencarian untuk aksi find-replace}
                             {--replace= : Teks pengganti untuk aksi find-replace}
                             {--align=justify : Pilihan perataan untuk aksi align-page (justify, left, center, right)}
-                            {--spacing=1.5 : Pilihan spasi baris untuk aksi linespacing-page (1.0, 1.15, 1.5, 2.0)}';
+                            {--spacing=1.5 : Pilihan spasi baris untuk aksi linespacing-page (1.0, 1.15, 1.5, 2.0)}
+                            {--type=first-line : Jenis indentasi untuk aksi indent-page (first-line, hanging, none)}';
 
     /**
      * @var string
@@ -89,6 +90,7 @@ class NaskahStudioCommand extends Command
             'align-page' => $this->handleAlignPage($document, $blocks, $model),
             'linespacing-page' => $this->handleLineSpacingPage($document, $blocks, $model),
             'readability-page' => $this->handleReadabilityPage($document, $blocks, $model),
+            'indent-page' => $this->handleIndentPage($document, $blocks, $model),
             default => $this->handleUnknownAction($action),
         };
     }
@@ -732,9 +734,61 @@ class NaskahStudioCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleIndentPage(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $type = (string) ($this->option('type') ?: 'first-line');
+
+        $paginated = $model->paginate($blocks);
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id}.");
+
+            return self::FAILURE;
+        }
+
+        $count = 0;
+        foreach ($targetPage['blocks'] as $item) {
+            $idx = $item['index'];
+            if (! isset($blocks[$idx]) || ($blocks[$idx]['type'] ?? '') !== 'paragraph') {
+                continue;
+            }
+
+            if ($type === 'first-line') {
+                $blocks[$idx]['firstLineIndent'] = true;
+                unset($blocks[$idx]['hangingIndent']);
+            } elseif ($type === 'hanging') {
+                $blocks[$idx]['hangingIndent'] = true;
+                unset($blocks[$idx]['firstLineIndent']);
+            } else {
+                unset($blocks[$idx]['firstLineIndent'], $blocks[$idx]['hangingIndent']);
+            }
+
+            $count++;
+        }
+
+        $document->update([
+            'blocks' => $blocks,
+        ]);
+
+        $this->info("Berhasil menerapkan indentasi '{$type}' pada {$count} paragraf di halaman #{$pageNumber} dokumen #{$document->id}.");
+
+        return self::SUCCESS;
+    }
+
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page, indent-page.");
 
         return self::FAILURE;
     }
