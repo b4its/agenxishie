@@ -33,6 +33,7 @@ use App\Filament\Pages\ProjectsPage;
 use App\Filament\Pages\SmartRevisionCenterPage;
 use App\Filament\Pages\VenueCatalogPage;
 use App\Filament\Pages\XishieAssistantPage;
+use App\Filament\Widgets\AarrrFunnelWidget;
 use App\Filament\Widgets\AgentActivityTerminalWidget;
 use App\Filament\Widgets\HeartKpiTelemetryWidget;
 use App\Filament\Widgets\ProjectsOverviewWidget;
@@ -1269,4 +1270,75 @@ it('autocorrects scientific symbols and calculates min max on studio table colum
     $studio->call('tableCalculateColumn', 0, 1, 'max');
     $rowsAfterMax = $studio->get('blocks')[0]['table']['rows'];
     expect(end($rowsAfterMax)[1]['text'])->toBe('90');
+});
+
+it('exports connected projects portal diagnostics and direct JSON studio streams via web routes', function (): void {
+    ExternalClient::factory()->create([
+        'name' => 'Agency Web Export',
+        'target_url' => 'https://agency.example.com',
+        'status' => 'online',
+    ]);
+
+    // 1. /connected-projects/export/csv
+    $responseCsv = $this->get('/connected-projects/export/csv');
+    $responseCsv->assertSuccessful();
+    expect($responseCsv->headers->get('content-type'))->toContain('text/csv');
+
+    // 2. /connected-projects/export/json
+    $responseJson = $this->get('/connected-projects/export/json');
+    $responseJson->assertSuccessful();
+    expect($responseJson->headers->get('content-type'))->toContain('application/json');
+    $decodedJson = json_decode($responseJson->streamedContent(), true);
+    expect($decodedJson['total_clients'])->toBeGreaterThanOrEqual(1);
+
+    // 3. /studio/export/{id}/json
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Naskah Direct Stream JSON',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Konten naskah langsung.'],
+        ],
+        'word_count' => 3,
+    ]);
+
+    $responseStudio = $this->get("/studio/export/{$doc->id}/json");
+    $responseStudio->assertSuccessful();
+    expect($responseStudio->headers->get('content-type'))->toContain('application/json');
+    $decodedDoc = json_decode($responseStudio->streamedContent(), true);
+    expect($decodedDoc['title'])->toBe('Naskah Direct Stream JSON');
+});
+
+it('exports HEART and AARRR framework KPI metrics to CSV and JSON formats', function (): void {
+    $project = makeProject(['title' => 'Proyek Uji KPI HEART AARRR']);
+
+    // 1. HEART Widget export
+    $heartWidget = Livewire::test(HeartKpiTelemetryWidget::class, ['projectId' => $project->id]);
+
+    $heartCsv = $heartWidget->instance()->exportMetrics('csv');
+    expect($heartCsv)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $heartCsv->sendContent();
+    $csvOutput = ob_get_clean();
+    expect($csvOutput)->toContain('Metrik');
+
+    $heartJson = $heartWidget->instance()->exportMetrics('json');
+    expect($heartJson)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $heartJson->sendContent();
+    $jsonOutput = ob_get_clean();
+    $heartDecoded = json_decode((string) $jsonOutput, true);
+    expect($heartDecoded['framework'])->toBe('HEART');
+
+    // 2. AARRR Funnel Widget export
+    $aarrrWidget = Livewire::test(AarrrFunnelWidget::class, ['projectId' => $project->id]);
+
+    $aarrrJson = $aarrrWidget->instance()->exportMetrics('json');
+    expect($aarrrJson)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $aarrrJson->sendContent();
+    $aarrrOutput = ob_get_clean();
+    $aarrrDecoded = json_decode((string) $aarrrOutput, true);
+    expect($aarrrDecoded['framework'])->toBe('AARRR');
 });
