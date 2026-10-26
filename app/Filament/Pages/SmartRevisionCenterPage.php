@@ -425,7 +425,11 @@ class SmartRevisionCenterPage extends Page implements HasForms
         $project = $this->getProject();
         $base = Str::slug((string) ($project?->title ?? 'naskah')) ?: 'naskah';
 
-        if ($format === 'csv') {
+        if ($format === 'docx') {
+            $filename = $base.'-response-to-reviewers-'.$revision->id.'.docx';
+            $body = app(PeerCriticAgent::class)->renderResponseMatrixDocx($revision);
+            $mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        } elseif ($format === 'csv') {
             $filename = $base.'-response-to-reviewers-'.$revision->id.'.csv';
             $body = app(PeerCriticAgent::class)->renderResponseMatrixCsv($revision);
             $mime = 'text/csv';

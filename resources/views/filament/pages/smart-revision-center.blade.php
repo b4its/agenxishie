@@ -131,6 +131,14 @@
                                 <button
                                     type="button"
                                     class="rb-button"
+                                    style="padding:.15rem .5rem; font-size:.6rem; font-weight:700; color:#0f6cbd;"
+                                    wire:click="downloadResponseMatrix({{ $revision->id }}, 'docx')"
+                                    wire:loading.attr="disabled"
+                                    title="Unduh matriks sebagai berkas Microsoft Word (.docx)"
+                                >&#11015; DOCX</button>
+                                <button
+                                    type="button"
+                                    class="rb-button"
                                     style="padding:.15rem .5rem; font-size:.6rem;"
                                     wire:click="downloadResponseMatrix({{ $revision->id }}, 'markdown')"
                                     wire:loading.attr="disabled"

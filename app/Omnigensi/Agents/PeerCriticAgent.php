@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Omnigensi\Agents;
 
 use App\Domain\Assistant\OmnigensiChatClient;
+use App\Domain\Publication\NaskahDocxExporter;
 use App\Domain\Revision\Enums\RevisionStatus;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\ProjectRevision;
@@ -394,5 +395,54 @@ final class PeerCriticAgent implements XishieAgentContract
         ];
 
         return (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Susun dokumen matriks Response to Reviewers sebagai berkas DOCX terstruktur.
+     */
+    public function renderResponseMatrixDocx(ProjectRevision $revision): string
+    {
+        $projectTitle = $revision->project?->title ?? 'Naskah Ilmiah';
+        $blocks = [
+            [
+                'type' => 'heading',
+                'level' => 1,
+                'text' => 'Response to Reviewers Matrix',
+            ],
+            [
+                'type' => 'paragraph',
+                'text' => "Proyek: {$projectTitle} | Reviewer: {$revision->reviewer_role} | Status: {$revision->status->label()} ({$revision->resolutionPercentage()}% Selesai)",
+            ],
+        ];
+
+        $tableRows = [
+            [
+                ['text' => 'No'],
+                ['text' => 'Catatan Reviewer'],
+                ['text' => 'Bagian / Sub-bab'],
+                ['text' => 'Status'],
+                ['text' => 'Respon & Tindakan Penulis'],
+            ],
+        ];
+
+        foreach ((array) ($revision->action_items ?? []) as $item) {
+            $tableRows[] = [
+                ['text' => (string) ($item['id'] ?? 1)],
+                ['text' => (string) ($item['task'] ?? '')],
+                ['text' => (string) ($item['section_key'] ?? '-')],
+                ['text' => strtoupper((string) ($item['status'] ?? 'pending'))],
+                ['text' => 'Perbaikan telah diintegrasikan pada sub-bab terkait sesuai saran reviewer.'],
+            ];
+        }
+
+        $blocks[] = [
+            'type' => 'table',
+            'table' => [
+                'rows' => $tableRows,
+                'header' => true,
+            ],
+        ];
+
+        return app(NaskahDocxExporter::class)->build($blocks, 'Response to Reviewers - '.$revision->reviewer_role);
     }
 }
