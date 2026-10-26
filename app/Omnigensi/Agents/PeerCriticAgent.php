@@ -445,4 +445,52 @@ final class PeerCriticAgent implements XishieAgentContract
 
         return app(NaskahDocxExporter::class)->build($blocks, 'Response to Reviewers - '.$revision->reviewer_role);
     }
+
+    /**
+     * Susun dokumen matriks Response to Reviewers sebagai berkas HTML mandiri yang rapi.
+     */
+    public function renderResponseMatrixHtml(ProjectRevision $revision): string
+    {
+        $projectTitle = htmlspecialchars($revision->project?->title ?? 'Naskah Ilmiah', ENT_QUOTES, 'UTF-8');
+        $reviewer = htmlspecialchars($revision->reviewer_role, ENT_QUOTES, 'UTF-8');
+        $status = htmlspecialchars($revision->status->label(), ENT_QUOTES, 'UTF-8');
+        $percentage = $revision->resolutionPercentage();
+
+        $html = "<!DOCTYPE html>\n<html lang=\"id\">\n<head>\n";
+        $html .= "<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
+        $html .= "<title>Response to Reviewers - {$projectTitle}</title>\n";
+        $html .= "<style>\n";
+        $html .= "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 2rem; color: #1e293b; line-height: 1.5; }\n";
+        $html .= "h1 { font-size: 1.5rem; color: #0f172a; margin-bottom: 0.5rem; }\n";
+        $html .= "p.meta { font-size: 0.875rem; color: #64748b; margin-bottom: 1.5rem; }\n";
+        $html .= "table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.875rem; }\n";
+        $html .= "th, td { border: 1px solid #cbd5e1; padding: 0.6rem 0.8rem; text-align: left; vertical-align: top; }\n";
+        $html .= "th { background-color: #f1f5f9; font-weight: 600; color: #334155; }\n";
+        $html .= "tr:nth-child(even) { background-color: #f8fafc; }\n";
+        $html .= ".status-resolved { color: #16a34a; font-weight: 600; }\n";
+        $html .= ".status-pending { color: #d97706; font-weight: 600; }\n";
+        $html .= "</style>\n</head>\n<body>\n";
+        $html .= "<h1>Response to Reviewers Matrix</h1>\n";
+        $html .= "<p class=\"meta\">Proyek: <strong>{$projectTitle}</strong> | Reviewer: <strong>{$reviewer}</strong> | Status: <strong>{$status} ({$percentage}% Selesai)</strong></p>\n";
+        $html .= "<table>\n<thead>\n<tr>\n";
+        $html .= "<th>No</th><th>Catatan Reviewer</th><th>Bagian / Sub-bab</th><th>Status</th><th>Respon & Tindakan Penulis</th>\n";
+        $html .= "</tr>\n</thead>\n<tbody>\n";
+
+        foreach ((array) ($revision->action_items ?? []) as $item) {
+            $id = (int) ($item['id'] ?? 1);
+            $task = htmlspecialchars((string) ($item['task'] ?? ''), ENT_QUOTES, 'UTF-8');
+            $sec = htmlspecialchars((string) ($item['section_key'] ?? '-'), ENT_QUOTES, 'UTF-8');
+            $st = (string) ($item['status'] ?? 'pending');
+            $stClass = $st === 'resolved' ? 'status-resolved' : 'status-pending';
+            $stLabel = strtoupper($st);
+
+            $html .= "<tr>\n";
+            $html .= "<td>{$id}</td><td>{$task}</td><td>{$sec}</td><td class=\"{$stClass}\">{$stLabel}</td><td>Perbaikan telah diintegrasikan pada sub-bab terkait sesuai saran reviewer.</td>\n";
+            $html .= "</tr>\n";
+        }
+
+        $html .= "</tbody>\n</table>\n</body>\n</html>";
+
+        return $html;
+    }
 }
