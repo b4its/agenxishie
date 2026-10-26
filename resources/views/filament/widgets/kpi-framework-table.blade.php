@@ -10,6 +10,8 @@
                     @endforeach
                 </select>
             @endif
+            <button type="button" class="rb-button" style="padding:.1rem .35rem; font-size:.58rem;" wire:click="exportMetrics('csv')" title="Unduh metrik sebagai CSV">&#11015; CSV</button>
+            <button type="button" class="rb-button" style="padding:.1rem .35rem; font-size:.58rem;" wire:click="exportMetrics('json')" title="Unduh metrik sebagai JSON">&#11015; JSON</button>
             <span class="rb-window__controls">
                 <span class="rb-window__control">-</span>
                 <span class="rb-window__control">&#9633;</span>
