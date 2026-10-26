@@ -173,17 +173,42 @@ class ProjectsPage extends Page
     public function exportProjects(string $format = 'csv'): ?StreamedResponse
     {
         $projects = $this->projects();
-        $format = strtolower($format) === 'json' ? 'json' : 'csv';
-        $filename = 'daftar-proyek-riset-'.now()->format('Ymd-His').'.'.$format;
+        $formatLower = strtolower($format);
+        $timestamp = now()->format('Ymd-His');
 
-        if ($format === 'json') {
+        if ($formatLower === 'json') {
+            $filename = "daftar-proyek-riset-{$timestamp}.json";
             $content = json_encode([
                 'exported_at' => now()->toIso8601String(),
                 'total_projects' => count($projects),
                 'projects' => $projects,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             $mime = 'application/json';
+        } elseif ($formatLower === 'markdown' || $formatLower === 'md') {
+            $filename = "daftar-proyek-riset-{$timestamp}.md";
+            $lines = [
+                "# Daftar Proyek Riset Akademik\n",
+                'Total: '.count($projects).' proyek | Diekspor: '.now()->toFormattedDateString()."\n",
+                '| No | Judul Proyek | Bidang | Tipe Dokumen | Tahap | Mode Kontrol | Kepatuhan | Referensi |',
+                '| --- | --- | --- | --- | --- | --- | --- | --- |',
+            ];
+            foreach ($projects as $idx => $p) {
+                $lines[] = sprintf(
+                    '| %d | %s | %s | %s | %s | %s | %.1f%% | %d |',
+                    $idx + 1,
+                    str_replace('|', '\\|', (string) $p['title']),
+                    str_replace('|', '\\|', (string) $p['field']),
+                    str_replace('|', '\\|', (string) $p['document']),
+                    $p['stage'],
+                    $p['control_mode'],
+                    (float) $p['compliance'],
+                    (int) $p['references']
+                );
+            }
+            $content = implode("\n", $lines);
+            $mime = 'text/markdown';
         } else {
+            $filename = "daftar-proyek-riset-{$timestamp}.csv";
             $handle = fopen('php://temp', 'r+');
             fputcsv($handle, [
                 'No',

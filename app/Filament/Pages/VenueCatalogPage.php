@@ -223,6 +223,31 @@ class VenueCatalogPage extends Page
             ];
             $content = (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $mime = 'application/json';
+        } elseif ($format === 'markdown' || $format === 'md') {
+            $filename = "katalog-jurnal-{$timestamp}.md";
+            $lines = [
+                "# Katalog Target Publikasi Jurnal Ilmiah\n",
+                'Total: '.count($venues).' venue | Waktu Ekspor: '.now()->toFormattedDateString()."\n",
+                '| No | Nama Jurnal | Penerbit | Scope | Tier | Estimasi APC | Waktu Review |',
+                '| --- | --- | --- | --- | --- | --- | --- |',
+            ];
+            foreach ($venues as $idx => $v) {
+                $apc = $v['apc'] !== null && (float) $v['apc'] > 0
+                    ? 'Rp '.number_format((float) $v['apc'], 0, ',', '.')
+                    : 'Gratis';
+                $lines[] = sprintf(
+                    '| %d | %s | %s | %s | %s | %s | %s hari |',
+                    $idx + 1,
+                    str_replace('|', '\\|', (string) $v['journal_name']),
+                    str_replace('|', '\\|', (string) ($v['publisher'] ?? '-')),
+                    strtoupper((string) $v['scope_type']),
+                    (string) $v['index_tier'],
+                    $apc,
+                    (string) ($v['review_time_days'] ?? '-')
+                );
+            }
+            $content = implode("\n", $lines);
+            $mime = 'text/markdown';
         } else {
             $filename = "katalog-jurnal-{$timestamp}.csv";
             $handle = fopen('php://temp', 'r+');

@@ -272,6 +272,36 @@ class PlatformMatcherPage extends Page
             ];
             $content = (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $mime = 'application/json';
+        } elseif ($format === 'html') {
+            $filename = $base.'-journal-recommendations.html';
+            $pTitle = htmlspecialchars((string) $project->title, ENT_QUOTES, 'UTF-8');
+            $pField = htmlspecialchars($project->field_of_study->label(), ENT_QUOTES, 'UTF-8');
+            $html = "<!DOCTYPE html>\n<html lang=\"id\">\n<head>\n";
+            $html .= "<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
+            $html .= "<title>Rekomendasi Jurnal - {$pTitle}</title>\n";
+            $html .= "<style>\nbody { font-family: system-ui, sans-serif; padding: 2rem; color: #1e293b; }\n";
+            $html .= "table { width: 100%; border-collapse: collapse; margin-top: 1rem; }\n";
+            $html .= "th, td { border: 1px solid #cbd5e1; padding: 0.6rem 0.8rem; text-align: left; }\n";
+            $html .= "th { background: #f1f5f9; }\n";
+            $html .= ".score { font-weight: bold; color: #0284c7; }\n";
+            $html .= "</style>\n</head>\n<body>\n";
+            $html .= "<h1>Rekomendasi Venue Jurnal Ilmiah</h1>\n";
+            $html .= "<p>Proyek: <strong>{$pTitle}</strong> | Bidang: <strong>{$pField}</strong></p>\n";
+            $html .= "<table>\n<thead><tr><th>No</th><th>Nama Jurnal</th><th>Penerbit</th><th>Tier</th><th>Match Score</th><th>Estimasi APC</th><th>Target Terpilih</th></tr></thead>\n<tbody>\n";
+            foreach ($recs as $idx => $r) {
+                $apc = $r->apc_estimate !== null && (float) $r->apc_estimate > 0
+                    ? 'Rp '.number_format((float) $r->apc_estimate, 0, ',', '.')
+                    : 'Gratis';
+                $jName = htmlspecialchars((string) $r->journal_name, ENT_QUOTES, 'UTF-8');
+                $pub = htmlspecialchars((string) ($r->publisher ?? '-'), ENT_QUOTES, 'UTF-8');
+                $tier = htmlspecialchars((string) $r->index_tier, ENT_QUOTES, 'UTF-8');
+                $score = number_format((float) $r->match_score, 1);
+                $sel = $r->is_selected ? 'Ya' : 'Tidak';
+                $html .= '<tr><td>'.($idx + 1)."</td><td>{$jName}</td><td>{$pub}</td><td>{$tier}</td><td class=\"score\">{$score}%</td><td>{$apc}</td><td>{$sel}</td></tr>\n";
+            }
+            $html .= "</tbody></table>\n</body></html>";
+            $content = $html;
+            $mime = 'text/html; charset=UTF-8';
         } else {
             $filename = $base.'-journal-recommendations.csv';
             $handle = fopen('php://temp', 'r+');
