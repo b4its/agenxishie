@@ -34,13 +34,13 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    public function handle(XishieProject $project, string $input): array
+    public function handle(XishieProject $project, string $input, ?string $modelId = null): array
     {
         $command = SlashCommand::tryParse($input);
         $argument = trim((string) preg_replace('/^[^\s]+\s*/u', '', $input));
 
         if ($command === null) {
-            return $this->freeform($project, $input);
+            return $this->freeform($project, $input, $modelId);
         }
 
         return match ($command) {
@@ -258,12 +258,12 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function freeform(XishieProject $project, string $input): array
+    private function freeform(XishieProject $project, string $input, ?string $modelId = null): array
     {
         $context = $this->memory->build($project, $input);
 
         // Jawab via LLM Omnigensi dengan konteks proyek (terintegrasi).
-        $answer = $this->answerWithLlm($project, $input, $context);
+        $answer = $this->answerWithLlm($project, $input, $context, $modelId);
 
         if ($answer !== null) {
             return ['command' => 'freeform', 'reply' => $answer, 'data' => ['request' => $input, 'source' => 'omnigensi-llm']];
@@ -314,7 +314,7 @@ final class XishieAssistantService
     /**
      * Jawab pertanyaan bebas memakai LLM Omnigensi dengan konteks proyek.
      */
-    private function answerWithLlm(XishieProject $project, string $input, SharedContextData $context): ?string
+    private function answerWithLlm(XishieProject $project, string $input, SharedContextData $context, ?string $modelId = null): ?string
     {
         if (! config('omnigensi.agents_enabled', true)) {
             return null;
@@ -339,7 +339,7 @@ final class XishieAssistantService
             $input,
         );
 
-        $result = $this->llm->generate($prompt, $system, 0.6, 800);
+        $result = $this->llm->generate($prompt, $system, 0.6, 800, $modelId);
 
         if ($result === null) {
             return null;

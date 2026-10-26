@@ -68,6 +68,10 @@ final class OmnigensiChatClient
             if ($this->hasIntegrationKey()) {
                 $model = $modelId ?? $this->defaultModel();
 
+                if ($model !== null && str_contains($model, '|')) {
+                    [, $model] = explode('|', $model, 2);
+                }
+
                 if ($model === null) {
                     return null;
                 }
@@ -75,7 +79,29 @@ final class OmnigensiChatClient
                 return $this->integrationComplete($model, $messages, $temperature, $maxTokens);
             }
 
-            $option = $this->defaultModelOption();
+            $option = null;
+            if ($modelId !== null && $modelId !== '') {
+                $targetProvider = null;
+                $targetModel = $modelId;
+                if (str_contains($modelId, '|')) {
+                    [$targetProvider, $targetModel] = explode('|', $modelId, 2);
+                }
+
+                try {
+                    foreach ($this->models() as $m) {
+                        if ($m['model_id'] === $targetModel && ($targetProvider === null || $m['provider_id'] === $targetProvider)) {
+                            $option = ['provider_id' => $m['provider_id'], 'model_id' => $m['model_id']];
+                            break;
+                        }
+                    }
+                } catch (\Throwable) {
+                    // Abaikan bila daftar models tidak dapat diakses
+                }
+            }
+
+            if ($option === null) {
+                $option = $this->defaultModelOption();
+            }
 
             if ($option === null) {
                 return null;

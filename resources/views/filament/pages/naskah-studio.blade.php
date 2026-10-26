@@ -2270,6 +2270,41 @@
                             </span>
                         </div>
 
+                        {{-- Model Selector Bar --}}
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:.3rem .6rem; background:#f1f5f9; border-bottom:1px solid #e2e8f0; font-size:.62rem; gap:.3rem;">
+                            <div style="display:flex; align-items:center; gap:.25rem; flex:1; min-width:0;">
+                                <span style="font-weight:700; color:#475569; font-size:.58rem; text-transform:uppercase;">Model:</span>
+                                <select wire:model.live="currentAssistantModel" class="ns-btn" style="font-size:.6rem; padding:.1rem .25rem; flex:1; height:22px; background:#ffffff; border-color:#cbd5e1; font-weight:600;" title="Pilih model AI saat ini">
+                                    @foreach ($this->getAvailableAssistantModels() as $availModel)
+                                        <option value="{{ $availModel['id'] }}">
+                                            {{ $availModel['name'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <span style="font-size:.55rem; color:#0f766e; background:#ccfbf1; font-weight:700; padding:1px 5px; border-radius:999px; white-space:nowrap;">● Aktif</span>
+                        </div>
+
+                        {{-- Quick Model Execution Box --}}
+                        <div style="padding:.4rem .6rem; background:linear-gradient(135deg, #eef2ff 0%, #faf5ff 100%); border-bottom:1px solid #c7d2fe;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.25rem;">
+                                <span style="font-weight:700; font-size:.62rem; color:#4338ca; display:inline-flex; align-items:center; gap:.2rem;">
+                                    <span>⚡</span> Eksekusi Model Sekarang
+                                </span>
+                                <select wire:model="executeModelTarget" style="font-size:.55rem; height:18px; padding:0 .2rem; border-radius:3px; border:1px solid #a5b4fc; background:#ffffff; color:#312e81;">
+                                    <option value="current_page">Halaman Ini</option>
+                                    <option value="active_block">Blok Aktif</option>
+                                    <option value="append">Akhir Naskah</option>
+                                </select>
+                            </div>
+                            <div style="display:flex; gap:.25rem;">
+                                <input type="text" wire:model="executeModelPrompt" wire:keydown.enter="submitExecuteModel" placeholder="Instruksi ke model sekarang..." class="ns-btn" style="flex:1; font-size:.62rem; padding:.15rem .35rem; background:#ffffff; height:24px; text-align:left;" />
+                                <button type="button" class="ns-btn ns-btn--primary" style="font-size:.6rem; padding:.15rem .45rem; background:#4338ca; color:#ffffff; height:24px;" wire:click="submitExecuteModel" wire:loading.attr="disabled" wire:target="submitExecuteModel,executeCurrentModel" title="Eksekusi model sekarang dan terapkan langsung ke kanvas naskah">
+                                    Eksekusi
+                                </button>
+                            </div>
+                        </div>
+
                         {{-- Quick Academic Slash Command Chips --}}
                         <div style="display:flex; flex-wrap:wrap; gap:.25rem; padding:.45rem .6rem; background:#f8fafc; border-bottom:1px solid #e2e8f0; max-height:85px; overflow-y:auto;">
                             <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/poles')" title="Poles tata bahasa akademik">✍️ /poles</button>
@@ -2340,7 +2375,12 @@
                                 @foreach ($assistantLog as $logIndex => $msg)
                                     <div class="ns-msg ns-msg--{{ $msg['role'] === 'user' ? 'user' : 'assistant' }}" style="padding:.5rem .65rem; border-radius:6px; font-size:.7rem; @if($msg['role'] === 'user') background:#eff6ff; border:1px solid #bfdbfe; margin-left:1.5rem; @else background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-right:.5rem; @endif">
                                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.25rem; font-size:.6rem; font-weight:700; color:{{ $msg['role'] === 'user' ? '#1d4ed8' : '#4338ca' }};">
-                                            <span>{{ $msg['role'] === 'user' ? '👤 Anda' : '✨ Xishie Assistant' }}</span>
+                                            <div style="display:flex; align-items:center; gap:.25rem;">
+                                                <span>{{ $msg['role'] === 'user' ? '👤 Anda' : '✨ Xishie Assistant' }}</span>
+                                                @if(!empty($msg['model']))
+                                                    <span style="font-size:.52rem; background:#ede9fe; color:#6d28d9; padding:0 4px; border-radius:3px; font-family:var(--rb-font-mono); font-weight:600;">{{ $msg['model'] }}</span>
+                                                @endif
+                                            </div>
                                             @if(!empty($msg['command']))
                                                 <span style="background:#ede9fe; color:#5b21b6; padding:1px 5px; border-radius:4px; font-family:var(--rb-font-mono);">{{ $msg['command'] }}</span>
                                             @endif
@@ -2386,7 +2426,7 @@
                                    placeholder="Tanya Xishie (mis. /poles, /parafrase, atau konsultasi)..."
                                    wire:model="assistantInput" wire:keydown.enter="sendAssistant" />
                             <button type="button" class="ns-btn ns-btn--primary" style="font-size:.7rem; padding:.3rem .6rem;"
-                                    wire:click="sendAssistant" wire:loading.attr="disabled" wire:target="sendAssistant,runTool,sendAssistantWithText">
+                                    wire:click="sendAssistant" wire:loading.attr="disabled" wire:target="sendAssistant,runTool,sendAssistantWithText,submitExecuteModel,executeCurrentModel">
                                 Kirim
                             </button>
                         </div>

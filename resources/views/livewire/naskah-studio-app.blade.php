@@ -2123,6 +2123,43 @@
                         </span>
                     </div>
 
+                    <!-- Model Selector & Target Bar -->
+                    <div class="word-assistant-model-bar" style="display:flex; align-items:center; justify-content:space-between; padding:4px 8px; background:#f1f5f9; border-bottom:1px solid #e2e8f0; font-size:11px; gap:6px;">
+                        <div style="display:flex; align-items:center; gap:4px; flex:1; min-width:0;">
+                            <span style="font-weight:700; color:#334155; font-size:10px; text-transform:uppercase; letter-spacing:0.5px;">Model:</span>
+                            <select wire:model.live="currentAssistantModel" class="word-select" style="font-size:10.5px; height:24px; padding:0 4px; flex:1; border:1px solid #cbd5e1; border-radius:4px; background:#ffffff; color:#1e293b; font-weight:600;" title="Pilih model AI saat ini">
+                                @foreach ($this->getAvailableAssistantModels() as $availModel)
+                                    <option value="{{ $availModel['id'] }}">
+                                        {{ $availModel['name'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <span style="font-size:9.5px; color:#0f766e; background:#ccfbf1; font-weight:700; padding:2px 6px; border-radius:9999px; white-space:nowrap;" title="Status Model Aktif">
+                            ● Aktif
+                        </span>
+                    </div>
+
+                    <!-- Quick Model Execution Bar -->
+                    <div class="word-assistant-execute-box" style="padding:6px 8px; background:linear-gradient(135deg, #eef2ff 0%, #faf5ff 100%); border-bottom:1px solid #c7d2fe;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                            <span style="font-weight:700; font-size:10.5px; color:#4338ca; display:inline-flex; align-items:center; gap:4px;">
+                                <span>⚡</span> Eksekusi Model Sekarang
+                            </span>
+                            <select wire:model="executeModelTarget" style="font-size:9.5px; height:20px; padding:0 3px; border-radius:3px; border:1px solid #a5b4fc; background:#ffffff; color:#312e81;">
+                                <option value="current_page">Halaman Saat Ini</option>
+                                <option value="active_block">Ganti Blok Aktif</option>
+                                <option value="append">Akhir Naskah</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; gap:4px;">
+                            <input type="text" wire:model="executeModelPrompt" wire:keydown.enter="submitExecuteModel" placeholder="Instruksi ke model (mis. Kembangkan hipotesis riset)..." style="flex:1; height:26px; font-size:11px; padding:0 6px; border:1px solid #c7d2fe; border-radius:4px; background:#ffffff;" />
+                            <button type="button" wire:click="submitExecuteModel" wire:loading.attr="disabled" wire:target="submitExecuteModel,executeCurrentModel" style="height:26px; padding:0 8px; font-size:10.5px; font-weight:700; background:#4338ca; color:#ffffff; border:none; border-radius:4px; cursor:pointer;" title="Eksekusi model sekarang dan terapkan langsung ke kanvas naskah">
+                                Eksekusi
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Quick Command Chips Bar -->
                     <div class="word-assistant-tools-bar">
                         <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/poles')" title="Poles kalimat/paragraf dengan gaya penulisan akademik">
@@ -2309,6 +2346,9 @@
                                             <div style="display:flex; align-items:center; gap:5px;">
                                                 <span style="font-size:12px;">✨</span>
                                                 <strong style="font-size:11px; color:#4338ca;">Xishie Assistant</strong>
+                                                @if (!empty($log['model']))
+                                                    <span style="font-size:9.5px; background:#ede9fe; color:#6d28d9; padding:1px 5px; border-radius:3px; font-family:monospace; font-weight:600;">{{ $log['model'] }}</span>
+                                                @endif
                                             </div>
                                             <span style="font-size:9.5px; color:var(--ms-text-muted); background:#f1f5f9; padding:1px 5px; border-radius:3px;">AI Copilot</span>
                                         </div>
@@ -2351,7 +2391,7 @@
                         @endif
 
                         <!-- Loading Indicator (Hidden until active request) -->
-                        <div wire:loading.flex wire:target="sendAssistant,runTool,sendAssistantWithText" class="word-assistant-loading" style="display: none;">
+                        <div wire:loading.flex wire:target="sendAssistant,runTool,sendAssistantWithText,submitExecuteModel,executeCurrentModel" class="word-assistant-loading" style="display: none;">
                             <span class="word-assistant-spinner"></span>
                             <span style="font-weight: 500;">Xishie Assistant sedang menelaah naskah Anda...</span>
                         </div>
@@ -2361,7 +2401,7 @@
                     <div class="word-assistant-input-area">
                         <form wire:submit.prevent="sendAssistant" style="display:flex; gap:6px;">
                             <input type="text" wire:model="assistantInput" class="word-select" style="flex:1; height:34px; padding:0 10px; font-size:12px;" placeholder="Tanya asisten atau ketik /poles, /sitasi... (Enter)">
-                            <button type="submit" class="word-btn-pill word-btn-share" style="height:34px; padding:0 12px; font-weight:600;" wire:loading.attr="disabled" wire:target="sendAssistant,runTool,sendAssistantWithText">
+                            <button type="submit" class="word-btn-pill word-btn-share" style="height:34px; padding:0 12px; font-weight:600;" wire:loading.attr="disabled" wire:target="sendAssistant,runTool,sendAssistantWithText,submitExecuteModel,executeCurrentModel">
                                 Kirim
                             </button>
                         </form>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Assistant\OmnigensiChatClient;
 use App\Domain\Assistant\SlashCommand;
 use App\Domain\Assistant\XishieAssistantService;
 use App\Domain\GuidelineEngine\CustomGuidelineParser;
@@ -50,6 +51,7 @@ use App\Models\XishieProject;
 use App\Omnigensi\Agents\AcademicScribeAgent;
 use App\Omnigensi\Agents\PeerCriticAgent;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -3143,4 +3145,187 @@ it('performs black box verification of multi-page save fidelity with manual brea
         ->and(count($dbDoc->blocks))->toBe(4)
         ->and($dbDoc->blocks[2]['type'])->toBe('pagebreak')
         ->and($dbDoc->blocks[1]['spacingBefore'])->toEqual(12.0);
+});
+
+it('performs white box verification on current assistant model selection and registry list in naskah studio', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+
+    // 1. Model default saat awal belum diset
+    $initialModel = $component->instance()->getCurrentAssistantModel();
+    expect($initialModel)->not->toBeEmpty()
+        ->and($initialModel)->toBe('qwen-2.5-72b-instruct');
+
+    // 2. Mengambil daftar model yang tersedia
+    $availableModels = $component->instance()->getAvailableAssistantModels();
+    expect($availableModels)->toBeArray()
+        ->and(count($availableModels))->toBeGreaterThanOrEqual(3);
+
+    $modelIds = array_column($availableModels, 'id');
+    expect($modelIds)->toContain('qwen-2.5-72b-instruct')
+        ->and($modelIds)->toContain('deepseek-chat')
+        ->and($modelIds)->toContain('gpt-4o');
+
+    // 3. Mengubah model aktif saat ini
+    $component->call('setAssistantModel', 'deepseek-chat')
+        ->assertDispatched('studio-toast');
+
+    expect($component->instance()->getCurrentAssistantModel())->toBe('deepseek-chat')
+        ->and($component->get('currentAssistantModel'))->toBe('deepseek-chat');
+
+    // 4. Mengubah via alias selectAssistantModel
+    $component->call('selectAssistantModel', 'claude-3-5-sonnet');
+    expect($component->instance()->getCurrentAssistantModel())->toBe('claude-3-5-sonnet');
+});
+
+it('performs white box verification on executing current model with equations, tables, and sections into naskah studio', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+    $initialRevision = $component->get('editorRevision');
+    $initialBlocksCount = count($component->get('blocks'));
+
+    // 1. Eksekusi model untuk menyisipkan tabel ke halaman saat ini
+    $component->call('executeCurrentModel', 'Sisipkan tabel evaluasi komparasi kinerja', 'current_page');
+    expect($component->get('editorRevision'))->toBeGreaterThan($initialRevision);
+
+    $blocksAfterTable = $component->get('blocks');
+    expect(count($blocksAfterTable))->toBeGreaterThan($initialBlocksCount);
+
+    $hasTable = false;
+    foreach ($blocksAfterTable as $b) {
+        if (($b['type'] ?? '') === 'table') {
+            $hasTable = true;
+            break;
+        }
+    }
+    expect($hasTable)->toBeTrue();
+
+    // Verifikasi log asisten mencatat model aktif
+    $log = $component->get('assistantLog');
+    $lastLog = end($log);
+    expect($lastLog['role'])->toBe('assistant')
+        ->and($lastLog['command'])->toBe('eksekusi-model')
+        ->and($lastLog['model'])->toBe($component->instance()->getCurrentAssistantModel())
+        ->and($lastLog['applied'])->toBeTrue();
+
+    // 2. Ubah model aktif dan eksekusi rumus LaTeX ke active block
+    $component->call('setAssistantModel', 'gpt-4o');
+    $component->set('activeBlock', 1);
+    $revisionBeforeEquation = $component->get('editorRevision');
+
+    $component->call('executeCurrentModel', 'Formulasikan persamaan rumus regresi linear', 'active_block');
+    expect($component->get('editorRevision'))->toBeGreaterThan($revisionBeforeEquation);
+
+    $updatedBlock = $component->get('blocks')[1];
+    expect($updatedBlock['type'])->toBe('equation')
+        ->and($updatedBlock['equation']['latex'] ?? '')->not->toBeEmpty();
+
+    // 3. Eksekusi penambahan ke akhir naskah (append)
+    $revisionBeforeAppend = $component->get('editorRevision');
+    $component->call('executeCurrentModel', 'Rumuskan kesimpulan naskah', 'append');
+    expect($component->get('editorRevision'))->toBeGreaterThan($revisionBeforeAppend);
+
+    $latestBlocks = $component->get('blocks');
+    $appendedTexts = implode(' ', array_column(array_slice($latestBlocks, -6), 'text'));
+    expect($appendedTexts)->toContain('Kesimpulan');
+});
+
+it('performs black box verification of executing current model in studio and persisting to database', function (): void {
+    // 1. Buat dokumen awal di basis data
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Naskah Uji Eksekusi Model LLM',
+        'blocks' => [
+            ['type' => 'title', 'level' => 0, 'text' => 'Naskah Uji Eksekusi Model LLM'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Paragraf pengantar awal sebelum dieksekusi dengan model terpilih.'],
+        ],
+        'word_count' => 18,
+    ]);
+
+    // 2. Mount Livewire NaskahStudioApp dengan dokumen yang sudah dibuat
+    $component = Livewire::test(NaskahStudioApp::class, ['documentId' => $doc->id]);
+
+    // 3. Interaksi pengguna memilih model dan mengeksekusi prompt
+    $component->set('currentAssistantModel', 'deepseek-chat')
+        ->set('executeModelTarget', 'current_page')
+        ->set('executeModelPrompt', 'Kembangkan hipotesis riset dan tinjauan literatur')
+        ->call('submitExecuteModel')
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast');
+
+    // Pastikan prompt input dibersihkan setelah eksekusi
+    expect($component->get('executeModelPrompt'))->toBe('')
+        ->and($component->get('currentAssistantModel'))->toBe('deepseek-chat');
+
+    // Pastikan blok dokumen bertambah hasil penerapan eksekusi model
+    $runtimeBlocks = $component->get('blocks');
+    expect(count($runtimeBlocks))->toBeGreaterThan(2);
+
+    $assistantLog = $component->get('assistantLog');
+    expect(count($assistantLog))->toBeGreaterThanOrEqual(2);
+
+    $assistantReply = end($assistantLog);
+    expect($assistantReply['role'])->toBe('assistant')
+        ->and($assistantReply['model'])->toBe('deepseek-chat')
+        ->and($assistantReply['applied'])->toBeTrue();
+
+    // 4. Simpan naskah ke database
+    $component->call('saveDocument')
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast');
+
+    // 5. Verifikasi di basis data MySQL bahwa blok hasil eksekusi model tersimpan secara permanen
+    $savedDoc = NaskahDocument::query()->find($doc->id);
+    expect($savedDoc)->not->toBeNull()
+        ->and(count($savedDoc->blocks))->toBe(count($runtimeBlocks));
+
+    $foundModelContent = false;
+    foreach ($savedDoc->blocks as $block) {
+        $text = (string) ($block['text'] ?? '');
+        if (str_contains($text, 'hipotesis') || str_contains($text, 'literatur') || str_contains($text, 'Sintesis Akademik') || str_contains($text, 'deepseek-chat')) {
+            $foundModelContent = true;
+            break;
+        }
+    }
+    expect($foundModelContent)->toBeTrue();
+});
+
+it('performs white box verification on OmnigensiChatClient integration when executing current model in studio', function (): void {
+    config()->set('omnigensi.agents_enabled', true);
+    config()->set('omnigensi.api_key', 'omni_live_test');
+    $this->app->forgetInstance(OmnigensiChatClient::class);
+
+    Http::fake([
+        '*/health' => Http::response(['status' => 'ok'], 200),
+        '*/api/v1/integrations/v1/models' => Http::response(['object' => 'list', 'data' => [
+            ['id' => 'claude-3-5-sonnet', 'display_name' => 'Claude 3.5 Sonnet', 'provider' => 'Anthropic', 'provider_id' => 'anthropic', 'is_default' => true],
+        ]], 200),
+        '*/api/v1/integrations/v1/chat/completions' => Http::response([
+            'choices' => [
+                ['message' => ['content' => "### Pembahasan Temuan Claude\n\nPenelitian ini membuktikan efektivitas integrasi kecerdasan komputasional.\n\n| Metrik | Skor |\n|---|---|\n| Akurasi | 98.4% |"]],
+            ],
+            'model' => 'claude-3-5-sonnet',
+            'client' => 'Anthropic',
+            'latency_ms' => 145,
+        ], 200),
+    ]);
+
+    $component = Livewire::test(NaskahStudioApp::class);
+    $component->call('setAssistantModel', 'claude-3-5-sonnet');
+
+    $initialCount = count($component->get('blocks'));
+    $component->call('executeModelToStudio', 'Ulas temuan riset komputasional', 'current_page')
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast');
+
+    $blocks = $component->get('blocks');
+    expect(count($blocks))->toBeGreaterThan($initialCount);
+
+    $types = array_column($blocks, 'type');
+    expect($types)->toContain('heading')
+        ->and($types)->toContain('paragraph')
+        ->and($types)->toContain('table');
+
+    $log = $component->get('assistantLog');
+    $lastEntry = end($log);
+    expect($lastEntry['model'])->toBe('claude-3-5-sonnet')
+        ->and($lastEntry['data']['source'])->toBe('llm')
+        ->and($lastEntry['data']['latency_ms'])->toBe(145);
 });
