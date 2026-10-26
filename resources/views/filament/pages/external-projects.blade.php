@@ -60,6 +60,12 @@
                     <button type="button" class="rb-button" wire:click="loadClients" wire:loading.attr="disabled">
                         &#8635; Segarkan Data
                     </button>
+                    <button type="button" class="rb-button" wire:click="exportClients('csv')" title="Ekspor daftar klien dan diagnostik ke CSV">
+                        &#128190; CSV
+                    </button>
+                    <button type="button" class="rb-button" wire:click="exportClients('json')" title="Ekspor daftar klien dan diagnostik ke JSON">
+                        &#128196; JSON
+                    </button>
                     <label class="rb-mono" style="font-size:.68rem; margin-left:auto; display:flex; align-items:center; gap:.4rem; cursor:pointer;">
                         <input type="checkbox" wire:model.live="autoRefresh" /> Auto-Refresh (10s)
                     </label>

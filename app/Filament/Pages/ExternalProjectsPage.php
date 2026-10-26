@@ -8,6 +8,7 @@ use App\Domain\Integration\ExternalClientManager;
 use App\Models\ExternalClient;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * ExternalProjectsPage: Halaman manajemen & monitoring proyek eksternal.
@@ -375,6 +376,85 @@ class ExternalProjectsPage extends Page
             ->send();
 
         $this->loadClients();
+    }
+
+    /**
+     * Ekspor daftar klien dan status diagnostik ke format CSV atau JSON.
+     */
+    public function exportClients(string $format = 'csv'): ?StreamedResponse
+    {
+        $clients = ExternalClient::latest()->get();
+        $format = strtolower($format) === 'json' ? 'json' : 'csv';
+        $timestamp = now()->format('Ymd-His');
+        $filename = 'external-clients-hub-'.$timestamp.'.'.$format;
+
+        if ($format === 'json') {
+            $data = [
+                'exported_at' => now()->toIso8601String(),
+                'total_clients' => $clients->count(),
+                'online_clients' => $clients->where('status', 'online')->count(),
+                'clients' => $clients->map(static fn (ExternalClient $c): array => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'target_url' => $c->target_url,
+                    'status' => $c->status,
+                    'last_latency_ms' => $c->last_latency_ms,
+                    'uptime_percentage' => $c->getUptimePercentage(),
+                    'total_inbound_hits' => $c->inbound_hits_count,
+                    'webhook_url' => $c->webhook_url,
+                    'is_active' => (bool) $c->is_active,
+                    'last_probed_at' => $c->last_ping_at?->toIso8601String(),
+                ])->all(),
+            ];
+            $content = (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $mime = 'application/json';
+        } else {
+            $handle = fopen('php://temp', 'r+');
+            fputcsv($handle, [
+                'No',
+                'Nama Klien',
+                'Target URL',
+                'Status',
+                'Latensi Terakhir (ms)',
+                'Uptime (%)',
+                'Inbound Hits',
+                'Webhook URL',
+                'Terakhir Di-probe',
+                'Status Aktif',
+            ]);
+
+            foreach ($clients as $idx => $c) {
+                fputcsv($handle, [
+                    $idx + 1,
+                    $c->name,
+                    $c->target_url,
+                    strtoupper((string) $c->status),
+                    $c->last_latency_ms ?? '-',
+                    $c->getUptimePercentage().'%',
+                    $c->inbound_hits_count ?? 0,
+                    $c->webhook_url ?? '-',
+                    $c->last_ping_at ? $c->last_ping_at->format('Y-m-d H:i:s') : '-',
+                    $c->is_active ? 'Aktif' : 'Nonaktif',
+                ]);
+            }
+
+            rewind($handle);
+            $content = stream_get_contents($handle) ?: '';
+            fclose($handle);
+            $mime = 'text/csv';
+        }
+
+        Notification::make()
+            ->title('Daftar Klien Eksternal Diekspor')
+            ->body($clients->count()." klien berhasil diekspor ke format {$format}.")
+            ->success()
+            ->send();
+
+        return response()->streamDownload(
+            static fn () => print $content,
+            $filename,
+            ['Content-Type' => $mime],
+        );
     }
 
     /**
