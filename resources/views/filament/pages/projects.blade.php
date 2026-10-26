@@ -29,6 +29,12 @@
                 @if ($search !== '' || $filterMode !== '' || $filterStage !== '')
                     <button type="button" class="rb-button" wire:click="resetFilters">&#8635; Reset</button>
                 @endif
+                <button type="button" class="rb-button" wire:click="exportProjects('csv')" title="Ekspor daftar proyek ke berkas CSV">
+                    &#128190; CSV
+                </button>
+                <button type="button" class="rb-button" wire:click="exportProjects('json')" title="Ekspor daftar proyek ke berkas JSON">
+                    &#128196; JSON
+                </button>
                 <button type="button" class="rb-button rb-button--primary" wire:click="newProject">
                     &#43; Proyek Baru
                 </button>

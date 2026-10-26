@@ -8,6 +8,7 @@ use App\Domain\Workspace\UxKpiTelemetryService;
 use App\Models\XishieProject;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * ProjectsPage: manajemen siklus hidup proyek — daftar semua proyek beserta
@@ -164,6 +165,73 @@ class ProjectsPage extends Page
             ->send();
 
         $this->dispatch('$refresh');
+    }
+
+    /**
+     * Ekspor daftar proyek ke format CSV atau JSON.
+     */
+    public function exportProjects(string $format = 'csv'): ?StreamedResponse
+    {
+        $projects = $this->projects();
+        $format = strtolower($format) === 'json' ? 'json' : 'csv';
+        $filename = 'daftar-proyek-riset-'.now()->format('Ymd-His').'.'.$format;
+
+        if ($format === 'json') {
+            $content = json_encode([
+                'exported_at' => now()->toIso8601String(),
+                'total_projects' => count($projects),
+                'projects' => $projects,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $mime = 'application/json';
+        } else {
+            $handle = fopen('php://temp', 'r+');
+            fputcsv($handle, [
+                'No',
+                'Judul Proyek',
+                'Bidang Studi',
+                'Tipe Dokumen',
+                'Tahapan',
+                'Mode Kontrol',
+                'Skor Kepatuhan (%)',
+                'Total Referensi',
+                'Total Revisi',
+                'Total Rekomendasi',
+                'Terakhir Diperbarui',
+            ]);
+
+            foreach ($projects as $idx => $p) {
+                fputcsv($handle, [
+                    $idx + 1,
+                    $p['title'],
+                    $p['field'],
+                    $p['document'],
+                    $p['stage'],
+                    $p['control_mode'],
+                    $p['compliance'],
+                    $p['references'],
+                    $p['revisions'],
+                    $p['recommendations'],
+                    $p['updated_at'] ? $p['updated_at']->format('Y-m-d H:i:s') : '-',
+                ]);
+            }
+
+            rewind($handle);
+            $content = stream_get_contents($handle);
+            fclose($handle);
+            $mime = 'text/csv';
+        }
+
+        Notification::make()
+            ->title('Daftar Proyek Diekspor')
+            ->body(count($projects)." proyek berhasil diekspor ke format {$format}.")
+            ->success()
+            ->send();
+
+        return response()->streamDownload(
+            static fn () => print (string) $content,
+            $filename,
+            ['Content-Type' => $mime],
+        );
     }
 
     /**
