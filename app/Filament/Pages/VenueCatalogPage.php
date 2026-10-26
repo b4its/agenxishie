@@ -248,6 +248,46 @@ class VenueCatalogPage extends Page
             }
             $content = implode("\n", $lines);
             $mime = 'text/markdown';
+        } elseif ($format === 'html') {
+            $filename = "katalog-jurnal-{$timestamp}.html";
+            $html = "<!DOCTYPE html>\n<html lang=\"id\">\n<head>\n";
+            $html .= "<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
+            $html .= "<title>Katalog Target Publikasi Jurnal</title>\n";
+            $html .= "<style>\n";
+            $html .= "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 2rem; color: #1e293b; line-height: 1.5; }\n";
+            $html .= "h1 { font-size: 1.5rem; color: #0f172a; margin-bottom: 0.5rem; }\n";
+            $html .= "p.meta { font-size: 0.875rem; color: #64748b; margin-bottom: 1.5rem; }\n";
+            $html .= "table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.875rem; }\n";
+            $html .= "th, td { border: 1px solid #cbd5e1; padding: 0.6rem 0.8rem; text-align: left; vertical-align: top; }\n";
+            $html .= "th { background-color: #f1f5f9; font-weight: 600; color: #334155; }\n";
+            $html .= "tr:nth-child(even) { background-color: #f8fafc; }\n";
+            $html .= ".badge { display: inline-block; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: #e0e7ff; color: #3730a3; }\n";
+            $html .= "</style>\n</head>\n<body>\n";
+            $html .= "<h1>Katalog Target Publikasi Jurnal Ilmiah</h1>\n";
+            $html .= '<p class="meta">Total: <strong>'.count($venues).' venue</strong> | Waktu Ekspor: <strong>'.now()->toFormattedDateString()."</strong></p>\n";
+            $html .= "<table>\n<thead>\n<tr>\n";
+            $html .= "<th>No</th><th>Nama Jurnal</th><th>Penerbit</th><th>Scope</th><th>Tier</th><th>Estimasi APC</th><th>Waktu Review</th>\n";
+            $html .= "</tr>\n</thead>\n<tbody>\n";
+
+            foreach ($venues as $idx => $v) {
+                $num = $idx + 1;
+                $jname = htmlspecialchars((string) $v['journal_name'], ENT_QUOTES, 'UTF-8');
+                $pub = htmlspecialchars((string) ($v['publisher'] ?? '-'), ENT_QUOTES, 'UTF-8');
+                $scope = htmlspecialchars(strtoupper((string) $v['scope_type']), ENT_QUOTES, 'UTF-8');
+                $tier = htmlspecialchars((string) $v['index_tier'], ENT_QUOTES, 'UTF-8');
+                $apc = $v['apc'] !== null && (float) $v['apc'] > 0
+                    ? 'Rp '.number_format((float) $v['apc'], 0, ',', '.')
+                    : 'Gratis';
+                $rev = htmlspecialchars((string) ($v['review_time_days'] ?? '-').' hari', ENT_QUOTES, 'UTF-8');
+
+                $html .= "<tr>\n";
+                $html .= "<td>{$num}</td><td><strong>{$jname}</strong></td><td>{$pub}</td><td>{$scope}</td><td><span class=\"badge\">{$tier}</span></td><td>{$apc}</td><td>{$rev}</td>\n";
+                $html .= "</tr>\n";
+            }
+
+            $html .= "</tbody>\n</table>\n</body>\n</html>";
+            $content = $html;
+            $mime = 'text/html; charset=UTF-8';
         } else {
             $filename = "katalog-jurnal-{$timestamp}.csv";
             $handle = fopen('php://temp', 'r+');
