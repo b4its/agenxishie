@@ -10,6 +10,7 @@ use App\Omnigensi\Graph\AgentRegistry;
 use App\Omnigensi\Graph\DefaultGraphSchema;
 use App\Omnigensi\Graph\GraphRunner;
 use App\Omnigensi\Graph\GraphValidator;
+use App\Omnigensi\Graph\WorkflowGraphSchema;
 use Illuminate\Console\Command;
 
 /**
@@ -26,6 +27,7 @@ final class OmnigensiGraphCommand extends Command
         {--stage=draft : Tahap (draft|proposal|final)}
         {--max-revisions=3 : Batas siklus revisi reviewer}
         {--schema= : Path berkas JSON skema graf (default: skema baku)}
+        {--mermaid : Tampilkan representasi visual graf sebagai diagram Mermaid}
         {--validate : Hanya validasi skema graf, tanpa eksekusi}';
 
     protected $description = 'Validasi/jalankan graf multi-agen Omnigensi (dynamic workflow graph)';
@@ -48,6 +50,13 @@ final class OmnigensiGraphCommand extends Command
         }
 
         $this->info(sprintf('Graf valid: %d node, %d edge. Entry: %s', $validation->nodeCount, $validation->edgeCount, $validation->entryPoint ?? '-'));
+
+        if ($this->option('mermaid')) {
+            $graph = WorkflowGraphSchema::fromArray($schema);
+            $this->line($graph->toMermaid());
+
+            return self::SUCCESS;
+        }
 
         if ($this->option('validate')) {
             return self::SUCCESS;

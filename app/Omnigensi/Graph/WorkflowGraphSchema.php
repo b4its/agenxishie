@@ -165,4 +165,47 @@ final readonly class WorkflowGraphSchema
             'edges' => $this->edges,
         ];
     }
+
+    /**
+     * Render skema graf sebagai diagram Mermaid (flowchart TD).
+     */
+    public function toMermaid(): string
+    {
+        $lines = ['flowchart TD'];
+
+        foreach ($this->nodes as $node) {
+            $id = $node['node_id'];
+            $agent = $node['agent'];
+            $type = $node['node_type'];
+
+            if ($type === 'reviewer') {
+                $lines[] = "  {$id}{\"{$id} ({$agent})\"}";
+            } else {
+                $lines[] = "  {$id}[\"{$id} ({$agent})\"]";
+            }
+        }
+
+        $lines[] = '  END([END])';
+
+        foreach ($this->edges as $edge) {
+            $from = $edge['from'];
+            $type = $edge['type'];
+
+            if ($type === 'conditional') {
+                if (! empty($edge['on_approve'])) {
+                    $target = $edge['on_approve'];
+                    $lines[] = "  {$from} -->|approve| {$target}";
+                }
+                if (! empty($edge['on_reject'])) {
+                    $target = $edge['on_reject'];
+                    $lines[] = "  {$from} -->|reject| {$target}";
+                }
+            } else {
+                $to = $edge['to'] ?? 'END';
+                $lines[] = "  {$from} --> {$to}";
+            }
+        }
+
+        return implode("\n", $lines);
+    }
 }

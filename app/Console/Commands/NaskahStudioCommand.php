@@ -24,7 +24,7 @@ class NaskahStudioCommand extends Command
     protected $signature = 'naskah:manage
                             {action : list|inspect|stats|export|autocorrect}
                             {documentId? : ID dokumen naskah}
-                            {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt)}
+                            {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
                             {--output= : Path berkas luaran}';
 
     /**
@@ -144,6 +144,12 @@ class NaskahStudioCommand extends Command
             'latex', 'tex' => $model->toLatex($blocks, $document->title),
             'rtf' => $model->toRtf($blocks, $document->title),
             'txt' => $model->toPlainText($blocks),
+            'json' => (string) json_encode([
+                'id' => $document->id,
+                'title' => $document->title,
+                'word_count' => $document->word_count,
+                'blocks' => $blocks,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             default => $model->toMarkdown($blocks, $document->title),
         };
 
