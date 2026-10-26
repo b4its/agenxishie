@@ -2472,3 +2472,130 @@ it('interacts with naskah studio api for readability-page and align-page, and ex
         ->assertJsonPath('sentence_count', 2)
         ->assertJsonPath('avg_words_per_sentence', 6);
 });
+
+it('renders response to reviewers and literature matrix in rich text format (RTF)', function (): void {
+    $project = makeProject(['title' => 'Pengujian Matriks RTF']);
+    seedReferences($project);
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+
+    // 1. Uji PeerCriticAgent::renderResponseMatrixRtf dan downloadResponseMatrix('rtf')
+    $revision = ProjectRevision::create([
+        'project_id' => $project->id,
+        'stage_id' => $stage->id,
+        'reviewer_role' => 'reviewer_utama',
+        'status' => RevisionStatus::PENDING,
+        'raw_feedback' => 'Tinjau kembali metodologi dan perjelas batasan penelitian.',
+        'action_items' => [
+            ['id' => 1, 'task' => 'Perjelas batasan penelitian', 'section_key' => 'metodologi', 'status' => 'pending'],
+        ],
+    ]);
+
+    $criticAgent = app(PeerCriticAgent::class);
+    $rtfMatrix = $criticAgent->renderResponseMatrixRtf($revision);
+    expect($rtfMatrix)->toContain('{\\rtf1\\ansi\\deff0')
+        ->and($rtfMatrix)->toContain('Response to Reviewers Matrix')
+        ->and($rtfMatrix)->toContain('Perjelas batasan penelitian');
+
+    Livewire::test(SmartRevisionCenterPage::class, ['project' => $project->id])
+        ->call('downloadResponseMatrix', $revision->id, 'rtf')
+        ->assertSuccessful();
+
+    // 2. Uji LiteratureMatrixBuilder::toRtf dan exportLiteratureMatrix('rtf')
+    $builder = app(LiteratureMatrixBuilder::class);
+    $rtfLit = $builder->toRtf($project);
+    expect($rtfLit)->toContain('{\\rtf1\\ansi\\deff0')
+        ->and($rtfLit)->toContain('Tabel Matriks Literatur (State-of-the-Art)')
+        ->and($rtfLit)->toContain('Pengujian Matriks RTF');
+
+    Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id])
+        ->call('exportLiteratureMatrix', 'rtf')
+        ->assertSuccessful();
+});
+
+it('exports venue catalog in standalone html format', function (): void {
+    $project = makeProject();
+    AcademicVenue::create([
+        'journal_name' => 'Jurnal Sistem Informasi Nasional S1',
+        'publisher' => 'Institut Teknologi Bandung',
+        'scope_type' => 'sinta',
+        'index_tier' => 'S1',
+        'field_of_study' => 'Informatika',
+        'aims_and_scope' => 'Publikasi riset sistem informasi dan ilmu komputer.',
+        'apc_estimate' => 2000000,
+        'review_time_days' => 30,
+        'is_active' => true,
+    ]);
+
+    Livewire::test(VenueCatalogPage::class, ['project' => $project->id])
+        ->call('exportCatalog', 'html')
+        ->assertSuccessful();
+});
+
+it('manages batch page indentation and highlights in studio and cli', function (): void {
+    $project = makeProject();
+    $doc = NaskahDocument::query()->create([
+        'project_id' => $project->id,
+        'title' => 'Dokumen Batch Indent dan Highlight',
+        'document_type' => 'thesis',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Alinea pertama naskah.'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Alinea kedua naskah.'],
+        ],
+        'word_count' => 6,
+    ]);
+
+    $app = Livewire::test(NaskahStudioApp::class);
+    $instance = $app->instance();
+    $instance->blocks = (array) $doc->blocks;
+
+    // 1. Uji batchIndentPageParagraphs first-line
+    $count = $instance->batchIndentPageParagraphs(1, 'first-line');
+    expect($count)->toBe(2);
+    expect($instance->blocks[0]['firstLineIndent'])->toBeTrue()
+        ->and($instance->blocks[1]['firstLineIndent'])->toBeTrue();
+
+    // 2. Uji batchIndentPageParagraphs hanging
+    $countHanging = $instance->batchIndentPageParagraphs(1, 'hanging');
+    expect($countHanging)->toBe(2);
+    expect($instance->blocks[0]['hangingIndent'])->toBeTrue()
+        ->and(isset($instance->blocks[0]['firstLineIndent']))->toBeFalse();
+
+    // 3. Uji highlightPageParagraphs
+    $countHl = $instance->highlightPageParagraphs(1, '#fed7aa');
+    expect($countHl)->toBe(2);
+    expect($instance->blocks[0]['backgroundColor'])->toBe('#fed7aa')
+        ->and($instance->blocks[1]['backgroundColor'])->toBe('#fed7aa');
+
+    // 4. Uji CLI highlight-page
+    $this->artisan("naskah:manage highlight-page {$doc->id} --page=1 --color=#bbf7d0")
+        ->assertSuccessful()
+        ->expectsOutputToContain("Berhasil: warna sorot diatur ke '#bbf7d0'");
+
+    $doc->refresh();
+    expect($doc->blocks[0]['backgroundColor'])->toBe('#bbf7d0');
+
+    $this->artisan("naskah:manage highlight-page {$doc->id} --page=1 --color=none")
+        ->assertSuccessful()
+        ->expectsOutputToContain('Berhasil: warna sorot dihapus');
+
+    $doc->refresh();
+    expect(isset($doc->blocks[0]['backgroundColor']))->toBeFalse();
+});
+
+it('executes /kebaruan and /novelty slash command for academic statement of novelty', function (): void {
+    $project = makeProject(['title' => 'Rancang Bangun Sistem Verifikasi Konsensus']);
+    $service = app(XishieAssistantService::class);
+
+    // 1. Eksekusi /kebaruan tanpa argumen
+    $res = $service->handle($project, '/kebaruan');
+    expect($res['command'])->toBe('/kebaruan')
+        ->and($res['reply'])->toContain('Rumusan Pernyataan Kebaruan Ilmiah (Statement of Novelty)')
+        ->and($res['reply'])->toContain('Pernyataan Kebaruan Pokok (Core Novelty Statement)')
+        ->and($res['data']['project_title'])->toBe('Rancang Bangun Sistem Verifikasi Konsensus');
+
+    // 2. Eksekusi dengan alias /novelty dan argumen metode
+    $resArg = $service->handle($project, '/novelty protokol Byzantine Fault Tolerance adaptif');
+    expect($resArg['command'])->toBe('/kebaruan')
+        ->and($resArg['reply'])->toContain('protokol Byzantine Fault Tolerance adaptif')
+        ->and($resArg['data']['novelty_focus'])->toBe('protokol Byzantine Fault Tolerance adaptif');
+});
