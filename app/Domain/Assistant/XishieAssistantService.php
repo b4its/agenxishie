@@ -68,6 +68,7 @@ final class XishieAssistantService
             SlashCommand::DAFTAR_PUSTAKA => $this->daftarPustaka($project, $argument),
             SlashCommand::FORMAT_PARAGRAF => $this->formatParagraf($project, $argument),
             SlashCommand::CATATAN_KAKI => $this->catatanKaki($project, $argument),
+            SlashCommand::KETERBACAAN => $this->keterbacaan($project, $argument),
         };
     }
 
@@ -869,6 +870,75 @@ final class XishieAssistantService
             'reply' => $reply,
             'data' => [
                 'style' => 'chicago_turabian',
+            ],
+        ];
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function keterbacaan(XishieProject $project, string $argument): array
+    {
+        $textToAnalyze = trim($argument);
+        $sourceLabel = 'Teks Masukan';
+
+        if ($textToAnalyze === '') {
+            $stage = $this->stageRecord($project);
+            $sections = $stage?->sections_content ?? [];
+            $collected = [];
+            foreach ($sections as $sec) {
+                if (! empty($sec['content'])) {
+                    $collected[] = strip_tags((string) $sec['content']);
+                }
+            }
+            $textToAnalyze = implode("\n\n", $collected);
+            $sourceLabel = 'Draf Naskah Tahap '.strtoupper($project->current_stage->value);
+        }
+
+        if ($textToAnalyze === '') {
+            return [
+                'command' => SlashCommand::KETERBACAAN->value,
+                'reply' => 'Belum ada konten naskah untuk dianalisis. Sertakan teks setelah `/keterbacaan [teks]` atau isi draf naskah pada Academic Workspace.',
+                'data' => [
+                    'source' => $sourceLabel,
+                    'word_count' => 0,
+                ],
+            ];
+        }
+
+        $words = str_word_count($textToAnalyze);
+        $sentences = preg_split('/(?<=[.!?])\s+/u', $textToAnalyze, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $sentenceCount = max(1, count($sentences));
+        $avgWps = round($words / $sentenceCount, 1);
+        $readingSecs = (int) round(($words / 200) * 60);
+
+        $level = match (true) {
+            $avgWps <= 14.0 => 'Mudah Dibaca (Ringan)',
+            $avgWps <= 22.0 => 'Standar Akademik Optimal (Sesuai Pedoman Jurnal & Tesis)',
+            default => 'Kompleks / Padat (Rekomendasi: Pecah kalimat majemuk bertingkat)',
+        };
+
+        $reply = "### Laporan Analisis Keterbacaan Naskah ({$sourceLabel})\n\n"
+            ."- **Jumlah Kata**: {$words} kata\n"
+            ."- **Jumlah Kalimat**: {$sentenceCount} kalimat\n"
+            ."- **Rata-rata Kata per Kalimat**: {$avgWps} kata/kalimat\n"
+            .'- **Estimasi Waktu Baca**: '.$readingSecs.' detik (~'.max(1, (int) ceil($readingSecs / 60))." menit)\n"
+            ."- **Status Keterbacaan**: **{$level}**\n\n"
+            ."**Rekomendasi Akademik**:\n"
+            .($avgWps > 22.0
+                ? "Kalimat memiliki rata-rata lebih dari 22 kata. Disarankan untuk memecah kalimat majemuk panjang agar pembaca jurnal dan penguji tesis dapat mencerna gagasan sentral dengan lebih lugas.\n"
+                : "Panjang kalimat dan kepadatan gagasan berada dalam rentang optimal naskah ilmiah bereputasi (14–22 kata per kalimat).\n");
+
+        return [
+            'command' => SlashCommand::KETERBACAAN->value,
+            'reply' => $reply,
+            'data' => [
+                'source' => $sourceLabel,
+                'word_count' => $words,
+                'sentence_count' => $sentenceCount,
+                'avg_words_per_sentence' => $avgWps,
+                'reading_time_seconds' => $readingSecs,
+                'readability_level' => $level,
             ],
         ];
     }
