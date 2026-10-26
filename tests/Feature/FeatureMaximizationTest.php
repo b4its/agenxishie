@@ -1848,3 +1848,100 @@ it('executes audit-page and find-replace actions via artisan naskah:manage', fun
     $doc->refresh();
     expect($doc->blocks[0]['text'])->toBe('Model mutakhir terbukti memiliki latensi tinggi pada inferensi real-time.');
 });
+
+it('polishes, cites, and toggles layout overrides on page paragraphs in naskah studio', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Layout Override Dan Sitasi',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'eksperimen dilakukan dimana variabel kontrol diukur.'],
+        ],
+        'word_count' => 7,
+    ]);
+
+    $app = Livewire::test(NaskahStudioApp::class);
+    $instance = $app->instance();
+    $instance->blocks = (array) $doc->blocks;
+
+    // 1. Uji polishPageParagraph (kapitalisasi awal kalimat & perbaikan kohesi)
+    $polished = $instance->polishPageParagraph(1, 0);
+    expect($polished)->toBeTrue();
+    expect($instance->blocks[0]['text'])->toStartWith('Eksperimen');
+
+    // 2. Uji citePageParagraph dengan format APA
+    $citedApa = $instance->citePageParagraph(1, 0, 'Sugiyono, 2021', 'apa');
+    expect($citedApa)->toBeTrue();
+    expect($instance->blocks[0]['text'])->toContain('(Sugiyono, 2021).');
+
+    // 3. Uji citePageParagraph dengan format IEEE
+    $citedIeee = $instance->citePageParagraph(1, 0, '1', 'ieee');
+    expect($citedIeee)->toBeTrue();
+    expect($instance->blocks[0]['text'])->toContain('[1].');
+
+    // 4. Uji setPageParagraphColumns & togglePageParagraphLineNumbers
+    $instance->setPageParagraphColumns(1, 2);
+    expect($instance->pageOverrides[1]['columns'])->toBe(2);
+
+    $instance->togglePageParagraphLineNumbers(1);
+    expect($instance->pageOverrides[1]['lineNumbers'])->toBeTrue();
+
+    $instance->togglePageParagraphLineNumbers(1);
+    expect($instance->pageOverrides[1]['lineNumbers'])->toBeFalse();
+});
+
+it('binds citations to section paragraphs in academic workspace', function (): void {
+    $project = makeProject();
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+    $stage->forceFill([
+        'sections_content' => [
+            [
+                'key' => 'methodology',
+                'heading' => 'Metodologi Penelitian',
+                'content' => 'Pendekatan kuantitatif digunakan untuk menguji hipotesis.',
+            ],
+        ],
+        'status' => StageStatus::IN_PROGRESS,
+    ])->save();
+
+    $component = Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id]);
+    $component->call('citeSectionParagraph', 0, 'Creswell, 2018', 'apa')
+        ->assertSuccessful();
+
+    $sections = $component->get('editorSections');
+    expect($sections[0]['content'])->toContain('(Creswell, 2018).');
+
+    $component->call('citeSectionParagraph', 0, '2', 'ieee')
+        ->assertSuccessful();
+
+    $sectionsAfterIeee = $component->get('editorSections');
+    expect($sectionsAfterIeee[0]['content'])->toContain('[2].');
+});
+
+it('executes export-page action via artisan naskah:manage to export single page content', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Uji CLI Ekspor Halaman',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Konten penting halaman pertama yang akan diekspor.'],
+        ],
+        'word_count' => 7,
+    ]);
+
+    // Ekspor format Markdown ke output console
+    $this->artisan('naskah:manage', [
+        'action' => 'export-page',
+        'documentId' => $doc->id,
+        '--page' => 1,
+        '--format' => 'md',
+    ])
+        ->expectsOutputToContain('Konten penting halaman pertama yang akan diekspor.')
+        ->assertSuccessful();
+
+    // Ekspor format Plain Text ke output console
+    $this->artisan('naskah:manage', [
+        'action' => 'export-page',
+        'documentId' => $doc->id,
+        '--page' => 1,
+        '--format' => 'txt',
+    ])
+        ->expectsOutputToContain('Konten penting halaman pertama yang akan diekspor.')
+        ->assertSuccessful();
+});
