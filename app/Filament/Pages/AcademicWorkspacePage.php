@@ -394,6 +394,36 @@ class AcademicWorkspacePage extends Page
     }
 
     /**
+     * Sematkan sitasi pustaka ke dalam konten sub-bab.
+     */
+    public function citeSectionParagraph(int $index, string $citationKey, string $style = 'apa'): void
+    {
+        if (! isset($this->editorSections[$index])) {
+            return;
+        }
+
+        $cleanKey = trim($citationKey, ' ()[]');
+        $marker = strtolower($style) === 'ieee' ? "[{$cleanKey}]" : "({$cleanKey})";
+
+        $content = rtrim((string) ($this->editorSections[$index]['content'] ?? ''));
+        if (str_ends_with($content, '.')) {
+            $base = rtrim(substr($content, 0, -1));
+            $newContent = "{$base} {$marker}.";
+        } else {
+            $newContent = "{$content} {$marker}.";
+        }
+
+        $this->editorSections[$index]['content'] = $newContent;
+        $this->editorDirty = true;
+
+        Notification::make()
+            ->title('Sitasi disematkan')
+            ->body("Sitasi {$marker} ditambahkan pada sub-bab '{$this->editorSections[$index]['heading']}'.")
+            ->success()
+            ->send();
+    }
+
+    /**
      * Geser sub-bab naik/turun untuk mengatur urutan naskah.
      */
     public function moveEditorSection(int $index, int $direction): void
