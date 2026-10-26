@@ -25,9 +25,11 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div style="display:flex; gap:.35rem;">
-                            <button type="button" class="rb-button" wire:click="exportTranscript" title="Unduh transkrip sesi sebagai Markdown">&#11015; Unduh Transkrip</button>
-                            <button type="button" class="rb-button" wire:click="clearLog">&#128465; Bersihkan</button>
+                        <div style="display:flex; gap:.35rem; align-items:flex-end;">
+                            <button type="button" class="rb-button" wire:click="exportTranscript('markdown')" title="Unduh transkrip sesi sebagai Markdown">&#11015; MD</button>
+                            <button type="button" class="rb-button" wire:click="exportTranscript('json')" title="Unduh transkrip sesi sebagai JSON">&#11015; JSON</button>
+                            <button type="button" class="rb-button" wire:click="exportTranscript('txt')" title="Unduh transkrip sesi sebagai Plain Text">&#11015; TXT</button>
+                            <button type="button" class="rb-button" wire:click="clearLog" title="Bersihkan riwayat percakapan">&#128465; Bersihkan</button>
                         </div>
                     </div>
 

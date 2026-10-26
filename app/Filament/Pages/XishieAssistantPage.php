@@ -146,9 +146,9 @@ class XishieAssistantPage extends Page
     }
 
     /**
-     * Unduh transkrip sesi percakapan sebagai file Markdown.
+     * Unduh transkrip sesi percakapan sebagai file Markdown, JSON, atau TXT.
      */
-    public function exportTranscript(): ?StreamedResponse
+    public function exportTranscript(string $format = 'markdown'): ?StreamedResponse
     {
         $project = $this->getProject();
         if (empty($this->log)) {
@@ -159,31 +159,75 @@ class XishieAssistantPage extends Page
 
         $title = $project?->title ?? 'Xishie Assistant';
         $timestamp = now()->format('Y-m-d_H-i-s');
-        $filename = 'xishie_assistant_transcript_'.$timestamp.'.md';
+        $format = mb_strtolower($format);
 
-        $lines = [
-            '# Transkrip Sesi Xishie Assistant',
-            '- **Proyek**: '.$title,
-            '- **Waktu Ekspor**: '.now()->toIso8601String(),
-            '- **Total Pesan**: '.count($this->log),
-            '',
-            '---',
-            '',
-        ];
+        if ($format === 'json') {
+            $filename = 'xishie_assistant_transcript_'.$timestamp.'.json';
+            $payload = [
+                'project' => [
+                    'id' => $project?->id,
+                    'title' => $title,
+                ],
+                'exported_at' => now()->toIso8601String(),
+                'total_messages' => count($this->log),
+                'messages' => $this->log,
+            ];
+            $content = (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $mime = 'application/json; charset=UTF-8';
+        } elseif ($format === 'txt') {
+            $filename = 'xishie_assistant_transcript_'.$timestamp.'.txt';
+            $lines = [
+                'TRANSKRIP PERCAKAPAN XISHIE ASSISTANT',
+                'Proyek: '.$title,
+                'Waktu Ekspor: '.now()->toIso8601String(),
+                'Total Pesan: '.count($this->log),
+                str_repeat('=', 50),
+                '',
+            ];
 
-        foreach ($this->log as $entry) {
-            $sender = $entry['role'] === 'user' ? 'Peneliti' : 'Xishie Assistant';
-            $lines[] = "### [{$sender}]";
-            $lines[] = $entry['content'];
-            $lines[] = '';
+            foreach ($this->log as $entry) {
+                $sender = $entry['role'] === 'user' ? 'Peneliti' : 'Xishie Assistant';
+                $lines[] = "[{$sender}]";
+                $lines[] = (string) $entry['content'];
+                $lines[] = str_repeat('-', 30);
+                $lines[] = '';
+            }
+
+            $content = implode("\n", $lines);
+            $mime = 'text/plain; charset=UTF-8';
+        } else {
+            $filename = 'xishie_assistant_transcript_'.$timestamp.'.md';
+            $lines = [
+                '# Transkrip Sesi Xishie Assistant',
+                '- **Proyek**: '.$title,
+                '- **Waktu Ekspor**: '.now()->toIso8601String(),
+                '- **Total Pesan**: '.count($this->log),
+                '',
+                '---',
+                '',
+            ];
+
+            foreach ($this->log as $entry) {
+                $sender = $entry['role'] === 'user' ? 'Peneliti' : 'Xishie Assistant';
+                $lines[] = "### [{$sender}]";
+                $lines[] = $entry['content'];
+                $lines[] = '';
+            }
+
+            $content = implode("\n", $lines);
+            $mime = 'text/markdown; charset=UTF-8';
         }
 
-        $content = implode("\n", $lines);
+        Notification::make()
+            ->title('Transkrip Percakapan Diekspor')
+            ->body('Transkrip berhasil diunduh dalam format '.strtoupper($format).'.')
+            ->success()
+            ->send();
 
         return response()->streamDownload(static function () use ($content): void {
             echo $content;
         }, $filename, [
-            'Content-Type' => 'text/markdown; charset=UTF-8',
+            'Content-Type' => $mime,
         ]);
     }
 
