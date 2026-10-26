@@ -22,7 +22,7 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page|indent-page}
+                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page|indent-page|highlight-page}
                             {documentId? : ID dokumen naskah}
                             {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
                             {--output= : Path berkas luaran}
@@ -32,7 +32,8 @@ class NaskahStudioCommand extends Command
                             {--replace= : Teks pengganti untuk aksi find-replace}
                             {--align=justify : Pilihan perataan untuk aksi align-page (justify, left, center, right)}
                             {--spacing=1.5 : Pilihan spasi baris untuk aksi linespacing-page (1.0, 1.15, 1.5, 2.0)}
-                            {--type=first-line : Jenis indentasi untuk aksi indent-page (first-line, hanging, none)}';
+                            {--type=first-line : Jenis indentasi untuk aksi indent-page (first-line, hanging, none)}
+                            {--color=#fef08a : Pilihan warna latar belakang untuk aksi highlight-page (#fef08a, #fed7aa, #bbf7d0, none)}';
 
     /**
      * @var string
@@ -91,6 +92,7 @@ class NaskahStudioCommand extends Command
             'linespacing-page' => $this->handleLineSpacingPage($document, $blocks, $model),
             'readability-page' => $this->handleReadabilityPage($document, $blocks, $model),
             'indent-page' => $this->handleIndentPage($document, $blocks, $model),
+            'highlight-page' => $this->handleHighlightPage($document, $blocks, $model),
             default => $this->handleUnknownAction($action),
         };
     }
@@ -786,9 +788,58 @@ class NaskahStudioCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleHighlightPage(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $color = (string) ($this->option('color') ?: '#fef08a');
+
+        $paginated = $model->paginate($blocks);
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id}.");
+
+            return self::FAILURE;
+        }
+
+        $count = 0;
+        foreach ($targetPage['blocks'] as $item) {
+            $idx = $item['index'];
+            if (! isset($blocks[$idx]) || ($blocks[$idx]['type'] ?? '') !== 'paragraph') {
+                continue;
+            }
+
+            if ($color === 'none' || $color === '') {
+                unset($blocks[$idx]['backgroundColor']);
+            } else {
+                $blocks[$idx]['backgroundColor'] = $color;
+            }
+
+            $count++;
+        }
+
+        $document->update([
+            'blocks' => $blocks,
+        ]);
+
+        $status = ($color === 'none' || $color === '') ? 'dihapus' : "diatur ke '{$color}'";
+        $this->info("Berhasil: warna sorot {$status} pada {$count} paragraf di halaman #{$pageNumber} dokumen #{$document->id}.");
+
+        return self::SUCCESS;
+    }
+
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page, indent-page.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page, indent-page, highlight-page.");
 
         return self::FAILURE;
     }
