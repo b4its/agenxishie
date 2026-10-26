@@ -22,7 +22,7 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page}
+                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page}
                             {documentId? : ID dokumen naskah}
                             {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
                             {--output= : Path berkas luaran}
@@ -30,7 +30,8 @@ class NaskahStudioCommand extends Command
                             {--preset=academic_standard : Preset paragraf (academic_standard, journal_ieee, thesis_dikti, abstract_block, block_quote)}
                             {--search= : Kata kunci pencarian untuk aksi find-replace}
                             {--replace= : Teks pengganti untuk aksi find-replace}
-                            {--align=justify : Pilihan perataan untuk aksi align-page (justify, left, center, right)}';
+                            {--align=justify : Pilihan perataan untuk aksi align-page (justify, left, center, right)}
+                            {--spacing=1.5 : Pilihan spasi baris untuk aksi linespacing-page (1.0, 1.15, 1.5, 2.0)}';
 
     /**
      * @var string
@@ -86,6 +87,8 @@ class NaskahStudioCommand extends Command
             'export-page' => $this->handleExportPage($document, $blocks, $model),
             'polish-page' => $this->handlePolishPage($document, $blocks, $model),
             'align-page' => $this->handleAlignPage($document, $blocks, $model),
+            'linespacing-page' => $this->handleLineSpacingPage($document, $blocks, $model),
+            'readability-page' => $this->handleReadabilityPage($document, $blocks, $model),
             default => $this->handleUnknownAction($action),
         };
     }
@@ -633,9 +636,105 @@ class NaskahStudioCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleLineSpacingPage(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $spacing = (float) $this->option('spacing');
+        $clamped = max(0.8, min(3.0, $spacing));
+
+        $paginated = $model->paginate($blocks);
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id}.");
+
+            return self::FAILURE;
+        }
+
+        $count = 0;
+        foreach ($targetPage['blocks'] as $item) {
+            $idx = $item['index'];
+            if (! isset($blocks[$idx]) || ($blocks[$idx]['type'] ?? '') !== 'paragraph') {
+                continue;
+            }
+
+            $blocks[$idx]['lineSpacing'] = $clamped;
+            $count++;
+        }
+
+        $document->update([
+            'blocks' => $blocks,
+        ]);
+
+        $this->info("Berhasil mengatur spasi baris '{$clamped}' pada {$count} paragraf di halaman #{$pageNumber} dokumen #{$document->id}.");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleReadabilityPage(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $pageNumber = max(1, (int) $this->option('page'));
+        $paginated = $model->paginate($blocks);
+        $targetPage = null;
+        foreach ($paginated as $p) {
+            if ((int) $p['pageNumber'] === $pageNumber) {
+                $targetPage = $p;
+                break;
+            }
+        }
+
+        if ($targetPage === null) {
+            $this->warn("Halaman #{$pageNumber} tidak ditemukan dalam dokumen #{$document->id}.");
+
+            return self::FAILURE;
+        }
+
+        $totalWords = 0;
+        $totalSentences = 0;
+        $parasCount = 0;
+
+        foreach ($targetPage['blocks'] as $item) {
+            $b = $item['block'];
+            if (($b['type'] ?? '') !== 'paragraph') {
+                continue;
+            }
+            $parasCount++;
+            $text = strip_tags((string) ($b['text'] ?? ''));
+            $words = str_word_count($text);
+            $totalWords += $words;
+
+            $sentences = preg_split('/(?<=[.!?])\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $totalSentences += max(1, count($sentences));
+        }
+
+        $avgWps = $totalSentences > 0 ? round($totalWords / $totalSentences, 1) : 0.0;
+        $readingSecs = (int) round(($totalWords / 200) * 60);
+
+        $this->info("=== STATISTIK KETERBACAAN HALAMAN #{$pageNumber} [Dokumen #{$document->id}] ===");
+        $this->line("Total Paragraf: {$parasCount}");
+        $this->line("Total Kata: {$totalWords}");
+        $this->line("Total Kalimat: {$totalSentences}");
+        $this->line("Rata-rata Kata per Kalimat: {$avgWps} kata");
+        $this->line("Estimasi Waktu Baca: {$readingSecs} detik (~".max(1, ceil($readingSecs / 60)).' menit)');
+
+        return self::SUCCESS;
+    }
+
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page.");
 
         return self::FAILURE;
     }
