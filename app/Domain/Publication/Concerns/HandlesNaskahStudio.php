@@ -3434,6 +3434,22 @@ trait HandlesNaskahStudio
             }
         }
 
+        // 2. Bersihkan elemen UI aksi/alat penyunting yang memiliki contenteditable="false", tombol, toolbar hover, dll.
+        // agar tidak bocor dan merusak teks konten naskah
+        $uiNodes = [];
+        foreach ($xpath->query('.//*[@contenteditable="false" or contains(@class, "word-tool-btn") or contains(@class, "word-table-actions") or contains(@class, "word-callout-actions") or contains(@class, "word-image-actions") or name()="button"]', $root) as $uiNode) {
+            $uClass = (string) ($uiNode instanceof \DOMElement ? $uiNode->getAttribute('class') : '');
+            if (str_contains($uClass, 'word-equation-block') || str_contains($uClass, 'word-toc-block') || str_contains($uClass, 'word-callout-box') || str_contains($uClass, 'word-image-figure') || str_contains($uClass, 'word-footnote-block')) {
+                continue;
+            }
+            $uiNodes[] = $uiNode;
+        }
+        foreach ($uiNodes as $uiNode) {
+            if ($uiNode->parentNode !== null) {
+                $uiNode->parentNode->removeChild($uiNode);
+            }
+        }
+
         $blocks = [];
         foreach ($root->childNodes as $node) {
             // Tangkap teks langsung yang tidak dibungkus elemen HTML (misal saat mengetik bebas)
@@ -3458,14 +3474,36 @@ trait HandlesNaskahStudio
                 continue;
             }
 
+            // Buka wrapper alinea paragraf (.word-para-item-wrapper) menuju elemen paragraf aslinya
+            if (str_contains($class, 'word-para-item-wrapper')) {
+                $pNode = $node->getElementsByTagName('p')->item(0);
+                if ($pNode !== null) {
+                    $node = $pNode;
+                    $tag = 'p';
+                    $class = (string) $pNode->getAttribute('class');
+                }
+            }
+
+            $sourceIndex = ($node instanceof \DOMElement && $node->hasAttribute('data-block-index'))
+                ? (int) $node->getAttribute('data-block-index')
+                : null;
+
             if (str_contains($class, 'word-page-break-marker') || str_contains($class, 'word-page-divider') || $tag === 'hr') {
-                $blocks[] = $this->model->newBlock('pagebreak', '');
+                $pb = $this->model->newBlock('pagebreak', '');
+                if ($sourceIndex !== null) {
+                    $pb['_sourceIndex'] = $sourceIndex;
+                }
+                $blocks[] = $pb;
 
                 continue;
             }
 
             if (str_contains($class, 'word-toc-block')) {
-                $blocks[] = $this->model->newBlock('toc', 'Daftar Isi Otomatis');
+                $tb = $this->model->newBlock('toc', 'Daftar Isi Otomatis');
+                if ($sourceIndex !== null) {
+                    $tb['_sourceIndex'] = $sourceIndex;
+                }
+                $blocks[] = $tb;
 
                 continue;
             }
@@ -3487,7 +3525,7 @@ trait HandlesNaskahStudio
                     }
                 }
                 if (! empty($tableRows)) {
-                    $blocks[] = [
+                    $tblBlock = [
                         'type' => 'table',
                         'text' => '',
                         'runs' => [],
@@ -3498,6 +3536,10 @@ trait HandlesNaskahStudio
                         ],
                         'align' => 'left',
                     ];
+                    if ($sourceIndex !== null) {
+                        $tblBlock['_sourceIndex'] = $sourceIndex;
+                    }
+                    $blocks[] = $tblBlock;
                 }
 
                 continue;
@@ -3510,7 +3552,11 @@ trait HandlesNaskahStudio
                 }
                 $caption = $node instanceof \DOMElement ? $node->getAttribute('data-caption') : '';
                 $display = $node instanceof \DOMElement ? ($node->getAttribute('data-display') ?: 'block') : 'block';
-                $blocks[] = $this->model->newEquationBlock($latex, $caption, $display);
+                $eqBlock = $this->model->newEquationBlock($latex, $caption, $display);
+                if ($sourceIndex !== null) {
+                    $eqBlock['_sourceIndex'] = $sourceIndex;
+                }
+                $blocks[] = $eqBlock;
 
                 continue;
             }
@@ -3534,7 +3580,11 @@ trait HandlesNaskahStudio
                         ? $node->getAttribute('data-align')
                         : 'center';
 
-                    $blocks[] = $this->model->newImageBlock($src, $alt, $width, $align, trim((string) $caption));
+                    $imgBlock = $this->model->newImageBlock($src, $alt, $width, $align, trim((string) $caption));
+                    if ($sourceIndex !== null) {
+                        $imgBlock['_sourceIndex'] = $sourceIndex;
+                    }
+                    $blocks[] = $imgBlock;
 
                     continue;
                 }
@@ -3550,13 +3600,61 @@ trait HandlesNaskahStudio
                 $text = '';
             }
 
-            // Ekstrak perataan teks (left, center, right, justify) sesuai format Word & LibreOffice
+            // Ekstrak perataan teks dan format alinea (hanging, first-line indent, warna sorot, dsb)
             $align = 'left';
             $firstLineIndent = false;
+            $hangingIndent = false;
+            $backgroundColor = null;
+            $borderColor = null;
+            $lineSpacing = 1.0;
+            $indent = 0;
+            $rightIndent = 0;
+            $dropCap = str_contains($class, 'word-drop-cap');
+
             if ($node instanceof \DOMElement) {
                 $styleCandidate = strtolower((string) $node->getAttribute('style'));
-                if (str_contains($styleCandidate, 'text-indent') && ! str_contains($styleCandidate, 'text-indent: 0') && ! str_contains($styleCandidate, 'text-indent:0')) {
+
+                if (str_contains($styleCandidate, 'text-indent: -') || str_contains($styleCandidate, 'text-indent:-') || str_contains($styleCandidate, 'padding-left: 1.27cm')) {
+                    $hangingIndent = true;
+                    $firstLineIndent = false;
+                } elseif (str_contains($styleCandidate, 'text-indent') && ! str_contains($styleCandidate, 'text-indent: 0') && ! str_contains($styleCandidate, 'text-indent:0')) {
                     $firstLineIndent = true;
+                }
+
+                if (str_contains($styleCandidate, 'background-color')) {
+                    if (preg_match('/background-color:\s*([^;]+)/i', (string) $node->getAttribute('style'), $bgMatch)) {
+                        $bgVal = trim($bgMatch[1]);
+                        if ($bgVal !== '' && $bgVal !== 'none' && $bgVal !== 'transparent') {
+                            $backgroundColor = $bgVal;
+                        }
+                    }
+                }
+
+                if (str_contains($styleCandidate, 'border-left')) {
+                    if (preg_match('/border-left:\s*(?:[\d\.]+(?:px|pt|em|rem)?\s+solid\s+)?([^;]+)/i', (string) $node->getAttribute('style'), $bdMatch)) {
+                        $bdVal = trim($bdMatch[1]);
+                        if ($bdVal !== '' && $bdVal !== 'none') {
+                            $borderColor = $bdVal;
+                        }
+                    }
+                }
+
+                if (str_contains($styleCandidate, 'margin-left')) {
+                    if (preg_match('/margin-left:\s*([\d\.]+)\s*rem/i', $styleCandidate, $mlMatch)) {
+                        $indent = max(0, min(8, (int) round(((float) $mlMatch[1]) / 1.5)));
+                    }
+                }
+
+                if (str_contains($styleCandidate, 'margin-right')) {
+                    if (preg_match('/margin-right:\s*([\d\.]+)\s*rem/i', $styleCandidate, $mrMatch)) {
+                        $rightIndent = max(0, min(8, (int) round(((float) $mrMatch[1]) / 1.5)));
+                    }
+                }
+
+                if (str_contains($styleCandidate, 'line-height')) {
+                    if (preg_match('/line-height:\s*([\d\.]+)/i', $styleCandidate, $lhm)) {
+                        $lineSpacing = (float) $lhm[1];
+                    }
                 }
 
                 if ($node->hasAttribute('align')) {
@@ -3617,6 +3715,12 @@ trait HandlesNaskahStudio
                         if ($liText !== '') {
                             $liBlock = $this->model->newBlock('bullet', $liText);
                             $liBlock['align'] = $align;
+                            $liSource = ($li instanceof \DOMElement && $li->hasAttribute('data-block-index'))
+                                ? (int) $li->getAttribute('data-block-index')
+                                : $sourceIndex;
+                            if ($liSource !== null) {
+                                $liBlock['_sourceIndex'] = $liSource;
+                            }
                             $blocks[] = $liBlock;
                         }
                     }
@@ -3632,6 +3736,12 @@ trait HandlesNaskahStudio
                         if ($liText !== '') {
                             $liBlock = $this->model->newBlock('numbered', $liText);
                             $liBlock['align'] = $align;
+                            $liSource = ($li instanceof \DOMElement && $li->hasAttribute('data-block-index'))
+                                ? (int) $li->getAttribute('data-block-index')
+                                : $sourceIndex;
+                            if ($liSource !== null) {
+                                $liBlock['_sourceIndex'] = $liSource;
+                            }
                             $blocks[] = $liBlock;
                         }
                     }
@@ -3645,6 +3755,31 @@ trait HandlesNaskahStudio
                 if ($firstLineIndent) {
                     $createdBlock['firstLineIndent'] = true;
                 }
+                if ($hangingIndent) {
+                    $createdBlock['hangingIndent'] = true;
+                    unset($createdBlock['firstLineIndent']);
+                }
+                if ($backgroundColor !== null) {
+                    $createdBlock['backgroundColor'] = $backgroundColor;
+                }
+                if ($borderColor !== null) {
+                    $createdBlock['borderColor'] = $borderColor;
+                }
+                if ($indent > 0) {
+                    $createdBlock['indent'] = $indent;
+                }
+                if ($rightIndent > 0) {
+                    $createdBlock['rightIndent'] = $rightIndent;
+                }
+                if ($dropCap) {
+                    $createdBlock['dropCap'] = true;
+                }
+                if ($lineSpacing > 0 && abs($lineSpacing - 1.0) > 0.01) {
+                    $createdBlock['lineSpacing'] = $lineSpacing;
+                }
+                if ($sourceIndex !== null) {
+                    $createdBlock['_sourceIndex'] = $sourceIndex;
+                }
                 $blocks[] = $createdBlock;
             }
         }
@@ -3653,7 +3788,8 @@ trait HandlesNaskahStudio
     }
 
     /**
-     * Sinkronisasi dokumen utuh per lembar halaman terpisah.
+     * Sinkronisasi dokumen dari kumpulan HTML lembar halaman terpisah (gaya Word & LibreOffice).
+     * Melakukan rekonsiliasi cerdas agar atribut tata letak manual tidak hilang saat disimpan.
      *
      * @param  array<int, string>  $pageHtmlList
      */
@@ -3665,11 +3801,116 @@ trait HandlesNaskahStudio
             return;
         }
 
-        $allBlocks = [];
+        $parsedPagesBlocks = [];
+        $hasAnyValidContent = false;
+
         foreach ($pageHtmlList as $pageHtml) {
             $pageBlocks = $this->parseHtmlToBlocks((string) $pageHtml);
-            foreach ($pageBlocks as $b) {
+            if (! empty($pageBlocks)) {
+                $hasAnyValidContent = true;
+            }
+            $parsedPagesBlocks[] = $pageBlocks;
+        }
+
+        if (! $hasAnyValidContent) {
+            return;
+        }
+
+        $currentBlocks = $this->blocks;
+        $allBlocks = [];
+        $totalPages = count($parsedPagesBlocks);
+
+        foreach ($parsedPagesBlocks as $pIdx => $pBlocks) {
+            foreach ($pBlocks as $b) {
+                $srcIdx = $b['_sourceIndex'] ?? null;
+                unset($b['_sourceIndex']);
+
+                // Jika elemen berasal dari blok yang sudah ada di $this->blocks
+                if ($srcIdx !== null && isset($currentBlocks[$srcIdx])) {
+                    $existing = $currentBlocks[$srcIdx];
+                    if (($existing['type'] ?? '') === ($b['type'] ?? '')) {
+                        $merged = $existing;
+                        $merged['text'] = $b['text'];
+                        $merged['align'] = $b['align'] ?? ($existing['align'] ?? 'left');
+
+                        if (! empty($b['firstLineIndent'])) {
+                            $merged['firstLineIndent'] = true;
+                            unset($merged['hangingIndent']);
+                        } elseif (! empty($b['hangingIndent'])) {
+                            $merged['hangingIndent'] = true;
+                            unset($merged['firstLineIndent']);
+                        }
+
+                        if (isset($b['backgroundColor'])) {
+                            $merged['backgroundColor'] = $b['backgroundColor'];
+                        }
+                        if (isset($b['borderColor'])) {
+                            $merged['borderColor'] = $b['borderColor'];
+                        }
+                        if (isset($b['indent'])) {
+                            $merged['indent'] = $b['indent'];
+                        }
+                        if (isset($b['rightIndent'])) {
+                            $merged['rightIndent'] = $b['rightIndent'];
+                        }
+                        if (isset($b['dropCap'])) {
+                            $merged['dropCap'] = $b['dropCap'];
+                        }
+                        if (isset($b['lineSpacing'])) {
+                            $merged['lineSpacing'] = $b['lineSpacing'];
+                        }
+                        if (isset($b['table'])) {
+                            $merged['table'] = $b['table'];
+                        }
+                        if (isset($b['equation'])) {
+                            $merged['equation'] = $b['equation'];
+                        }
+                        if (isset($b['image'])) {
+                            $merged['image'] = $b['image'];
+                        }
+                        if (isset($b['calloutType'])) {
+                            $merged['calloutType'] = $b['calloutType'];
+                        }
+                        if (isset($b['level'])) {
+                            $merged['level'] = $b['level'];
+                        }
+
+                        $allBlocks[] = $merged;
+
+                        continue;
+                    }
+                }
+
                 $allBlocks[] = $b;
+            }
+
+            // Pertahankan pemisah halaman (pagebreak) jika antar halaman ada pagebreak pada model asli
+            if ($pIdx < $totalPages - 1) {
+                $from = null;
+                for ($i = count($pBlocks) - 1; $i >= 0; $i--) {
+                    if (isset($pBlocks[$i]['_sourceIndex'])) {
+                        $from = (int) $pBlocks[$i]['_sourceIndex'];
+                        break;
+                    }
+                }
+
+                $to = null;
+                if (! empty($parsedPagesBlocks[$pIdx + 1])) {
+                    foreach ($parsedPagesBlocks[$pIdx + 1] as $nb) {
+                        if (isset($nb['_sourceIndex'])) {
+                            $to = (int) $nb['_sourceIndex'];
+                            break;
+                        }
+                    }
+                }
+
+                if ($from !== null && $to !== null && $from < $to) {
+                    for ($k = $from + 1; $k < $to; $k++) {
+                        if (($currentBlocks[$k]['type'] ?? '') === 'pagebreak') {
+                            $allBlocks[] = $this->model->newBlock('pagebreak', '');
+                        }
+                    }
+                }
             }
         }
 

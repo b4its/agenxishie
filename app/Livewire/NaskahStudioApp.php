@@ -62,11 +62,11 @@ class NaskahStudioApp extends Component
 
     public int $aiTotalSuggestions = 0;
 
-    public function mount(?int $documentId = null, ?int $project = null, ?string $stage = null): void
+    public function mount(?int $documentId = null, ?int $project = null, ?string $stage = null, ?int $document = null): void
     {
         $this->bootHandlesNaskahStudio();
 
-        $targetDocId = $documentId ?? (request()->query('document') !== null ? (int) request()->query('document') : null);
+        $targetDocId = $documentId ?? $document ?? (request()->query('document') !== null ? (int) request()->query('document') : null);
         $targetProjId = $project ?? (request('project') !== null ? (int) request('project') : null);
         $targetStage = $stage ?? request('stage');
 

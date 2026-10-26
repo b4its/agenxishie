@@ -169,7 +169,7 @@ final class NaskahRichModel
         $text = (string) ($block['text'] ?? '');
         $runs = $this->normalizeRuns($block['runs'] ?? [], $text);
 
-        return [
+        $normalized = [
             'type' => $type,
             'level' => $type === 'heading' ? max(1, min(3, (int) ($block['level'] ?? 1))) : 0,
             'text' => $text,
@@ -186,6 +186,37 @@ final class NaskahRichModel
             'calloutType' => in_array($block['calloutType'] ?? '', ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true) ? $block['calloutType'] : 'info',
             'firstLineIndent' => (bool) ($block['firstLineIndent'] ?? false),
         ];
+
+        if (! empty($block['hangingIndent'])) {
+            $normalized['hangingIndent'] = true;
+            unset($normalized['firstLineIndent']);
+        }
+
+        if (! empty($block['backgroundColor']) && $block['backgroundColor'] !== 'none') {
+            $normalized['backgroundColor'] = (string) $block['backgroundColor'];
+        }
+
+        if (! empty($block['borderColor'])) {
+            $normalized['borderColor'] = (string) $block['borderColor'];
+        }
+
+        if (isset($block['rightIndent']) && (int) $block['rightIndent'] > 0) {
+            $normalized['rightIndent'] = max(0, min(8, (int) $block['rightIndent']));
+        }
+
+        if (! empty($block['citation'])) {
+            $normalized['citation'] = (string) $block['citation'];
+        }
+
+        if (! empty($block['footnote'])) {
+            $normalized['footnote'] = (string) $block['footnote'];
+        }
+
+        if ($type === 'toc' && isset($block['table'])) {
+            $normalized['table'] = is_array($block['table']) ? $block['table'] : ['rows' => []];
+        }
+
+        return $normalized;
     }
 
     /**
@@ -1482,6 +1513,16 @@ final class NaskahRichModel
 
         if (isset($attributes['firstLineIndent'])) {
             $block['firstLineIndent'] = (bool) $attributes['firstLineIndent'];
+            if ($block['firstLineIndent']) {
+                unset($block['hangingIndent']);
+            }
+        }
+
+        if (isset($attributes['hangingIndent'])) {
+            $block['hangingIndent'] = (bool) $attributes['hangingIndent'];
+            if ($block['hangingIndent']) {
+                unset($block['firstLineIndent']);
+            }
         }
 
         if (isset($attributes['lineSpacing'])) {

@@ -165,7 +165,16 @@ window.wordStudioApp = function(config) {
             const doSync = () => {
                 const pageEls = document.querySelectorAll('.word-sheet-content');
                 const pageHtmls = [];
-                pageEls.forEach(el => pageHtmls.push(el.innerHTML));
+                pageEls.forEach(el => {
+                    const clone = el.cloneNode(true);
+                    clone.querySelectorAll('button, .word-tool-btn, .word-table-actions, .word-callout-actions, .word-image-actions, .word-equation-actions').forEach(btn => btn.remove());
+                    clone.querySelectorAll('[contenteditable="false"]').forEach(ui => {
+                        if (!ui.matches('.word-toc-block, .word-equation-block, .word-image-figure, .word-footnote-block')) {
+                            ui.remove();
+                        }
+                    });
+                    pageHtmls.push(clone.innerHTML);
+                });
                 if (pageHtmls.length > 0) {
                     const wire = this.getWire();
                     if (wire) {
@@ -194,7 +203,16 @@ window.wordStudioApp = function(config) {
             this.savingState = 'saving';
             const pageEls = document.querySelectorAll('.word-sheet-content');
             const pageHtmls = [];
-            pageEls.forEach(el => pageHtmls.push(el.innerHTML));
+            pageEls.forEach(el => {
+                const clone = el.cloneNode(true);
+                clone.querySelectorAll('button, .word-tool-btn, .word-table-actions, .word-callout-actions, .word-image-actions, .word-equation-actions').forEach(btn => btn.remove());
+                clone.querySelectorAll('[contenteditable="false"]').forEach(ui => {
+                    if (!ui.matches('.word-toc-block, .word-equation-block, .word-image-figure, .word-footnote-block')) {
+                        ui.remove();
+                    }
+                });
+                pageHtmls.push(clone.innerHTML);
+            });
             const wire = this.getWire();
             if (wire) {
                 wire.save(pageHtmls);
