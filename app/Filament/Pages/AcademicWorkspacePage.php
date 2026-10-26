@@ -269,6 +269,45 @@ class AcademicWorkspacePage extends Page
     }
 
     /**
+     * Kustomisasi format paragraf untuk sub-bab / halaman naskah tertentu.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    public function customSectionParagraphs(int $index, array $options = []): void
+    {
+        if (! isset($this->editorSections[$index])) {
+            return;
+        }
+
+        $content = (string) ($this->editorSections[$index]['content'] ?? '');
+        $paragraphs = preg_split('/\n{2,}/u', trim($content)) ?: [];
+
+        $firstLineIndent = ! empty($options['first_line_indent']);
+        $prefix = $firstLineIndent ? '    ' : '';
+        $updated = [];
+
+        foreach ($paragraphs as $p) {
+            $trimmed = trim($p);
+            if ($trimmed === '') {
+                continue;
+            }
+            if ($firstLineIndent && ! str_starts_with($trimmed, '    ') && ! str_starts_with($trimmed, "\t")) {
+                $trimmed = $prefix.$trimmed;
+            }
+            $updated[] = $trimmed;
+        }
+
+        $this->editorSections[$index]['content'] = implode("\n\n", $updated);
+        $this->editorDirty = true;
+
+        Notification::make()
+            ->title('Paragraf sub-bab dikustomisasi')
+            ->body("'{$this->editorSections[$index]['heading']}' berhasil diformat.")
+            ->success()
+            ->send();
+    }
+
+    /**
      * Geser sub-bab naik/turun untuk mengatur urutan naskah.
      */
     public function moveEditorSection(int $index, int $direction): void
