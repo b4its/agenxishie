@@ -1733,6 +1733,20 @@
                                     title="Rata Kiri seluruh alinea Halaman {{ $pageNumber }}">
                                     = Rata Kiri
                                 </button>
+                                <button type="button"
+                                    wire:click="setPageParagraphLineSpacing({{ $pageNumber }}, 1.5)"
+                                    class="word-tool-btn {{ ($pageOverrides[$pageNumber]['lineSpacing'] ?? 0) == 1.5 ? 'active' : '' }}"
+                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
+                                    title="Atur Spasi 1.5 Halaman {{ $pageNumber }}">
+                                    ↕ 1.5
+                                </button>
+                                <button type="button"
+                                    wire:click="setPageParagraphLineSpacing({{ $pageNumber }}, 1.0)"
+                                    class="word-tool-btn {{ ($pageOverrides[$pageNumber]['lineSpacing'] ?? 0) == 1.0 ? 'active' : '' }}"
+                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
+                                    title="Atur Spasi 1.0 Halaman {{ $pageNumber }}">
+                                    ↕ 1.0
+                                </button>
                             </div>
                             <div style="display:flex; align-items:center; gap:8px;">
                                 @if ($isFirstPage)
@@ -1748,12 +1762,13 @@
                         @php
                             $pageCols = (int) ($pageOverrides[$pageNumber]['columns'] ?? $pageSetup['columns'] ?? 1);
                             $colStyle = $pageCols > 1 ? "column-count: {$pageCols}; column-gap: 1.5rem;" : '';
+                            $pageLineSpacing = (float) ($pageOverrides[$pageNumber]['lineSpacing'] ?? $pageSetup['lineSpacing'] ?? 1.5);
                         @endphp
                         <div class="word-sheet-content"
                             wire:key="page-content-{{ $pageNumber }}-v{{ $editorRevision }}"
                             wire:ignore
                             id="word-page-content-{{ $pageNumber }}"
-                            style="line-height: {{ $pageSetup['lineSpacing'] ?? '1.5' }}; {{ $colStyle }}"
+                            style="line-height: {{ $pageLineSpacing }}; {{ $colStyle }}"
                             contenteditable="{{ $editingMode === 'viewing' ? 'false' : 'true' }}"
                             spellcheck="false"
                             @keydown="handleContentKeydown($event)"
@@ -2021,6 +2036,8 @@
                                                     </p>
                                                     <div x-show="hovered" contenteditable="false" style="position:absolute; right:4px; top:-12px; z-index:20; display:flex; gap:3px; background:#ffffff; border:1px solid #cbd5e1; border-radius:4px; padding:2px 4px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
                                                         <button type="button" class="word-tool-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="openParagraphCustomizer({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Kustomisasi paragraf ini">⚙️</button>
+                                                        <button type="button" class="word-tool-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="togglePageParagraphFirstLineIndent({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Indentasi Baris Pertama (1.27cm)">📐</button>
+                                                        <button type="button" class="word-tool-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="highlightPageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Sorot Warna Kuning">🖍️</button>
                                                         <button type="button" class="word-tool-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="togglePageParagraphDropCap({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Huruf kapital awal membesar (Drop Cap)">🔤</button>
                                                         <button type="button" class="word-tool-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="movePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }}, -1)" title="Geser naik">⬆️</button>
                                                         <button type="button" class="word-tool-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="movePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }}, 1)" title="Geser turun">⬇️</button>

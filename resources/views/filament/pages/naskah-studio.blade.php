@@ -2001,6 +2001,20 @@
                                         style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
                                         title="Rata Kiri seluruh alinea Halaman {{ $pageNumber }}">
                                         = Rata Kiri
+                                     </button>
+                                    <button type="button"
+                                        wire:click="setPageParagraphLineSpacing({{ $pageNumber }}, 1.5)"
+                                        class="ns-btn {{ ($pageOverrides[$pageNumber]['lineSpacing'] ?? 0) == 1.5 ? 'active' : '' }}"
+                                        style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
+                                        title="Atur Spasi 1.5 Halaman {{ $pageNumber }}">
+                                        ↕ 1.5
+                                    </button>
+                                    <button type="button"
+                                        wire:click="setPageParagraphLineSpacing({{ $pageNumber }}, 1.0)"
+                                        class="ns-btn {{ ($pageOverrides[$pageNumber]['lineSpacing'] ?? 0) == 1.0 ? 'active' : '' }}"
+                                        style="font-size:10px; padding:2px 6px; height:20px; border-radius:3px;"
+                                        title="Atur Spasi 1.0 Halaman {{ $pageNumber }}">
+                                        ↕ 1.0
                                     </button>
                                 </div>
                                 <span>Halaman {{ $pageNumber }} dari {{ $pageCount }}</span>
@@ -2010,13 +2024,14 @@
                             @php
                                 $pageCols = (int) ($pageOverrides[$pageNumber]['columns'] ?? $pageSetup['columns'] ?? 1);
                                 $colStyle = $pageCols > 1 ? "column-count: {$pageCols}; column-gap: 1.5rem;" : '';
+                                $pageLineSpacing = (float) ($pageOverrides[$pageNumber]['lineSpacing'] ?? $pageSetup['lineSpacing'] ?? 1.5);
                             @endphp
                             <div class="word-sheet-content"
                                  id="word-page-content-{{ $pageNumber }}"
                                  data-page-number="{{ $pageNumber }}"
                                  wire:key="filament-content-{{ $documentId ?? 'new' }}-p{{ $pageNumber }}-v{{ $editorRevision }}"
                                  wire:ignore
-                                 style="outline: none; min-height: 720px; line-height: {{ $pageSetup['lineSpacing'] ?? '1.5' }}; {{ $colStyle }}"
+                                 style="outline: none; min-height: 720px; line-height: {{ $pageLineSpacing }}; {{ $colStyle }}"
                                  contenteditable="true"
                                  spellcheck="false"
                                  @keydown="handleContentKeydown($event)"
@@ -2183,6 +2198,8 @@
                                                         </p>
                                                         <div x-show="hovered" contenteditable="false" style="position:absolute; right:4px; top:-12px; z-index:20; display:flex; gap:3px; background:#ffffff; border:1px solid #cbd5e1; border-radius:4px; padding:2px 4px; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="openParagraphCustomizer({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Kustomisasi paragraf ini">⚙️</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="togglePageParagraphFirstLineIndent({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Indentasi Baris Pertama (1.27cm)">📐</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="highlightPageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Sorot Warna Kuning">🖍️</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="togglePageParagraphDropCap({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Huruf kapital awal membesar (Drop Cap)">🔤</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="movePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }}, -1)" title="Geser naik">⬆️</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="movePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }}, 1)" title="Geser turun">⬇️</button>

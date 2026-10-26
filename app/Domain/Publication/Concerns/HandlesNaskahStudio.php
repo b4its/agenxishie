@@ -1438,7 +1438,9 @@ trait HandlesNaskahStudio
             $styles[] = "margin-left: {$rem}rem";
         }
 
-        if (! empty($block['firstLineIndent'])) {
+        if (! empty($block['hangingIndent'])) {
+            $styles[] = 'padding-left: 1.27cm; text-indent: -1.27cm';
+        } elseif (! empty($block['firstLineIndent'])) {
             $styles[] = 'text-indent: 1.27cm';
         }
 
@@ -2307,6 +2309,160 @@ trait HandlesNaskahStudio
         $this->notify('Urutan Paragraf Ditata', "Susunan alinea pada Halaman {$pageNumber} berhasil diperbarui.", 'success');
 
         return true;
+    }
+
+    /**
+     * Atur spasi baris khusus untuk halaman tertentu (1.0, 1.15, 1.5, 2.0).
+     */
+    public function setPageParagraphLineSpacing(int $pageNumber, float $spacing = 1.5): void
+    {
+        $clamped = max(0.8, min(3.0, $spacing));
+        $this->pageOverrides[$pageNumber]['lineSpacing'] = $clamped;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Spasi Baris Halaman', "Spasi baris Halaman {$pageNumber} diatur ke {$clamped}.", 'success');
+    }
+
+    /**
+     * Aktifkan atau nonaktifkan indentasi baris pertama (1.27cm) pada paragraf halaman tertentu.
+     */
+    public function togglePageParagraphFirstLineIndent(int $pageNumber, int $paragraphIndexOnPage): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $gIdx = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $current = (bool) ($this->blocks[$gIdx]['firstLineIndent'] ?? false);
+
+        $this->pushUndo();
+        $this->blocks[$gIdx]['firstLineIndent'] = ! $current;
+        if (! $current) {
+            unset($this->blocks[$gIdx]['hangingIndent']);
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $status = ! $current ? 'diaktifkan' : 'dinonaktifkan';
+        $this->notify('Indentasi Paragraf', "Indentasi baris pertama {$status} pada alinea #".($paragraphIndexOnPage + 1)." Halaman {$pageNumber}.", 'info');
+
+        return true;
+    }
+
+    /**
+     * Aktifkan atau nonaktifkan indentasi gantung (hanging indent) pada paragraf halaman tertentu.
+     */
+    public function togglePageParagraphHangingIndent(int $pageNumber, int $paragraphIndexOnPage): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $gIdx = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $current = (bool) ($this->blocks[$gIdx]['hangingIndent'] ?? false);
+
+        $this->pushUndo();
+        $this->blocks[$gIdx]['hangingIndent'] = ! $current;
+        if (! $current) {
+            unset($this->blocks[$gIdx]['firstLineIndent']);
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $status = ! $current ? 'diaktifkan' : 'dinonaktifkan';
+        $this->notify('Indentasi Gantung', "Indentasi gantung (hanging indent) {$status} pada alinea #".($paragraphIndexOnPage + 1)." Halaman {$pageNumber}.", 'info');
+
+        return true;
+    }
+
+    /**
+     * Sorot latar belakang paragraf tertentu pada halaman (highlight color).
+     */
+    public function highlightPageParagraph(int $pageNumber, int $paragraphIndexOnPage, string $color = '#fef08a'): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $gIdx = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $currentBg = (string) ($this->blocks[$gIdx]['backgroundColor'] ?? '');
+
+        $this->pushUndo();
+        if ($currentBg === $color) {
+            unset($this->blocks[$gIdx]['backgroundColor']);
+            $actionLabel = 'dihapus';
+        } else {
+            $this->blocks[$gIdx]['backgroundColor'] = $color;
+            $actionLabel = 'diterapkan';
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Sorotan Paragraf', "Warna sorot paragraf {$actionLabel} pada Halaman {$pageNumber}.", 'success');
+
+        return true;
+    }
+
+    /**
+     * Hitung metrik keterbacaan dan statistik alinea khusus untuk halaman tertentu.
+     *
+     * @return array<string, mixed>
+     */
+    public function getPageParagraphReadability(int $pageNumber): array
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        $totalParas = count($paragraphs);
+        if ($totalParas === 0) {
+            return [
+                'page' => $pageNumber,
+                'paragraph_count' => 0,
+                'word_count' => 0,
+                'sentence_count' => 0,
+                'avg_words_per_sentence' => 0.0,
+                'longest_paragraph_words' => 0,
+                'shortest_paragraph_words' => 0,
+                'reading_time_seconds' => 0,
+                'readability_level' => 'Kosong',
+            ];
+        }
+
+        $totalWords = 0;
+        $totalSentences = 0;
+        $paraWordCounts = [];
+
+        foreach ($paragraphs as $item) {
+            $text = strip_tags((string) ($item['block']['text'] ?? ''));
+            $words = str_word_count($text);
+            $paraWordCounts[] = $words;
+            $totalWords += $words;
+
+            $sentences = preg_split('/(?<=[.!?])\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $totalSentences += max(1, count($sentences));
+        }
+
+        $avgWps = $totalSentences > 0 ? round($totalWords / $totalSentences, 1) : 0.0;
+        $readingTimeSeconds = (int) round(($totalWords / 200) * 60);
+
+        $level = match (true) {
+            $avgWps <= 14.0 => 'Mudah Dibaca (Ringan)',
+            $avgWps <= 22.0 => 'Standar Akademik (Optimal)',
+            default => 'Kompleks / Padat Teori (Perlu Penyederhanaan)',
+        };
+
+        return [
+            'page' => $pageNumber,
+            'paragraph_count' => $totalParas,
+            'word_count' => $totalWords,
+            'sentence_count' => $totalSentences,
+            'avg_words_per_sentence' => $avgWps,
+            'longest_paragraph_words' => ! empty($paraWordCounts) ? max($paraWordCounts) : 0,
+            'shortest_paragraph_words' => ! empty($paraWordCounts) ? min($paraWordCounts) : 0,
+            'reading_time_seconds' => $readingTimeSeconds,
+            'readability_level' => $level,
+        ];
     }
 
     // =====================================================================
