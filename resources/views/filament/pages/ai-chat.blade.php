@@ -69,8 +69,11 @@
                         <button type="button" class="rb-button" wire:click="refreshModels" wire:loading.attr="disabled">
                             &#8635; Muat Model
                         </button>
-                        <button type="button" class="rb-button" wire:click="exportChat" title="Unduh transkrip percakapan sebagai Markdown">
-                            &#11015; Unduh Transkrip
+                        <button type="button" class="rb-button" wire:click="exportChat('markdown')" title="Unduh transkrip percakapan sebagai Markdown">
+                            &#11015; Unduh .MD
+                        </button>
+                        <button type="button" class="rb-button" wire:click="exportChat('json')" title="Unduh transkrip percakapan sebagai format JSON">
+                            &#128196; .JSON
                         </button>
                         <button type="button" class="rb-button" wire:click="clearChat" wire:loading.attr="disabled">
                             &#128465; Bersihkan

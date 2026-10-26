@@ -281,9 +281,9 @@ class AiChatPage extends Page
     }
 
     /**
-     * Unduh transkrip percakapan AI Chat sebagai berkas Markdown.
+     * Unduh transkrip percakapan AI Chat sebagai berkas Markdown, JSON, atau TXT.
      */
-    public function exportChat(): ?StreamedResponse
+    public function exportChat(string $format = 'markdown'): ?StreamedResponse
     {
         if (empty($this->messages)) {
             Notification::make()->title('Transkrip masih kosong')->warning()->send();
@@ -292,35 +292,76 @@ class AiChatPage extends Page
         }
 
         $timestamp = now()->format('Y-m-d_H-i-s');
-        $filename = 'omnigensi_aichat_transcript_'.$timestamp.'.md';
+        $format = strtolower($format);
 
-        $lines = [
-            '# Transkrip Percakapan AI Chat (Omnigensi)',
-            '- **Waktu Ekspor**: '.now()->toIso8601String(),
-            '- **Model Terpilih**: '.($this->selectedModel ?: 'Default'),
-            '- **Total Pesan**: '.count($this->messages),
-            '',
-            '---',
-            '',
-        ];
+        if ($format === 'json') {
+            $filename = 'omnigensi_aichat_transcript_'.$timestamp.'.json';
+            $payload = [
+                'exported_at' => now()->toIso8601String(),
+                'selected_model' => $this->selectedModel ?: 'Default',
+                'total_messages' => count($this->messages),
+                'messages' => $this->messages,
+            ];
+            $content = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $mime = 'application/json; charset=UTF-8';
+        } elseif ($format === 'txt') {
+            $filename = 'omnigensi_aichat_transcript_'.$timestamp.'.txt';
+            $lines = [
+                'TRANSKRIP PERCAKAPAN AI CHAT (OMNIGENSI)',
+                'Waktu Ekspor: '.now()->toIso8601String(),
+                'Model Terpilih: '.($this->selectedModel ?: 'Default'),
+                'Total Pesan: '.count($this->messages),
+                str_repeat('=', 50),
+                '',
+            ];
 
-        foreach ($this->messages as $msg) {
-            $sender = $msg['role'] === 'user' ? 'Peneliti' : 'AI Model ('.($msg['model'] ?? 'Omnigensi').')';
-            $lines[] = "### [{$sender}]";
-            if (isset($msg['latency_ms'])) {
-                $lines[] = "*Latensi: {$msg['latency_ms']}ms*";
+            foreach ($this->messages as $msg) {
+                $sender = $msg['role'] === 'user' ? 'Peneliti' : 'AI Model ('.($msg['model'] ?? 'Omnigensi').')';
+                $lines[] = "[{$sender}]";
+                $lines[] = (string) $msg['content'];
+                $lines[] = str_repeat('-', 30);
                 $lines[] = '';
             }
-            $lines[] = $msg['content'];
-            $lines[] = '';
+
+            $content = implode("\n", $lines);
+            $mime = 'text/plain; charset=UTF-8';
+        } else {
+            $filename = 'omnigensi_aichat_transcript_'.$timestamp.'.md';
+            $lines = [
+                '# Transkrip Percakapan AI Chat (Omnigensi)',
+                '- **Waktu Ekspor**: '.now()->toIso8601String(),
+                '- **Model Terpilih**: '.($this->selectedModel ?: 'Default'),
+                '- **Total Pesan**: '.count($this->messages),
+                '',
+                '---',
+                '',
+            ];
+
+            foreach ($this->messages as $msg) {
+                $sender = $msg['role'] === 'user' ? 'Peneliti' : 'AI Model ('.($msg['model'] ?? 'Omnigensi').')';
+                $lines[] = "### [{$sender}]";
+                if (isset($msg['latency_ms'])) {
+                    $lines[] = "*Latensi: {$msg['latency_ms']}ms*";
+                    $lines[] = '';
+                }
+                $lines[] = $msg['content'];
+                $lines[] = '';
+            }
+
+            $content = implode("\n", $lines);
+            $mime = 'text/markdown; charset=UTF-8';
         }
 
-        $content = implode("\n", $lines);
+        Notification::make()
+            ->title('Transkrip Percakapan Diekspor')
+            ->body('Transkrip berhasil diunduh dalam format '.strtoupper($format).'.')
+            ->success()
+            ->send();
 
         return response()->streamDownload(static function () use ($content): void {
             echo $content;
         }, $filename, [
-            'Content-Type' => 'text/markdown; charset=UTF-8',
+            'Content-Type' => $mime,
         ]);
     }
 
