@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Assistant\SlashCommand;
 use App\Domain\Assistant\XishieAssistantService;
 use App\Domain\GuidelineEngine\CustomGuidelineParser;
 use App\Domain\GuidelineEngine\Enums\CitationStyle;
@@ -1539,4 +1540,120 @@ it('customizes section paragraphs in academic workspace editor', function (): vo
     $sections = $component->get('editorSections');
     expect($sections[0]['content'])->toContain('    Paragraf pertama')
         ->and($sections[0]['content'])->toContain('    Paragraf kedua');
+});
+
+it('manages paragraph presets, stats, duplicates, and moves on studio pages', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Naskah Uji Presets Paragraf',
+        'blocks' => [
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Paragraf pertama analisis sistem cerdas.'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Paragraf kedua perbandingan performa latensi jaringan.'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Paragraf ketiga evaluasi efisiensi energi.'],
+        ],
+        'word_count' => 18,
+    ]);
+
+    $app = Livewire::test(NaskahStudioApp::class);
+    $instance = $app->instance();
+    $instance->blocks = (array) $doc->blocks;
+
+    // 1. Uji statistik paragraf per halaman
+    $stats = $instance->getPageParagraphStats(1);
+    expect($stats['paragraphCount'])->toBe(3)
+        ->and($stats['words'])->toBeGreaterThan(10)
+        ->and($stats['characters'])->toBeGreaterThan(50);
+
+    // 2. Terapkan preset academic_standard (APA/Scopus 1.5 spasi) ke Halaman 1
+    $formattedCount = $instance->applyParagraphPresetToPage(1, 'academic_standard');
+    expect($formattedCount)->toBe(3);
+    expect($instance->blocks[0]['align'])->toBe('justify')
+        ->and($instance->blocks[0]['lineSpacing'])->toBe(1.5)
+        ->and($instance->blocks[0]['firstLineIndent'])->toBeTrue();
+
+    // 3. Terapkan preset journal_ieee (IEEE 1.0 spasi)
+    $formattedIeee = $instance->applyParagraphPresetToPage(1, 'journal_ieee');
+    expect($formattedIeee)->toBe(3);
+    expect($instance->blocks[0]['lineSpacing'])->toBe(1.0);
+
+    // 4. Uji duplikasi paragraf di Halaman 1
+    $dupIndex = $instance->duplicatePageParagraph(1, 0);
+    expect($dupIndex)->toBeInt();
+    expect(count($instance->blocks))->toBe(4);
+    expect($instance->blocks[1]['text'])->toBe('Paragraf pertama analisis sistem cerdas.');
+
+    // 5. Uji pemindahan paragraf ke bawah (down)
+    $moved = $instance->movePageParagraph(1, 0, 1);
+    expect($moved)->toBeTrue();
+
+    // 6. Uji pemuatan preset ke modal customizer
+    $instance->loadPresetIntoCustomizer('thesis_dikti');
+    expect($instance->customParaLineSpacing)->toBe(2.0)
+        ->and($instance->customParaAlign)->toBe('justify')
+        ->and($instance->customParaFirstLineIndent)->toBeTrue();
+});
+
+it('executes paragraphs inspection and format-paragraph action via artisan naskah:manage', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen CLI Paragraph Format',
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Paragraf CLI pertama untuk verifikasi pengujian terminal.'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Paragraf CLI kedua untuk verifikasi format preset otomatis.'],
+        ],
+        'word_count' => 17,
+    ]);
+
+    // 1. Uji inspeksi paragraf pada halaman 1 via CLI
+    $this->artisan('naskah:manage', [
+        'action' => 'paragraphs',
+        'documentId' => $doc->id,
+        '--page' => 1,
+    ])
+        ->expectsOutputToContain('DAFTAR PARAGRAF HALAMAN #1')
+        ->expectsOutputToContain('Paragraf CLI pertama')
+        ->assertSuccessful();
+
+    // 2. Uji format paragraf via CLI menggunakan preset journal_ieee
+    $this->artisan('naskah:manage', [
+        'action' => 'format-paragraph',
+        'documentId' => $doc->id,
+        '--page' => 1,
+        '--preset' => 'journal_ieee',
+    ])
+        ->expectsOutputToContain('Berhasil memformat 2 paragraf pada halaman #1')
+        ->assertSuccessful();
+
+    $doc->refresh();
+    $updatedBlocks = $doc->blocks;
+    expect((float) $updatedBlocks[1]['lineSpacing'])->toBe(1.0)
+        ->and($updatedBlocks[1]['align'])->toBe('justify')
+        ->and((float) $updatedBlocks[2]['lineSpacing'])->toBe(1.0);
+});
+
+it('executes /format-paragraf slash command for academic typography and density audit', function (): void {
+    $project = makeProject(['document_type' => 'skripsi']);
+    $assistant = app(XishieAssistantService::class);
+
+    // 1. Eksekusi tanpa argumen -> panduan format baku & daftar preset
+    $resultGuide = $assistant->handle($project, '/format-paragraf');
+    expect($resultGuide['command'])->toBe('/format-paragraf')
+        ->and($resultGuide['reply'])->toContain('Panduan Standar Kaidah Paragraf Akademik')
+        ->and($resultGuide['reply'])->toContain('academic_standard')
+        ->and($resultGuide['reply'])->toContain('journal_ieee')
+        ->and($resultGuide['reply'])->toContain('thesis_dikti')
+        ->and($resultGuide['data']['presets'])->toContain('academic_standard');
+
+    // 2. Eksekusi dengan argumen teks paragraf -> audit kepadatan dan kalimat
+    $sampleParagraph = 'Teknologi kecerdasan artifisial berkembang pesat dalam dekade terakhir. Berbagai algoritma pembelajaran mesin telah diterapkan pada optimasi pemrosesan data ilmiah berdimensi tinggi. Hasil pengujian menunjukkan peningkatan akurasi hingga dua puluh persen dibandingkan metode konvensional.';
+    $resultAudit = $assistant->handle($project, "/paragraf {$sampleParagraph}");
+    expect($resultAudit['command'])->toBe('/format-paragraf')
+        ->and($resultAudit['reply'])->toContain('Analisis & Kaidah Format Paragraf')
+        ->and($resultAudit['reply'])->toContain('Jumlah Kata')
+        ->and($resultAudit['reply'])->toContain('Jumlah Kalimat')
+        ->and($resultAudit['data']['sentences'])->toBe(3);
+
+    // 3. Verifikasi parsing alias
+    expect(SlashCommand::tryParse('/format-paragraf'))->toBe(SlashCommand::FORMAT_PARAGRAF)
+        ->and(SlashCommand::tryParse('/paragraf'))->toBe(SlashCommand::FORMAT_PARAGRAF)
+        ->and(SlashCommand::tryParse('/aturan-paragraf'))->toBe(SlashCommand::FORMAT_PARAGRAF);
 });

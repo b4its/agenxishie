@@ -763,7 +763,7 @@ final class XishieAssistantService
      */
     private function formatParagraf(XishieProject $project, string $argument): array
     {
-        $docType = strtolower((string) ($project->document_type ?? 'skripsi'));
+        $docType = strtolower(is_string($project->document_type) ? $project->document_type : ($project->document_type?->value ?? 'skripsi'));
 
         if (trim($argument) !== '') {
             $words = count(preg_split('/\s+/u', trim($argument), -1, PREG_SPLIT_NO_EMPTY) ?: []);
