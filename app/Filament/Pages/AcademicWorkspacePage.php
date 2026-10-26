@@ -242,6 +242,33 @@ class AcademicWorkspacePage extends Page
     }
 
     /**
+     * Duplikasi satu sub-bab dari naskah beserta isinya.
+     */
+    public function duplicateEditorSection(int $index): void
+    {
+        if (! isset($this->editorSections[$index])) {
+            return;
+        }
+
+        $source = $this->editorSections[$index];
+        $clone = [
+            'key' => $source['key'].'_salinan_'.(count($this->editorSections) + 1),
+            'heading' => $source['heading'].' (Salinan)',
+            'content' => $source['content'],
+        ];
+
+        array_splice($this->editorSections, $index + 1, 0, [$clone]);
+        $this->editorSections = array_values($this->editorSections);
+        $this->editorDirty = true;
+
+        Notification::make()
+            ->title('Sub-bab diduplikasi')
+            ->body("'{$clone['heading']}' ditambahkan.")
+            ->success()
+            ->send();
+    }
+
+    /**
      * Geser sub-bab naik/turun untuk mengatur urutan naskah.
      */
     public function moveEditorSection(int $index, int $direction): void
