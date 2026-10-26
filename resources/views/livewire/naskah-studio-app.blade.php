@@ -1075,7 +1075,7 @@
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="1"/><line x1="8" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/></svg>
                         <span>Margins ▾</span>
                     </button>
-                    <button type="button" class="word-btn-large" wire:click="updatePageSetup('orientation', '{{ ($pageSetup['orientation'] ?? 'portrait') === 'portrait' ? 'landscape' : 'portrait' }}')" title="Page Orientation">
+                    <button type="button" class="word-btn-large" wire:click="setOrientation('{{ ($pageSetup['orientation'] ?? 'portrait') === 'portrait' ? 'landscape' : 'portrait' }}')" title="Page Orientation">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
                         <span>{{ ucfirst($pageSetup['orientation'] ?? 'portrait') }}</span>
                     </button>
@@ -1653,7 +1653,7 @@
                         $padLeft = max(12, min(50, (float)($pageSetup['marginLeft'] ?? 25.4)));
                     @endphp
 
-                    <div class="word-paper-sheet"
+                    <div class="word-paper-sheet {{ ($pageSetup['orientation'] ?? 'portrait') === 'landscape' ? 'landscape word-paper-sheet--landscape' : '' }}"
                         wire:key="page-sheet-{{ $pageNumber }}-v{{ $editorRevision }}"
                         id="word-page-{{ $pageNumber }}"
                         data-page-number="{{ $pageNumber }}"
@@ -2472,15 +2472,17 @@
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                             <div>
                                 <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Paper Size:</label>
-                                <select wire:change="updatePageSetup('size', $event.target.value)" class="word-select" style="width:100%; height:32px;">
+                                <select wire:change="setPaperSize($event.target.value)" class="word-select" style="width:100%; height:32px;">
                                     <option value="A4" {{ ($pageSetup['size'] ?? '') === 'A4' ? 'selected' : '' }}>A4 (210 x 297 mm)</option>
                                     <option value="Letter" {{ ($pageSetup['size'] ?? '') === 'Letter' ? 'selected' : '' }}>Letter (8.5 x 11 in)</option>
                                     <option value="Legal" {{ ($pageSetup['size'] ?? '') === 'Legal' ? 'selected' : '' }}>Legal (8.5 x 14 in)</option>
+                                    <option value="B5" {{ ($pageSetup['size'] ?? '') === 'B5' ? 'selected' : '' }}>B5 (Academic Book)</option>
+                                    <option value="A5" {{ ($pageSetup['size'] ?? '') === 'A5' ? 'selected' : '' }}>A5</option>
                                 </select>
                             </div>
                             <div>
                                 <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Orientation:</label>
-                                <select wire:change="updatePageSetup('orientation', $event.target.value)" class="word-select" style="width:100%; height:32px;">
+                                <select wire:change="setOrientation($event.target.value)" class="word-select" style="width:100%; height:32px;">
                                     <option value="portrait" {{ ($pageSetup['orientation'] ?? '') === 'portrait' ? 'selected' : '' }}>Portrait</option>
                                     <option value="landscape" {{ ($pageSetup['orientation'] ?? '') === 'landscape' ? 'selected' : '' }}>Landscape</option>
                                 </select>

@@ -971,6 +971,13 @@ dialog#livewire-error {
     border-radius: 2px;
 }
 
+.word-paper-sheet.landscape,
+.word-paper-sheet--landscape {
+    width: 1056px !important;
+    max-width: 1056px !important;
+    min-height: 816px !important;
+}
+
 .dark .word-paper-sheet {
     background: #252526;
     color: #f3f3f3;

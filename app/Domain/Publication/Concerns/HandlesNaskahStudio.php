@@ -648,6 +648,24 @@ trait HandlesNaskahStudio
         $this->dirty = true;
     }
 
+    public function setPaperSize(string $size): void
+    {
+        $cleanSize = strtoupper($size);
+        $this->pageSetup['size'] = in_array($cleanSize, ['A4', 'B5', 'A3', 'A5'], true)
+            ? $cleanSize
+            : ucfirst(strtolower($size));
+        $this->dirty = true;
+        $this->notify('Ukuran Kertas', "Ukuran halaman diubah ke {$this->pageSetup['size']}.", 'info');
+    }
+
+    public function setOrientation(string $orientation): void
+    {
+        $clean = strtolower($orientation) === 'landscape' ? 'landscape' : 'portrait';
+        $this->pageSetup['orientation'] = $clean;
+        $this->dirty = true;
+        $this->notify('Orientasi Kertas', 'Orientasi diubah ke '.ucfirst($clean).'.', 'info');
+    }
+
     // ===== Bantuan AI Blok (Wordcraft Co-Writing) =====
 
     public function aiElaborateBlock(int $index): void
@@ -2837,7 +2855,11 @@ trait HandlesNaskahStudio
         $blocks = $this->model->normalize($this->blocks);
 
         if ($format === 'docx') {
-            $binary = app(NaskahDocxExporter::class)->build($blocks, $this->docTitle, ['watermark' => (string) ($this->pageSetup['watermark'] ?? '')]);
+            $binary = app(NaskahDocxExporter::class)->build($blocks, $this->docTitle, [
+                'watermark' => (string) ($this->pageSetup['watermark'] ?? ''),
+                'orientation' => (string) ($this->pageSetup['orientation'] ?? 'portrait'),
+                'size' => (string) ($this->pageSetup['size'] ?? 'A4'),
+            ]);
 
             return response()->streamDownload(static function () use ($binary): void {
                 echo $binary;

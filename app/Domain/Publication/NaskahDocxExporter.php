@@ -161,6 +161,11 @@ final class NaskahDocxExporter
             $body .= $this->textBlockXml($block);
         }
 
+        $isLandscape = strtolower((string) ($options['orientation'] ?? 'portrait')) === 'landscape';
+        $pgSz = $isLandscape
+            ? '<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
+            : '<w:pgSz w:w="11906" w:h="16838"/>';
+
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
             .'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
@@ -168,7 +173,7 @@ final class NaskahDocxExporter
             .'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
             .'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
             .'<w:body>'.$body
-            .'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>'
+            .'<w:sectPr>'.$pgSz.'<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>'
             .'</w:body></w:document>';
     }
 

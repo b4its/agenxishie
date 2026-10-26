@@ -289,6 +289,10 @@
             box-sizing: border-box;
             transition: all .2s;
         }
+        .ns-page--landscape {
+            max-width: 1100px;
+            min-height: 860px;
+        }
         .ns-page--web { max-width: 100%; box-shadow: none; min-height: auto; border: none !important; }
         .ns-page--read { max-width: 720px; box-shadow: 0 1px 3px rgba(15,23,42,.08); border: none; }
         .ns-page--border { border: 2px solid #94a3b8; }
@@ -1611,12 +1615,13 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Orientasi &amp; Ukuran</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn @if(($pageSetup['orientation'] ?? 'portrait') === 'portrait') ns-btn--active @endif" wire:click="updatePageSetup('orientation', 'portrait')">Potret</button>
-                            <button type="button" class="ns-btn @if(($pageSetup['orientation'] ?? '') === 'landscape') ns-btn--active @endif" wire:click="updatePageSetup('orientation', 'landscape')">Lanskap</button>
-                            <select class="ns-btn" style="padding:.2rem .35rem;" wire:change="updatePageSetup('size', $event.target.value)">
+                            <button type="button" class="ns-btn @if(($pageSetup['orientation'] ?? 'portrait') === 'portrait') ns-btn--active @endif" wire:click="setOrientation('portrait')">Potret</button>
+                            <button type="button" class="ns-btn @if(($pageSetup['orientation'] ?? '') === 'landscape') ns-btn--active @endif" wire:click="setOrientation('landscape')">Lanskap</button>
+                            <select class="ns-btn" style="padding:.2rem .35rem;" wire:change="setPaperSize($event.target.value)">
                                 <option value="A4" @selected(($pageSetup['size'] ?? '') === 'A4')>A4 (210×297 mm)</option>
                                 <option value="Letter" @selected(($pageSetup['size'] ?? '') === 'Letter')>Letter (8.5×11 in)</option>
                                 <option value="Legal" @selected(($pageSetup['size'] ?? '') === 'Legal')>Legal (8.5×14 in)</option>
+                                <option value="B5" @selected(($pageSetup['size'] ?? '') === 'B5')>B5 (Academic Book)</option>
                                 <option value="A5" @selected(($pageSetup['size'] ?? '') === 'A5')>A5</option>
                             </select>
                         </div>
@@ -1903,7 +1908,7 @@
                             $inBibliographySection = false;
                         @endphp
 
-                        <div class="ns-page ns-page--{{ $fontFamily }} @if($viewMode === 'web') ns-page--web @elseif($viewMode === 'read') ns-page--read @endif @if(!empty($pageSetup['pageBorder'])) ns-page--border @endif"
+                        <div class="ns-page ns-page--{{ $fontFamily }} @if($viewMode === 'web') ns-page--web @elseif($viewMode === 'read') ns-page--read @endif @if(!empty($pageSetup['pageBorder'])) ns-page--border @endif @if(($pageSetup['orientation'] ?? 'portrait') === 'landscape') ns-page--landscape @endif"
                              id="word-page-{{ $pageNumber }}"
                              data-page-number="{{ $pageNumber }}"
                              style="font-size:{{ $fontSize }}px;
