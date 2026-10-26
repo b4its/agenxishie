@@ -346,6 +346,38 @@ class ExternalIntegrationApiController extends Controller
     }
 
     /**
+     * Format tipografi paragraf naskah sesuai kaidah akademik.
+     */
+    public function formatParagraph(Request $request): JsonResponse
+    {
+        $client = $this->resolveClient($request);
+        if ($client instanceof JsonResponse) {
+            return $client;
+        }
+
+        $validated = $request->validate([
+            'text' => ['required', 'string'],
+            'preset' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        try {
+            $result = $this->clientManager->handleFormatParagraph(
+                client: $client,
+                text: $validated['text'],
+                preset: $validated['preset'] ?? 'academic_standard',
+            );
+
+            return response()->json($result);
+        } catch (AuthorizationException $e) {
+            return response()->json(['error' => $e->getMessage()], 403);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => 'Gagal memformat paragraf: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Konversi dan ekspor naskah ke berbagai format ilmiah.
      */
     public function export(Request $request): JsonResponse

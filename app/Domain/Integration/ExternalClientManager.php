@@ -708,6 +708,43 @@ class ExternalClientManager
     }
 
     /**
+     * Format dan normalisasi tipografi paragraf akademik untuk klien eksternal.
+     *
+     * @return array<string, mixed>
+     */
+    public function handleFormatParagraph(
+        ExternalClient $client,
+        string $text,
+        string $preset = 'academic_standard',
+    ): array {
+        if (! $client->isModelAllowed('AcademicScribeAgent') && ! $client->isModelAllowed('GuidelineEngine') && ! $client->isModelAllowed('*')) {
+            throw new AuthorizationException("Klien '{$client->name}' tidak memiliki izin untuk layanan Format Paragraf.");
+        }
+
+        $client->recordInboundHit('/api/v1/external/format-paragraph');
+
+        $presets = [
+            'academic_standard' => ['align' => 'justify', 'line_spacing' => 1.5, 'first_line_indent' => true, 'spacing_after' => 6],
+            'journal_ieee' => ['align' => 'justify', 'line_spacing' => 1.0, 'first_line_indent' => true, 'spacing_after' => 4],
+            'thesis_dikti' => ['align' => 'justify', 'line_spacing' => 2.0, 'first_line_indent' => true, 'spacing_after' => 6],
+            'abstract_block' => ['align' => 'justify', 'line_spacing' => 1.0, 'first_line_indent' => false, 'spacing_after' => 10],
+            'block_quote' => ['align' => 'justify', 'line_spacing' => 1.0, 'first_line_indent' => false, 'indent' => 1, 'spacing_after' => 8],
+        ];
+
+        $rule = $presets[$preset] ?? $presets['academic_standard'];
+        $cleanText = preg_replace('/[ \t]+/u', ' ', trim($text));
+
+        return [
+            'status' => 'success',
+            'client' => $client->client_slug,
+            'preset' => $preset,
+            'text' => $cleanText,
+            'word_count' => str_word_count((string) $cleanText),
+            'rules' => $rule,
+        ];
+    }
+
+    /**
      * Kirim webhook event ke proyek eksternal dengan signature HMAC-SHA256.
      *
      * @param  array<string, mixed>  $payload
