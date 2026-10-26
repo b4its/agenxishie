@@ -1354,7 +1354,11 @@ class AcademicWorkspacePage extends Page
         $builder = app(LiteratureMatrixBuilder::class);
         $base = Str::slug((string) $project->title) ?: 'matriks';
 
-        if ($format === 'markdown' || $format === 'md') {
+        if ($format === 'docx') {
+            $content = $builder->toDocx($project);
+            $filename = $base.'-literature-matrix.docx';
+            $mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        } elseif ($format === 'markdown' || $format === 'md') {
             $content = "# Matriks Literatur (SOTA) — {$project->title}\n\n".$builder->toMarkdown($project);
             $filename = $base.'-literature-matrix.md';
             $mime = 'text/markdown';

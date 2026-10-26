@@ -217,6 +217,7 @@
                         <div class="rb-kpi-card__label" style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center;">
                             <span>TABEL MATRIKS LITERATUR</span>
                             <span style="display:flex; gap:.25rem;">
+                                <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="exportLiteratureMatrix('docx')" title="Unduh tabel SOTA sebagai Word DOCX">&#11015; DOCX</button>
                                 <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="exportLiteratureMatrix('csv')" title="Unduh tabel SOTA sebagai CSV">&#11015; CSV</button>
                                 <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="exportLiteratureMatrix('markdown')" title="Unduh tabel SOTA sebagai Markdown">&#11015; MD</button>
                                 <button type="button" class="rb-button" style="padding:0 .35rem; font-size:.55rem;" wire:click="exportLiteratureMatrix('json')" title="Unduh tabel SOTA sebagai JSON">&#11015; JSON</button>
@@ -348,6 +349,7 @@
                                 </span>
                                 <span style="display:flex; gap:.3rem;">
                                     <button type="button" class="rb-button rb-button--primary" style="padding:.1rem .4rem; font-size:.58rem;" wire:click="exportJournalManuscript('docx')">DOCX</button>
+                                    <button type="button" class="rb-button" style="padding:.1rem .4rem; font-size:.58rem;" wire:click="exportJournalManuscript('odt')">ODT</button>
                                     <button type="button" class="rb-button" style="padding:.1rem .4rem; font-size:.58rem;" wire:click="exportJournalManuscript('markdown')">MD</button>
                                     <button type="button" class="rb-button" style="padding:.1rem .4rem; font-size:.58rem;" wire:click="exportJournalManuscript('latex')">LaTeX</button>
                                 </span>

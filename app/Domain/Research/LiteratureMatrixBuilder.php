@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Research;
 
+use App\Domain\Publication\NaskahDocxExporter;
 use App\Models\ProjectReference;
 use App\Models\XishieProject;
 
@@ -120,6 +121,62 @@ final class LiteratureMatrixBuilder
             'total_references' => count($rows),
             'matrix' => $rows,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Render matriks literatur (SOTA) sebagai dokumen Word DOCX profesional (lanskap).
+     */
+    public function toDocx(XishieProject $project): string
+    {
+        $rows = $this->build($project);
+
+        $blocks = [
+            [
+                'type' => 'heading',
+                'level' => 1,
+                'text' => 'Tabel Matriks Literatur (State-of-the-Art)',
+            ],
+            [
+                'type' => 'paragraph',
+                'text' => "Proyek Riset: {$project->title} | Bidang: {$project->field_of_study->label()} | Total Referensi: ".count($rows),
+            ],
+        ];
+
+        $tableRows = [
+            [
+                ['text' => 'No'],
+                ['text' => 'Kunci Sitasi'],
+                ['text' => 'Penulis'],
+                ['text' => 'Tahun'],
+                ['text' => 'Metode'],
+                ['text' => 'Hasil Temuan'],
+                ['text' => 'Gap / Keterbatasan'],
+            ],
+        ];
+
+        foreach ($rows as $index => $row) {
+            $tableRows[] = [
+                ['text' => (string) ($index + 1)],
+                ['text' => (string) $row['citation_key']],
+                ['text' => (string) $row['authors']],
+                ['text' => (string) ($row['year'] ?? '-')],
+                ['text' => (string) ($row['method'] ?? '-')],
+                ['text' => (string) ($row['result'] ?? '-')],
+                ['text' => (string) ($row['gap'] ?? '-')],
+            ];
+        }
+
+        $blocks[] = [
+            'type' => 'table',
+            'table' => [
+                'rows' => $tableRows,
+                'header' => true,
+            ],
+        ];
+
+        return app(NaskahDocxExporter::class)->build($blocks, 'Matriks Literatur - '.$project->title, [
+            'orientation' => 'landscape',
+        ]);
     }
 
     private function escape(string $value): string
