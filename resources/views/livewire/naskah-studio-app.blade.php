@@ -2708,7 +2708,14 @@
                         </div>
                         <div>
                             <label style="display:block; font-size:11px; font-weight:700; color:#334155; margin-bottom:4px;">Instruksi Pembuatan Konten (Prompt):</label>
-                            <textarea wire:model="executeModelPrompt" rows="3" placeholder="Misalnya: Kembangkan bab metodologi penelitian kuantitatif dengan formula regresi..." class="word-select" style="width:100%; height:auto; font-size:11.5px; padding:6px; resize:vertical; font-family:inherit;"></textarea>
+                            <textarea wire:model="executeModelPrompt" rows="3" placeholder="Misalnya: Buatkan daftar pustaka, kembangkan bab metodologi, atau buatkan tabel..." class="word-select" style="width:100%; height:auto; font-size:11.5px; padding:6px; resize:vertical; font-family:inherit;"></textarea>
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                <button type="button" class="word-assistant-tool-chip" style="font-size:10px; padding:2px 6px;" wire:click="$set('executeModelPrompt', 'Buatkan daftar pustaka')">📚 Buatkan Daftar Pustaka</button>
+                                <button type="button" class="word-assistant-tool-chip" style="font-size:10px; padding:2px 6px;" wire:click="$set('executeModelPrompt', 'Buatkan tabel sintesis literatur')">📊 Buatkan Tabel</button>
+                                <button type="button" class="word-assistant-tool-chip" style="font-size:10px; padding:2px 6px;" wire:click="$set('executeModelPrompt', 'Buatkan rumus regresi linear LaTeX')">π Buatkan Rumus</button>
+                                <button type="button" class="word-assistant-tool-chip" style="font-size:10px; padding:2px 6px;" wire:click="$set('executeModelPrompt', 'Buatkan draf abstrak penelitian')">📝 Buatkan Abstrak</button>
+                                <button type="button" class="word-assistant-tool-chip" style="font-size:10px; padding:2px 6px;" wire:click="$set('executeModelPrompt', 'Buatkan bab kesimpulan dan saran')">🏁 Buatkan Kesimpulan</button>
+                            </div>
                         </div>
                         <div style="display:flex; justify-content:flex-end; gap:6px;">
                             <button type="button" class="word-dialog__btn" wire:click="closeDialog">Batal</button>

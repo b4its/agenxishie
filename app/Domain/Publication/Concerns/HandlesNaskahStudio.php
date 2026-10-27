@@ -2131,6 +2131,16 @@ trait HandlesNaskahStudio
         $modelId = $this->getCurrentAssistantModel();
         $prompt = trim((string) ($instruction ?? ''));
         if ($prompt === '') {
+            // Jika isi paragraf berupa instruksi generatif (misal "buatkan daftar pustaka", "buatkan tabel..."),
+            // eksekusi langsung sebagai prompt model untuk naskah
+            if (preg_match('/^(buatkan|susun|generate|tuliskan|tambahkan|\/eksekusi|\/ai|\/\/)\s+/iu', $currentText)
+                || preg_match('/(daftar\s+pustaka|bibliography)/iu', $currentText)) {
+                $cleanPrompt = preg_replace('/^(\/eksekusi|\/ai|\/\/)\s*/iu', '', $currentText);
+                $this->activeBlock = $gIdx;
+
+                return $this->executeCurrentModel($cleanPrompt, 'active_block');
+            }
+
             $prompt = "Tingkatkan ketajaman argumen akademik, kejelasan kalimat, dan diksi formal pada paragraf naskah berikut:\n\"{$currentText}\"";
         } else {
             $prompt .= "\n\nTeks asli paragraf:\n\"{$currentText}\"";
@@ -5681,6 +5691,14 @@ trait HandlesNaskahStudio
     public function executeModelToActiveBlock(?string $prompt = null): bool
     {
         $prompt = trim($prompt ?? $this->executeModelPrompt);
+        if ($prompt === '' && isset($this->blocks[$this->activeBlock]['text'])) {
+            $candidateText = trim((string) $this->blocks[$this->activeBlock]['text']);
+            if (preg_match('/^(buatkan|susun|generate|tuliskan|tambahkan|\/eksekusi|\/ai|\/\/)\s+/iu', $candidateText)
+                || preg_match('/(daftar\s+pustaka|bibliography)/iu', $candidateText)) {
+                $prompt = preg_replace('/^(\/eksekusi|\/ai|\/\/)\s*/iu', '', $candidateText);
+            }
+        }
+
         if ($prompt === '') {
             $this->executeModelTarget = 'active_block';
             $this->openDialog('execute_model');
@@ -5801,6 +5819,14 @@ trait HandlesNaskahStudio
         $modelId = $this->getCurrentAssistantModel();
         $prompt = trim((string) ($instruction ?? ''));
         if ($prompt === '') {
+            // Jika teks terseleksi berupa instruksi generatif, eksekusi langsung sebagai prompt model
+            if (preg_match('/^(buatkan|susun|generate|tuliskan|tambahkan|\/eksekusi|\/ai|\/\/)\s+/iu', $selectedText)
+                || preg_match('/(daftar\s+pustaka|bibliography)/iu', $selectedText)) {
+                $cleanPrompt = preg_replace('/^(\/eksekusi|\/ai|\/\/)\s*/iu', '', $selectedText);
+
+                return $this->executeCurrentModel($cleanPrompt, 'active_block');
+            }
+
             $prompt = "Tingkatkan ketajaman argumen akademik, kejelasan konseptual, dan register bahasa formal pada teks naskah berikut:\n\"{$selectedText}\"";
         } else {
             $prompt .= "\n\nTeks asli:\n\"{$selectedText}\"";

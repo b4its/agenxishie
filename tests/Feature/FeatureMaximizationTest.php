@@ -4105,3 +4105,63 @@ it('replaces existing bibliography section in-place when regenerated or re-execu
         ->and($studio->get('isReviewingModelOutput'))->toBeTrue()
         ->and(count($blocks))->toBeGreaterThan(4);
 });
+
+it('executes model directly when paragraph in manuscript contains generative prompt like buatkan daftar pustaka', function (): void {
+    $studio = Livewire::test(NaskahStudioPage::class);
+    $richModel = app(NaskahRichModel::class);
+
+    $studio->set('blocks', [
+        $richModel->newBlock('title', 'Naskah Uji Prompt Paragraf'),
+        $richModel->newBlock('paragraph', 'buatkan daftar pustaka'),
+    ]);
+
+    // Eksekusi model pada paragraf kanvas (halaman 1, paragraf ke-2 yaitu blok index 1)
+    $studio->call('executeModelOnParagraph', 1, 1)
+        ->assertSuccessful()
+        ->assertNotified();
+
+    expect($studio->get('isReviewingModelOutput'))->toBeTrue()
+        ->and($studio->get('modelGenerationCount'))->toBe(1);
+
+    $blocks = $studio->get('blocks');
+    expect(count($blocks))->toBeGreaterThan(2);
+
+    $reviewedBlocks = array_filter($blocks, fn ($b) => ! empty($b['is_under_review']));
+    expect(count($reviewedBlocks))->toBeGreaterThanOrEqual(2);
+
+    // Generate ulang ke Versi #2
+    $studio->call('regenerateCurrentModel')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    expect($studio->get('modelGenerationCount'))->toBe(2);
+
+    // Terima hasil model
+    $studio->call('acceptModelOutput')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    expect($studio->get('isReviewingModelOutput'))->toBeFalse();
+});
+
+it('executes model directly when active block in canvas contains generative prompt', function (): void {
+    $studio = Livewire::test(NaskahStudioPage::class);
+    $richModel = app(NaskahRichModel::class);
+
+    $studio->set('blocks', [
+        $richModel->newBlock('title', 'Dokumen Kanvas AI'),
+        $richModel->newBlock('paragraph', 'susun daftar pustaka'),
+    ]);
+    $studio->set('activeBlock', 1);
+
+    // Panggil executeModelToActiveBlock tanpa parameter prompt (otomatis membaca teks dari active block)
+    $studio->call('executeModelToActiveBlock')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    expect($studio->get('isReviewingModelOutput'))->toBeTrue()
+        ->and($studio->get('modelGenerationCount'))->toBe(1);
+
+    $blocks = $studio->get('blocks');
+    expect(count($blocks))->toBeGreaterThan(2);
+});

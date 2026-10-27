@@ -2701,7 +2701,14 @@
                             </div>
                             <div>
                                 <label style="display:block; font-size:.7rem; font-weight:700; color:#334155; margin-bottom:4px;">Instruksi Pembuatan Konten (Prompt):</label>
-                                <textarea wire:model="executeModelPrompt" rows="3" placeholder="Misalnya: Kembangkan bab metodologi penelitian kuantitatif dengan formula regresi..." style="width:100%; font-size:.75rem; padding:.45rem; border:1px solid #cbd5e1; border-radius:4px; resize:vertical; font-family:inherit;"></textarea>
+                                <textarea wire:model="executeModelPrompt" rows="3" placeholder="Misalnya: Buatkan daftar pustaka, kembangkan bab metodologi, atau buatkan tabel..." style="width:100%; font-size:.75rem; padding:.45rem; border:1px solid #cbd5e1; border-radius:4px; resize:vertical; font-family:inherit;"></textarea>
+                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Buatkan daftar pustaka')">📚 Buatkan Daftar Pustaka</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Buatkan tabel sintesis literatur')">📊 Buatkan Tabel</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Buatkan rumus regresi linear LaTeX')">π Buatkan Rumus</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Buatkan draf abstrak penelitian')">📝 Buatkan Abstrak</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Buatkan bab kesimpulan dan saran')">🏁 Buatkan Kesimpulan</button>
+                                </div>
                             </div>
                             <div style="display:flex; justify-content:flex-end; gap:.5rem;">
                                 <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
