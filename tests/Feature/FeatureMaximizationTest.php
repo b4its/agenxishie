@@ -51,6 +51,7 @@ use App\Models\XishieProject;
 use App\Omnigensi\Agents\AcademicScribeAgent;
 use App\Omnigensi\Agents\PeerCriticAgent;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -3447,4 +3448,124 @@ it('performs black box verification of prompting buatkan daftar pustaka with rev
         }
     }
     expect($foundDaftarPustaka)->toBeTrue();
+});
+
+it('performs white box verification on slash commands and direct page execution for current model in studio', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+
+    // 1. Eksekusi slash command /models
+    $component->set('assistantInput', '/models')
+        ->call('sendAssistant');
+
+    $log = $component->get('assistantLog');
+    $lastLog = end($log);
+    expect($lastLog['role'])->toBe('assistant')
+        ->and($lastLog['content'])->toContain('Daftar Model AI Tersedia');
+
+    // 2. Eksekusi slash command /model gpt-4o untuk beralih model aktif
+    $component->set('assistantInput', '/model gpt-4o')
+        ->call('sendAssistant');
+
+    expect($component->instance()->getCurrentAssistantModel())->toBe('gpt-4o');
+    $logAfterSwitch = $component->get('assistantLog');
+    $lastSwitchLog = end($logAfterSwitch);
+    expect($lastSwitchLog['content'])->toContain('gpt-4o');
+
+    // 3. Eksekusi slash command /eksekusi untuk menerapkan langsung ke kanvas naskah
+    $initialBlocks = count($component->get('blocks'));
+    $component->set('assistantInput', '/eksekusi Rumuskan bab kesimpulan penelitian')
+        ->call('sendAssistant');
+
+    expect(count($component->get('blocks')))->toBeGreaterThan($initialBlocks)
+        ->and($component->get('isReviewingModelOutput'))->toBeTrue();
+
+    // 4. Buka dialog eksekusi model via executeCommand
+    $component->call('executeCommand', 'ai.execute_model');
+    expect($component->get('dialog'))->toBe('execute_model');
+
+    // 5. Eksekusi model langsung ke halaman target via executeModelToPage
+    $component->call('executeModelToPage', 1, 'Sisipkan analisis hasil pengujian pada halaman satu')
+        ->assertSuccessful();
+
+    // 6. Eksekusi model dengan target new_page
+    $blocksBeforeNewPage = count($component->get('blocks'));
+    $component->call('executeCurrentModel', 'Tuliskan apendiks dan lampiran data', 'new_page');
+    $blocksAfterNewPage = $component->get('blocks');
+    expect(count($blocksAfterNewPage))->toBeGreaterThan($blocksBeforeNewPage);
+
+    $hasPageBreak = false;
+    foreach ($blocksAfterNewPage as $b) {
+        if (($b['type'] ?? '') === 'pagebreak') {
+            $hasPageBreak = true;
+            break;
+        }
+    }
+    expect($hasPageBreak)->toBeTrue();
+});
+
+it('performs white box and black box verification on artisan naskah:manage execute-model command', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Naskah Eksekusi CLI',
+        'blocks' => [
+            ['type' => 'title', 'level' => 0, 'text' => 'Dokumen Naskah Eksekusi CLI'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Paragraf awal sebelum eksekusi CLI.'],
+        ],
+        'word_count' => 12,
+    ]);
+
+    // Jalankan artisan command execute-model
+    $exitCode = Artisan::call('naskah:manage', [
+        'action' => 'execute-model',
+        'documentId' => (string) $doc->id,
+        '--prompt' => 'Buatkan tabel evaluasi metrik kinerja sistem',
+        '--model' => 'deepseek-chat',
+        '--target' => 'append',
+    ]);
+
+    expect($exitCode)->toBe(0);
+
+    // Verifikasi perubahan pada basis data
+    $updatedDoc = NaskahDocument::query()->find($doc->id);
+    expect($updatedDoc)->not->toBeNull()
+        ->and(count($updatedDoc->blocks))->toBeGreaterThan(2);
+
+    $hasTable = false;
+    foreach ($updatedDoc->blocks as $block) {
+        if (($block['type'] ?? '') === 'table') {
+            $hasTable = true;
+            break;
+        }
+    }
+    expect($hasTable)->toBeTrue();
+});
+
+it('performs black box verification on naskah studio REST API execute-model endpoint', function (): void {
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Naskah Eksekusi API',
+        'blocks' => [
+            ['type' => 'title', 'level' => 0, 'text' => 'Dokumen Naskah Eksekusi API'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Paragraf pendahuluan untuk uji REST API.'],
+        ],
+        'word_count' => 14,
+    ]);
+
+    $response = $this->postJson(route('api.v1.naskah.execute-model', ['id' => $doc->id]), [
+        'prompt' => 'Susun perumusan masalah dan tujuan penelitian',
+        'model' => 'claude-3-5-sonnet',
+        'target' => 'current_page',
+        'page' => 1,
+    ]);
+
+    $response->assertStatus(200)
+        ->assertJson([
+            'status' => 'success',
+            'data' => [
+                'document_id' => $doc->id,
+                'model' => 'claude-3-5-sonnet',
+                'target' => 'current_page',
+            ],
+        ]);
+
+    $dbDoc = NaskahDocument::query()->find($doc->id);
+    expect(count($dbDoc->blocks))->toBeGreaterThan(2);
 });

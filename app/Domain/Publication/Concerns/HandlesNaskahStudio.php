@@ -5236,6 +5236,38 @@ trait HandlesNaskahStudio
                 }
                 $this->activeBlock = count($this->blocks) - 1;
                 $this->pendingReviewBlockIndices = range($startIdx, count($this->blocks) - 1);
+            } elseif ($target === 'new_page') {
+                $pageBreak = $this->model->normalizeBlock(['type' => 'pagebreak']);
+                $startIdx = count($this->blocks);
+                $this->blocks[] = $pageBreak;
+                foreach ($blocksToInsert as $b) {
+                    $this->blocks[] = $b;
+                }
+                $this->activeBlock = count($this->blocks) - 1;
+                $this->pendingReviewBlockIndices = range($startIdx + 1, count($this->blocks) - 1);
+            } elseif ($target === 'replace_page') {
+                $paginated = $this->getPaginatedBlocks();
+                $targetPage = null;
+                foreach ($paginated as $p) {
+                    if ((int) $p['pageNumber'] === $targetPageNumber) {
+                        $targetPage = $p;
+                        break;
+                    }
+                }
+                if ($targetPage !== null && ! empty($targetPage['blocks'])) {
+                    $firstIdx = (int) $targetPage['blocks'][0]['index'];
+                    $countToRemove = count($targetPage['blocks']);
+                    array_splice($this->blocks, $firstIdx, $countToRemove, $blocksToInsert);
+                    $this->activeBlock = max(0, min($firstIdx + count($blocksToInsert) - 1, count($this->blocks) - 1));
+                    $this->pendingReviewBlockIndices = range($firstIdx, $firstIdx + count($blocksToInsert) - 1);
+                } else {
+                    $startIdx = count($this->blocks);
+                    foreach ($blocksToInsert as $b) {
+                        $this->blocks[] = $b;
+                    }
+                    $this->activeBlock = count($this->blocks) - 1;
+                    $this->pendingReviewBlockIndices = range($startIdx, count($this->blocks) - 1);
+                }
             } else {
                 // Target: 'current_page' (default)
                 $paginated = $this->getPaginatedBlocks();
@@ -5481,7 +5513,36 @@ trait HandlesNaskahStudio
         $ok = $this->executeCurrentModel($prompt, $this->executeModelTarget ?: 'current_page', $page);
         if ($ok) {
             $this->executeModelPrompt = '';
+            if ($this->dialog === 'execute_model') {
+                $this->closeDialog();
+            }
         }
+    }
+
+    public function executeModelToPage(int $pageNumber, ?string $prompt = null): bool
+    {
+        $prompt = trim($prompt ?? $this->executeModelPrompt);
+        if ($prompt === '') {
+            $this->executeModelTarget = 'current_page';
+            $this->openDialog('execute_model');
+
+            return false;
+        }
+
+        return $this->executeCurrentModel($prompt, 'current_page', $pageNumber);
+    }
+
+    public function executeModelToActiveBlock(?string $prompt = null): bool
+    {
+        $prompt = trim($prompt ?? $this->executeModelPrompt);
+        if ($prompt === '') {
+            $this->executeModelTarget = 'active_block';
+            $this->openDialog('execute_model');
+
+            return false;
+        }
+
+        return $this->executeCurrentModel($prompt, 'active_block');
     }
 
     /**
@@ -5736,6 +5797,59 @@ trait HandlesNaskahStudio
     private function dispatchAssistant(string $input, string $command): void
     {
         $currentModel = $this->getCurrentAssistantModel();
+
+        // 1. Slash command untuk memilih atau mengganti model AI: /model [id] atau /pilih-model [id]
+        if ($command === '/model' || $command === '/pilih-model' || str_starts_with($input, '/model ') || str_starts_with($input, '/pilih-model ')) {
+            $parts = preg_split('/\s+/', trim($input), 2);
+            $targetModel = trim($parts[1] ?? '');
+            if ($targetModel !== '') {
+                $this->setAssistantModel($targetModel);
+                $this->assistantLog[] = ['role' => 'user', 'content' => $input, 'command' => $command, 'model' => $this->currentAssistantModel];
+                $this->assistantLog[] = [
+                    'role' => 'assistant',
+                    'content' => "Model AI aktif berhasil dialihkan ke: **{$this->currentAssistantModel}**.\n\nGunakan formulir eksekusi atau ketik `/eksekusi [instruksi]` untuk menghasilkan teks ilmiah langsung ke kanvas naskah.",
+                    'command' => $command,
+                    'model' => $this->currentAssistantModel,
+                ];
+                $this->assistantInput = '';
+
+                return;
+            }
+        }
+
+        // 2. Slash command untuk melihat daftar model yang tersedia: /models atau /daftar-model
+        if ($command === '/models' || $command === '/daftar-model' || $input === '/models' || $input === '/daftar-model') {
+            $models = $this->getAvailableAssistantModels();
+            $lines = ["### Daftar Model AI Tersedia di Naskah Studio:\n"];
+            foreach ($models as $m) {
+                $isCurrent = $m['id'] === $this->getCurrentAssistantModel() ? ' (● Sedang Aktif)' : '';
+                $lines[] = "- **{$m['name']}** (`{$m['id']}`) · Provider: *{$m['provider']}*{$isCurrent}";
+            }
+            $lines[] = "\n*Ketik `/model [id]` untuk beralih model aktif.*";
+            $this->assistantLog[] = ['role' => 'user', 'content' => $input, 'command' => $command, 'model' => $this->getCurrentAssistantModel()];
+            $this->assistantLog[] = [
+                'role' => 'assistant',
+                'content' => implode("\n", $lines),
+                'command' => $command,
+                'model' => $this->getCurrentAssistantModel(),
+            ];
+            $this->assistantInput = '';
+
+            return;
+        }
+
+        // 3. Slash command untuk mengeksekusi model sekarang langsung ke naskah studio: /eksekusi [instruksi] atau /eksekusi-model [instruksi]
+        if ($command === '/eksekusi' || $command === '/eksekusi-model' || str_starts_with($input, '/eksekusi ') || str_starts_with($input, '/eksekusi-model ')) {
+            $parts = preg_split('/\s+/', trim($input), 2);
+            $prompt = trim($parts[1] ?? '');
+            if ($prompt !== '') {
+                $this->assistantInput = '';
+                $this->executeCurrentModel($prompt, $this->executeModelTarget ?: 'current_page');
+
+                return;
+            }
+        }
+
         $this->assistantLog[] = ['role' => 'user', 'content' => $input, 'command' => $command, 'model' => $currentModel];
         $this->assistantInput = '';
         $this->assistantBusy = true;
@@ -5957,10 +6071,16 @@ trait HandlesNaskahStudio
         $lowerTrimmed = mb_strtolower($trimmed);
 
         // Deteksi intensi pembuatan tabel kontekstual berbasis isi dan struktur dokumen naskah
-        $isTablePrompt = preg_match('/(tambah|buat|sisip|masuk|generate|buatkan|tambahkan).*(tabel|table|matriks)/iu', $lowerTrimmed)
-            || preg_match('/^(tabel|table|matriks)\b/iu', $lowerTrimmed)
-            || preg_match('/(tabel|table|matriks).*(naskah|dokumen|isi|sesuai)/iu', $lowerTrimmed)
-            || str_starts_with($lowerTrimmed, '/tabel');
+        $isTablePrompt = false;
+        if (str_starts_with($lowerTrimmed, '/tabel') && ! str_starts_with($lowerTrimmed, '/tabel-analisis')) {
+            $isTablePrompt = true;
+        } elseif (! str_starts_with($lowerTrimmed, '/')) {
+            $isTablePrompt = (bool) (
+                preg_match('/(tambah|buat|sisip|masuk|generate|buatkan|tambahkan).*(tabel|table|matriks)/iu', $lowerTrimmed)
+                || preg_match('/^(tabel|table|matriks)\b/iu', $lowerTrimmed)
+                || preg_match('/(tabel|table|matriks).*(naskah|dokumen|isi|sesuai)/iu', $lowerTrimmed)
+            );
+        }
 
         if ($isTablePrompt) {
             return $this->generateContextualTableFromDocument();
@@ -6441,6 +6561,8 @@ trait HandlesNaskahStudio
             ['id' => 'ai.shorten', 'label' => 'Padatkan Teks (AI)', 'category' => 'Wordcraft AI', 'icon' => '✂️'],
             ['id' => 'ai.improve', 'label' => 'Perbaiki Gaya Akademik (AI)', 'category' => 'Wordcraft AI', 'icon' => '✨'],
             ['id' => 'ai.continue', 'label' => 'Lanjutkan Naskah Otomatis (AI)', 'category' => 'Wordcraft AI', 'icon' => '➕'],
+            ['id' => 'ai.execute_model', 'label' => 'Eksekusi Model AI Sekarang ke Naskah', 'category' => 'Wordcraft AI', 'icon' => '⚡', 'shortcut' => 'Alt+X'],
+            ['id' => 'ai.switch_model', 'label' => 'Ganti Model AI Aktif (Model Selector)', 'category' => 'Wordcraft AI', 'icon' => '🤖'],
             ['id' => 'view.dark_mode', 'label' => 'Ganti Mode Gelap / Terang', 'category' => 'Tampilan', 'icon' => '◐'],
             ['id' => 'view.focus', 'label' => 'Mode Fokus / Bebas Gangguan', 'category' => 'Tampilan', 'icon' => '🎯'],
             ['id' => 'view.ruler', 'label' => 'Tampilkan / Sembunyikan Penggaris', 'category' => 'Tampilan', 'icon' => '📏'],
@@ -6501,6 +6623,8 @@ trait HandlesNaskahStudio
             'ai.shorten' => $this->aiShortenBlock($this->activeBlock),
             'ai.improve' => $this->aiImproveBlock($this->activeBlock),
             'ai.continue' => $this->aiContinueStory($this->activeBlock),
+            'ai.execute_model' => $this->openDialog('execute_model'),
+            'ai.switch_model' => $this->openDialog('execute_model'),
             'view.dark_mode' => $this->toggleDarkMode(),
             'view.focus' => $this->setViewMode($this->viewMode === 'read' ? 'print' : 'read'),
             'view.ruler' => $this->showRuler = ! $this->showRuler,

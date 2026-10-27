@@ -45,4 +45,5 @@ Route::prefix('v1/naskah')->group(function (): void {
     Route::post('/documents/{id}/format-paragraph', [NaskahStudioApiController::class, 'formatParagraph'])->name('api.v1.naskah.format-paragraph');
     Route::get('/documents/{id}/readability-page', [NaskahStudioApiController::class, 'readabilityPage'])->name('api.v1.naskah.readability-page');
     Route::post('/documents/{id}/align-page', [NaskahStudioApiController::class, 'alignPage'])->name('api.v1.naskah.align-page');
+    Route::post('/documents/{id}/execute-model', [NaskahStudioApiController::class, 'executeModel'])->name('api.v1.naskah.execute-model');
 });

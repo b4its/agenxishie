@@ -1312,6 +1312,13 @@
                     </span>
                     <span class="word-context-shortcut">AI</span>
                 </button>
+                <button type="button" class="word-context-item" @mousedown.prevent="$wire.openDialog('execute_model'); closeContextMenu()">
+                    <span class="word-context-label">
+                        <span class="word-context-copilot-badge" style="background:#4f46e5; color:#ffffff;">⚡ Model</span>
+                        <span>Eksekusi Model AI Sekarang</span>
+                    </span>
+                    <span class="word-context-shortcut">Alt+X</span>
+                </button>
             </div>
         </div>
 
@@ -1349,6 +1356,9 @@
                     <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; runBlockAi('/sitasi')" class="word-mini-dropdown-item">
                         <span>📚 Cari Sitasi / Referensi</span>
                     </button>
+                    <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; showBlockCopilot = false; $wire.openDialog('execute_model')" class="word-mini-dropdown-item" style="color:#4f46e5; font-weight:700;">
+                        <span>⚡ Eksekusi Model AI Sekarang</span>
+                    </button>
                     <div style="border-top:1px solid #e1dfdd; margin:4px 0;"></div>
                     <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; showBlockCopilot = false; $wire.openAssistant()" class="word-mini-dropdown-item" style="color:#0f6cbd; font-weight:600;">
                         <span>💬 Buka Panel Chat Xishie →</span>
@@ -1382,6 +1392,7 @@
 
             <div class="ns-topbar__actions">
                 <a href="{{ route('studio.index', ['document' => $documentId]) }}" class="ns-btn ns-btn--primary" style="background:#0f6cbd; color:#ffffff; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Buka Mode Penuh Standalone Word &amp; LibreOffice Studio">&#128065; Buka Full Word Studio &rarr;</a>
+                <button type="button" class="ns-btn" wire:click="openDialog('execute_model')" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Eksekusi Model AI Sekarang (Alt+X)">⚡ Eksekusi Model</button>
                 <button type="button" class="ns-btn" wire:click="openAssistant" style="background: linear-gradient(135deg, #eef2ff 0%, #f3e8ff 100%); border: 1px solid #c7d2fe; color: #4338ca; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">&#10024; Copilot</button>
                 <button type="button" class="ns-btn" wire:click="openDialog('palette')" title="Pusat Perintah &amp; Fitur (Wordcraft HUD / Ctrl+K)">&#128269; Perintah (Ctrl+K)</button>
                 <button type="button" class="ns-btn" wire:click="openDialog('properties')" title="Properti Dokumen &amp; Metadata">&#8505; Properti</button>
@@ -1971,6 +1982,13 @@
                             <div class="ns-sheet-header" contenteditable="false" style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#94a3b8; border-bottom:1px dotted #cbd5e1; padding-bottom:6px; margin-bottom:16px; user-select:none; flex-wrap:wrap; gap:6px;">
                                 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                     <span>{{ $docTitle }}</span>
+                                    <button type="button"
+                                        wire:click="executeModelToPage({{ $pageNumber }})"
+                                        class="ns-btn"
+                                        style="font-size:10px; padding:2px 8px; height:20px; background:linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%); color:#4f46e5; border:1px solid #c7d2fe; border-radius:3px; font-weight:600;"
+                                        title="Eksekusi model AI saat ini ke Halaman {{ $pageNumber }}">
+                                        ⚡ Model Hal. {{ $pageNumber }}
+                                    </button>
                                     <button type="button"
                                         wire:click="openParagraphCustomizer({{ $pageNumber }}, 0)"
                                         class="ns-btn"
@@ -2595,8 +2613,52 @@
             <div class="ns-dialog-backdrop" x-on:click.self="$wire.closeDialog()">
                 <div class="ns-dialog">
 
+                    {{-- Dialog Eksekusi Model AI Sekarang --}}
+                    @if ($dialog === 'execute_model')
+                        <div class="ns-dialog__header" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#ffffff; padding:.6rem .8rem; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:700; font-size:.85rem; display:inline-flex; align-items:center; gap:6px;">⚡ Eksekusi Model AI ke Naskah Studio</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer; font-size:1.1rem;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body" style="padding:1rem; display:flex; flex-direction:column; gap:.8rem;">
+                            <div style="font-size:.75rem; color:#475569; line-height:1.45;">
+                                Jalankan instruksi menggunakan model AI aktif dan terapkan hasilnya secara langsung ke kanvas naskah.
+                            </div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:.8rem;">
+                                <div>
+                                    <label style="display:block; font-size:.7rem; font-weight:700; color:#334155; margin-bottom:4px;">Model AI Aktif:</label>
+                                    <select wire:model="currentAssistantModel" style="width:100%; font-size:.72rem; padding:.3rem .45rem; border:1px solid #cbd5e1; border-radius:4px; background:#ffffff;">
+                                        @foreach ($this->getAvailableAssistantModels() as $availModel)
+                                            <option value="{{ $availModel['id'] }}">
+                                                {{ $availModel['name'] }} ({{ $availModel['provider'] }})
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:.7rem; font-weight:700; color:#334155; margin-bottom:4px;">Target Penempatan:</label>
+                                    <select wire:model="executeModelTarget" style="width:100%; font-size:.72rem; padding:.3rem .45rem; border:1px solid #cbd5e1; border-radius:4px; background:#ffffff;">
+                                        <option value="current_page">Halaman Saat Ini (Hal. {{ $this->getCurrentPageNumber() }})</option>
+                                        <option value="active_block">Ganti Blok Aktif (#{{ $activeBlock + 1 }})</option>
+                                        <option value="new_page">Halaman Baru (+ Pemisah Halaman)</option>
+                                        <option value="append">Akhir Dokumen (Append)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:.7rem; font-weight:700; color:#334155; margin-bottom:4px;">Instruksi Pembuatan Konten (Prompt):</label>
+                                <textarea wire:model="executeModelPrompt" rows="3" placeholder="Misalnya: Kembangkan bab metodologi penelitian kuantitatif dengan formula regresi..." style="width:100%; font-size:.75rem; padding:.45rem; border:1px solid #cbd5e1; border-radius:4px; resize:vertical; font-family:inherit;"></textarea>
+                            </div>
+                            <div style="display:flex; justify-content:flex-end; gap:.5rem;">
+                                <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
+                                <button type="button" class="ns-btn ns-btn--primary" style="background:#4f46e5; color:#ffffff; font-weight:700;" wire:click="submitExecuteModel" wire:loading.attr="disabled" wire:target="submitExecuteModel,executeCurrentModel">
+                                    <span wire:loading.remove wire:target="submitExecuteModel,executeCurrentModel">⚡ Eksekusi &amp; Terapkan</span>
+                                    <span wire:loading wire:target="submitExecuteModel,executeCurrentModel">Mengeksekusi…</span>
+                                </button>
+                            </div>
+                        </div>
+
                     {{-- Dialog Cari & Ganti --}}
-                    @if ($dialog === 'find')
+                    @elseif ($dialog === 'find')
                         <div class="ns-dialog__header">
                             <span>&#128269; Cari dan Ganti Teks</span>
                             <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>

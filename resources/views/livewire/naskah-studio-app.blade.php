@@ -408,6 +408,12 @@
                 <kbd style="font-size:9px; background:#ffffff; border:1px solid #d1d1d1; padding:1px 3px; border-radius:2px; color:#616161;">Ctrl+K</kbd>
             </div>
 
+            <!-- Eksekusi Model Sekarang Trigger Button -->
+            <button type="button" wire:click="openDialog('execute_model')" class="word-assistant-pill-btn" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#ffffff; font-weight:700;" title="Eksekusi Model AI Sekarang ke Naskah (Alt+X)">
+                <span>⚡</span>
+                <span>Eksekusi Model</span>
+            </button>
+
             <!-- Xishie Assistant Topbar Trigger Button -->
             <button type="button" wire:click="openAssistant" class="word-assistant-pill-btn {{ $assistantOpen ? 'active' : '' }}" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">
                 <span class="word-assistant-pill-icon">✨</span>
@@ -1703,6 +1709,13 @@
                             <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                 <span class="word-sheet-title">{{ $docTitle }}</span>
                                 <button type="button"
+                                    wire:click="executeModelToPage({{ $pageNumber }})"
+                                    class="word-tool-btn"
+                                    style="font-size:10px; padding:2px 8px; height:20px; background:linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%); color:#4f46e5; border:1px solid #c7d2fe; border-radius:3px; font-weight:600;"
+                                    title="Eksekusi model AI saat ini ke Halaman {{ $pageNumber }}">
+                                    ⚡ Model Hal. {{ $pageNumber }}
+                                </button>
+                                <button type="button"
                                     wire:click="openParagraphCustomizer({{ $pageNumber }}, 0)"
                                     class="word-tool-btn"
                                     style="font-size:10px; padding:2px 8px; height:20px; background:rgba(15,108,189,0.08); color:var(--ms-blue, #0f6cbd); border:1px solid rgba(15,108,189,0.2); border-radius:3px;"
@@ -2601,8 +2614,52 @@
         <div class="word-dialog-backdrop" wire:click.self="closeDialog" @keydown.escape.window="$wire.closeDialog()">
             <div class="word-dialog">
 
+                {{-- EKSEKUSI MODEL AI SEKARANG --}}
+                @if ($dialog === 'execute_model')
+                    <div class="word-dialog__header" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#ffffff;">
+                        <span style="font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:6px;">⚡ Eksekusi Model AI ke Naskah Studio</span>
+                        <button type="button" class="word-icon-btn" style="color:#ffffff;" wire:click="closeDialog">&times;</button>
+                    </div>
+                    <div class="word-dialog__body" style="padding:14px; display:flex; flex-direction:column; gap:12px;">
+                        <div style="font-size:11.5px; color:#475569; line-height:1.45;">
+                            Jalankan instruksi menggunakan model AI aktif dan terapkan hasilnya secara langsung ke kanvas naskah.
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div>
+                                <label style="display:block; font-size:11px; font-weight:700; color:#334155; margin-bottom:4px;">Model AI Aktif:</label>
+                                <select wire:model="currentAssistantModel" class="word-select" style="width:100%; height:30px; font-size:11px;">
+                                    @foreach ($this->getAvailableAssistantModels() as $availModel)
+                                        <option value="{{ $availModel['id'] }}">
+                                            {{ $availModel['name'] }} ({{ $availModel['provider'] }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:11px; font-weight:700; color:#334155; margin-bottom:4px;">Target Penempatan:</label>
+                                <select wire:model="executeModelTarget" class="word-select" style="width:100%; height:30px; font-size:11px;">
+                                    <option value="current_page">Halaman Saat Ini (Hal. {{ $this->getCurrentPageNumber() }})</option>
+                                    <option value="active_block">Ganti Blok Aktif (#{{ $activeBlock + 1 }})</option>
+                                    <option value="new_page">Halaman Baru (+ Pemisah Halaman)</option>
+                                    <option value="append">Akhir Dokumen (Append)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:11px; font-weight:700; color:#334155; margin-bottom:4px;">Instruksi Pembuatan Konten (Prompt):</label>
+                            <textarea wire:model="executeModelPrompt" rows="3" placeholder="Misalnya: Kembangkan bab metodologi penelitian kuantitatif dengan formula regresi..." class="word-select" style="width:100%; height:auto; font-size:11.5px; padding:6px; resize:vertical; font-family:inherit;"></textarea>
+                        </div>
+                        <div style="display:flex; justify-content:flex-end; gap:6px;">
+                            <button type="button" class="word-dialog__btn" wire:click="closeDialog">Batal</button>
+                            <button type="button" class="word-dialog__btn word-dialog__btn--primary" style="background:#4f46e5; border-color:#4338ca;" wire:click="submitExecuteModel" wire:loading.attr="disabled" wire:target="submitExecuteModel,executeCurrentModel">
+                                <span wire:loading.remove wire:target="submitExecuteModel,executeCurrentModel">⚡ Eksekusi &amp; Terapkan</span>
+                                <span wire:loading wire:target="submitExecuteModel,executeCurrentModel">Mengeksekusi…</span>
+                            </button>
+                        </div>
+                    </div>
+
                 {{-- FIND & REPLACE --}}
-                @if ($dialog === 'find')
+                @elseif ($dialog === 'find')
                     <div class="word-dialog__header">
                         <span>Find and Replace</span>
                         <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
