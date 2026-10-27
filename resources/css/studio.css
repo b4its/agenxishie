@@ -989,13 +989,16 @@ dialog#livewire-error {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 24px;
+    min-height: 28px;
+    height: auto;
     margin-bottom: 24px;
     font-size: 10pt;
     color: #797775;
     user-select: none;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding-bottom: 8px;
+    position: relative;
+    z-index: 5;
 }
 
 .dark .word-sheet-header {

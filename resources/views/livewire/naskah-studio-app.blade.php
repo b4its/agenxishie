@@ -1737,108 +1737,134 @@
                         @endif
 
                         <!-- Header Halaman (Sesuai Konsep Microsoft Word & Gambar 1) -->
-                        <div class="word-sheet-header" contenteditable="false" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                                <span class="word-sheet-title">{{ $docTitle }}</span>
+                        <!-- Header Halaman (Sesuai Konsep Microsoft Word & Bebas Tabrakan) -->
+                        <div class="word-sheet-header" contenteditable="false" style="display:flex; justify-content:space-between; align-items:center; min-height:28px; border-bottom:1px solid rgba(0,0,0,0.08); padding-bottom:8px; margin-bottom:22px; position:relative; z-index:15;">
+                            <!-- Sisi Kiri: Judul Dokumen -->
+                            <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                                <span class="word-sheet-title" style="font-weight:600; color:#475569; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px;" title="{{ $docTitle }}">
+                                    {{ $docTitle }}
+                                </span>
+                            </div>
+
+                            <!-- Sisi Kanan: Aksi Halaman & Nomor Halaman -->
+                            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;" x-data="{ pageMenuOpen: false }" @click.outside="pageMenuOpen = false">
+                                <!-- Tombol Eksekusi Model Halaman -->
                                 <button type="button"
                                     wire:click="executeModelToPage({{ $pageNumber }})"
                                     class="word-tool-btn"
-                                    style="font-size:10px; padding:2px 8px; height:20px; background:linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%); color:#4f46e5; border:1px solid #c7d2fe; border-radius:3px; font-weight:600;"
+                                    style="font-size:10.5px; padding:2px 8px; height:22px; background:linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%); color:#4f46e5; border:1px solid #c7d2fe; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:4px;"
                                     title="Eksekusi model AI saat ini ke Halaman {{ $pageNumber }}">
-                                    ⚡ Model Hal. {{ $pageNumber }}
+                                    <span>⚡</span> Model Hal. {{ $pageNumber }}
                                 </button>
-                                <button type="button"
-                                    wire:click="openParagraphCustomizer({{ $pageNumber }}, 0)"
-                                    class="word-tool-btn"
-                                    style="font-size:10px; padding:2px 8px; height:20px; background:rgba(15,108,189,0.08); color:var(--ms-blue, #0f6cbd); border:1px solid rgba(15,108,189,0.2); border-radius:3px;"
-                                    title="Kustomisasi paragraf di Halaman {{ $pageNumber }}">
-                                    ⚙️ Custom Paragraf Hal. {{ $pageNumber }}
-                                </button>
-                                <button type="button"
-                                    wire:click="insertCustomParagraphOnPage({{ $pageNumber }}, 'Paragraf baru pada halaman {{ $pageNumber }}.')"
-                                    class="word-tool-btn"
-                                    style="font-size:10px; padding:2px 8px; height:20px; background:rgba(22,163,74,0.08); color:#16a34a; border:1px solid rgba(22,163,74,0.2); border-radius:3px;"
-                                    title="Tambah paragraf baru di Halaman {{ $pageNumber }}">
-                                    + Paragraf
-                                </button>
-                                <button type="button"
-                                    wire:click="applyParagraphPresetToPage({{ $pageNumber }}, 'academic_standard')"
-                                    class="word-tool-btn"
-                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
-                                    title="Terapkan Standar APA/Scopus (1.5 spasi, indent 1.27cm) ke Halaman {{ $pageNumber }}">
-                                    ⚡ APA 1.5
-                                </button>
-                                <button type="button"
-                                    wire:click="applyParagraphPresetToPage({{ $pageNumber }}, 'journal_ieee')"
-                                    class="word-tool-btn"
-                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
-                                    title="Terapkan Format Jurnal IEEE/ACM (1.0 spasi, indent 1.27cm) ke Halaman {{ $pageNumber }}">
-                                    ⚡ IEEE 1.0
-                                </button>
-                                <button type="button"
-                                    wire:click="cleanPageParagraphSpaces({{ $pageNumber }})"
-                                    class="word-tool-btn"
-                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
-                                    title="Rapikan spasi berlebih pada seluruh paragraf Halaman {{ $pageNumber }}">
-                                    🧹 Rapikan Spasi
-                                </button>
-                                <button type="button"
-                                    wire:click="setPageParagraphColumns({{ $pageNumber }}, {{ ($pageOverrides[$pageNumber]['columns'] ?? 1) === 1 ? 2 : 1 }})"
-                                    class="word-tool-btn"
-                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
-                                    title="Ganti tata letak 1 atau 2 kolom untuk Halaman {{ $pageNumber }}">
-                                    📰 {{ ($pageOverrides[$pageNumber]['columns'] ?? 1) === 2 ? '2 Kolom' : '1 Kolom' }}
-                                </button>
-                                <button type="button"
-                                    wire:click="togglePageParagraphLineNumbers({{ $pageNumber }})"
-                                    class="word-tool-btn {{ !empty($pageOverrides[$pageNumber]['lineNumbers']) ? 'active' : '' }}"
-                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
-                                    title="Tampilkan / sembunyikan nomor baris di Halaman {{ $pageNumber }}">
-                                    🔢 Nomor Baris
-                                </button>
-                                <button type="button"
-                                    wire:click="setPageParagraphAlignment({{ $pageNumber }}, 'justify')"
-                                    class="word-tool-btn"
-                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
-                                    title="Rata Kiri-Kanan (Justify) seluruh alinea Halaman {{ $pageNumber }}">
-                                    ≡ Rata Penuh
-                                </button>
-                                <button type="button"
-                                    wire:click="setPageParagraphAlignment({{ $pageNumber }}, 'left')"
-                                    class="word-tool-btn"
-                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
-                                    title="Rata Kiri seluruh alinea Halaman {{ $pageNumber }}">
-                                    = Rata Kiri
-                                </button>
-                                <button type="button"
-                                    wire:click="setPageParagraphLineSpacing({{ $pageNumber }}, 1.5)"
-                                    class="word-tool-btn {{ ($pageOverrides[$pageNumber]['lineSpacing'] ?? 0) == 1.5 ? 'active' : '' }}"
-                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
-                                    title="Atur Spasi 1.5 Halaman {{ $pageNumber }}">
-                                    ↕ 1.5
-                                </button>
-                                <button type="button"
-                                    wire:click="setPageParagraphLineSpacing({{ $pageNumber }}, 1.0)"
-                                    class="word-tool-btn {{ ($pageOverrides[$pageNumber]['lineSpacing'] ?? 0) == 1.0 ? 'active' : '' }}"
-                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
-                                    title="Atur Spasi 1.0 Halaman {{ $pageNumber }}">
-                                    ↕ 1.0
-                                </button>
-                                <button type="button"
-                                    wire:click="batchIndentPageParagraphs({{ $pageNumber }}, 'first-line')"
-                                    class="word-tool-btn"
-                                    style="font-size:10px; padding:2px 6px; height:20px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:3px;"
-                                    title="Terapkan Indentasi Baris Pertama (1.27cm) ke seluruh alinea Halaman {{ $pageNumber }}">
-                                    📐 Indent
-                                </button>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                @if ($isFirstPage)
-                                    <span class="word-sheet-edition">Halaman 1</span>
-                                @else
-                                    <!-- BAB Selanjutnya: Nomor Halaman di Kanan Atas (Sesuai Gambar 1) -->
-                                    <span class="word-sheet-page-top" title="Halaman {{ $pageNumber }}">{{ $pageNumber }}</span>
-                                @endif
+
+                                <!-- Dropdown Opsi & Layout Halaman -->
+                                <div style="position:relative;">
+                                    <button type="button"
+                                        @click="pageMenuOpen = !pageMenuOpen"
+                                        class="word-tool-btn"
+                                        style="font-size:10.5px; padding:2px 8px; height:22px; background:#f8fafc; color:#334155; border:1px solid #cbd5e1; border-radius:4px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"
+                                        title="Opsi tata letak dan paragraf Halaman {{ $pageNumber }}">
+                                        <span>⚙️</span> Opsi Hal. {{ $pageNumber }} <span style="font-size:8px;">▼</span>
+                                    </button>
+
+                                    <!-- Floating Dropdown Menu -->
+                                    <div x-show="pageMenuOpen"
+                                         x-transition:enter="transition ease-out duration-100"
+                                         x-transition:enter-start="opacity-0 scale-95"
+                                         x-transition:enter-end="opacity-100 scale-100"
+                                         x-transition:leave="transition ease-in duration-75"
+                                         x-transition:leave-start="opacity-100 scale-100"
+                                         x-transition:leave-end="opacity-0 scale-95"
+                                         style="position:absolute; right:0; top:26px; z-index:100; min-width:220px; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1); padding:5px; display:flex; flex-direction:column; gap:2px;"
+                                         contenteditable="false">
+                                        <div style="font-size:9.5px; font-weight:700; color:#64748b; padding:4px 8px; border-bottom:1px solid #f1f5f9; text-transform:uppercase; letter-spacing:0.5px;">
+                                            Alat Halaman {{ $pageNumber }}
+                                        </div>
+                                        <button type="button"
+                                            wire:click="openParagraphCustomizer({{ $pageNumber }}, 0); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>⚙️</span> Kustomisasi Paragraf
+                                        </button>
+                                        <button type="button"
+                                            wire:click="insertCustomParagraphOnPage({{ $pageNumber }}, 'Paragraf baru pada halaman {{ $pageNumber }}.'); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>➕</span> Tambah Paragraf Baru
+                                        </button>
+                                        <div style="height:1px; background:#f1f5f9; margin:2px 0;"></div>
+                                        <button type="button"
+                                            wire:click="applyParagraphPresetToPage({{ $pageNumber }}, 'academic_standard'); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>⚡</span> Format APA 1.5 (Scopus)
+                                        </button>
+                                        <button type="button"
+                                            wire:click="applyParagraphPresetToPage({{ $pageNumber }}, 'journal_ieee'); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>⚡</span> Format IEEE / ACM (1.0)
+                                        </button>
+                                        <button type="button"
+                                            wire:click="cleanPageParagraphSpaces({{ $pageNumber }}); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>🧹</span> Rapikan Spasi Berlebih
+                                        </button>
+                                        <div style="height:1px; background:#f1f5f9; margin:2px 0;"></div>
+                                        <button type="button"
+                                            wire:click="setPageParagraphColumns({{ $pageNumber }}, {{ ($pageOverrides[$pageNumber]['columns'] ?? 1) === 1 ? 2 : 1 }}); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>📰</span> {{ ($pageOverrides[$pageNumber]['columns'] ?? 1) === 2 ? 'Ubah ke 1 Kolom' : 'Ubah ke 2 Kolom' }}
+                                        </button>
+                                        <button type="button"
+                                            wire:click="togglePageParagraphLineNumbers({{ $pageNumber }}); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>🔢</span> {{ !empty($pageOverrides[$pageNumber]['lineNumbers']) ? 'Sembunyikan No. Baris' : 'Tampilkan No. Baris' }}
+                                        </button>
+                                        <button type="button"
+                                            wire:click="setPageParagraphAlignment({{ $pageNumber }}, 'justify'); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>≡</span> Rata Penuh (Justify)
+                                        </button>
+                                        <button type="button"
+                                            wire:click="setPageParagraphAlignment({{ $pageNumber }}, 'left'); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>=</span> Rata Kiri (Left)
+                                        </button>
+                                        <button type="button"
+                                            wire:click="setPageParagraphLineSpacing({{ $pageNumber }}, 1.5); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>↕</span> Atur Spasi 1.5
+                                        </button>
+                                        <button type="button"
+                                            wire:click="setPageParagraphLineSpacing({{ $pageNumber }}, 1.0); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>↕</span> Atur Spasi 1.0
+                                        </button>
+                                        <button type="button"
+                                            wire:click="batchIndentPageParagraphs({{ $pageNumber }}, 'first-line'); pageMenuOpen = false;"
+                                            class="word-mini-dropdown-item"
+                                            style="padding:5px 8px; font-size:11px; text-align:left; border:none; background:none; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:6px;">
+                                            <span>📐</span> Indent Baris Pertama (1.27cm)
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Label / Nomor Halaman -->
+                                <div style="display:flex; align-items:center; padding-left:4px;">
+                                    @if ($isFirstPage)
+                                        <span class="word-sheet-edition" style="font-size:10px; color:#64748b; font-weight:600; white-space:nowrap;">Halaman 1</span>
+                                    @else
+                                        <span class="word-sheet-page-top" title="Halaman {{ $pageNumber }}" style="font-size:10.5px; font-weight:700; color:#334155; white-space:nowrap;">Hal. {{ $pageNumber }}</span>
+                                    @endif
+                                </div>
                             </div>
                         </div>
 
