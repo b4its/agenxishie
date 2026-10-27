@@ -28,6 +28,7 @@ use App\Domain\Workspace\UxKpiTelemetryService;
 use App\Filament\Pages\AcademicWorkspacePage;
 use App\Filament\Pages\AiChatPage;
 use App\Filament\Pages\ExternalProjectsPage;
+use App\Filament\Pages\NaskahStudioPage;
 use App\Filament\Pages\OmnigensiMonitoringPage;
 use App\Filament\Pages\PlatformMatcherPage;
 use App\Filament\Pages\ProjectOnboardingWizard;
@@ -3676,4 +3677,57 @@ it('applies current stage and executes model to naskah studio from academic work
 
     $reloadedDoc = NaskahDocument::query()->find($doc->id);
     expect(count($reloadedDoc->blocks))->toBeGreaterThan($initialBlockCount);
+
+    // 3. Terapkan pesan asisten ke Naskah Studio
+    $prevCount = count($reloadedDoc->blocks);
+    $workspace->set('assistantMessage', '/sitasi')
+        ->call('sendAssistantMessage')
+        ->assertSuccessful();
+
+    $logCount = count($workspace->get('assistantLog'));
+    expect($logCount)->toBeGreaterThanOrEqual(2);
+
+    $workspace->call('applyAssistantMessageToStudio', $logCount - 1)
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $reloadedDoc2 = NaskahDocument::query()->find($doc->id);
+    expect(count($reloadedDoc2->blocks))->toBeGreaterThan($prevCount);
+});
+
+it('executes current model from xishie assistant page directly to naskah studio', function (): void {
+    $project = makeProject(['document_type' => DocumentType::SKRIPSI]);
+    $asstPage = Livewire::test(XishieAssistantPage::class, ['projectId' => $project->id]);
+
+    $asstPage->set('message', '/ringkas')
+        ->call('executeCurrentModelToStudio')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $projectDoc = NaskahDocument::query()
+        ->where('source_type', NaskahDocument::SOURCE_PROJECT)
+        ->where('project_id', $project->id)
+        ->latest('updated_at')
+        ->first();
+
+    expect($projectDoc)->not->toBeNull()
+        ->and(count($projectDoc->blocks))->toBeGreaterThan(1);
+});
+
+it('executes model directly on specific paragraph within naskah studio', function (): void {
+    $studio = Livewire::test(NaskahStudioPage::class);
+    $studio->call('loadSampleHandbook')
+        ->assertSuccessful();
+
+    $paragraphsBefore = $studio->get('blocks');
+    expect(count($paragraphsBefore))->toBeGreaterThan(0);
+
+    // Eksekusi model pada paragraf halaman 1, index 0
+    $studio->call('executeModelOnParagraph', 1, 0, 'Poles kalimat dengan diksi akademik')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $blocksAfter = $studio->get('blocks');
+    expect($studio->get('isReviewingModelOutput'))->toBeTrue()
+        ->and($blocksAfter[0]['is_under_review'] ?? false)->toBeTrue();
 });

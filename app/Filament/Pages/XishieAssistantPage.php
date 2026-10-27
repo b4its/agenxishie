@@ -226,6 +226,42 @@ class XishieAssistantPage extends Page
     }
 
     /**
+     * Eksekusi model/asisten saat ini langsung dari prompt dan terapkan ke Naskah Studio.
+     */
+    public function executeCurrentModelToStudio(?string $prompt = null): void
+    {
+        $input = trim($prompt ?? $this->message);
+        if ($input === '') {
+            Notification::make()->title('Pesan atau perintah kosong')->warning()->send();
+
+            return;
+        }
+
+        $project = $this->getProject();
+        $this->log[] = [
+            'role' => 'user',
+            'content' => $input,
+            'command' => str_starts_with($input, '/') ? explode(' ', $input)[0] : 'chat',
+            'created_at' => now()->format('H:i:s'),
+        ];
+
+        $service = app(XishieAssistantService::class);
+        $res = $service->handle($project, $input);
+        $reply = $res['reply'] ?? '';
+
+        $this->log[] = [
+            'role' => 'assistant',
+            'content' => $reply,
+            'command' => $res['command'] ?? 'chat',
+            'data' => $res['data'] ?? [],
+            'created_at' => now()->format('H:i:s'),
+        ];
+        $this->message = '';
+
+        $this->applyToNaskahStudio(count($this->log) - 1);
+    }
+
+    /**
      * Bersihkan transkrip.
      */
     public function clearLog(): void

@@ -573,9 +573,15 @@
                         </div>
 
                         <div style="margin-top:.75rem;">
-                            @foreach (array_slice($assistantLog, -4) as $chat)
-                                <div class="rb-mono" style="font-size:.68rem; margin-bottom:.35rem;">
-                                    <strong>{{ $chat['role'] === 'user' ? 'YOU' : 'XISHIE' }}:</strong> {{ $chat['content'] }}
+                            @foreach (array_slice($assistantLog, -4, null, true) as $idx => $chat)
+                                <div class="rb-mono" style="font-size:.68rem; margin-bottom:.4rem; padding:.25rem .35rem; background:#f8fafc; border-radius:3px; border:1px solid #e2e8f0;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <strong>{{ $chat['role'] === 'user' ? 'YOU' : 'XISHIE' }}:</strong>
+                                        @if ($chat['role'] === 'assistant')
+                                            <button type="button" class="rb-button" style="padding:1px 4px; font-size:.55rem; border-color:var(--rb-primary); color:var(--rb-primary);" wire:click="applyAssistantMessageToStudio({{ $idx }})" title="Terapkan ke Naskah Studio">⚡ Ke Studio</button>
+                                        @endif
+                                    </div>
+                                    <div style="margin-top:2px;">{{ $chat['content'] }}</div>
                                 </div>
                             @endforeach
                         </div>

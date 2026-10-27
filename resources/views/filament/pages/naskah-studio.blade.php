@@ -2264,6 +2264,7 @@
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="splitPageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Pecah paragraf">✂️</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="paraphrasePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Parafrase kalimat ragam akademik">🔄</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px;" wire:click="polishPageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Poles bahasa akademik">✨</button>
+                                                            <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px; color:#4f46e5; font-weight:bold;" wire:click="executeModelOnParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Eksekusi model AI saat ini pada paragraf ini">⚡</button>
                                                             <button type="button" class="ns-btn" style="padding:1px 5px; font-size:10px; height:18px; color:#d13438;" wire:click="deletePageParagraph({{ $pageNumber }}, {{ $pIdxOnPage }})" title="Hapus paragraf">🗑️</button>
                                                         </div>
                                                     </div>

@@ -2106,6 +2106,86 @@ trait HandlesNaskahStudio
     }
 
     /**
+     * Eksekusi model AI saat ini untuk memoles dan menyempurnakan paragraf tertentu pada halaman naskah.
+     */
+    public function executeModelOnParagraph(int $pageNumber, int $paragraphIndexOnPage, ?string $instruction = null): bool
+    {
+        $paragraphs = $this->getPageParagraphs($pageNumber);
+        if (! isset($paragraphs[$paragraphIndexOnPage])) {
+            return false;
+        }
+
+        $gIdx = $paragraphs[$paragraphIndexOnPage]['globalIndex'];
+        $currentText = trim((string) ($this->blocks[$gIdx]['text'] ?? ''));
+        if ($currentText === '') {
+            return false;
+        }
+
+        $modelId = $this->getCurrentAssistantModel();
+        $prompt = trim((string) ($instruction ?? ''));
+        if ($prompt === '') {
+            $prompt = "Tingkatkan ketajaman argumen akademik, kejelasan kalimat, dan diksi formal pada paragraf naskah berikut:\n\"{$currentText}\"";
+        } else {
+            $prompt .= "\n\nTeks asli paragraf:\n\"{$currentText}\"";
+        }
+
+        $llm = app(OmnigensiChatClient::class);
+        $generated = null;
+        try {
+            $generated = $llm->generate(
+                $prompt,
+                'Anda adalah editor penulisan ilmiah berpengalaman. Sempurnakan paragraf berikut agar memenuhi kaidah akademik baku, kohesif, dan bernas tanpa basa-basi.',
+                0.5,
+                600,
+                $modelId
+            );
+        } catch (\Throwable) {
+            $generated = null;
+        }
+
+        $polished = null;
+        if ($generated !== null && trim((string) ($generated['content'] ?? '')) !== '') {
+            $polished = trim((string) $generated['content']);
+            $polished = preg_replace('/^###?\s*.*?\n+/u', '', $polished) ?? $polished;
+            $polished = preg_replace('/^[-*#\s]+/u', '', $polished) ?? $polished;
+        } else {
+            $auto = $this->model->autoCorrect($currentText);
+            $cleaned = $this->model->cleanTextSpacing($auto['text']);
+            $sentences = preg_split('/(?<=[.!?])\s+/u', $cleaned, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if ($sentences !== []) {
+                $sentences[0] = ucfirst($sentences[0]);
+                $polished = implode(' ', $sentences);
+            } else {
+                $polished = $cleaned;
+            }
+        }
+
+        $this->pushUndo();
+        $this->recordRevision(
+            $gIdx,
+            $currentText,
+            $polished
+        );
+
+        $this->blocks[$gIdx]['text'] = $polished;
+        $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns([], $polished);
+        $this->blocks[$gIdx]['is_under_review'] = true;
+        $this->pendingReviewBlockIndices = [$gIdx];
+        $this->isReviewingModelOutput = true;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+
+        $this->notify(
+            'Paragraf Disempurnakan Model',
+            "Model [{$modelId}] berhasil menyempurnakan Paragraf #".($paragraphIndexOnPage + 1)." pada Halaman {$pageNumber}.",
+            'success'
+        );
+
+        return true;
+    }
+
+    /**
      * Sematkan sitasi pustaka ke akhir paragraf tertentu pada halaman.
      */
     public function citePageParagraph(int $pageNumber, int $paragraphIndexOnPage, string $citationKey, string $style = 'apa'): bool

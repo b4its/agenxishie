@@ -106,6 +106,18 @@
                         <button type="submit" class="rb-button rb-button--primary" style="min-height:2.6rem;" wire:loading.attr="disabled">
                             Kirim &#10148;
                         </button>
+                        <button
+                            type="button"
+                            class="rb-button"
+                            style="min-height:2.6rem; border-color:#10b981; color:#10b981; font-weight:700;"
+                            wire:click="executeCurrentModelToStudio"
+                            wire:loading.attr="disabled"
+                            wire:target="executeCurrentModelToStudio"
+                            title="Eksekusi instruksi dengan model saat ini dan terapkan langsung ke Naskah Studio"
+                        >
+                            <span wire:loading.remove wire:target="executeCurrentModelToStudio">&#9889; Eksekusi ke Studio</span>
+                            <span wire:loading wire:target="executeCurrentModelToStudio">Mengeksekusi…</span>
+                        </button>
                     </form>
                     <div class="rb-mono rb-muted" style="font-size:.6rem; margin-top:.35rem;">
                         Ctrl+Enter mengirim · jawaban memakai konteks proyek &amp; dirender sebagai Markdown.

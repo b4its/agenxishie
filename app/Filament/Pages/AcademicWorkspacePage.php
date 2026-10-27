@@ -1190,6 +1190,76 @@ class AcademicWorkspacePage extends Page
     }
 
     /**
+     * Terapkan jawaban Xishie Assistant ke Naskah Studio.
+     */
+    public function applyAssistantMessageToStudio(int $logIndex): void
+    {
+        $project = $this->getProject();
+        if ($project === null) {
+            Notification::make()->title('Pilih proyek terlebih dahulu')->warning()->send();
+
+            return;
+        }
+
+        if (! isset($this->assistantLog[$logIndex])) {
+            Notification::make()->title('Catatan pesan tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $entry = $this->assistantLog[$logIndex];
+        $content = trim((string) ($entry['content'] ?? ''));
+        if ($content === '') {
+            Notification::make()->title('Konten pesan kosong')->warning()->send();
+
+            return;
+        }
+
+        $document = NaskahDocument::query()->where('project_id', $project->id)->first();
+        if ($document === null) {
+            $document = new NaskahDocument;
+            $document->project_id = $project->id;
+            $document->source_type = NaskahDocument::SOURCE_PROJECT;
+            $document->user_id = auth()->id();
+            $document->title = $project->title.' — Studio';
+            $document->source_stage = $this->stage()?->stage_name->value ?? ProjectStage::DRAFT->value;
+            $document->blocks = [];
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $parser = app(NaskahBlockParser::class);
+        $newBlocks = $richModel->normalize($parser->parse($content));
+        if (empty($newBlocks)) {
+            $newBlocks[] = $richModel->newBlock('paragraph', $content);
+        }
+
+        $existing = $richModel->normalize((array) ($document->blocks ?? []));
+        foreach ($newBlocks as $b) {
+            $existing[] = $b;
+        }
+
+        $final = $richModel->normalize($existing);
+        $stats = $richModel->computeStatistics($final);
+
+        $document->blocks = $final;
+        $document->word_count = $stats['words'] ?? 0;
+        $document->last_saved_at = now();
+        $document->save();
+
+        Notification::make()
+            ->title('Berhasil Diterapkan ke Naskah Studio')
+            ->body('Konten assistant berhasil disematkan ke dokumen Naskah Studio ('.count($newBlocks).' blok baru).')
+            ->success()
+            ->send();
+
+        $this->redirect(NaskahStudioPage::getUrl([
+            'document' => $document->id,
+            'project' => $project->id,
+            'stage' => $document->source_stage,
+        ]));
+    }
+
+    /**
      * Catat rating kepuasan pengguna (CSAT 1-5) — PRD KPI #18.
      */
     public function rateSatisfaction(int $rating): void
