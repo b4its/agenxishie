@@ -115,8 +115,14 @@
                             </div>
 
                             <div style="display:flex; gap:.4rem; margin-top:.7rem; flex-wrap:wrap;">
-                                <button type="button" class="rb-button rb-button--primary" wire:click="adaptFormatting({{ $rec->id }})">
+                                <button type="button" class="rb-button rb-button--primary" wire:click="adaptFormatting({{ $rec->id }})" title="Adaptasikan format naskah ke gaya jurnal ini">
                                     Adapt Formatting
+                                </button>
+                                <button type="button" class="rb-button" style="background:#4f46e5; color:#ffffff; font-weight:700;" wire:click="applyAdaptedToStudio({{ $rec->id }})" title="Terapkan naskah terformat venue ini langsung ke Naskah Studio">
+                                    ⚡ Ke Studio
+                                </button>
+                                <button type="button" class="rb-button" style="background:#4338ca; color:#ffffff; font-weight:700;" wire:click="executeModelForVenueToStudio({{ $rec->id }})" title="Eksekusi model AI saat ini sesuai panduan venue dan terapkan ke Naskah Studio">
+                                    ✨ Eksekusi Model Venue
                                 </button>
                                 @unless ($rec->is_selected)
                                     <button type="button" class="rb-button" wire:click="selectTarget({{ $rec->id }})" title="Jadikan jurnal target">&#9733; Jadikan Target</button>

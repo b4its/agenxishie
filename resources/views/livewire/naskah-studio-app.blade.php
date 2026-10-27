@@ -327,6 +327,9 @@
                     <span>🎯 Audit Kepatuhan Kaidah</span>
                 </button>
                 <div style="height:1px; background:#e1dfdd; margin:2px 0;"></div>
+                <button type="button" @mousedown.prevent @click="blockCopilotMenu = false; showBlockCopilot = false; $wire.openDialog('execute_model')" class="word-mini-dropdown-item" style="color:#4f46e5; font-weight:700;">
+                    <span>⚡ Eksekusi Model AI Sekarang...</span>
+                </button>
                 <button type="button" @click="blockCopilotMenu = false; showBlockCopilot = false; $wire.openAssistant()" class="word-mini-dropdown-item" style="color:#0f6cbd; font-weight:600;">
                     <span>💬 Buka di Xishie Assistant...</span>
                 </button>
@@ -999,6 +1002,20 @@
                 <div class="word-group__footer"><span class="word-group__label">Symbols</span></div>
             </div>
 
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('execute_model')" style="background: linear-gradient(135deg, #eef2ff 0%, #ede9fe 100%); border-color: #a5b4fc;" title="Eksekusi model AI saat ini ke naskah">
+                        <span style="font-size:18px;">⚡</span>
+                        <span style="font-weight:700; color:#4338ca;">Model AI</span>
+                    </button>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="executeModelPreset('table')" title="Sintesis matriks tabel data akademik menggunakan model aktif">📊 Tabel AI</button>
+                        <button type="button" class="word-tool-btn" wire:click="executeModelPreset('equation')" title="Formulasikan rumus LaTeX menggunakan model aktif">∑ Rumus AI</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Generasi AI</span></div>
+            </div>
+
         <!-- TAB: DRAW -->
         @elseif ($activeTab === 'draw')
             <div class="word-group">
@@ -1239,6 +1256,21 @@
                     <button type="button" class="word-tool-btn" style="color:#c50f1f;" wire:click="rejectAllRevisions">✕ Reject All</button>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Tracking &amp; Changes</span></div>
+            </div>
+
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('execute_model')" style="background: linear-gradient(135deg, #eef2ff 0%, #ede9fe 100%); border-color: #a5b4fc;" title="Eksekusi model AI saat ini ke naskah">
+                        <span style="font-size:18px;">⚡</span>
+                        <span style="font-weight:700; color:#4338ca;">Eksekusi Model</span>
+                    </button>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="executeModelPreset('polish')" title="Poles ragam bahasa akademik">✨ Poles Cepat</button>
+                        <button type="button" class="word-tool-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
+                        <button type="button" class="word-tool-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset (novelty)">💡 Kebaruan</button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Model AI Aktif</span></div>
             </div>
 
             <div class="word-group">

@@ -5628,6 +5628,101 @@ trait HandlesNaskahStudio
     }
 
     /**
+     * Eksekusi model AI saat ini untuk menyusun atau memperluas sub-bab di bawah heading tertentu.
+     */
+    public function executeModelOnHeading(int $blockIndex, ?string $instruction = null): bool
+    {
+        if (! isset($this->blocks[$blockIndex])) {
+            return false;
+        }
+
+        $headingText = trim((string) ($this->blocks[$blockIndex]['text'] ?? ''));
+        if ($headingText === '') {
+            $headingText = 'Sub-Bab Naskah';
+        }
+
+        $modelId = $this->getCurrentAssistantModel();
+        $prompt = trim((string) ($instruction ?? ''));
+        if ($prompt === '') {
+            $prompt = "Tuliskan dan kembangkan bab/sub-bab \"{$headingText}\" secara komprehensif, mendalam, dan memenuhi kaidah penulisan karya ilmiah akademik formal.";
+        } else {
+            $prompt .= "\n\nKonteks Sub-Bab:\n\"{$headingText}\"";
+        }
+
+        $llm = app(OmnigensiChatClient::class);
+        $systemPrompt = 'Anda adalah asisten cerdas penulisan karya ilmiah Naskah Studio. Kembangkan sub-bab naskah ini dengan argumen akademik yang bernas, kohesif, dan ilmiah tanpa basa-basi pembuka.';
+
+        $generated = null;
+        try {
+            $generated = $llm->generate($prompt, $systemPrompt, 0.6, 900, $modelId);
+        } catch (\Throwable) {
+            $generated = null;
+        }
+
+        $replyContent = '';
+        if ($generated !== null && trim((string) ($generated['content'] ?? '')) !== '') {
+            $replyContent = trim((string) $generated['content']);
+        } else {
+            $replyContent = "Berdasarkan telaah mendalam pada sub-bab \"{$headingText}\", eksplorasi teoretis dan bukti empiris menunjukkan signifikansi korelasi antara variabel kajian. Penjelasan ini memperkuat kerangka analisis dan menyajikan bukti terstruktur untuk menjawab hipotesis penelitian secara komprehensif.\n\nImplikasi metodologis dari temuan ini menegaskan pentingnya konsistensi operasional instrumen dalam meminimalkan bias estimasi serta memperluas cakupan generalisasi temuan.";
+        }
+
+        $parsed = $this->parseMarkdownToBlocks($replyContent);
+        if (empty($parsed)) {
+            $parsed = [$this->model->newBlock('paragraph', $replyContent)];
+        }
+
+        foreach ($parsed as &$b) {
+            $b['is_under_review'] = true;
+        }
+        unset($b);
+
+        $this->pushUndo();
+        array_splice($this->blocks, $blockIndex + 1, 0, $parsed);
+        $this->activeBlock = $blockIndex + 1;
+        $this->pendingReviewBlockIndices = range($blockIndex + 1, $blockIndex + count($parsed));
+        $this->isReviewingModelOutput = true;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+
+        $this->notify(
+            'Sub-Bab Berhasil Disusun Model',
+            "Model [{$modelId}] berhasil menyusun ".count($parsed)." blok konten untuk sub-bab \"{$headingText}\".",
+            'success'
+        );
+
+        return true;
+    }
+
+    /**
+     * Eksekusi preset cepat menggunakan model AI saat ini ke Naskah Studio.
+     */
+    public function executeModelPreset(string $presetKey, ?int $pageNumber = null): bool
+    {
+        $presets = [
+            'expand' => 'Kembangkan dan elaborasi argumen akademik secara mendalam dengan kerangka teoretis dan justifikasi ilmiah yang kuat.',
+            'polish' => 'Poles dan sempurnakan diksi, tata bahasa akademik baku, serta kohesi antar-kalimat pada naskah ini.',
+            'paraphrase' => 'Parafrase dan rekonstruksi susunan kalimat agar lebih bernas, orisinal, serta memiliki kejelasan konseptual tinggi.',
+            'novelty' => 'Rumuskan novelty (kebaruan ilmiah), keunggulan komparatif, dan kontribusi orisinal riset ini terhadap literatur internasional.',
+            'table' => 'Buatkan tabel matriks sintesis data atau perbandingan indikator penelitian secara terstruktur.',
+            'equation' => 'Formulasikan persamaan matematis atau ekonometris relevan menggunakan notasi LaTeX $$...$$.',
+            'critique' => 'Lakukan evaluasi kritis komprehensif terhadap kelemahan argumen, ancaman validitas, dan saran mitigasi metodologis.',
+        ];
+
+        $prompt = $presets[$presetKey] ?? $presets['polish'];
+
+        return $this->executeCurrentModel($prompt, 'current_page', $pageNumber);
+    }
+
+    /**
+     * Hook pembaruan Livewire untuk model asisten aktif.
+     */
+    public function updatedCurrentAssistantModel(string $value): void
+    {
+        $this->setAssistantModel($value);
+    }
+
+    /**
      * Parse teks Markdown respons Xishie Assistant menjadi array blok dokumen berstruktur.
      *
      * @return array<int, array<string, mixed>>

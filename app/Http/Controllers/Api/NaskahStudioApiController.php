@@ -516,9 +516,24 @@ class NaskahStudioApiController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
         }
 
+        $preset = $request->input('preset');
+        $presetPrompts = [
+            'expand' => 'Kembangkan dan elaborasi argumen akademik secara mendalam dengan kerangka teoretis dan justifikasi ilmiah yang kuat.',
+            'polish' => 'Poles dan sempurnakan diksi, tata bahasa akademik baku, serta kohesi antar-kalimat pada naskah ini.',
+            'paraphrase' => 'Parafrase dan rekonstruksi susunan kalimat agar lebih bernas, orisinal, serta memiliki kejelasan konseptual tinggi.',
+            'novelty' => 'Rumuskan novelty (kebaruan ilmiah), keunggulan komparatif, dan kontribusi orisinal riset ini terhadap literatur internasional.',
+            'table' => 'Buatkan tabel matriks sintesis data atau perbandingan indikator penelitian secara terstruktur.',
+            'equation' => 'Formulasikan persamaan matematis atau ekonometris relevan menggunakan notasi LaTeX $$...$$.',
+            'critique' => 'Lakukan evaluasi kritis komprehensif terhadap kelemahan argumen, ancaman validitas, dan saran mitigasi metodologis.',
+        ];
+
         $prompt = trim((string) $request->input('prompt', ''));
+        if ($prompt === '' && is_string($preset) && isset($presetPrompts[$preset])) {
+            $prompt = $presetPrompts[$preset];
+        }
+
         if ($prompt === '') {
-            return response()->json(['status' => 'error', 'message' => 'Parameter prompt diperlukan'], 422);
+            return response()->json(['status' => 'error', 'message' => 'Parameter prompt atau preset valid diperlukan'], 422);
         }
 
         $modelId = trim((string) $request->input('model', ''));

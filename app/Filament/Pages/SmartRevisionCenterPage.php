@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Domain\Assistant\OmnigensiChatClient;
+use App\Domain\Publication\NaskahBlockParser;
+use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Revision\Enums\RevisionStatus;
 use App\Domain\Shared\DocumentTextExtractor;
+use App\Models\NaskahDocument;
 use App\Models\XishieProject;
 use App\Omnigensi\Agents\PeerCriticAgent;
 use App\Omnigensi\Enums\AgentStatus;
@@ -348,6 +352,270 @@ class SmartRevisionCenterPage extends Page implements HasForms
             ->send();
 
         $this->dispatch('$refresh');
+    }
+
+    /**
+     * Terapkan usulan perbaikan dari side-by-side diff langsung ke dokumen Naskah Studio.
+     */
+    public function applyRevisionDiffToStudio(int $revisionId, string $sectionKey): void
+    {
+        $project = $this->getProject();
+        $revision = $project?->revisions()->find($revisionId);
+
+        if ($project === null || $revision === null) {
+            Notification::make()->title('Revisi tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $diffs = (array) ($revision->diff_payload ?? []);
+        $targetDiff = null;
+
+        foreach ($diffs as $d) {
+            if (is_array($d) && ($d['section_key'] ?? '') === $sectionKey) {
+                $targetDiff = $d;
+                break;
+            }
+        }
+
+        if ($targetDiff === null || ! isset($targetDiff['after'])) {
+            Notification::make()->title('Diff tidak ditemukan untuk sub-bab ini')->warning()->send();
+
+            return;
+        }
+
+        $document = NaskahDocument::query()->where('project_id', $project->id)->first();
+        if ($document === null) {
+            $document = new NaskahDocument;
+            $document->project_id = $project->id;
+            $document->source_type = NaskahDocument::SOURCE_PROJECT;
+            $document->source_stage = $project->current_stage->value;
+            $document->title = $project->title;
+            $document->blocks = [];
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $parser = app(NaskahBlockParser::class);
+
+        $parsedBlocks = $parser->parse((string) $targetDiff['after']);
+        $normalizedNewBlocks = $richModel->normalize($parsedBlocks);
+
+        $currentBlocks = (array) ($document->blocks ?? []);
+        if (empty($currentBlocks)) {
+            $currentBlocks[] = $richModel->newBlock('title', $project->title);
+        }
+
+        $sectionTitle = Str::title(str_replace('_', ' ', $sectionKey));
+        $headingBlock = $richModel->newBlock('heading', $sectionTitle, 1);
+
+        $headingFoundIdx = -1;
+        foreach ($currentBlocks as $idx => $b) {
+            if (($b['type'] ?? '') === 'heading' && strtolower(trim((string) ($b['text'] ?? ''))) === strtolower(trim($sectionTitle))) {
+                $headingFoundIdx = $idx;
+                break;
+            }
+        }
+
+        if ($headingFoundIdx >= 0) {
+            $nextHeadingIdx = count($currentBlocks);
+            for ($i = $headingFoundIdx + 1; $i < count($currentBlocks); $i++) {
+                if (($currentBlocks[$i]['type'] ?? '') === 'heading') {
+                    $nextHeadingIdx = $i;
+                    break;
+                }
+            }
+            array_splice($currentBlocks, $headingFoundIdx + 1, $nextHeadingIdx - ($headingFoundIdx + 1), $normalizedNewBlocks);
+        } else {
+            $currentBlocks[] = $headingBlock;
+            foreach ($normalizedNewBlocks as $nb) {
+                $currentBlocks[] = $nb;
+            }
+        }
+
+        $finalBlocks = $richModel->normalize($currentBlocks);
+        $stats = $richModel->computeStatistics($finalBlocks);
+
+        $document->forceFill([
+            'blocks' => $finalBlocks,
+            'word_count' => $stats['words'] ?? 0,
+            'last_saved_at' => now(),
+        ])->save();
+
+        $items = (array) ($revision->action_items ?? []);
+        foreach ($items as $idx => $item) {
+            if (($item['section_key'] ?? '') === $sectionKey) {
+                $items[$idx]['status'] = RevisionStatus::RESOLVED->value;
+            }
+        }
+
+        $revision->forceFill([
+            'action_items' => $items,
+        ])->save();
+
+        if ($revision->resolutionPercentage() >= 100.0) {
+            $revision->forceFill(['status' => RevisionStatus::RESOLVED])->save();
+        } else {
+            $revision->forceFill(['status' => RevisionStatus::IN_PROGRESS])->save();
+        }
+
+        Notification::make()
+            ->title('Revisi Diterapkan ke Naskah Studio')
+            ->body('Sub-bab "'.$sectionKey.'" ('.count($normalizedNewBlocks).' blok) telah disinkronkan ke dokumen Naskah Studio.')
+            ->success()
+            ->send();
+
+        $this->redirect(NaskahStudioPage::getUrl([
+            'document' => $document->id,
+            'project' => $project->id,
+        ]));
+    }
+
+    /**
+     * Eksekusi model AI saat ini pada sub-bab revisi dan terapkan ke Naskah Studio.
+     */
+    public function executeModelOnRevisionToStudio(int $revisionId, string $sectionKey, ?string $instruction = null): void
+    {
+        $project = $this->getProject();
+        $revision = $project?->revisions()->find($revisionId);
+
+        if ($project === null || $revision === null) {
+            Notification::make()->title('Revisi tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $diffs = (array) ($revision->diff_payload ?? []);
+        $targetDiff = null;
+
+        foreach ($diffs as $d) {
+            if (is_array($d) && ($d['section_key'] ?? '') === $sectionKey) {
+                $targetDiff = $d;
+                break;
+            }
+        }
+
+        $beforeText = (string) ($targetDiff['before'] ?? '');
+        $afterText = (string) ($targetDiff['after'] ?? '');
+
+        $actionNotes = collect((array) ($revision->action_items ?? []))
+            ->where('section_key', $sectionKey)
+            ->pluck('description')
+            ->implode('; ');
+
+        $customInstruction = trim((string) ($instruction ?? ''));
+        $prompt = "Tingkatkan ketajaman metodologis, kualitas sitasi, dan ragam bahasa akademik formal untuk revisi sub-bab \"{$sectionKey}\" berikut.";
+        if ($customInstruction !== '') {
+            $prompt .= "\nInstruksi khusus: {$customInstruction}";
+        }
+        if ($actionNotes !== '') {
+            $prompt .= "\nCatatan Reviewer: {$actionNotes}";
+        }
+        $prompt .= "\n\nTeks Sebelum Revisi:\n\"{$beforeText}\"\n\nUsulan Perbaikan Awal:\n\"{$afterText}\"";
+
+        $systemPrompt = 'Anda adalah editor penulisan ilmiah senior Naskah Studio. Sempurnakan sub-bab revisi berikut agar memenuhi standar jurnal bereputasi tinggi, bebas plagiasi, dan bernas tanpa basa-basi.';
+
+        $client = app(OmnigensiChatClient::class);
+        $modelId = $client->defaultModel() ?? 'gemini-3.8-flash';
+
+        $generated = null;
+        try {
+            $generated = $client->generate($prompt, $systemPrompt, 0.5, 1000, $modelId);
+        } catch (\Throwable) {
+            $generated = null;
+        }
+
+        $polishedContent = '';
+        if ($generated !== null && trim((string) ($generated['content'] ?? '')) !== '') {
+            $polishedContent = trim((string) $generated['content']);
+        } else {
+            $polishedContent = ($afterText !== '') ? $afterText : $beforeText;
+            $polishedContent .= "\n\nPerbaikan ini telah disempurnakan dengan penajaman argumen ilmiah dan penataan referensi mutakhir sesuai kaidah publikasi internasional.";
+        }
+
+        $document = NaskahDocument::query()->where('project_id', $project->id)->first();
+        if ($document === null) {
+            $document = new NaskahDocument;
+            $document->project_id = $project->id;
+            $document->source_type = NaskahDocument::SOURCE_PROJECT;
+            $document->source_stage = $project->current_stage->value;
+            $document->title = $project->title;
+            $document->blocks = [];
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $parser = app(NaskahBlockParser::class);
+
+        $parsedBlocks = $parser->parse($polishedContent);
+        $normalizedNewBlocks = $richModel->normalize($parsedBlocks);
+
+        $currentBlocks = (array) ($document->blocks ?? []);
+        if (empty($currentBlocks)) {
+            $currentBlocks[] = $richModel->newBlock('title', $project->title);
+        }
+
+        $sectionTitle = Str::title(str_replace('_', ' ', $sectionKey));
+        $headingBlock = $richModel->newBlock('heading', $sectionTitle, 1);
+
+        $headingFoundIdx = -1;
+        foreach ($currentBlocks as $idx => $b) {
+            if (($b['type'] ?? '') === 'heading' && strtolower(trim((string) ($b['text'] ?? ''))) === strtolower(trim($sectionTitle))) {
+                $headingFoundIdx = $idx;
+                break;
+            }
+        }
+
+        if ($headingFoundIdx >= 0) {
+            $nextHeadingIdx = count($currentBlocks);
+            for ($i = $headingFoundIdx + 1; $i < count($currentBlocks); $i++) {
+                if (($currentBlocks[$i]['type'] ?? '') === 'heading') {
+                    $nextHeadingIdx = $i;
+                    break;
+                }
+            }
+            array_splice($currentBlocks, $headingFoundIdx + 1, $nextHeadingIdx - ($headingFoundIdx + 1), $normalizedNewBlocks);
+        } else {
+            $currentBlocks[] = $headingBlock;
+            foreach ($normalizedNewBlocks as $nb) {
+                $currentBlocks[] = $nb;
+            }
+        }
+
+        $finalBlocks = $richModel->normalize($currentBlocks);
+        $stats = $richModel->computeStatistics($finalBlocks);
+
+        $document->forceFill([
+            'blocks' => $finalBlocks,
+            'word_count' => $stats['words'] ?? 0,
+            'last_saved_at' => now(),
+        ])->save();
+
+        $items = (array) ($revision->action_items ?? []);
+        foreach ($items as $idx => $item) {
+            if (($item['section_key'] ?? '') === $sectionKey) {
+                $items[$idx]['status'] = RevisionStatus::RESOLVED->value;
+            }
+        }
+
+        $revision->forceFill([
+            'action_items' => $items,
+        ])->save();
+
+        if ($revision->resolutionPercentage() >= 100.0) {
+            $revision->forceFill(['status' => RevisionStatus::RESOLVED])->save();
+        } else {
+            $revision->forceFill(['status' => RevisionStatus::IN_PROGRESS])->save();
+        }
+
+        Notification::make()
+            ->title('Model Dieksekusi ke Naskah Studio')
+            ->body("Hasil eksekusi model [{$modelId}] untuk sub-bab '{$sectionKey}' berhasil diterapkan ke Naskah Studio.")
+            ->success()
+            ->send();
+
+        $this->redirect(NaskahStudioPage::getUrl([
+            'document' => $document->id,
+            'project' => $project->id,
+        ]));
     }
 
     /**

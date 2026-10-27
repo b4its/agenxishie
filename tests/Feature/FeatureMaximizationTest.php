@@ -3731,3 +3731,186 @@ it('executes model directly on specific paragraph within naskah studio', functio
     expect($studio->get('isReviewingModelOutput'))->toBeTrue()
         ->and($blocksAfter[0]['is_under_review'] ?? false)->toBeTrue();
 });
+
+it('applies revision diff and executes model on revision to naskah studio from smart revision center', function (): void {
+    $project = makeProject(['document_type' => DocumentType::SKRIPSI]);
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::DRAFT);
+    $stage->forceFill([
+        'sections_content' => [['key' => 'metodologi', 'heading' => 'Metodologi', 'content' => 'Teks awal metodologi']],
+        'status' => StageStatus::COMPLETED,
+    ])->save();
+
+    $revision = ProjectRevision::create([
+        'project_id' => $project->id,
+        'stage_id' => $stage->id,
+        'reviewer_role' => 'pembimbing_1',
+        'status' => RevisionStatus::PENDING,
+        'raw_feedback' => '1. Perjelas teknik sampling pada metodologi',
+        'action_items' => [['id' => 1, 'task' => 'Perjelas sampling', 'section_key' => 'metodologi', 'status' => 'pending']],
+        'diff_payload' => [
+            [
+                'section_key' => 'metodologi',
+                'before' => 'Teks awal metodologi',
+                'after' => 'Metodologi kuantitatif dengan stratified random sampling pada 200 responden.',
+            ],
+        ],
+    ]);
+
+    $center = Livewire::test(SmartRevisionCenterPage::class, ['projectId' => $project->id]);
+
+    // 1. Terapkan diff langsung ke Naskah Studio
+    $center->call('applyRevisionDiffToStudio', $revision->id, 'metodologi')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $doc = NaskahDocument::query()->where('project_id', $project->id)->first();
+    expect($doc)->not->toBeNull()
+        ->and(count($doc->blocks))->toBeGreaterThanOrEqual(2);
+
+    $freshRevision = $revision->fresh();
+    expect($freshRevision->action_items[0]['status'])->toBe(RevisionStatus::RESOLVED->value);
+
+    // 2. Eksekusi model pada sub-bab revisi dan terapkan ke Naskah Studio
+    $center->call('executeModelOnRevisionToStudio', $revision->id, 'metodologi', 'Perkuat justifikasi metodologis')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $reloadedDoc = NaskahDocument::query()->find($doc->id);
+    expect(count($reloadedDoc->blocks))->toBeGreaterThanOrEqual(2);
+});
+
+it('applies adapted manuscript and executes venue model to naskah studio from platform matcher', function (): void {
+    $project = makeProject(['document_type' => DocumentType::SKRIPSI]);
+    $stage = app(XishieSupervisor::class)->ensureStage($project, ProjectStage::FINAL);
+    $stage->forceFill([
+        'sections_content' => [
+            ['key' => 'pendahuluan', 'heading' => 'Pendahuluan', 'content' => 'Latar belakang penelitian komputasi.'],
+            ['key' => 'metode', 'heading' => 'Metode', 'content' => 'Desain eksperimen berbasis AI.'],
+        ],
+        'compiled_content' => "# {$project->title}\n\nLatar belakang komputasi.\n\nDesain eksperimen berbasis AI.",
+        'status' => StageStatus::COMPLETED,
+    ])->save();
+
+    $venue = AcademicVenue::create([
+        'journal_name' => 'Jurnal Sistem Informasi (SINTA 2)',
+        'publisher' => 'Fakultas Ilmu Komputer',
+        'scope_type' => 'sinta',
+        'index_tier' => 'SINTA 2',
+        'field_of_study' => 'STEM',
+        'aims_and_scope' => 'Sistem informasi, rekayasa perangkat lunak dan kecerdasan buatan',
+        'apc_estimate' => 750000,
+        'is_active' => true,
+    ]);
+
+    $rec = PlatformRecommendation::create([
+        'project_id' => $project->id,
+        'academic_venue_id' => $venue->id,
+        'journal_name' => $venue->journal_name,
+        'publisher' => $venue->publisher,
+        'index_tier' => $venue->index_tier,
+        'match_score' => 91.0,
+        'scope_reasoning' => 'Kesesuaian tinggi bidang studi AI',
+        'apc_estimate' => $venue->apc_estimate,
+        'citation_style' => 'ieee',
+    ]);
+
+    $matcher = Livewire::test(PlatformMatcherPage::class, ['projectId' => $project->id]);
+
+    // 1. Terapkan naskah teradaptasi ke Naskah Studio
+    $matcher->call('applyAdaptedToStudio', $rec->id)
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $doc = NaskahDocument::query()->where('project_id', $project->id)->first();
+    expect($doc)->not->toBeNull()
+        ->and($doc->title)->toContain('Jurnal Sistem Informasi')
+        ->and(count($doc->blocks))->toBeGreaterThan(0);
+
+    // 2. Eksekusi model venue ke Naskah Studio
+    $matcher->call('executeModelForVenueToStudio', $rec->id, 'Sesuaikan format IEEE')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $reloadedDoc = NaskahDocument::query()->find($doc->id);
+    expect($reloadedDoc->title)->toContain('Model')
+        ->and(count($reloadedDoc->blocks))->toBeGreaterThan(0);
+});
+
+it('executes model on heading and executes model preset in naskah studio', function (): void {
+    $studio = Livewire::test(NaskahStudioPage::class);
+    $studio->call('loadSampleHandbook')
+        ->assertSuccessful();
+
+    $blocks = $studio->get('blocks');
+    $headingIdx = -1;
+    foreach ($blocks as $idx => $b) {
+        if (($b['type'] ?? '') === 'heading') {
+            $headingIdx = $idx;
+            break;
+        }
+    }
+    expect($headingIdx)->toBeGreaterThanOrEqual(0);
+
+    $initialCount = count($blocks);
+
+    // 1. Eksekusi model pada heading
+    $studio->call('executeModelOnHeading', $headingIdx, 'Elaborasi bab ini secara ilmiah')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $blocksAfterHeading = $studio->get('blocks');
+    expect(count($blocksAfterHeading))->toBeGreaterThan($initialCount)
+        ->and($studio->get('isReviewingModelOutput'))->toBeTrue();
+
+    // 2. Eksekusi preset 'polish'
+    $studio->call('executeModelPreset', 'polish')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    // 3. Eksekusi preset 'table'
+    $beforeTableCount = count($studio->get('blocks'));
+    $studio->call('executeModelPreset', 'table')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $afterTableBlocks = $studio->get('blocks');
+    expect(count($afterTableBlocks))->toBeGreaterThan($beforeTableCount);
+
+    // 4. Update model aktif via updatedCurrentAssistantModel
+    $studio->set('currentAssistantModel', 'gemini-3.8-flash');
+    expect($studio->get('currentAssistantModel'))->toBe('gemini-3.8-flash');
+});
+
+it('executes model with preset via artisan naskah:manage and REST API', function (): void {
+    $richModel = app(NaskahRichModel::class);
+    $doc = NaskahDocument::create([
+        'title' => 'Dokumen Pengujian Model Preset',
+        'source_type' => 'standalone',
+        'blocks' => [
+            $richModel->newBlock('title', 'Dokumen Pengujian Model Preset'),
+            $richModel->newBlock('paragraph', 'Paragraf pendahuluan untuk uji model preset.'),
+        ],
+        'word_count' => 8,
+    ]);
+
+    // 1. Eksekusi CLI dengan preset
+    $this->artisan('naskah:manage', [
+        'action' => 'execute-model',
+        'documentId' => $doc->id,
+        '--preset' => 'table',
+        '--model' => 'gemini-3.8-flash',
+    ])->assertSuccessful();
+
+    $freshDoc = $doc->fresh();
+    expect(count($freshDoc->blocks))->toBeGreaterThan(2);
+
+    // 2. Eksekusi API dengan preset
+    $response = $this->postJson("/api/v1/naskah/documents/{$doc->id}/execute-model", [
+        'preset' => 'polish',
+        'model' => 'gemini-3.8-flash',
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('data.model', 'gemini-3.8-flash');
+});

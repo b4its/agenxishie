@@ -109,16 +109,34 @@
                                     {{ $diff['before'] ?: '(kosong)' }}
                                 </div>
                                 <div class="rb-diff__pane rb-diff__pane--after">
-                                    <div class="rb-diff__header" style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="rb-diff__header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.3rem;">
                                         <span>AFTER — {{ $diff['section_key'] ?? '-' }}</span>
-                                        <button
-                                            type="button"
-                                            class="rb-button rb-button--primary"
-                                            style="padding:.1rem .45rem; font-size:.58rem;"
-                                            wire:click="applyRevisionDiff({{ $revision->id }}, '{{ $diff['section_key'] ?? '' }}')"
-                                            wire:loading.attr="disabled"
-                                            title="Terapkan perbaikan ini langsung ke naskah"
-                                        >&#10003; Terapkan Perbaikan</button>
+                                        <div style="display:flex; gap:.3rem; align-items:center;">
+                                            <button
+                                                type="button"
+                                                class="rb-button rb-button--primary"
+                                                style="padding:.1rem .45rem; font-size:.58rem;"
+                                                wire:click="applyRevisionDiff({{ $revision->id }}, '{{ $diff['section_key'] ?? '' }}')"
+                                                wire:loading.attr="disabled"
+                                                title="Terapkan perbaikan ini langsung ke naskah tahap draf"
+                                            >&#10003; Draf</button>
+                                            <button
+                                                type="button"
+                                                class="rb-button"
+                                                style="padding:.1rem .45rem; font-size:.58rem; background:#4f46e5; color:#ffffff; font-weight:700;"
+                                                wire:click="applyRevisionDiffToStudio({{ $revision->id }}, '{{ $diff['section_key'] ?? '' }}')"
+                                                wire:loading.attr="disabled"
+                                                title="Terapkan langsung perbaikan ini ke dokumen Naskah Studio"
+                                            >⚡ Ke Studio</button>
+                                            <button
+                                                type="button"
+                                                class="rb-button"
+                                                style="padding:.1rem .45rem; font-size:.58rem; background:#4338ca; color:#ffffff; font-weight:700;"
+                                                wire:click="executeModelOnRevisionToStudio({{ $revision->id }}, '{{ $diff['section_key'] ?? '' }}')"
+                                                wire:loading.attr="disabled"
+                                                title="Eksekusi model AI saat ini untuk menyempurnakan revisi ini dan terapkan ke Naskah Studio"
+                                            >✨ Eksekusi Model ke Studio</button>
+                                        </div>
                                     </div>
                                     {{ $diff['after'] ?? '' }}
                                 </div>

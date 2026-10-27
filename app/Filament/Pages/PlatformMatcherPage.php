@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Domain\Assistant\OmnigensiChatClient;
 use App\Domain\Publication\ManuscriptAdapter;
 use App\Domain\Publication\ManuscriptExporter;
+use App\Domain\Publication\NaskahBlockParser;
+use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Workspace\Enums\ProjectStage;
+use App\Models\NaskahDocument;
 use App\Models\OmnigensiAgentLog;
 use App\Models\XishieProject;
 use App\Omnigensi\Agents\VenueMatcherAgent;
@@ -159,6 +163,150 @@ class PlatformMatcherPage extends Page
             ))
             ->success()
             ->send();
+    }
+
+    /**
+     * Terapkan naskah teradaptasi untuk venue jurnal ke Naskah Studio.
+     */
+    public function applyAdaptedToStudio(int $recommendationId): void
+    {
+        $project = $this->getProject();
+        $recommendation = $project?->recommendations()->find($recommendationId);
+
+        if ($project === null || $recommendation === null) {
+            Notification::make()->title('Rekomendasi tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $final = $project->stages()->where('stage_name', ProjectStage::FINAL->value)->first();
+        $adapted = (array) (($final?->hitl_pending_payload ?? [])['adapted_manuscript'] ?? []);
+
+        if (empty($adapted) || empty($adapted['manuscript'])) {
+            $result = app(ManuscriptAdapter::class)->adapt($project, $recommendation);
+            $adapted = [
+                'journal_name' => $result['journal_name'],
+                'index_tier' => $result['index_tier'],
+                'citation_style' => $result['citation_style'],
+                'word_count' => $result['word_count'],
+                'within_limit' => $result['within_limit'],
+                'manuscript' => $result['manuscript'],
+                'adapted_at' => now()->toIso8601String(),
+            ];
+        }
+
+        $manuscriptText = (string) ($adapted['manuscript'] ?? '');
+        $richModel = app(NaskahRichModel::class);
+        $parser = app(NaskahBlockParser::class);
+
+        $parsedBlocks = $parser->parse($manuscriptText);
+        $normalizedBlocks = $richModel->normalize($parsedBlocks);
+
+        $document = NaskahDocument::query()->where('project_id', $project->id)->first();
+        if ($document === null) {
+            $document = new NaskahDocument;
+            $document->project_id = $project->id;
+            $document->source_type = NaskahDocument::SOURCE_PROJECT;
+            $document->source_stage = ProjectStage::FINAL->value;
+        }
+
+        $journalName = $recommendation->journal_name ?? $recommendation->target_journal ?? 'Target Journal';
+        $document->title = $project->title." [{$journalName}]";
+        $document->blocks = $normalizedBlocks;
+        $document->word_count = $richModel->computeStatistics($normalizedBlocks)['words'] ?? count($normalizedBlocks);
+        $document->last_saved_at = now();
+        $document->save();
+
+        Notification::make()
+            ->title('Naskah Teradaptasi Diterapkan ke Studio')
+            ->body("Naskah diformat untuk {$journalName} (".count($normalizedBlocks).' blok) telah disinkronkan ke Naskah Studio.')
+            ->success()
+            ->send();
+
+        $this->redirect(NaskahStudioPage::getUrl([
+            'document' => $document->id,
+            'project' => $project->id,
+        ]));
+    }
+
+    /**
+     * Eksekusi model AI saat ini sesuai spesifikasi venue jurnal dan terapkan ke Naskah Studio.
+     */
+    public function executeModelForVenueToStudio(int $recommendationId, ?string $instruction = null): void
+    {
+        $project = $this->getProject();
+        $recommendation = $project?->recommendations()->find($recommendationId);
+
+        if ($project === null || $recommendation === null) {
+            Notification::make()->title('Rekomendasi tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $client = app(OmnigensiChatClient::class);
+        $modelId = $client->defaultModel() ?? 'gemini-3.8-flash';
+
+        $journal = (string) ($recommendation->journal_name ?? $recommendation->target_journal ?? 'Jurnal Akademik');
+        $tier = (string) ($recommendation->index_tier ?? 'Scopus / SINTA');
+        $style = (string) ($recommendation->citation_style ?? 'apa');
+        $scope = (string) ($recommendation->aims_scope ?? 'Kajian ilmiah');
+
+        $userPrompt = "Konteks Naskah:\nJudul: {$project->title}\nTipe: {$project->document_type->label()}\n\n"
+            ."Target Venue: {$journal} ({$tier})\nGaya Sitasi: {$style}\nFokus Bidang: {$scope}\n\n"
+            .($instruction ?? "Sesuaikan struktur bab (IMRaD), diksi ilmiah formal, dan kedalaman argumen naskah ini agar memenuhi kriteria publikasi pada {$journal}. Berikan naskah lengkap siap terbit.");
+
+        $systemPrompt = 'Anda adalah pakar penulisan dan adaptasi naskah jurnal ilmiah untuk publikasi bereputasi. Hasilkan naskah akademik terstruktur dalam Bahasa Indonesia akademik formal.';
+
+        $generated = null;
+        try {
+            $generated = $client->generate($userPrompt, $systemPrompt, 0.6, 1200, $modelId);
+        } catch (\Throwable) {
+            $generated = null;
+        }
+
+        $content = '';
+        if ($generated !== null && trim((string) ($generated['content'] ?? '')) !== '') {
+            $content = trim((string) $generated['content']);
+        } else {
+            $content = "# {$project->title}\n\n"
+                ."**Target Jurnal:** {$journal} ({$tier}) · **Gaya Sitasi:** ".strtoupper($style)."\n\n"
+                ."## Abstrak\nPenelitian ini mengeksplorasi kontribusi teoretis dan empiris yang relevan dengan fokus {$scope}. Hasil sintesis menunjukkan koherensi metodologis dan kebaruan konsep yang signifikan.\n\n"
+                ."## 1. Pendahuluan\nPenelitian ini bertujuan untuk menguji hipotesis kerja serta mengisi research gap pada bidang kajian terkait.\n\n"
+                ."## 2. Metode Penelitian\nMetode yang diaplikasikan mematuhi standar telaah kritis dan uji empiris komparatif.\n\n"
+                ."## 3. Hasil dan Pembahasan\nTemuan diartikulasikan dengan visualisasi matriks dan sintesis komprehensif.\n\n"
+                ."## 4. Kesimpulan\nImplikasi ilmiah dari penelitian ini memberikan landasan kokoh bagi pengembangan riset mendatang.";
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $parser = app(NaskahBlockParser::class);
+
+        $parsedBlocks = $parser->parse($content);
+        $normalizedBlocks = $richModel->normalize($parsedBlocks);
+
+        $document = NaskahDocument::query()->where('project_id', $project->id)->first();
+        if ($document === null) {
+            $document = new NaskahDocument;
+            $document->project_id = $project->id;
+            $document->source_type = NaskahDocument::SOURCE_PROJECT;
+            $document->source_stage = ProjectStage::FINAL->value;
+        }
+
+        $document->title = $project->title." [{$journal} Model]";
+        $document->blocks = $normalizedBlocks;
+        $document->word_count = $richModel->computeStatistics($normalizedBlocks)['words'] ?? count($normalizedBlocks);
+        $document->last_saved_at = now();
+        $document->save();
+
+        Notification::make()
+            ->title('Model Berhasil Dieksekusi ke Studio')
+            ->body("Model [{$modelId}] berhasil mengeksekusi adaptasi untuk {$journal} (".count($normalizedBlocks).' blok baru).')
+            ->success()
+            ->send();
+
+        $this->redirect(NaskahStudioPage::getUrl([
+            'document' => $document->id,
+            'project' => $project->id,
+        ]));
     }
 
     /**

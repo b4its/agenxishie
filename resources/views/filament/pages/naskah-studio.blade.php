@@ -1537,6 +1537,15 @@
                         </div>
                     </div>
                     <div class="ns-group">
+                        <span class="ns-group__label">Model AI Aktif</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="openDialog('execute_model')" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-weight: 700;" title="Eksekusi model AI saat ini ke naskah">⚡ Eksekusi Model</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('polish')" title="Poles ragam bahasa akademik pada halaman saat ini">✨ Poles Cepat</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset (novelty)">💡 Kebaruan</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
                         <span class="ns-group__label">Copilot</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="openAssistant" style="background: linear-gradient(135deg, #eef2ff 0%, #f3e8ff 100%); border: 1px solid #c7d2fe; color: #4338ca; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">&#10024; Copilot</button>
@@ -1579,6 +1588,14 @@
                             <button type="button" class="ns-btn" @mousedown.prevent="insertHorizontalRule()" title="Garis Pembatas (---)">&#8213; Garis Pembatas</button>
                             <button type="button" class="ns-btn" wire:click="insertDate">&#128197; Tanggal</button>
                             <button type="button" class="ns-btn" wire:click="insertPageNumberField"># Nomor Halaman</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Generasi Model AI</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="openDialog('execute_model')" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-weight: 700;" title="Eksekusi model AI saat ini ke naskah">⚡ Eksekusi Model</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('table')" title="Sintesis matriks tabel data akademik menggunakan model aktif">📊 Tabel AI</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('equation')" title="Formulasikan rumus LaTeX menggunakan model aktif">∑ Rumus AI</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1716,6 +1733,15 @@
                             <button type="button" class="ns-btn" wire:click="runTool('/cek-pedoman')">&#128269; Cek Pedoman</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/cek-gap')">&#128300; Cek Gap Riset</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/ringkas')">&#128221; Ringkas Naskah</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Model AI Aktif</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="openDialog('execute_model')" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-weight: 700;" title="Eksekusi model AI saat ini ke naskah">⚡ Eksekusi Model</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('polish')" title="Poles ragam bahasa akademik pada halaman saat ini">✨ Poles Cepat</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset (novelty)">💡 Kebaruan</button>
                         </div>
                     </div>
                     <div class="ns-group">
