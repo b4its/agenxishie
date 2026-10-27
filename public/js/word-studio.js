@@ -1560,6 +1560,19 @@ window.wordStudioApp = function(config) {
                         return;
                     }
 
+                    // Deteksi prompt eksekusi model langsung di alinea naskah (misal: "buatkan daftar pustaka", "susun daftar pustaka", dsb.)
+                    const pText = p.textContent.trim();
+                    const isAiPrompt = /^(buatkan\s+daftar\s+pustaka|susun\s+daftar\s+pustaka|generate\s+daftar\s+pustaka|\/daftar-pustaka|\/pustaka|\/ai\s+|\/\/|\/eksekusi\s+|buatkan\s+(?:tabel|rumus|persamaan|abstrak|kesimpulan|pendahuluan|pembahasan)|susun\s+(?:tabel|rumus|persamaan|abstrak|kesimpulan|pendahuluan|pembahasan))/i.test(pText);
+                    if (isAiPrompt) {
+                        e.preventDefault();
+                        const cleanPrompt = pText.replace(/^(\/ai|\/\/|\/eksekusi)\s*/i, '');
+                        const wire = this.getWire();
+                        if (wire) {
+                            wire.executeCurrentModel(cleanPrompt, 'active_block');
+                        }
+                        return;
+                    }
+
                     e.preventDefault();
                     if (!sel.isCollapsed) {
                         sel.getRangeAt(0).deleteContents();
