@@ -3979,3 +3979,129 @@ it('executes model on selection, table, and equation within naskah studio', func
     expect(count($blocksAfterEq))->toBeGreaterThan(4)
         ->and($blocksAfterEq[4]['type'])->toBe('paragraph');
 });
+
+it('automatically generates bibliography in manuscript on prompt and allows regenerating variations in review mode', function (): void {
+    $studio = Livewire::test(NaskahStudioPage::class);
+    $richModel = app(NaskahRichModel::class);
+
+    $initialBlocks = [
+        $richModel->newBlock('title', 'Dokumen Riset Integrasi Model'),
+        $richModel->newBlock('heading', 'Pendahuluan', 1),
+        $richModel->newBlock('paragraph', 'Penelitian ini meneliti otomasi generasi naskah ilmiah menggunakan model AI terpadu.'),
+    ];
+    $studio->set('blocks', $initialBlocks);
+
+    expect($studio->get('isReviewingModelOutput'))->toBeFalse()
+        ->and(count($studio->get('blocks')))->toBe(3);
+
+    // 1. Eksekusi prompt "buatkan daftar pustaka" via assistant chat
+    $studio->set('assistantInput', 'buatkan daftar pustaka')
+        ->call('sendAssistant')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    // Pastikan masuk ke review mode
+    expect($studio->get('isReviewingModelOutput'))->toBeTrue()
+        ->and($studio->get('modelGenerationCount'))->toBe(1);
+
+    $blocksV1 = $studio->get('blocks');
+    expect(count($blocksV1))->toBeGreaterThan(3);
+
+    // Pastikan blok daftar pustaka yang dihasilkan ditandai is_under_review = true
+    $reviewedBlocksV1 = array_filter($blocksV1, fn ($b) => ! empty($b['is_under_review']));
+    expect(count($reviewedBlocksV1))->toBeGreaterThanOrEqual(2);
+
+    // Versi 1 adalah APA format (Creswell, J. W. & Creswell, J. D.)
+    $biblioTextV1 = implode("\n", array_map(fn ($b) => $b['text'] ?? '', $reviewedBlocksV1));
+    expect($biblioTextV1)->toContain('Creswell');
+
+    // 2. Karena hasil belum sesuai, pengguna melakukan "generate ulang" melalui chat assistant
+    $studio->set('assistantInput', 'generate ulang')
+        ->call('sendAssistant')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    // Review mode tetap aktif dan iterasi bertambah ke Versi #2
+    expect($studio->get('isReviewingModelOutput'))->toBeTrue()
+        ->and($studio->get('modelGenerationCount'))->toBe(2);
+
+    $blocksV2 = $studio->get('blocks');
+    $reviewedBlocksV2 = array_filter($blocksV2, fn ($b) => ! empty($b['is_under_review']));
+    expect(count($reviewedBlocksV2))->toBeGreaterThanOrEqual(2);
+
+    // Versi 2 menghasilkan variasi IEEE (mengandung [1])
+    $biblioTextV2 = implode("\n", array_map(fn ($b) => $b['text'] ?? '', $reviewedBlocksV2));
+    expect($biblioTextV2)->toContain('[1]');
+
+    // 3. Pengguna menyetujui hasil dengan perintah "terima"
+    $studio->set('assistantInput', 'terima')
+        ->call('sendAssistant')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    // Review mode selesai, is_under_review dihilangkan, blok permanen tersimpan
+    expect($studio->get('isReviewingModelOutput'))->toBeFalse();
+    $finalBlocks = $studio->get('blocks');
+    foreach ($finalBlocks as $b) {
+        expect(isset($b['is_under_review']))->toBeFalse();
+    }
+    expect(count($finalBlocks))->toBe(count($blocksV2));
+});
+
+it('allows discarding generated model output reverting manuscript to original blocks', function (): void {
+    $studio = Livewire::test(NaskahStudioPage::class);
+    $richModel = app(NaskahRichModel::class);
+
+    $originalBlocks = [
+        $richModel->newBlock('title', 'Dokumen Asli Tanpa Referensi'),
+        $richModel->newBlock('paragraph', 'Teks original yang tidak boleh hilang saat hasil model ditolak.'),
+    ];
+    $studio->set('blocks', $originalBlocks);
+
+    // Eksekusi prompt generatif
+    $studio->call('sendAssistantWithText', 'susun daftar pustaka')
+        ->assertSuccessful();
+
+    expect($studio->get('isReviewingModelOutput'))->toBeTrue()
+        ->and(count($studio->get('blocks')))->toBeGreaterThan(2);
+
+    // Batalkan dengan perintah "tolak"
+    $studio->set('assistantInput', 'tolak')
+        ->call('sendAssistant')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    expect($studio->get('isReviewingModelOutput'))->toBeFalse()
+        ->and(count($studio->get('blocks')))->toBe(2)
+        ->and($studio->get('blocks')[1]['text'])->toBe('Teks original yang tidak boleh hilang saat hasil model ditolak.');
+});
+
+it('replaces existing bibliography section in-place when regenerated or re-executed', function (): void {
+    $studio = Livewire::test(NaskahStudioPage::class);
+    $richModel = app(NaskahRichModel::class);
+
+    $studio->set('blocks', [
+        $richModel->newBlock('title', 'Dokumen Dengan Daftar Pustaka Lama'),
+        $richModel->newBlock('paragraph', 'Isi pendahuluan naskah.'),
+        $richModel->newBlock('heading', 'Daftar Pustaka', 1),
+        $richModel->newBlock('paragraph', 'Referensi Usang, 2010.'),
+    ]);
+
+    // Eksekusi buatkan daftar pustaka
+    $studio->call('executeCurrentModel', 'buatkan daftar pustaka')
+        ->assertSuccessful();
+
+    $blocks = $studio->get('blocks');
+
+    // Pastikan hanya ada 1 heading "Daftar Pustaka"
+    $headingCount = 0;
+    foreach ($blocks as $b) {
+        if (($b['type'] ?? '') === 'heading' && strtolower((string) ($b['text'] ?? '')) === 'daftar pustaka') {
+            $headingCount++;
+        }
+    }
+
+    expect($headingCount)->toBe(1)
+        ->and($studio->get('isReviewingModelOutput'))->toBeTrue()
+        ->and(count($blocks))->toBeGreaterThan(4);
+});

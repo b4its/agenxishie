@@ -1505,6 +1505,13 @@ trait HandlesNaskahStudio
             $styles[] = "border-left: 3px solid {$borderColor}";
         }
 
+        if (! empty($block['is_under_review'])) {
+            $styles[] = 'background-color: rgba(238, 242, 255, 0.65)';
+            $styles[] = 'border-left: 3px solid #6366f1';
+            $styles[] = 'border-radius: 4px';
+            $styles[] = 'padding: 4px 8px';
+        }
+
         return implode('; ', $styles).';';
     }
 
@@ -5174,14 +5181,28 @@ trait HandlesNaskahStudio
         $modelId = $this->getCurrentAssistantModel();
         $this->assistantBusy = true;
 
-        if (! $this->isReviewingModelOutput) {
+        $isRegenerate = ! empty($options['regenerate']);
+        if (! $this->isReviewingModelOutput || ! $isRegenerate) {
+            foreach ($this->blocks as &$blk) {
+                unset($blk['is_under_review']);
+            }
+            unset($blk);
+
             $this->backupBlocksBeforeReview = $this->blocks;
-            $this->modelGenerationCount = 1;
+            if (! $isRegenerate) {
+                $this->modelGenerationCount = 1;
+            }
         }
 
         $this->lastExecutedModelPrompt = $prompt;
         $this->lastExecutedModelTarget = $target;
         $this->lastExecutedModelPage = $pageNumber ?? $this->getCurrentPageNumber();
+
+        $bibResult = null;
+        $lowerPrompt = mb_strtolower($prompt);
+        $isBiblioPrompt = preg_match('/(daftar\s+pustaka|daftar\s+referensi|buatkan\s+pustaka|buatkan\s+daftar\s+pustaka|bibliography|tambahkan\s+daftar\s+pustaka|susun\s+daftar\s+pustaka)/iu', $lowerPrompt)
+            || str_starts_with($lowerPrompt, '/daftar-pustaka')
+            || str_starts_with($lowerPrompt, '/pustaka');
 
         try {
             $documentText = Str::limit($this->documentText(), 1500, ' …');
@@ -5210,12 +5231,11 @@ trait HandlesNaskahStudio
                 $replyContent = trim((string) $generated['content']);
                 $data['source'] = 'llm';
                 $data['latency_ms'] = (int) ($generated['latency_ms'] ?? 0);
+                if ($isBiblioPrompt) {
+                    $data['type'] = 'daftar_pustaka';
+                }
             } else {
                 // Kontekstual cerdas jika backend offline / uji lingkungan
-                $lowerPrompt = mb_strtolower($prompt);
-                $isBiblioPrompt = preg_match('/(daftar\s+pustaka|daftar\s+referensi|buatkan\s+pustaka|buatkan\s+daftar\s+pustaka|bibliography|tambahkan\s+daftar\s+pustaka|susun\s+daftar\s+pustaka)/iu', $lowerPrompt)
-                    || str_starts_with($lowerPrompt, '/daftar-pustaka');
-
                 if ($isBiblioPrompt) {
                     $bibResult = $this->generateContextualBibliography($this->modelGenerationCount);
                     $replyContent = $bibResult['reply'];
@@ -5296,7 +5316,33 @@ trait HandlesNaskahStudio
                 ? $pageNumber
                 : $this->getCurrentPageNumber();
 
-            if ($target === 'active_block' && isset($this->blocks[$this->activeBlock])) {
+            // Cek apakah ada heading daftar pustaka yang sudah eksis di naskah
+            $existingBiblioIndex = null;
+            $existingBiblioEndIndex = null;
+            if ($isBiblioPrompt) {
+                foreach ($this->blocks as $idx => $blk) {
+                    if (($blk['type'] ?? '') === 'heading' && preg_match('/^(daftar\s+pustaka|daftar\s+referensi|references|bibliografi)$/iu', trim((string) ($blk['text'] ?? '')))) {
+                        $existingBiblioIndex = $idx;
+                        $end = count($this->blocks);
+                        for ($next = $idx + 1; $next < count($this->blocks); $next++) {
+                            if (($this->blocks[$next]['type'] ?? '') === 'heading') {
+                                $end = $next;
+                                break;
+                            }
+                        }
+                        $existingBiblioEndIndex = $end;
+                        break;
+                    }
+                }
+            }
+
+            if ($isBiblioPrompt && $existingBiblioIndex !== null) {
+                // Ganti seksi daftar pustaka yang sudah ada in-place
+                $countToRemove = $existingBiblioEndIndex - $existingBiblioIndex;
+                array_splice($this->blocks, $existingBiblioIndex, $countToRemove, $blocksToInsert);
+                $this->activeBlock = $existingBiblioIndex;
+                $this->pendingReviewBlockIndices = range($existingBiblioIndex, $existingBiblioIndex + count($blocksToInsert) - 1);
+            } elseif ($target === 'active_block' && isset($this->blocks[$this->activeBlock])) {
                 $startIdx = $this->activeBlock;
                 // Ganti blok aktif dengan blok pertama, dan sisipkan sisanya
                 $this->recordRevision(
@@ -5311,7 +5357,7 @@ trait HandlesNaskahStudio
                     $this->activeBlock += count($remaining);
                 }
                 $this->pendingReviewBlockIndices = range($startIdx, $this->activeBlock);
-            } elseif ($target === 'append') {
+            } elseif ($target === 'append' || $isBiblioPrompt) {
                 $startIdx = count($this->blocks);
                 foreach ($blocksToInsert as $b) {
                     $this->blocks[] = $b;
@@ -5430,7 +5476,15 @@ trait HandlesNaskahStudio
         if ($project !== null && $project->references()->exists()) {
             $formatter = app(CitationFormatter::class);
             $guideline = app(SharedProjectMemory::class)->guideline($project);
-            $style = CitationStyle::tryFrom((string) $guideline->citationStyle) ?? CitationStyle::APA;
+            $defaultStyle = CitationStyle::tryFrom((string) $guideline->citationStyle) ?? CitationStyle::APA7;
+
+            // Variasikan gaya sitasi jika sedang generate ulang (iterasi > 1)
+            $style = match ($iteration % 3) {
+                2 => CitationStyle::IEEE,
+                0 => CitationStyle::CHICAGO,
+                default => $defaultStyle,
+            };
+
             $refs = $project->references()->orderBy('citation_key')->get();
             $formatted = $formatter->bibliography($refs, $style);
 
@@ -5444,8 +5498,8 @@ trait HandlesNaskahStudio
 
         // Variasi referensi akademik berdasarkan iterasi generasi model
         if (empty($entries)) {
-            if ($iteration % 2 === 0) {
-                // Iterasi genap: Format IEEE / ScienceDirect
+            if ($iteration % 3 === 2) {
+                // Iterasi 2: Format IEEE / ScienceDirect
                 $entries = [
                     '[1] J. W. Creswell and J. D. Creswell, Research Design: Qualitative, Quantitative, and Mixed Methods Approaches, 5th ed. Los Angeles, CA: SAGE Publications, 2018.',
                     '[2] C. Anderson, "Makers: The New Industrial Revolution and shared tool collectives," Crown Business Publishing, vol. 14, no. 2, pp. 112–129, 2020. doi: 10.1016/j.indmarman.2020.03.012.',
@@ -5454,8 +5508,18 @@ trait HandlesNaskahStudio
                     '[5] R. Sennett, The Craftsman: Material Culture, Guild Cooperation, and Studio Ethics. New Haven, CT: Yale University Press, 2019.',
                     '[6] V. Braun and V. Clarke, "Reflecting on reflexive thematic analysis," Qualitative Research in Sport, Exercise and Health, vol. 11, no. 4, pp. 589–597, 2019.',
                 ];
+            } elseif ($iteration % 3 === 0) {
+                // Iterasi 3: Format Chicago Manual of Style / Author-Date
+                $entries = [
+                    'Anderson, Chris. 2020. "Makers: The New Industrial Revolution and Shared Tool Collectives." Crown Business Publishing 14 (2): 112–29. https://doi.org/10.1016/j.indmarman.2020.03.012.',
+                    'Braun, Virginia, and Victoria Clarke. 2019. "Reflecting on Reflexive Thematic Analysis." Qualitative Research in Sport, Exercise and Health 11 (4): 589–97.',
+                    'Creswell, John W., and J. David Creswell. 2018. Research Design: Qualitative, Quantitative, and Mixed Methods Approaches. 5th ed. Los Angeles: SAGE Publications.',
+                    'Gauntlett, David. 2018. Making is Connecting: The Social Power of Shared Craft Studios. 2nd ed. Cambridge: Polity Press.',
+                    'Kafai, Yasmin B., and Kylie A. Peppler. 2021. Youth, Technology, and DIY Authoring in Collaborative Community Workshops. Boston: MIT Press.',
+                    'Sennett, Richard. 2019. The Craftsman: Material Culture, Guild Cooperation, and Studio Ethics. New Haven: Yale University Press.',
+                ];
             } else {
-                // Iterasi ganjil: Format APA 7th Edition
+                // Iterasi 1 (dan default ganjil): Format APA 7th Edition
                 $entries = [
                     'Anderson, C. (2020). Makers: The New Industrial Revolution and Shared Tool Collectives. Crown Business Publishing, 14(2), 112–129. https://doi.org/10.1016/j.indmarman.2020.03.012',
                     'Braun, V., & Clarke, V. (2019). Reflecting on reflexive thematic analysis. Qualitative Research in Sport, Exercise and Health, 11(4), 589–597. https://doi.org/10.1080/2159676X.2019.1628806',
@@ -6141,14 +6205,44 @@ trait HandlesNaskahStudio
     private function dispatchAssistant(string $input, string $command): void
     {
         $currentModel = $this->getCurrentAssistantModel();
+        $trimmedInput = trim($input);
+        $lowerInput = mb_strtolower($trimmedInput);
 
-        // 1. Slash command untuk memilih atau mengganti model AI: /model [id] atau /pilih-model [id]
-        if ($command === '/model' || $command === '/pilih-model' || str_starts_with($input, '/model ') || str_starts_with($input, '/pilih-model ')) {
-            $parts = preg_split('/\s+/', trim($input), 2);
+        // 1. Review Mode Control Commands: kontrol saat naskah sedang dalam mode tinjau hasil model
+        if ($this->isReviewingModelOutput) {
+            // A. Generate Ulang
+            if (preg_match('/^(generate\s*ulang|ulangi|coba\s*lagi|versi\s*lain|variasi\s*lain|regenerate|buat\s*ulang)(\b.*)?$/iu', $lowerInput)) {
+                $subPrompt = trim(preg_replace('/^(generate\s*ulang|ulangi|coba\s*lagi|versi\s*lain|variasi\s*lain|regenerate|buat\s*ulang)\s*(dengan|menggunakan|jadi|format)?\s*/iu', '', $trimmedInput));
+                $this->assistantInput = '';
+                $this->regenerateCurrentModel($subPrompt !== '' ? $subPrompt : null);
+
+                return;
+            }
+
+            // B. Terima / Terapkan Hasil
+            if (preg_match('/^(terima|terapkan|setujui|simpan|oke\s*terima|accept|ok|oke|cocok|bagus)$/iu', $lowerInput)) {
+                $this->assistantInput = '';
+                $this->acceptModelOutput();
+
+                return;
+            }
+
+            // C. Tolak / Batalkan Hasil
+            if (preg_match('/^(tolak|batalkan|kembalikan|batal|buang|hapus|discard|reject)$/iu', $lowerInput)) {
+                $this->assistantInput = '';
+                $this->discardModelOutput();
+
+                return;
+            }
+        }
+
+        // 2. Slash command untuk memilih atau mengganti model AI: /model [id] atau /pilih-model [id]
+        if ($command === '/model' || $command === '/pilih-model' || str_starts_with($trimmedInput, '/model ') || str_starts_with($trimmedInput, '/pilih-model ')) {
+            $parts = preg_split('/\s+/', $trimmedInput, 2);
             $targetModel = trim($parts[1] ?? '');
             if ($targetModel !== '') {
                 $this->setAssistantModel($targetModel);
-                $this->assistantLog[] = ['role' => 'user', 'content' => $input, 'command' => $command, 'model' => $this->currentAssistantModel];
+                $this->assistantLog[] = ['role' => 'user', 'content' => $trimmedInput, 'command' => $command, 'model' => $this->currentAssistantModel];
                 $this->assistantLog[] = [
                     'role' => 'assistant',
                     'content' => "Model AI aktif berhasil dialihkan ke: **{$this->currentAssistantModel}**.\n\nGunakan formulir eksekusi atau ketik `/eksekusi [instruksi]` untuk menghasilkan teks ilmiah langsung ke kanvas naskah.",
@@ -6161,8 +6255,8 @@ trait HandlesNaskahStudio
             }
         }
 
-        // 2. Slash command untuk melihat daftar model yang tersedia: /models atau /daftar-model
-        if ($command === '/models' || $command === '/daftar-model' || $input === '/models' || $input === '/daftar-model') {
+        // 3. Slash command untuk melihat daftar model yang tersedia: /models atau /daftar-model
+        if ($command === '/models' || $command === '/daftar-model' || $trimmedInput === '/models' || $trimmedInput === '/daftar-model') {
             $models = $this->getAvailableAssistantModels();
             $lines = ["### Daftar Model AI Tersedia di Naskah Studio:\n"];
             foreach ($models as $m) {
@@ -6170,7 +6264,7 @@ trait HandlesNaskahStudio
                 $lines[] = "- **{$m['name']}** (`{$m['id']}`) · Provider: *{$m['provider']}*{$isCurrent}";
             }
             $lines[] = "\n*Ketik `/model [id]` untuk beralih model aktif.*";
-            $this->assistantLog[] = ['role' => 'user', 'content' => $input, 'command' => $command, 'model' => $this->getCurrentAssistantModel()];
+            $this->assistantLog[] = ['role' => 'user', 'content' => $trimmedInput, 'command' => $command, 'model' => $this->getCurrentAssistantModel()];
             $this->assistantLog[] = [
                 'role' => 'assistant',
                 'content' => implode("\n", $lines),
@@ -6182,9 +6276,9 @@ trait HandlesNaskahStudio
             return;
         }
 
-        // 3. Slash command untuk mengeksekusi model sekarang langsung ke naskah studio: /eksekusi [instruksi] atau /eksekusi-model [instruksi]
-        if ($command === '/eksekusi' || $command === '/eksekusi-model' || str_starts_with($input, '/eksekusi ') || str_starts_with($input, '/eksekusi-model ')) {
-            $parts = preg_split('/\s+/', trim($input), 2);
+        // 4. Slash command untuk mengeksekusi model sekarang langsung ke naskah studio: /eksekusi [instruksi] atau /eksekusi-model [instruksi]
+        if ($command === '/eksekusi' || $command === '/eksekusi-model' || str_starts_with($trimmedInput, '/eksekusi ') || str_starts_with($trimmedInput, '/eksekusi-model ')) {
+            $parts = preg_split('/\s+/', $trimmedInput, 2);
             $prompt = trim($parts[1] ?? '');
             if ($prompt !== '') {
                 $this->assistantInput = '';
@@ -6192,6 +6286,27 @@ trait HandlesNaskahStudio
 
                 return;
             }
+        }
+
+        // 5. Otomatis eksekusi model ke naskah untuk intent pembuatan daftar pustaka (e.g. "buatkan daftar pustaka", "susun daftar pustaka")
+        $isBiblioIntent = preg_match('/(daftar\s+pustaka|daftar\s+referensi|buatkan\s+pustaka|buatkan\s+daftar\s+pustaka|susun\s+daftar\s+pustaka|generate\s+daftar\s+pustaka|bibliography|tambahkan\s+daftar\s+pustaka)/iu', $lowerInput)
+            || $command === '/daftar-pustaka' || $command === '/pustaka';
+
+        if ($isBiblioIntent) {
+            $this->assistantInput = '';
+            $this->executeCurrentModel($trimmedInput, 'append');
+
+            return;
+        }
+
+        // 6. Otomatis eksekusi model ke naskah untuk intent generatif konten akademik (e.g. "buatkan tabel...", "buatkan rumus...", "buatkan abstrak...")
+        $isGenerativeIntent = preg_match('/^(buatkan|susun|generate|tuliskan|buat|tambahkan)\s+(tabel|matriks|rumus|persamaan|formula|latex|abstrak|kesimpulan|pendahuluan|pembahasan|latar|tinjauan\s+pustaka)/iu', $lowerInput);
+
+        if ($isGenerativeIntent) {
+            $this->assistantInput = '';
+            $this->executeCurrentModel($trimmedInput, $this->executeModelTarget ?: 'current_page');
+
+            return;
         }
 
         $this->assistantLog[] = ['role' => 'user', 'content' => $input, 'command' => $command, 'model' => $currentModel];

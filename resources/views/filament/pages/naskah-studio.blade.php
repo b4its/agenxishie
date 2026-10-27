@@ -2498,20 +2498,44 @@
                                             {!! \Illuminate\Support\Str::markdown($msg['content'] ?? '') !!}
                                         </div>
                                         @if (($msg['role'] ?? '') === 'assistant')
-                                            <div style="display:flex; gap:.3rem; margin-top:.4rem; border-top:1px dashed #cbd5e1; padding-top:.35rem; flex-wrap:wrap; align-items:center;">
-                                                <button type="button" class="ns-btn ns-btn--primary" style="font-size:.62rem; padding:.2rem .45rem; font-weight:700; background:#2563eb; color:#ffffff;" wire:click="applyAssistantToCurrentPage({{ $logIndex }})" title="Eksekusi dan terapkan rekomendasi model ke halaman naskah saat ini">
-                                                    ⚡ Terapkan ke Halaman Ini
-                                                </button>
-                                                <button type="button" class="ns-btn ns-btn--primary" style="font-size:.58rem; padding:.15rem .4rem;" wire:click="insertAssistantResponse({{ $logIndex }})" title="Sisipkan rekomendasi ini ke naskah">
-                                                    ➕ Sisipkan ke Naskah
-                                                </button>
-                                                <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .4rem;" wire:click="replaceActiveBlockWithAssistant({{ $logIndex }})" title="Ganti blok aktif dengan rekomendasi ini">
-                                                    🔄 Ganti Blok Aktif
-                                                </button>
-                                                <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .4rem;" x-data="{ copied: false }" @click="navigator.clipboard?.writeText(@js($msg['content'])); copied = true; setTimeout(() => copied = false, 2000)" title="Salin Jawaban">
-                                                    📋 <span x-text="copied ? 'Tersalin' : 'Salin'"></span>
-                                                </button>
-                                            </div>
+                                            @if ($isReviewingModelOutput && ($msg['applied'] ?? false))
+                                                <div style="margin-top:.4rem; padding:.35rem .5rem; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:4px; font-size:.62rem;">
+                                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.3rem;">
+                                                        <span style="font-weight:700; color:#15803d; display:inline-flex; align-items:center; gap:.25rem;">
+                                                            <span>✨</span> Diterapkan ke Kanvas Naskah
+                                                        </span>
+                                                        <span style="font-size:.55rem; background:#dcfce7; color:#166534; padding:1px 5px; border-radius:3px; font-weight:700;">
+                                                            Versi #{{ $modelGenerationCount }} · Review Aktif
+                                                        </span>
+                                                    </div>
+                                                    <div style="display:flex; gap:.25rem;">
+                                                        <button type="button" class="ns-btn ns-btn--primary" style="flex:1; font-size:.58rem; padding:.15rem .35rem; background:#16a34a; border-color:#15803d; color:#ffffff;" wire:click="acceptModelOutput" title="Terima hasil ini dan terapkan permanen ke naskah">
+                                                            ✓ Terima &amp; Simpan
+                                                        </button>
+                                                        <button type="button" class="ns-btn" style="flex:1.2; font-size:.58rem; padding:.15rem .35rem; background:#ffffff; color:#4338ca; border-color:#a5b4fc; font-weight:700;" wire:click="regenerateCurrentModel" wire:loading.attr="disabled" wire:target="regenerateCurrentModel" title="Generate ulang variasi baru jika belum sesuai">
+                                                            🔄 Generate Ulang
+                                                        </button>
+                                                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .35rem; background:#ffffff; color:#dc2626; border-color:#fecaca;" wire:click="discardModelOutput" title="Tolak dan kembalikan naskah ke kondisi awal">
+                                                            ✕ Tolak
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            @else
+                                                <div style="display:flex; gap:.3rem; margin-top:.4rem; border-top:1px dashed #cbd5e1; padding-top:.35rem; flex-wrap:wrap; align-items:center;">
+                                                    <button type="button" class="ns-btn ns-btn--primary" style="font-size:.62rem; padding:.2rem .45rem; font-weight:700; background:#2563eb; color:#ffffff;" wire:click="applyAssistantToCurrentPage({{ $logIndex }})" title="Eksekusi dan terapkan rekomendasi model ke halaman naskah saat ini">
+                                                        ⚡ Terapkan ke Halaman Ini
+                                                    </button>
+                                                    <button type="button" class="ns-btn ns-btn--primary" style="font-size:.58rem; padding:.15rem .4rem;" wire:click="insertAssistantResponse({{ $logIndex }})" title="Sisipkan rekomendasi ini ke naskah">
+                                                        ➕ Sisipkan ke Naskah
+                                                    </button>
+                                                    <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .4rem;" wire:click="replaceActiveBlockWithAssistant({{ $logIndex }})" title="Ganti blok aktif dengan rekomendasi ini">
+                                                        🔄 Ganti Blok Aktif
+                                                    </button>
+                                                    <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .4rem;" x-data="{ copied: false }" @click="navigator.clipboard?.writeText(@js($msg['content'])); copied = true; setTimeout(() => copied = false, 2000)" title="Salin Jawaban">
+                                                        📋 <span x-text="copied ? 'Tersalin' : 'Salin'"></span>
+                                                    </button>
+                                                </div>
+                                            @endif
                                             <div style="display:flex; flex-wrap:wrap; gap:.25rem; margin-top:.3rem;">
                                                 <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#f8fafc;" wire:click="sendAssistantWithText('Jelaskan rekomendasi ini secara lebih mendalam dengan rincian operasional.')">💡 Perjelas Operasional</button>
                                                 <button type="button" class="ns-btn" style="font-size:.55rem; padding:.1rem .3rem; background:#f8fafc;" wire:click="sendAssistantWithText('Buatkan alternatif formulasi lain untuk kalimat/bagian ini.')">🔄 Alternatif Lain</button>

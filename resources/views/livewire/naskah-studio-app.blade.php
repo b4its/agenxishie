@@ -2467,21 +2467,45 @@
                                         </div>
 
                                         <!-- In-Document Action Buttons -->
-                                        <div style="display:flex; flex-wrap:wrap; gap:4px; border-top:1px solid #f1f5f9; padding-top:8px;">
-                                            <button type="button" @click="$wire.applyAssistantToCurrentPage({{ $logIndex }}, typeof activePage !== 'undefined' ? activePage : null)" class="word-assistant-act-btn" style="background:#0f6cbd; color:#ffffff; font-weight:700; border-color:#0f6cbd;" title="Eksekusi rekomendasi model ini langsung ke halaman naskah saat ini">
-                                                <span>⚡ Terapkan ke Halaman Ini</span>
-                                            </button>
-                                            <button type="button" wire:click="insertAssistantResponse({{ $logIndex }})" class="word-assistant-act-btn" title="Sisipkan teks ini sebagai paragraf baru di naskah">
-                                                <span>➕ Sisipkan ke Naskah</span>
-                                            </button>
-                                            <button type="button" wire:click="replaceActiveBlockWithAssistant({{ $logIndex }})" class="word-assistant-act-btn" title="Ganti blok aktif #{{ $activeBlock + 1 }} dengan teks ini">
-                                                <span>🔄 Ganti Blok Aktif</span>
-                                            </button>
-                                            <button type="button" x-data="{ copied: false }" @click="navigator.clipboard.writeText(@js($log['content'])); copied = true; setTimeout(() => copied = false, 2000);" class="word-assistant-act-btn" title="Salin teks ke clipboard">
-                                                <span x-show="!copied">📋 Salin</span>
-                                                <span x-show="copied" style="color:#107c41;">✓ Tersalin!</span>
-                                            </button>
-                                        </div>
+                                        @if ($isReviewingModelOutput && ($log['applied'] ?? false))
+                                            <div style="margin-top:6px; padding:6px 8px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:4px; font-size:11px;">
+                                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                                                    <span style="font-weight:700; color:#15803d; display:inline-flex; align-items:center; gap:4px;">
+                                                        <span>✨</span> Diterapkan ke Kanvas Naskah
+                                                    </span>
+                                                    <span style="font-size:9.5px; background:#dcfce7; color:#166534; padding:1px 5px; border-radius:3px; font-weight:700;">
+                                                        Versi #{{ $modelGenerationCount }} · Review Aktif
+                                                    </span>
+                                                </div>
+                                                <div style="display:flex; gap:4px;">
+                                                    <button type="button" wire:click="acceptModelOutput" style="flex:1; height:24px; font-size:10px; font-weight:700; background:#16a34a; color:#ffffff; border:none; border-radius:4px; cursor:pointer;" title="Terima hasil ini dan simpan permanen ke naskah">
+                                                        ✓ Terima &amp; Simpan
+                                                    </button>
+                                                    <button type="button" wire:click="regenerateCurrentModel" wire:loading.attr="disabled" wire:target="regenerateCurrentModel" style="flex:1.2; height:24px; font-size:10px; font-weight:700; background:#ffffff; color:#4338ca; border:1px solid #c7d2fe; border-radius:4px; cursor:pointer;" title="Generate ulang variasi baru jika belum sesuai">
+                                                        🔄 Generate Ulang
+                                                    </button>
+                                                    <button type="button" wire:click="discardModelOutput" style="height:24px; padding:0 8px; font-size:10px; font-weight:600; background:#ffffff; color:#dc2626; border:1px solid #fecaca; border-radius:4px; cursor:pointer;" title="Tolak dan kembalikan naskah ke kondisi awal">
+                                                        ✕ Tolak
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <div style="display:flex; flex-wrap:wrap; gap:4px; border-top:1px solid #f1f5f9; padding-top:8px;">
+                                                <button type="button" @click="$wire.applyAssistantToCurrentPage({{ $logIndex }}, typeof activePage !== 'undefined' ? activePage : null)" class="word-assistant-act-btn" style="background:#0f6cbd; color:#ffffff; font-weight:700; border-color:#0f6cbd;" title="Eksekusi rekomendasi model ini langsung ke halaman naskah saat ini">
+                                                    <span>⚡ Terapkan ke Halaman Ini</span>
+                                                </button>
+                                                <button type="button" wire:click="insertAssistantResponse({{ $logIndex }})" class="word-assistant-act-btn" title="Sisipkan teks ini sebagai paragraf baru di naskah">
+                                                    <span>➕ Sisipkan ke Naskah</span>
+                                                </button>
+                                                <button type="button" wire:click="replaceActiveBlockWithAssistant({{ $logIndex }})" class="word-assistant-act-btn" title="Ganti blok aktif #{{ $activeBlock + 1 }} dengan teks ini">
+                                                    <span>🔄 Ganti Blok Aktif</span>
+                                                </button>
+                                                <button type="button" x-data="{ copied: false }" @click="navigator.clipboard.writeText(@js($log['content'])); copied = true; setTimeout(() => copied = false, 2000);" class="word-assistant-act-btn" title="Salin teks ke clipboard">
+                                                    <span x-show="!copied">📋 Salin</span>
+                                                    <span x-show="copied" style="color:#107c41;">✓ Tersalin!</span>
+                                                </button>
+                                            </div>
+                                        @endif
 
                                         <!-- Quick Follow-up Chips -->
                                         <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; border-top:1px dashed #f1f5f9; padding-top:6px;">
