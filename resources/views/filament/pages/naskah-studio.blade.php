@@ -3417,6 +3417,9 @@
             </button>
         @endif
 
+        {{-- Modern Interactive Glassmorphic Notification Toast System --}}
+        @include('components.studio-toast')
+
     </div>
 
     <script>

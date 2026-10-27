@@ -4165,3 +4165,35 @@ it('executes model directly when active block in canvas contains generative prom
     $blocks = $studio->get('blocks');
     expect(count($blocks))->toBeGreaterThan(2);
 });
+
+it('dispatches interactive studio-toast notifications with modern metadata and renders toast component', function (): void {
+    $richModel = app(NaskahRichModel::class);
+    $blocks = [
+        $richModel->newBlock('title', 'Dokumen Toast Interaktif'),
+        $richModel->newBlock('paragraph', 'Paragraf untuk pengujian notifikasi.'),
+    ];
+
+    $studio = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', $blocks)
+        ->call('saveDocument')
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast', function (string $event, array $params): bool {
+            return ($params['title'] ?? '') === 'Naskah tersimpan'
+                && ($params['type'] ?? '') === 'success'
+                && isset($params['body']);
+        });
+
+    // Test model execution toast
+    $studio->call('executeCurrentModel', 'buatkan daftar pustaka')
+        ->assertSuccessful()
+        ->assertDispatched('studio-toast', function (string $event, array $params): bool {
+            return str_contains(strtolower($params['title'] ?? ''), 'model')
+                || str_contains(strtolower($params['title'] ?? ''), 'diterapkan');
+        });
+
+    $response = test()->get('/studio');
+    $response->assertOk()
+        ->assertSee('ns-toast-container')
+        ->assertSee('ns-toast-card')
+        ->assertSee('executeLivewire');
+});

@@ -7293,10 +7293,13 @@ trait HandlesNaskahStudio
         return $this->model->outline($this->model->normalize($this->blocks));
     }
 
-    protected function notify(string $title, string $body = '', string $type = 'success'): void
+    /**
+     * @param  array<string, mixed>  $action
+     */
+    protected function notify(string $title, string $body = '', string $type = 'success', array $action = []): void
     {
         if (method_exists($this, 'dispatch')) {
-            $this->dispatch('studio-toast', title: $title, body: $body, type: $type);
+            $this->dispatch('studio-toast', title: $title, body: $body, type: $type, action: $action);
         }
     }
 

@@ -42,7 +42,10 @@ class NaskahStudioPage extends Page
         return $this->getStudioViewData();
     }
 
-    protected function notify(string $title, string $body = '', string $type = 'success'): void
+    /**
+     * @param  array<string, mixed>  $action
+     */
+    protected function notify(string $title, string $body = '', string $type = 'success', array $action = []): void
     {
         $n = Notification::make()->title($title);
         if ($body !== '') {
@@ -55,5 +58,9 @@ class NaskahStudioPage extends Page
             default => $n->success(),
         };
         $n->send();
+
+        if (method_exists($this, 'dispatch')) {
+            $this->dispatch('studio-toast', title: $title, body: $body, type: $type, action: $action);
+        }
     }
 }
