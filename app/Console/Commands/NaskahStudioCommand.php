@@ -24,7 +24,7 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page|indent-page|highlight-page|execute-model}
+                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page|indent-page|highlight-page|execute-model|models}
                             {documentId? : ID dokumen naskah}
                             {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
                             {--output= : Path berkas luaran}
@@ -62,6 +62,40 @@ class NaskahStudioCommand extends Command
                     $d->last_saved_at?->toDateTimeString() ?? '-',
                 ])
             );
+
+            return self::SUCCESS;
+        }
+
+        if ($action === 'models') {
+            $client = app(OmnigensiChatClient::class);
+            $raw = [];
+            $defaultModel = 'qwen-2.5-72b-instruct';
+            try {
+                $raw = $client->hasIntegrationKey() ? $client->integrationModels() : $client->models();
+                $defaultModel = $client->defaultModel() ?? 'qwen-2.5-72b-instruct';
+            } catch (\Throwable) {
+                $raw = [];
+            }
+            $rows = [];
+            foreach ($raw as $m) {
+                $isDef = (! empty($m['is_default']) || ($m['model_id'] ?? '') === $defaultModel) ? '● Aktif/Default' : '-';
+                $rows[] = [
+                    $m['model_id'] ?? '-',
+                    $m['display_name'] ?? $m['model_id'] ?? '-',
+                    $m['provider_name'] ?? 'Omnigensi',
+                    $isDef,
+                ];
+            }
+            if (empty($rows)) {
+                $rows = [
+                    ['qwen-2.5-72b-instruct', 'Qwen 2.5 72B (Akademik & Cepat)', 'Omnigensi', '● Aktif/Default'],
+                    ['deepseek-chat', 'DeepSeek V3 (Penalaran & Logika)', 'DeepSeek', '-'],
+                    ['gpt-4o', 'GPT-4o (Multimodal & Presisi)', 'OpenAI', '-'],
+                    ['claude-3-5-sonnet', 'Claude 3.5 Sonnet (Penulisan Ilmiah)', 'Anthropic', '-'],
+                ];
+            }
+            $this->info('Daftar Model AI yang Didukung untuk Eksekusi Naskah Studio:');
+            $this->table(['Model ID', 'Nama Tampilan', 'Provider', 'Status'], $rows);
 
             return self::SUCCESS;
         }
@@ -1073,7 +1107,7 @@ class NaskahStudioCommand extends Command
 
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page, indent-page, highlight-page, execute-model.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page, indent-page, highlight-page, execute-model, models.");
 
         return self::FAILURE;
     }

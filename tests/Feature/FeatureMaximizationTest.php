@@ -3569,3 +3569,77 @@ it('performs black box verification on naskah studio REST API execute-model endp
     $dbDoc = NaskahDocument::query()->find($doc->id);
     expect(count($dbDoc->blocks))->toBeGreaterThan(2);
 });
+
+it('performs white box verification on executing and applying current model to studio from ai chat and assistant pages', function (): void {
+    // 1. Eksekusi dari AiChatPage dengan model aktif
+    $aiChat = Livewire::test(AiChatPage::class);
+    $aiChat->set('selectedModel', 'omnigensi|gpt-4o')
+        ->set('draft', 'Rancang kerangka bab metode penelitian kuantitatif')
+        ->call('executeCurrentModelToStudio')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $messages = $aiChat->get('messages');
+    expect(count($messages))->toBeGreaterThanOrEqual(2);
+
+    $lastMsg = end($messages);
+    expect($lastMsg['role'])->toBe('assistant')
+        ->and($lastMsg['model'])->toBe('gpt-4o');
+
+    // Verifikasi dokumen studio terbuat atau terisi
+    $latestDoc = NaskahDocument::query()->latest('id')->first();
+    expect($latestDoc)->not->toBeNull()
+        ->and(count($latestDoc->blocks))->toBeGreaterThan(1);
+
+    // 2. Terapkan pesan spesifik dari AiChatPage ke studio
+    $initialBlockCount = count($latestDoc->blocks);
+    $aiChat->call('applyMessageToStudio', count($messages) - 1, $latestDoc->id, 'append')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $reloadedDoc = NaskahDocument::query()->find($latestDoc->id);
+    expect(count($reloadedDoc->blocks))->toBeGreaterThan($initialBlockCount);
+
+    // 3. Terapkan dari XishieAssistantPage ke studio
+    $project = makeProject(['document_type' => DocumentType::SKRIPSI]);
+    $asstPage = Livewire::test(XishieAssistantPage::class, ['projectId' => $project->id]);
+    $asstPage->set('message', '/sitasi')
+        ->call('send');
+
+    $asstLog = $asstPage->get('log');
+    expect(count($asstLog))->toBeGreaterThanOrEqual(2);
+
+    $asstPage->call('applyToNaskahStudio', count($asstLog) - 1)
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $projectDoc = NaskahDocument::query()
+        ->where('source_type', NaskahDocument::SOURCE_PROJECT)
+        ->where('project_id', $project->id)
+        ->first();
+    expect($projectDoc)->not->toBeNull()
+        ->and(count($projectDoc->blocks))->toBeGreaterThan(1);
+});
+
+it('performs white box and black box verification on models discovery via CLI and API', function (): void {
+    // 1. CLI naskah:manage models
+    $exitCode = Artisan::call('naskah:manage', ['action' => 'models']);
+    expect($exitCode)->toBe(0);
+
+    $cliOutput = Artisan::output();
+    expect($cliOutput)->toContain('Model ID')
+        ->and($cliOutput)->toContain('Provider');
+
+    // 2. REST API GET /api/v1/naskah/models
+    $response = $this->getJson(route('api.v1.naskah.models'));
+    $response->assertStatus(200)
+        ->assertJsonStructure([
+            'status',
+            'data' => [
+                '*' => ['id', 'name', 'provider', 'is_default'],
+            ],
+        ]);
+
+    $data = $response->json('data');
+    expect(count($data))->toBeGreaterThanOrEqual(3);
+});

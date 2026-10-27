@@ -43,6 +43,42 @@ class NaskahStudioApiController extends Controller
         ]);
     }
 
+    public function models(): JsonResponse
+    {
+        $client = app(OmnigensiChatClient::class);
+        $models = [];
+
+        try {
+            $rawModels = $client->hasIntegrationKey() ? $client->integrationModels() : $client->models();
+            foreach ($rawModels as $m) {
+                if (! empty($m['model_id'])) {
+                    $models[] = [
+                        'id' => (string) $m['model_id'],
+                        'name' => (string) ($m['display_name'] ?? $m['model_id']),
+                        'provider' => (string) ($m['provider_name'] ?? 'Omnigensi'),
+                        'is_default' => (bool) ($m['is_default'] ?? false),
+                    ];
+                }
+            }
+        } catch (\Throwable) {
+            // fallback
+        }
+
+        if (empty($models)) {
+            $models = [
+                ['id' => 'qwen-2.5-72b-instruct', 'name' => 'Qwen 2.5 72B (Akademik & Cepat)', 'provider' => 'Omnigensi', 'is_default' => true],
+                ['id' => 'deepseek-chat', 'name' => 'DeepSeek V3 (Penalaran & Logika)', 'provider' => 'DeepSeek', 'is_default' => false],
+                ['id' => 'gpt-4o', 'name' => 'GPT-4o (Multimodal & Presisi)', 'provider' => 'OpenAI', 'is_default' => false],
+                ['id' => 'claude-3-5-sonnet', 'name' => 'Claude 3.5 Sonnet (Penulisan Ilmiah)', 'provider' => 'Anthropic', 'is_default' => false],
+            ];
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $models,
+        ]);
+    }
+
     public function show(int $id): JsonResponse
     {
         $document = NaskahDocument::query()->find($id);

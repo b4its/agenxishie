@@ -6,7 +6,9 @@ namespace App\Filament\Pages;
 
 use App\Domain\Assistant\SlashCommand;
 use App\Domain\Assistant\XishieAssistantService;
+use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Workspace\Enums\UxKpiMetric;
+use App\Models\NaskahDocument;
 use App\Models\OmnigensiAgentLog;
 use App\Models\XishieProject;
 use Filament\Notifications\Notification;
@@ -135,6 +137,92 @@ class XishieAssistantPage extends Page
         }
 
         $this->dispatch('assistant-updated');
+    }
+
+    /**
+     * Terapkan rekomendasi jawaban asisten langsung ke Naskah Studio.
+     */
+    public function applyToNaskahStudio(int $logIndex): void
+    {
+        $entry = $this->log[$logIndex] ?? null;
+        if ($entry === null || ($entry['role'] ?? '') !== 'assistant') {
+            Notification::make()->title('Entri asisten tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $content = trim((string) ($entry['content'] ?? ''));
+        if ($content === '' || str_starts_with($content, '[Gagal]')) {
+            Notification::make()->title('Konten tidak valid untuk naskah')->warning()->send();
+
+            return;
+        }
+
+        $project = $this->getProject();
+        $doc = null;
+
+        if ($project !== null) {
+            $doc = NaskahDocument::query()
+                ->where('source_type', NaskahDocument::SOURCE_PROJECT)
+                ->where('project_id', $project->id)
+                ->latest('updated_at')
+                ->first();
+        }
+
+        if ($doc === null) {
+            $title = $project !== null ? $project->title : 'Naskah Assistant';
+            $doc = NaskahDocument::query()->create([
+                'title' => $title,
+                'source_type' => $project !== null ? NaskahDocument::SOURCE_PROJECT : 'standalone',
+                'project_id' => $project?->id,
+                'blocks' => [
+                    ['type' => 'title', 'level' => 0, 'text' => $title],
+                ],
+                'word_count' => str_word_count($title),
+            ]);
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $existing = $richModel->normalize((array) $doc->blocks);
+
+        $lines = preg_split("/\r\n|\n|\r/", $content);
+        $newBlocks = [];
+        foreach ($lines as $line) {
+            $t = trim((string) $line);
+            if ($t === '') {
+                continue;
+            }
+            if (preg_match('/^(#{1,6})\s+(.+)$/', $t, $m)) {
+                $newBlocks[] = $richModel->newBlock('heading', trim($m[2]), strlen($m[1]));
+            } else {
+                $newBlocks[] = $richModel->newBlock('paragraph', $t);
+            }
+        }
+
+        if (empty($newBlocks)) {
+            $newBlocks[] = $richModel->newBlock('paragraph', $content);
+        }
+
+        foreach ($newBlocks as $b) {
+            $existing[] = $b;
+        }
+
+        $normalized = $richModel->normalize($existing);
+        $stats = $richModel->computeStatistics($normalized);
+
+        $doc->update([
+            'blocks' => $normalized,
+            'word_count' => $stats['words'] ?? 0,
+            'last_saved_at' => now(),
+        ]);
+
+        $url = route('filament.admin.pages.naskah-studio', ['document' => $doc->id]);
+
+        Notification::make()
+            ->title('Berhasil Diterapkan ke Naskah Studio')
+            ->body("Konten rekomendasi asisten berhasil disisipkan ke dokumen '{$doc->title}' (".count($newBlocks).' blok).')
+            ->success()
+            ->send();
     }
 
     /**

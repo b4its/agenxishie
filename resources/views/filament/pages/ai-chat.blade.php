@@ -152,6 +152,13 @@
                                             <button
                                                 type="button"
                                                 class="rb-terminal__time"
+                                                style="border:0; background:rgba(99,102,241,0.1); color:#4338ca; cursor:pointer; font-size:.62rem; font-weight:700; padding:2px 6px; border-radius:3px;"
+                                                title="Terapkan hasil model sekarang langsung ke Naskah Studio"
+                                                wire:click="applyMessageToStudio({{ $loop->index }})"
+                                            >⚡ Ke Naskah Studio</button>
+                                            <button
+                                                type="button"
+                                                class="rb-terminal__time"
                                                 style="border:0; background:transparent; cursor:pointer; font-size:.62rem;"
                                                 title="Salin teks (tanpa format)"
                                                 x-on:click="copyRaw($refs.body.innerText, 'copied')"
@@ -202,6 +209,15 @@
                         @disabled(! $backendOnline)
                         wire:loading.attr="disabled"
                     >Kirim &#10148;</button>
+                    <button
+                        type="button"
+                        class="rb-button"
+                        style="height:100%; min-height:2.6rem; background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#ffffff; font-weight:700; border:0; white-space:nowrap;"
+                        @disabled(! $backendOnline)
+                        wire:loading.attr="disabled"
+                        wire:click="executeCurrentModelToStudio"
+                        title="Eksekusi dari model sekarang dan terapkan langsung ke Naskah Studio"
+                    >⚡ Eksekusi ke Studio</button>
                 </form>
                 <div class="rb-mono rb-muted" style="font-size:.6rem; margin-top:.35rem;">
                     Ctrl+Enter untuk mengirim · model & pemilih disediakan backend Omnigensi.

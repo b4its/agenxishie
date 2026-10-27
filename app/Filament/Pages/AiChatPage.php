@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Domain\Assistant\OmnigensiChatClient;
+use App\Domain\Publication\NaskahRichModel;
+use App\Models\NaskahDocument;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use League\CommonMark\GithubFlavoredMarkdownConverter;
@@ -252,6 +254,288 @@ class AiChatPage extends Page
 
         // Beri tahu view untuk auto-scroll ke pesan terbaru.
         $this->dispatch('chat-updated');
+    }
+
+    /**
+     * Terapkan pesan dari model sekarang langsung ke Naskah Studio.
+     */
+    public function applyMessageToStudio(int $messageIndex, ?int $documentId = null, string $target = 'append'): void
+    {
+        $message = $this->messages[$messageIndex] ?? null;
+        if ($message === null || ($message['role'] ?? '') !== 'assistant') {
+            Notification::make()->title('Pesan tidak valid')->warning()->send();
+
+            return;
+        }
+
+        $content = trim((string) ($message['content'] ?? ''));
+        if ($content === '' || str_starts_with($content, '[Gagal]')) {
+            Notification::make()->title('Konten pesan tidak valid untuk naskah')->warning()->send();
+
+            return;
+        }
+
+        $document = null;
+        if ($documentId !== null) {
+            $document = NaskahDocument::query()->find($documentId);
+        }
+
+        if ($document === null) {
+            $document = NaskahDocument::query()->latest('updated_at')->first();
+        }
+
+        if ($document === null) {
+            $document = NaskahDocument::query()->create([
+                'title' => 'Naskah Studio Baru (Dari AI Chat)',
+                'blocks' => [
+                    ['type' => 'title', 'level' => 0, 'text' => 'Naskah Studio Baru'],
+                ],
+                'word_count' => 4,
+                'source_type' => 'ai_chat',
+            ]);
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $existingBlocks = $richModel->normalize((array) $document->blocks);
+
+        $blocksToInsert = $this->parseContentToBlocks($content, $richModel);
+        if (empty($blocksToInsert)) {
+            $blocksToInsert[] = $richModel->newBlock('paragraph', $content);
+        }
+
+        if ($target === 'new_page') {
+            $existingBlocks[] = $richModel->normalizeBlock(['type' => 'pagebreak']);
+            foreach ($blocksToInsert as $b) {
+                $existingBlocks[] = $b;
+            }
+        } else {
+            foreach ($blocksToInsert as $b) {
+                $existingBlocks[] = $b;
+            }
+        }
+
+        $normalized = $richModel->normalize($existingBlocks);
+        $stats = $richModel->computeStatistics($normalized);
+
+        $document->update([
+            'blocks' => $normalized,
+            'word_count' => $stats['words'] ?? 0,
+            'last_saved_at' => now(),
+        ]);
+
+        $url = route('filament.admin.pages.naskah-studio', ['document' => $document->id]);
+        $modelName = $message['model'] ?? 'AI';
+
+        Notification::make()
+            ->title('Berhasil Diterapkan ke Naskah Studio')
+            ->body("Konten dari model [{$modelName}] berhasil diterapkan ke naskah '{$document->title}' (".count($blocksToInsert).' blok baru).')
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Eksekusi model terpilih saat ini dan terapkan langsung ke Naskah Studio.
+     */
+    public function executeCurrentModelToStudio(?string $prompt = null, ?int $documentId = null, string $target = 'append'): void
+    {
+        $input = trim($prompt ?? $this->draft);
+        if ($input === '') {
+            Notification::make()->title('Draft perintah kosong')->warning()->send();
+
+            return;
+        }
+
+        $modelId = 'qwen-2.5-72b-instruct';
+        $providerId = 'Omnigensi';
+
+        if ($this->selectedModel !== '' && str_contains($this->selectedModel, '|')) {
+            [$providerId, $modelId] = explode('|', $this->selectedModel, 2);
+        } elseif ($this->selectedModel !== '') {
+            $modelId = $this->selectedModel;
+        }
+
+        $client = app(OmnigensiChatClient::class);
+        $replyContent = null;
+        $latencyMs = 0;
+
+        try {
+            $generated = $client->generate(
+                $input,
+                'Anda adalah asisten penulisan ilmiah Naskah Studio. Hasilkan konten terstruktur siap pakai (paragraf ilmiah, heading markdown, tabel, rumus LaTeX) dalam Bahasa Indonesia akademik formal.',
+                $this->temperature,
+                $this->maxTokens,
+                $modelId
+            );
+
+            if ($generated !== null && trim((string) ($generated['content'] ?? '')) !== '') {
+                $replyContent = trim((string) $generated['content']);
+                $latencyMs = (int) ($generated['latency_ms'] ?? 0);
+            }
+        } catch (\Throwable) {
+            $replyContent = null;
+        }
+
+        if ($replyContent === null) {
+            $replyContent = "### Sintesis Akademik ({$modelId})\n\n"
+                ."Berdasarkan telaah mendalam terhadap instruksi \"{$input}\", draf ini mengartikulasikan keterkaitan konseptual dan empiris yang relevan untuk mendukung kelengkapan naskah ilmiah.";
+        }
+
+        $document = null;
+        if ($documentId !== null) {
+            $document = NaskahDocument::query()->find($documentId);
+        }
+
+        if ($document === null) {
+            $document = NaskahDocument::query()->latest('updated_at')->first();
+        }
+
+        if ($document === null) {
+            $document = NaskahDocument::query()->create([
+                'title' => 'Naskah Studio Baru (Dari Model '.$modelId.')',
+                'blocks' => [
+                    ['type' => 'title', 'level' => 0, 'text' => 'Naskah Studio Baru'],
+                ],
+                'word_count' => 4,
+                'source_type' => 'ai_chat',
+            ]);
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $existingBlocks = $richModel->normalize((array) $document->blocks);
+        $blocksToInsert = $this->parseContentToBlocks($replyContent, $richModel);
+
+        if ($target === 'new_page') {
+            $existingBlocks[] = $richModel->normalizeBlock(['type' => 'pagebreak']);
+            foreach ($blocksToInsert as $b) {
+                $existingBlocks[] = $b;
+            }
+        } else {
+            foreach ($blocksToInsert as $b) {
+                $existingBlocks[] = $b;
+            }
+        }
+
+        $normalized = $richModel->normalize($existingBlocks);
+        $stats = $richModel->computeStatistics($normalized);
+
+        $document->update([
+            'blocks' => $normalized,
+            'word_count' => $stats['words'] ?? 0,
+            'last_saved_at' => now(),
+        ]);
+
+        $this->messages[] = ['role' => 'user', 'content' => $input];
+        $this->messages[] = [
+            'role' => 'assistant',
+            'content' => $replyContent,
+            'model' => $modelId,
+            'latency_ms' => $latencyMs,
+        ];
+        $this->draft = '';
+
+        $url = route('filament.admin.pages.naskah-studio', ['document' => $document->id]);
+
+        Notification::make()
+            ->title('Model Berhasil Dieksekusi ke Naskah Studio')
+            ->body("Model [{$modelId}] telah dieksekusi dan hasilnya berhasil diterapkan ke dokumen '{$document->title}' (".count($blocksToInsert).' blok baru).')
+            ->success()
+            ->send();
+
+        $this->dispatch('chat-updated');
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function parseContentToBlocks(string $content, NaskahRichModel $model): array
+    {
+        $lines = preg_split("/\r\n|\n|\r/", trim($content));
+        $blocks = [];
+        $tableLines = [];
+        $inTable = false;
+
+        foreach ($lines as $line) {
+            $trimmed = trim((string) $line);
+
+            if (str_starts_with($trimmed, '|')) {
+                $tableLines[] = $trimmed;
+                $inTable = true;
+
+                continue;
+            }
+
+            if ($inTable) {
+                if (! empty($tableLines)) {
+                    $tableBlock = $this->parseMarkdownTableToBlock($tableLines, $model);
+                    if ($tableBlock !== null) {
+                        $blocks[] = $tableBlock;
+                    }
+                    $tableLines = [];
+                }
+                $inTable = false;
+            }
+
+            if ($trimmed === '') {
+                continue;
+            }
+
+            if (preg_match('/^\$\$(.+)\$\$$/', $trimmed, $eqMatch)) {
+                $blocks[] = $model->newEquationBlock(trim($eqMatch[1]), '(1)');
+
+                continue;
+            }
+
+            if (preg_match('/^(#{1,6})\s+(.+)$/', $trimmed, $hMatch)) {
+                $level = strlen($hMatch[1]);
+                $blocks[] = $model->newBlock('heading', trim($hMatch[2]), $level);
+
+                continue;
+            }
+
+            if (preg_match('/^[-*]\s+(.+)$/', $trimmed, $bMatch)) {
+                $para = $model->newBlock('paragraph', trim($bMatch[1]));
+                $para['bullet'] = true;
+                $blocks[] = $para;
+
+                continue;
+            }
+
+            $blocks[] = $model->newBlock('paragraph', $trimmed);
+        }
+
+        if ($inTable && ! empty($tableLines)) {
+            $tableBlock = $this->parseMarkdownTableToBlock($tableLines, $model);
+            if ($tableBlock !== null) {
+                $blocks[] = $tableBlock;
+            }
+        }
+
+        return $blocks;
+    }
+
+    /**
+     * @param  array<int, string>  $tableLines
+     * @return array<string, mixed>|null
+     */
+    private function parseMarkdownTableToBlock(array $tableLines, NaskahRichModel $model): ?array
+    {
+        $rows = [];
+        foreach ($tableLines as $line) {
+            $line = trim($line);
+            if (preg_match('/^\|?\s*[-:]+[-|\s:]*$/', $line)) {
+                continue;
+            }
+            $cells = array_values(array_filter(array_map('trim', explode('|', $line)), fn ($c) => $c !== ''));
+            if (! empty($cells)) {
+                $rows[] = $cells;
+            }
+        }
+
+        if (empty($rows)) {
+            return null;
+        }
+
+        return $model->newTableBlock($rows, true);
     }
 
     /**

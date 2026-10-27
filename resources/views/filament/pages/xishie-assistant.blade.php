@@ -64,7 +64,18 @@
                                 </div>
                             @else
                                 <div style="margin-bottom:.9rem;">
-                                    <div style="font-weight:700; color:var(--rb-terminal-fg);">&#10024; XISHIE</div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <div style="font-weight:700; color:var(--rb-terminal-fg);">&#10024; XISHIE</div>
+                                        @unless (str_starts_with($msg['content'], '[Gagal]'))
+                                            <button
+                                                type="button"
+                                                class="rb-terminal__time"
+                                                style="border:0; background:rgba(99,102,241,0.1); color:#4338ca; cursor:pointer; font-size:.62rem; font-weight:700; padding:2px 6px; border-radius:3px;"
+                                                title="Terapkan rekomendasi ini langsung ke Naskah Studio"
+                                                wire:click="applyToNaskahStudio({{ $loop->index }})"
+                                            >⚡ Ke Naskah Studio</button>
+                                        @endunless
+                                    </div>
                                     <div class="rb-chat-md {{ str_starts_with($msg['content'], '[Gagal]') ? 'rb-chat-md--error' : '' }}">
                                         {!! $this->markdownToHtml($msg['content']) !!}
                                     </div>

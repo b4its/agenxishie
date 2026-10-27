@@ -36,6 +36,7 @@ Route::prefix('v1/external')->group(function (): void {
 
 Route::prefix('v1/naskah')->group(function (): void {
     Route::get('/documents', [NaskahStudioApiController::class, 'index'])->name('api.v1.naskah.index');
+    Route::get('/models', [NaskahStudioApiController::class, 'models'])->name('api.v1.naskah.models');
     Route::get('/documents/{id}', [NaskahStudioApiController::class, 'show'])->name('api.v1.naskah.show');
     Route::post('/documents/{id}/autocorrect', [NaskahStudioApiController::class, 'autoCorrect'])->name('api.v1.naskah.autocorrect');
     Route::get('/documents/{id}/export', [NaskahStudioApiController::class, 'export'])->name('api.v1.naskah.export');
