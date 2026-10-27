@@ -3628,7 +3628,8 @@ it('performs white box and black box verification on models discovery via CLI an
 
     $cliOutput = Artisan::output();
     expect($cliOutput)->toContain('Model ID')
-        ->and($cliOutput)->toContain('Provider');
+        ->and($cliOutput)->toContain('Provider')
+        ->and($cliOutput)->toContain('gemini-3.8-flash');
 
     // 2. REST API GET /api/v1/naskah/models
     $response = $this->getJson(route('api.v1.naskah.models'));
@@ -3642,4 +3643,37 @@ it('performs white box and black box verification on models discovery via CLI an
 
     $data = $response->json('data');
     expect(count($data))->toBeGreaterThanOrEqual(3);
+    $modelIds = array_column($data, 'id');
+    expect($modelIds)->toContain('gemini-3.8-flash');
+});
+
+it('applies current stage and executes model to naskah studio from academic workspace', function (): void {
+    $project = makeProject(['document_type' => DocumentType::SKRIPSI]);
+    seedReferences($project);
+    $stage = app(XishieSupervisor::class)->run($project, ProjectStage::DRAFT);
+
+    $workspace = Livewire::test(AcademicWorkspacePage::class, ['projectId' => $project->id]);
+
+    // 1. Terapkan draf tahap aktif ke Naskah Studio
+    $workspace->call('applyCurrentStageToNaskahStudio')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $doc = NaskahDocument::query()
+        ->where('project_id', $project->id)
+        ->first();
+    expect($doc)->not->toBeNull()
+        ->and($doc->source_type)->toBe(NaskahDocument::SOURCE_PROJECT)
+        ->and($doc->source_stage)->toBe(ProjectStage::DRAFT->value)
+        ->and(count($doc->blocks))->toBeGreaterThan(1);
+
+    $initialBlockCount = count($doc->blocks);
+
+    // 2. Eksekusi model AI saat ini ke Naskah Studio
+    $workspace->call('executeModelToNaskahStudio', 'Sempurnakan bab pendahuluan ini secara ilmiah.', 'append')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $reloadedDoc = NaskahDocument::query()->find($doc->id);
+    expect(count($reloadedDoc->blocks))->toBeGreaterThan($initialBlockCount);
 });

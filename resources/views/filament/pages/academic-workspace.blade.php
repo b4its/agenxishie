@@ -281,7 +281,7 @@
                             <button type="button" class="rb-button rb-button--primary" wire:click="runPipeline">&#9889; Jalankan Pipeline</button>
                             <button type="button" class="rb-button" wire:click="runMultiAgentGraph">&#129513; Jalankan Multi-Agent Graph</button>
                             <button type="button" class="rb-button" wire:click="advanceStage">Tahap Berikutnya &#8594;</button>
-                            <a href="/admin/naskah-studio-page?project={{ $project->id }}&stage={{ $stage->value }}" class="rb-button" style="text-align:center; text-decoration:none;" title="Buka dan sunting naskah di WYSIWYG Naskah Studio">&#128394; Buka di Naskah Studio</a>
+                            <a href="{{ \App\Filament\Pages\NaskahStudioPage::getUrl(['project' => $project->id, 'stage' => $stage->value]) }}" class="rb-button" style="text-align:center; text-decoration:none;" title="Buka dan sunting naskah di WYSIWYG Naskah Studio">&#128394; Buka di Naskah Studio</a>
                         </div>
 
                         {{-- Export naskah siap kirim (KPI #15) --}}
@@ -314,6 +314,30 @@
                             <span wire:loading wire:target="generateFullDraft">Menyusun…</span>
                         </button>
                         <button type="button" class="rb-button" x-on:click="$dispatch('open-manual-edit')" wire:loading.attr="disabled">&#9998; Edit Manual</button>
+                        <button
+                            type="button"
+                            class="rb-button"
+                            style="border-color:var(--rb-primary); color:var(--rb-primary);"
+                            wire:click="applyCurrentStageToNaskahStudio"
+                            wire:loading.attr="disabled"
+                            wire:target="applyCurrentStageToNaskahStudio"
+                            title="Terapkan dan sinkronkan draf tahap ini ke Naskah Studio"
+                        >
+                            <span wire:loading.remove wire:target="applyCurrentStageToNaskahStudio">&#9889; Terapkan ke Naskah Studio</span>
+                            <span wire:loading wire:target="applyCurrentStageToNaskahStudio">Menerapkan…</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="rb-button"
+                            style="border-color:#10b981; color:#10b981;"
+                            wire:click="executeModelToNaskahStudio"
+                            wire:loading.attr="disabled"
+                            wire:target="executeModelToNaskahStudio"
+                            title="Eksekusi model AI saat ini untuk memperkaya dan menyinkronkan draf ke Naskah Studio"
+                        >
+                            <span wire:loading.remove wire:target="executeModelToNaskahStudio">&#9889; Eksekusi Model ke Studio</span>
+                            <span wire:loading wire:target="executeModelToNaskahStudio">Mengeksekusi…</span>
+                        </button>
 
                         @if ($project->document_type->isThesisFamily())
                             <button

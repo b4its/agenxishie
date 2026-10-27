@@ -5041,6 +5041,8 @@ trait HandlesNaskahStudio
             $current = $this->getCurrentAssistantModel();
             $models = [
                 ['id' => 'qwen-2.5-72b-instruct', 'name' => 'Qwen 2.5 72B (Akademik & Cepat)', 'provider' => 'Omnigensi', 'is_default' => true],
+                ['id' => 'gemini-3.8-flash', 'name' => 'Gemini 3.8 Flash (High Performance)', 'provider' => 'Google', 'is_default' => false],
+                ['id' => 'gemini-2.0-flash', 'name' => 'Gemini 2.0 Flash (Super Cepat)', 'provider' => 'Google', 'is_default' => false],
                 ['id' => 'deepseek-chat', 'name' => 'DeepSeek V3 (Penalaran & Logika)', 'provider' => 'DeepSeek', 'is_default' => false],
                 ['id' => 'gpt-4o', 'name' => 'GPT-4o (Multimodal & Presisi)', 'provider' => 'OpenAI', 'is_default' => false],
                 ['id' => 'claude-3-5-sonnet', 'name' => 'Claude 3.5 Sonnet (Penulisan Ilmiah)', 'provider' => 'Anthropic', 'is_default' => false],

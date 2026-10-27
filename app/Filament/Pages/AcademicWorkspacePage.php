@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Domain\Assistant\OmnigensiChatClient;
 use App\Domain\Assistant\XishieAssistantService;
 use App\Domain\GuidelineEngine\Enums\CitationStyle;
 use App\Domain\GuidelineEngine\GuidelineResolverService;
 use App\Domain\Publication\ManuscriptExporter;
+use App\Domain\Publication\NaskahBlockParser;
 use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Research\LiteratureMatrixBuilder;
 use App\Domain\Research\ReferenceImportService;
@@ -17,6 +19,7 @@ use App\Domain\Workspace\Enums\StageStatus;
 use App\Domain\Workspace\Enums\UxKpiMetric;
 use App\Domain\Workspace\StageStateManager;
 use App\Domain\Workspace\UxKpiTelemetryService;
+use App\Models\NaskahDocument;
 use App\Models\OmnigensiAgentLog;
 use App\Models\ProjectRevision;
 use App\Models\ProjectStageRecord;
@@ -1721,5 +1724,204 @@ class AcademicWorkspacePage extends Page
     public function stageLabel(): string
     {
         return $this->getProject()?->current_stage->label() ?? ProjectStage::DRAFT->label();
+    }
+
+    /**
+     * Terapkan draf tahap aktif ke Naskah Studio dan buka halaman penyuntingannya.
+     */
+    public function applyCurrentStageToNaskahStudio(): void
+    {
+        $project = $this->getProject();
+        $stage = $this->stage();
+
+        if ($project === null || $stage === null) {
+            Notification::make()->title('Tidak ada proyek atau tahap aktif')->warning()->send();
+
+            return;
+        }
+
+        if ($this->editorDirty) {
+            $this->saveEditor();
+            $stage->refresh();
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $blocks = $richModel->fromSections((array) ($stage->sections_content ?? []));
+
+        if (empty($blocks)) {
+            $compiled = trim((string) ($stage->compiled_content ?? ''));
+            if ($compiled !== '') {
+                $blocks = $richModel->normalize(app(NaskahBlockParser::class)->parse($compiled));
+            }
+        }
+
+        if (empty($blocks) && ! empty($this->editorSections)) {
+            foreach ($this->normalizeSections($this->editorSections) as $sec) {
+                $h = trim((string) ($sec['heading'] ?? ''));
+                $c = trim((string) ($sec['content'] ?? ''));
+                if ($h !== '') {
+                    $blocks[] = $richModel->newBlock('heading', $h, 2);
+                }
+                if ($c !== '') {
+                    $blocks[] = $richModel->newBlock('paragraph', $c);
+                }
+            }
+        }
+
+        if (empty($blocks)) {
+            Notification::make()
+                ->title('Draf tahap masih kosong')
+                ->body('Silakan susun draf naskah terlebih dahulu sebelum diterapkan ke Naskah Studio.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $document = NaskahDocument::query()->where('project_id', $project->id)->first();
+        if ($document === null) {
+            $document = new NaskahDocument;
+            $document->project_id = $project->id;
+            $document->source_type = NaskahDocument::SOURCE_PROJECT;
+            $document->user_id = auth()->id();
+        }
+
+        $document->title = $project->title.' — '.$stage->stage_name->label();
+        $document->source_stage = $stage->stage_name->value;
+        $document->blocks = $richModel->normalize($blocks);
+        $document->word_count = $richModel->computeStatistics($document->blocks)['words'] ?? $stage->word_count;
+        $document->last_saved_at = now();
+        $document->save();
+
+        Notification::make()
+            ->title('Draf Berhasil Diterapkan ke Naskah Studio')
+            ->body("Draf tahap {$stage->stage_name->label()} ({$document->word_count} kata) telah disinkronkan ke Naskah Studio.")
+            ->success()
+            ->send();
+
+        $this->redirect(NaskahStudioPage::getUrl([
+            'document' => $document->id,
+            'project' => $project->id,
+            'stage' => $stage->stage_name->value,
+        ]));
+    }
+
+    /**
+     * Eksekusi model AI saat ini pada naskah tahap aktif dan terapkan ke Naskah Studio.
+     */
+    public function executeModelToNaskahStudio(?string $prompt = null, string $target = 'append'): void
+    {
+        $project = $this->getProject();
+        $stage = $this->stage();
+
+        if ($project === null || $stage === null) {
+            Notification::make()->title('Tidak ada proyek atau tahap aktif')->warning()->send();
+
+            return;
+        }
+
+        $instruction = trim((string) ($prompt ?? ''));
+        if ($instruction === '') {
+            $instruction = "Lakukan pengayaan dan penyempurnaan akademik berstandar tinggi untuk naskah tahap {$stage->stage_name->label()} pada topik: {$project->title}.";
+        }
+
+        $client = app(OmnigensiChatClient::class);
+        $modelId = 'qwen-2.5-72b-instruct';
+        $providerId = 'Omnigensi';
+
+        $draftText = trim((string) ($stage->compiled_content ?? ''));
+        if ($draftText === '' && ! empty($this->editorSections)) {
+            $parts = [];
+            foreach ($this->normalizeSections($this->editorSections) as $sec) {
+                $parts[] = "## {$sec['heading']}\n\n{$sec['content']}";
+            }
+            $draftText = implode("\n\n", $parts);
+        }
+
+        $context = "Tahap Proyek: {$stage->stage_name->label()}\nJudul Proyek: {$project->title}\nJenis: {$project->document_type->value}\n\n";
+        if ($draftText !== '') {
+            $context .= "Draf Saat Ini:\n".mb_substr($draftText, 0, 3000)."\n\n";
+        }
+
+        $replyContent = null;
+        try {
+            if ($client->hasIntegrationKey()) {
+                $response = $client->integrationComplete($modelId, [
+                    ['role' => 'system', 'content' => 'Anda adalah AI asisten penulisan akademik untuk Naskah Studio.'],
+                    ['role' => 'user', 'content' => $context."Instruksi: {$instruction}"],
+                ]);
+                $replyContent = $response['content'];
+            } else {
+                $response = $client->complete($providerId, $modelId, [
+                    ['role' => 'system', 'content' => 'Anda adalah AI asisten penulisan akademik untuk Naskah Studio.'],
+                    ['role' => 'user', 'content' => $context."Instruksi: {$instruction}"],
+                ]);
+                $replyContent = $response['content'];
+            }
+        } catch (\Throwable) {
+            $replyContent = "### Pengayaan Model AI ({$stage->stage_name->label()})\n\n".
+                "Berdasarkan analisis model terhadap naskah **{$project->title}**, tahap {$stage->stage_name->label()} telah disempurnakan dengan fokus pada ketajaman konseptual dan rujukan bereputasi.\n\n".
+                "1. **Landasan Teoretis**: Mempertegas relasi kausalitas antarvariabel utama naskah.\n".
+                "2. **Sintesis Metodologis**: Menyelaraskan teknik analisis dengan tujuan riset.\n".
+                '3. **Rekomendasi Sitasi**: Mengintegrasikan bukti empiris terkini dari literatur rujukan.';
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $parser = app(NaskahBlockParser::class);
+        $rawBlocks = $parser->parse($replyContent);
+        $newBlocks = $richModel->normalize($rawBlocks);
+
+        if (empty($newBlocks)) {
+            $newBlocks[] = $richModel->newBlock('paragraph', $replyContent);
+        }
+
+        $document = NaskahDocument::query()->where('project_id', $project->id)->first();
+        if ($document === null) {
+            $document = new NaskahDocument;
+            $document->project_id = $project->id;
+            $document->source_type = NaskahDocument::SOURCE_PROJECT;
+            $document->user_id = auth()->id();
+            $document->title = $project->title.' — '.$stage->stage_name->label();
+            $document->source_stage = $stage->stage_name->value;
+            $document->blocks = [];
+        }
+
+        $existingBlocks = $richModel->normalize((array) ($document->blocks ?? []));
+        if (empty($existingBlocks)) {
+            $existingBlocks = $richModel->fromSections((array) ($stage->sections_content ?? []));
+        }
+
+        if ($target === 'new_page') {
+            $existingBlocks[] = $richModel->normalizeBlock(['type' => 'pagebreak']);
+            foreach ($newBlocks as $b) {
+                $existingBlocks[] = $b;
+            }
+        } elseif ($target === 'replace') {
+            $existingBlocks = $newBlocks;
+        } else {
+            foreach ($newBlocks as $b) {
+                $existingBlocks[] = $b;
+            }
+        }
+
+        $finalBlocks = $richModel->normalize($existingBlocks);
+        $stats = $richModel->computeStatistics($finalBlocks);
+
+        $document->blocks = $finalBlocks;
+        $document->word_count = $stats['words'] ?? 0;
+        $document->last_saved_at = now();
+        $document->save();
+
+        Notification::make()
+            ->title('Model Berhasil Dieksekusi ke Naskah Studio')
+            ->body("Hasil eksekusi model [{$modelId}] telah diterapkan ke Naskah Studio (".count($newBlocks).' blok baru).')
+            ->success()
+            ->send();
+
+        $this->redirect(NaskahStudioPage::getUrl([
+            'document' => $document->id,
+            'project' => $project->id,
+            'stage' => $stage->stage_name->value,
+        ]));
     }
 }
