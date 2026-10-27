@@ -3914,3 +3914,68 @@ it('executes model with preset via artisan naskah:manage and REST API', function
         ->assertJsonPath('status', 'success')
         ->assertJsonPath('data.model', 'gemini-3.8-flash');
 });
+
+it('opens naskah studio and executes current model to studio from projects page', function (): void {
+    $project = makeProject(['title' => 'Riset Evaluasi Model AI']);
+    $page = Livewire::test(ProjectsPage::class);
+
+    // 1. Buka Naskah Studio dari Projects page
+    $page->call('openNaskahStudio', $project->id)
+        ->assertSuccessful();
+
+    $doc = NaskahDocument::query()->where('project_id', $project->id)->first();
+    expect($doc)->not->toBeNull()
+        ->and($doc->title)->toBe('Riset Evaluasi Model AI')
+        ->and(count($doc->blocks))->toBeGreaterThanOrEqual(1);
+
+    // 2. Eksekusi model saat ini langsung ke Naskah Studio dari Projects page
+    $page->call('executeCurrentModelToStudio', $project->id, 'Buatkan naskah awal IMRaD')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $reloadedDoc = NaskahDocument::query()->find($doc->id);
+    expect(count($reloadedDoc->blocks))->toBeGreaterThanOrEqual(3);
+});
+
+it('executes model on selection, table, and equation within naskah studio', function (): void {
+    $studio = Livewire::test(NaskahStudioPage::class);
+    $richModel = app(NaskahRichModel::class);
+
+    $studio->set('blocks', [
+        $richModel->newBlock('title', 'Dokumen Uji Model Spesifik'),
+        $richModel->newBlock('paragraph', 'Paragraf awal sebelum dipoles.'),
+        $richModel->newTableBlock([
+            [['text' => 'Fitur'], ['text' => 'Skor']],
+            [['text' => 'Model A'], ['text' => '80']],
+        ]),
+        $richModel->newEquationBlock('E = mc^2', '(1)'),
+    ]);
+
+    // 1. Eksekusi model pada teks terseleksi
+    $studio->set('activeBlock', 1);
+    $studio->call('executeModelOnSelection', 'Paragraf awal sebelum dipoles.', 'Poles akademik')
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $blocks = $studio->get('blocks');
+    expect($studio->get('isReviewingModelOutput'))->toBeTrue()
+        ->and($blocks[1]['is_under_review'] ?? false)->toBeTrue();
+
+    // 2. Eksekusi model pada tabel (blok 2)
+    $studio->call('executeModelOnTable', 2)
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $tableBlocks = $studio->get('blocks');
+    expect(count($tableBlocks[2]['table']['rows'][0] ?? []))->toBe(4)
+        ->and($tableBlocks[2]['table']['rows'][0][0]['text'])->toBe('Bagian / Aspek Naskah');
+
+    // 3. Eksekusi model pada equation (blok 3)
+    $studio->call('executeModelOnEquation', 3)
+        ->assertSuccessful()
+        ->assertNotified();
+
+    $blocksAfterEq = $studio->get('blocks');
+    expect(count($blocksAfterEq))->toBeGreaterThan(4)
+        ->and($blocksAfterEq[4]['type'])->toBe('paragraph');
+});

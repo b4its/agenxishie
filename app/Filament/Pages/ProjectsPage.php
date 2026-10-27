@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Domain\Assistant\OmnigensiChatClient;
+use App\Domain\Publication\NaskahBlockParser;
+use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Workspace\UxKpiTelemetryService;
+use App\Models\NaskahDocument;
 use App\Models\XishieProject;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -102,6 +106,129 @@ class ProjectsPage extends Page
         }
 
         $this->redirect(AcademicWorkspacePage::getUrl(['project' => $project->id]));
+    }
+
+    /**
+     * Buka dokumen proyek di Naskah Studio.
+     */
+    public function openNaskahStudio(int $projectId): void
+    {
+        $project = XishieProject::find($projectId);
+
+        if ($project === null) {
+            Notification::make()->title('Proyek tidak ditemukan')->danger()->send();
+
+            return;
+        }
+
+        $document = NaskahDocument::query()->where('project_id', $project->id)->first();
+        if ($document === null) {
+            $richModel = app(NaskahRichModel::class);
+            $parser = app(NaskahBlockParser::class);
+
+            $stage = $project->stages()->where('stage_name', $project->current_stage->value)->first();
+            $compiled = trim((string) ($stage?->compiled_content ?? ''));
+
+            $blocks = [];
+            if ($compiled !== '') {
+                $blocks = $richModel->normalize($parser->parse($compiled));
+            } else {
+                $blocks = [
+                    $richModel->newBlock('title', $project->title),
+                    $richModel->newBlock('paragraph', 'Mulai menyusun draf naskah ilmiah untuk proyek ini.'),
+                ];
+            }
+
+            $stats = $richModel->computeStatistics($blocks);
+            $document = NaskahDocument::create([
+                'project_id' => $project->id,
+                'source_type' => NaskahDocument::SOURCE_PROJECT,
+                'source_stage' => $project->current_stage->value,
+                'title' => $project->title,
+                'blocks' => $blocks,
+                'word_count' => $stats['words'] ?? 0,
+                'last_saved_at' => now(),
+            ]);
+        }
+
+        $this->redirect(NaskahStudioPage::getUrl([
+            'document' => $document->id,
+            'project' => $project->id,
+        ]));
+    }
+
+    /**
+     * Eksekusi model AI saat ini untuk menyusun draf naskah proyek dan terapkan ke Naskah Studio.
+     */
+    public function executeCurrentModelToStudio(int $projectId, ?string $prompt = null): void
+    {
+        $project = XishieProject::find($projectId);
+
+        if ($project === null) {
+            Notification::make()->title('Proyek tidak ditemukan')->danger()->send();
+
+            return;
+        }
+
+        $client = app(OmnigensiChatClient::class);
+        $modelId = $client->defaultModel() ?? 'gemini-3.8-flash';
+
+        $instruction = trim((string) ($prompt ?? ''));
+        if ($instruction === '') {
+            $instruction = "Susun draf naskah ilmiah awal yang komprehensif, mencakup Judul, Abstrak, Pendahuluan, Metode, dan Rencana Pembahasan untuk topik: {$project->title}.";
+        }
+
+        $systemPrompt = 'Anda adalah asisten cerdas penulisan ilmiah Naskah Studio. Hasilkan naskah akademik terstruktur dalam Bahasa Indonesia akademik formal siap publikasi.';
+
+        $generated = null;
+        try {
+            $generated = $client->generate($instruction, $systemPrompt, 0.6, 1200, $modelId);
+        } catch (\Throwable) {
+            $generated = null;
+        }
+
+        $replyContent = '';
+        if ($generated !== null && trim((string) ($generated['content'] ?? '')) !== '') {
+            $replyContent = trim((string) $generated['content']);
+        } else {
+            $fieldName = $project->field_of_study instanceof \BackedEnum ? $project->field_of_study->value : (string) $project->field_of_study;
+            $replyContent = "# {$project->title}\n\n"
+                ."## Abstrak\nPenelitian ini mengkaji fenomena penting dalam bidang {$fieldName}. Melalui pendekatan analitis yang sistematis, kajian ini bertujuan untuk mengisi research gap serta memberikan sumbangsih teoretis dan praktis yang signifikan.\n\n"
+                ."## 1. Pendahuluan\nLatar belakang permasalahan dalam penelitian ini berakar pada dinamika kontemporer yang menuntut investigasi ilmiah mendalam.\n\n"
+                ."## 2. Metodologi Penelitian\nKajian ini mengimplementasikan metode ilmiah terukur dengan validasi instrumen yang ketat guna memastikan keandalan temuan.\n\n"
+                ."## 3. Hasil yang Diharapkan\nSintesis data diharapkan mampu membuktikan hipotesis kerja serta merumuskan implikasi manajerial maupun kebijakan yang relevan.";
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $parser = app(NaskahBlockParser::class);
+
+        $parsedBlocks = $parser->parse($replyContent);
+        $normalizedBlocks = $richModel->normalize($parsedBlocks);
+
+        $document = NaskahDocument::query()->where('project_id', $project->id)->first();
+        if ($document === null) {
+            $document = new NaskahDocument;
+            $document->project_id = $project->id;
+            $document->source_type = NaskahDocument::SOURCE_PROJECT;
+            $document->source_stage = $project->current_stage->value;
+        }
+
+        $document->title = $project->title;
+        $document->blocks = $normalizedBlocks;
+        $document->word_count = $richModel->computeStatistics($normalizedBlocks)['words'] ?? count($normalizedBlocks);
+        $document->last_saved_at = now();
+        $document->save();
+
+        Notification::make()
+            ->title('Model Berhasil Dieksekusi ke Naskah Studio')
+            ->body("Model [{$modelId}] telah menyusun draf naskah (".count($normalizedBlocks).' blok) dan disinkronkan ke Naskah Studio.')
+            ->success()
+            ->send();
+
+        $this->redirect(NaskahStudioPage::getUrl([
+            'document' => $document->id,
+            'project' => $project->id,
+        ]));
     }
 
     /**

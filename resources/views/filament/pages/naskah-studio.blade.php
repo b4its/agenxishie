@@ -2207,7 +2207,10 @@
                                                     </div>
                                                 </div>
                                             @elseif ($type === 'table')
-                                                <div class="word-table-wrapper" contenteditable="true" style="margin:12px 0;">
+                                                <div class="word-table-wrapper" contenteditable="true" style="margin:12px 0; position:relative;">
+                                                    <div contenteditable="false" style="position:absolute; right:6px; top:-10px; z-index:10; display:flex; gap:4px;">
+                                                        <button type="button" class="ns-btn" style="padding:1px 6px; font-size:10px; height:20px; color:#4f46e5; font-weight:700; background:#eef2ff; border:1px solid #c7d2fe;" wire:click="executeModelOnTable({{ $index }})" title="Eksekusi model AI saat ini untuk menyintesis data tabel">⚡ Model Tabel</button>
+                                                    </div>
                                                     <table class="word-table ns-table" style="width:100%; border-collapse:collapse; margin:4px 0;" data-block-index="{{ $index }}">
                                                         <tbody contenteditable="true">
                                                             @php
@@ -2249,7 +2252,8 @@
                                                      contenteditable="false"
                                                      wire:click="openDialog('equation')"
                                                      title="Klik untuk menyunting rumus LaTeX"
-                                                     style="cursor:pointer; padding:12px; margin:12px 0; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; text-align:center;">
+                                                     style="cursor:pointer; padding:12px; margin:12px 0; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; text-align:center; position:relative;">
+                                                    <button type="button" class="ns-btn" style="position:absolute; right:8px; top:8px; font-size:10px; height:20px; padding:0 6px; color:#4f46e5; font-weight:700; background:#ffffff; border:1px solid #cbd5e1;" wire:click.stop="executeModelOnEquation({{ $index }})" title="Eksekusi model AI saat ini untuk menjabarkan rumus ini">⚡ Jabarkan Model</button>
                                                     <span class="latex-math-formula">${{ $latex }}$</span>
                                                     @if ($caption !== '')
                                                         <div style="font-size:.75rem; color:#64748b; text-align:right; margin-top:.3rem;">{{ $caption }}</div>

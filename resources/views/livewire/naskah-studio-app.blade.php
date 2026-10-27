@@ -1993,6 +1993,7 @@
                                                     $hasHeader = $block['table']['header'] ?? true;
                                                 @endphp
                                                 <div class="word-table-actions" contenteditable="false" style="position:absolute; right:6px; top:6px; z-index:10; display:flex; gap:4px; background:rgba(255,255,255,0.92); padding:2px 4px; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                                                    <button type="button" class="word-tool-btn" style="padding:1px 6px; font-size:10px; height:20px; color:#4f46e5; font-weight:700;" wire:click="executeModelOnTable({{ $index }})" title="Eksekusi model AI saat ini untuk melengkapi data tabel">⚡ Model Tabel</button>
                                                     <button type="button" class="word-tool-btn" style="padding:1px 6px; font-size:10px; height:20px;" wire:click="tableInsertRow({{ $index }}, {{ count($rows) }})" title="Tambah Baris Bawah">➕ Baris</button>
                                                     <button type="button" class="word-tool-btn" style="padding:1px 6px; font-size:10px; height:20px;" wire:click="tableInsertColumn({{ $index }}, {{ count($rows[0] ?? []) }})" title="Tambah Kolom Kanan">➕ Kolom</button>
                                                     <button type="button" class="word-tool-btn" style="padding:1px 6px; font-size:10px; height:20px;" wire:click="tableToggleHeader({{ $index }})" title="Toggle Baris Header">🏷️ Header</button>
@@ -2026,6 +2027,9 @@
                                                 @dblclick="$wire.editEquation({{ $index }})"
                                                 style="user-select:none; margin: 16px 0; padding: 12px 18px; background: #fbfcfe; border: 1px solid #e1dfdd; border-radius: 4px; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer;">
                                                 <div class="word-equation-actions" style="position: absolute; right: 8px; top: 8px; display: flex; gap: 4px;">
+                                                    <button type="button" class="word-tool-btn" style="padding: 2px 8px; font-size: 11px; height: 22px; background: #ffffff; border: 1px solid #d1d1d1; border-radius: 3px; cursor: pointer; color: #4f46e5; font-weight: 700;" wire:click="executeModelOnEquation({{ $index }})" title="Eksekusi model AI saat ini untuk menjabarkan rumus ini">
+                                                        ⚡ Jabarkan Model
+                                                    </button>
                                                     <button type="button" class="word-tool-btn" style="padding: 2px 8px; font-size: 11px; height: 22px; background: #ffffff; border: 1px solid #d1d1d1; border-radius: 3px; cursor: pointer;" wire:click="editEquation({{ $index }})" title="Edit Rumus LaTeX">
                                                         ✏️ Edit Rumus
                                                     </button>

@@ -95,6 +95,14 @@
                                     &#9654; Buka Workspace
                                 </button>
 
+                                <button type="button" class="rb-button" style="background:#4f46e5; color:#ffffff; font-weight:700;" wire:click="openNaskahStudio({{ $project['id'] }})" title="Buka naskah proyek langsung di Naskah Studio">
+                                    ⚡ Naskah Studio
+                                </button>
+
+                                <button type="button" class="rb-button" style="background:#4338ca; color:#ffffff; font-weight:700;" wire:click="executeCurrentModelToStudio({{ $project['id'] }})" title="Eksekusi model AI saat ini untuk membuat draf naskah proyek di Naskah Studio">
+                                    ✨ Eksekusi Model
+                                </button>
+
                                 <button type="button" class="rb-button" wire:click="duplicateProject({{ $project['id'] }})" title="Duplikasi Proyek">
                                     &#10697; Duplikasi
                                 </button>
