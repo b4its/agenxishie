@@ -43,6 +43,8 @@ class XishieAssistantPage extends Page
 
     public string $commandSearch = '';
 
+    public string $currentPersona = 'academic_senior';
+
     /**
      * Transkrip: [['role' => 'user'|'assistant', 'content' => ...]].
      *
@@ -269,6 +271,81 @@ class XishieAssistantPage extends Page
         $this->dispatch('assistant-updated');
     }
 
+    public function setPersona(string $persona): void
+    {
+        $this->currentPersona = array_key_exists($persona, $this->getPersonas()) ? $persona : 'academic_senior';
+        Notification::make()
+            ->title('Persona Asisten Diatur')
+            ->body("Gaya respon: {$this->getPersonas()[$this->currentPersona]}")
+            ->info()
+            ->send();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getPersonas(): array
+    {
+        return [
+            'academic_senior' => 'Akademisi Senior (DIKTI & Scopus Q1)',
+            'critical_reviewer' => 'Reviewer Kritis (Peer Review)',
+            'proofreader' => 'Proofreader PUEBI & Tata Bahasa',
+            'methodologist' => 'Metodolog Riset',
+            'novelty' => 'Spesialis Kebaruan & Gap',
+        ];
+    }
+
+    public function regenerateMessage(int $logIndex): void
+    {
+        $entry = $this->log[$logIndex] ?? null;
+        if ($entry === null || ($entry['role'] ?? '') !== 'assistant') {
+            return;
+        }
+
+        $userQuery = null;
+        for ($i = $logIndex - 1; $i >= 0; $i--) {
+            if (($this->log[$i]['role'] ?? '') === 'user') {
+                $userQuery = (string) ($this->log[$i]['content'] ?? '');
+                break;
+            }
+        }
+
+        if ($userQuery === null || trim($userQuery) === '') {
+            $this->regenerateLastResponse();
+
+            return;
+        }
+
+        $project = $this->getProject();
+        if ($project === null) {
+            return;
+        }
+
+        $modelId = $this->getCurrentAssistantModel();
+
+        try {
+            $result = app(XishieAssistantService::class)->handle($project, $userQuery, $modelId);
+            $this->log[$logIndex] = [
+                'role' => 'assistant',
+                'content' => (string) $result['reply'],
+                'model' => $modelId,
+                'command' => $result['command'] ?? 'chat',
+                'created_at' => now()->format('H:i:s'),
+                'is_regenerated' => true,
+            ];
+            Notification::make()->title('Respon Berhasil Di-regenerate')->success()->send();
+        } catch (\Throwable $e) {
+            $this->log[$logIndex] = [
+                'role' => 'assistant',
+                'content' => '[Gagal] '.$e->getMessage(),
+                'model' => $modelId,
+                'created_at' => now()->format('H:i:s'),
+            ];
+        }
+
+        $this->dispatch('assistant-updated');
+    }
+
     public function getProject(): ?XishieProject
     {
         return $this->projectId !== null ? XishieProject::find($this->projectId) : null;
@@ -327,6 +404,7 @@ class XishieAssistantPage extends Page
             'role' => 'user',
             'content' => $text,
             'model' => $modelId,
+            'persona' => $this->currentPersona,
             'created_at' => now()->format('H:i:s'),
         ];
         $this->message = '';
@@ -349,6 +427,7 @@ class XishieAssistantPage extends Page
                     'query' => $text,
                     'command' => $result['command'],
                     'model' => $modelId,
+                    'persona' => $this->currentPersona,
                     'metadata' => [
                         'applied' => in_array($result['command'], SlashCommand::names(), true),
                     ],

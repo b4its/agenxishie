@@ -45,6 +45,25 @@
                         </div>
                     </div>
 
+                    {{-- Bar Persona / Gaya Respon Ilmiah --}}
+                    <div style="display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; margin-bottom:.85rem; padding:.35rem .6rem; background:rgba(67,56,202,0.04); border-radius:4px; border:1px solid rgba(67,56,202,0.12);">
+                        <span class="rb-mono" style="font-size:.6rem; color:#4338ca; font-weight:700; text-transform:uppercase;">PERSONA AKADEMIK:</span>
+                        @foreach ($this->getPersonas() as $pKey => $pLabel)
+                            <button
+                                type="button"
+                                wire:click="setPersona('{{ $pKey }}')"
+                                style="border:1px solid {{ $currentPersona === $pKey ? 'var(--rb-primary, #4338ca)' : '#cbd5e1' }};
+                                       background:{{ $currentPersona === $pKey ? 'var(--rb-primary, #4338ca)' : '#ffffff' }};
+                                       color:{{ $currentPersona === $pKey ? '#ffffff' : '#334155' }};
+                                       font-size:.58rem; font-weight:600; padding:2px 7px; border-radius:3px; cursor:pointer;"
+                                title="Atur gaya respon asisten ke {{ $pLabel }}"
+                            >
+                                @if($pKey === 'academic_senior') 🎓 @elseif($pKey === 'critical_reviewer') 🔍 @elseif($pKey === 'proofreader') ✍️ @elseif($pKey === 'methodologist') 📐 @else 💡 @endif
+                                {{ $pLabel }}
+                            </button>
+                        @endforeach
+                    </div>
+
                     {{-- Palet Slash Command Berdasarkan Kategori --}}
                     <div style="margin-bottom:.85rem; background:rgba(0,0,0,0.02); padding:.6rem; border-radius:4px; border:1px solid rgba(0,0,0,0.06);">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; flex-wrap:wrap; gap:.4rem;">
@@ -124,6 +143,13 @@
                                                 <span x-show="copied" style="color:#4ade80;">&#10003; Tersalin</span>
                                             </button>
                                             @unless (str_starts_with($msg['content'], '[Gagal]'))
+                                                <button
+                                                    type="button"
+                                                    class="rb-terminal__time"
+                                                    style="border:0; background:rgba(234,179,8,0.2); color:#fde047; cursor:pointer; font-size:.62rem; font-weight:700; padding:2px 6px; border-radius:3px;"
+                                                    title="Regenerate respon ini dengan model aktif"
+                                                    wire:click="regenerateMessage({{ $loop->index }})"
+                                                >🔄 Regenerate</button>
                                                 <button
                                                     type="button"
                                                     class="rb-terminal__time"
