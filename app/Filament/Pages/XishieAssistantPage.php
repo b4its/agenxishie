@@ -979,6 +979,188 @@ class XishieAssistantPage extends Page
     }
 
     /**
+     * Konversi transkrip sesi Xishie Assistant menjadi Naskah Dokumen baru di Naskah Studio.
+     */
+    public function exportTranscriptToDocument(?string $customTitle = null): ?NaskahDocument
+    {
+        $project = $this->getProject();
+        if (empty($this->log)) {
+            Notification::make()->title('Transkrip masih kosong')->warning()->send();
+
+            return null;
+        }
+
+        $sourceLog = $this->onlyStarred
+            ? array_values(array_filter($this->log, fn (array $e, int $idx): bool => in_array($idx, $this->starredMessages, true), ARRAY_FILTER_USE_BOTH))
+            : $this->log;
+
+        if (empty($sourceLog)) {
+            $sourceLog = $this->log;
+        }
+
+        $projectTitle = $project?->title ?? 'Riset Akademik';
+        $docTitle = trim((string) $customTitle) !== '' ? trim((string) $customTitle) : ('Sintesis Xishie Assistant - '.$projectTitle);
+
+        $blocks = [];
+
+        // 1. Heading Dokumen
+        $blocks[] = [
+            'type' => 'heading',
+            'level' => 1,
+            'text' => $docTitle,
+            'align' => 'center',
+            'runs' => [
+                ['text' => $docTitle, 'bold' => true, 'fontSize' => '20'],
+            ],
+        ];
+
+        // 2. Callout Ringkasan Metadata Percakapan
+        $metaText = "Dokumen ini dikompilasi secara otomatis dari sesi Xishie Assistant.\n"
+            ."• Proyek: {$projectTitle}\n"
+            ."• Waktu Kompilasi: ".now()->translatedFormat('d F Y H:i:s')."\n"
+            ."• Total Pesan: ".count($sourceLog)." pesan\n"
+            ."• Model Aktif: {$this->getCurrentAssistantModel()}\n"
+            ."• Persona: {$this->currentPersona} | Lingkup: {$this->assistantScope}";
+
+        $blocks[] = [
+            'type' => 'callout',
+            'calloutType' => 'info',
+            'text' => $metaText,
+            'runs' => [
+                ['text' => $metaText],
+            ],
+        ];
+
+        // 3. Konversi percakapan menjadi blok terstruktur
+        foreach ($sourceLog as $entry) {
+            $isUser = (($entry['role'] ?? '') === 'user');
+            $sender = $isUser ? '👤 Peneliti' : '✨ Xishie Assistant';
+            $content = trim((string) ($entry['content'] ?? ''));
+            if ($content === '') {
+                continue;
+            }
+
+            if ($isUser) {
+                $blocks[] = [
+                    'type' => 'heading',
+                    'level' => 2,
+                    'text' => "Pertanyaan: {$content}",
+                    'runs' => [
+                        ['text' => "{$sender}: ", 'bold' => true],
+                        ['text' => $content, 'italic' => true],
+                    ],
+                ];
+            } else {
+                $paragraphs = preg_split('/\n{2,}/u', $content, -1, PREG_SPLIT_NO_EMPTY) ?: [$content];
+                foreach ($paragraphs as $p) {
+                    $p = trim($p);
+                    if ($p === '') {
+                        continue;
+                    }
+
+                    // Deteksi tabel markdown (| kol | kol |)
+                    if (str_starts_with($p, '|') && str_contains($p, "\n|")) {
+                        $lines = array_filter(explode("\n", $p), fn (string $l): bool => trim($l) !== '');
+                        $rows = [];
+                        foreach ($lines as $line) {
+                            if (preg_match('/^\|?\s*[-:]+[-| :]*$/', trim($line))) {
+                                continue;
+                            }
+                            $cells = array_map(fn (string $c): array => ['text' => trim($c), 'runs' => []], array_filter(explode('|', trim($line, "|\r\n\t ")), fn (string $c): bool => trim($c) !== ''));
+                            if (! empty($cells)) {
+                                $rows[] = $cells;
+                            }
+                        }
+                        if (count($rows) >= 2) {
+                            $blocks[] = [
+                                'type' => 'table',
+                                'table' => [
+                                    'format' => 'apa',
+                                    'header' => true,
+                                    'rows' => $rows,
+                                ],
+                            ];
+                            continue;
+                        }
+                    }
+
+                    // Deteksi kutipan markdown (> ...)
+                    if (str_starts_with($p, '>')) {
+                        $quoteText = trim(preg_replace('/^>\s*/m', '', $p));
+                        $blocks[] = [
+                            'type' => 'quote',
+                            'text' => $quoteText,
+                            'runs' => [
+                                ['text' => $quoteText, 'italic' => true],
+                            ],
+                        ];
+                        continue;
+                    }
+
+                    // Paragraf biasa
+                    $blocks[] = [
+                        'type' => 'paragraph',
+                        'text' => $p,
+                        'runs' => [
+                            ['text' => $p],
+                        ],
+                    ];
+                }
+            }
+        }
+
+        $richModel = app(NaskahRichModel::class);
+        $normalizedBlocks = $richModel->normalize($blocks);
+        $wordCount = $richModel->countWords($normalizedBlocks);
+
+        $document = NaskahDocument::create([
+            'user_id' => auth()->id(),
+            'project_id' => $project?->id,
+            'title' => $docTitle,
+            'source_type' => $project ? NaskahDocument::SOURCE_PROJECT : NaskahDocument::SOURCE_LOCAL,
+            'source_stage' => $project?->current_stage?->value,
+            'source_filename' => null,
+            'blocks' => $normalizedBlocks,
+            'comments' => [],
+            'revisions' => [],
+            'page_setup' => [
+                'size' => 'A4',
+                'orientation' => 'portrait',
+                'marginTop' => 40,
+                'marginBottom' => 30,
+                'marginLeft' => 40,
+                'marginRight' => 30,
+                'headerDistance' => 15,
+                'footerDistance' => 15,
+            ],
+            'style_meta' => [
+                'metadata' => [
+                    'author' => auth()->user()?->name ?? 'Peneliti Xishie',
+                    'subject' => $projectTitle,
+                    'keywords' => 'Xishie Assistant, Sintesis Dokumen, Riset',
+                ],
+                'target_word_count' => max(1500, $wordCount),
+            ],
+            'word_count' => $wordCount,
+            'last_saved_at' => now(),
+        ]);
+
+        Notification::make()
+            ->title('Naskah Studio Berhasil Dibuat')
+            ->body("Dokumen '{$docTitle}' ({$wordCount} kata) telah dibuat di Naskah Studio.")
+            ->actions([
+                \Filament\Actions\Action::make('buka')
+                    ->label('Buka Naskah Studio')
+                    ->url("/admin/naskah-studio?document={$document->id}")
+                    ->button(),
+            ])
+            ->success()
+            ->send();
+
+        return $document;
+    }
+
+    /**
      * Render jawaban (Markdown) menjadi HTML aman.
      */
     public function markdownToHtml(string $markdown): string

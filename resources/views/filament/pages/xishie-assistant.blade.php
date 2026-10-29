@@ -79,6 +79,7 @@
                             <button type="button" class="rb-button" wire:click="exportTranscript('json')" title="Unduh transkrip sesi sebagai JSON">&#11015; JSON</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('csv')" title="Unduh transkrip sesi sebagai CSV (Spreadsheet / Excel)">&#11015; CSV</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('txt')" title="Unduh transkrip sesi sebagai Plain Text">&#11015; TXT</button>
+                            <button type="button" class="rb-button" style="background:#1d4ed8; color:#ffffff; font-weight:700;" wire:click="exportTranscriptToDocument" title="Konversi sesi percakapan menjadi Dokumen Baru di Naskah Studio">📝 Buat Naskah Studio</button>
                             <button type="button" class="rb-button" wire:click="saveSessionAsSnapshot" title="Simpan transkrip sesi ini ke versi naskah (Snapshot)">💾 Snapshot</button>
                             @if (!empty($lastClearedLog))
                                 <button type="button" class="rb-button" style="background:#0f766e; color:#ffffff; font-weight:700;" wire:click="restoreClearedLog" title="Pulihkan riwayat percakapan yang baru dibersihkan">↩️ Pulihkan ({{ count($lastClearedLog) }})</button>
