@@ -741,3 +741,46 @@ it('exports document in html and json formats in naskah studio', function (): vo
         ->and($data['title'])->toBe('Naskah Riset Ekspor')
         ->and($data['blocks'])->toHaveCount(2);
 });
+
+it('supports findNext and replaceCurrent operations in naskah studio', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Algoritma machine learning pertama.'],
+            ['type' => 'paragraph', 'text' => 'Algoritma deep learning kedua.'],
+        ])
+        ->set('findQuery', 'Algoritma')
+        ->set('replaceQuery', 'Metode');
+
+    // First findNext should focus block #1 (index 0)
+    $page->call('findNext');
+    expect($page->get('activeBlock'))->toBe(0)
+        ->and($page->get('findResult'))->toContain('Ditemukan 2 kemunculan');
+
+    // Second findNext should focus block #2 (index 1)
+    $page->call('findNext');
+    expect($page->get('activeBlock'))->toBe(1)
+        ->and($page->get('findResult'))->toContain('Posisi #2');
+
+    // Replace current on block #2
+    $page->call('replaceCurrent');
+    expect($page->get('blocks')[1]['text'])->toBe('Metode deep learning kedua.')
+        ->and($page->get('blocks')[0]['text'])->toBe('Algoritma machine learning pertama.');
+});
+
+it('exports document bibliography in bibtex format in naskah studio', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('docTitle', 'Pustaka Riset BibTeX')
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Naskah pengujian ekspor bibtex.'],
+        ]);
+
+    $bibExport = $page->instance()->export('bibtex');
+    expect($bibExport)->not->toBeNull();
+    ob_start();
+    $bibExport->sendContent();
+    $bibContent = ob_get_clean();
+
+    expect($bibContent)->toContain('@')
+        ->and($bibContent)->toContain('title =')
+        ->and($bibContent)->toContain('year =');
+});

@@ -459,3 +459,35 @@ it('archives assistant transcript into document snapshots', function (): void {
         ->and($snapshots[0]['label'])->toContain('Sesi Asisten')
         ->and($snapshots[0]['assistant_log'])->toHaveCount(2);
 });
+
+it('supports starring and filtering assistant messages in conversation transcript', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $log = [
+        ['role' => 'user', 'content' => 'Pertanyaan metode evaluasi', 'created_at' => '12:00:00'],
+        ['role' => 'assistant', 'content' => 'Metode evaluasi F1-score dan AUC-ROC', 'created_at' => '12:00:04'],
+        ['role' => 'user', 'content' => 'Pertanyaan kedua tentang dataset', 'created_at' => '12:01:00'],
+        ['role' => 'assistant', 'content' => 'Dataset menggunakan repositori UCI', 'created_at' => '12:01:05'],
+    ];
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', $log)
+        ->call('toggleStarMessage', 1);
+
+    expect($page->get('starredMessages'))->toBe([1]);
+
+    // Unstar
+    $page->call('toggleStarMessage', 1);
+    expect($page->get('starredMessages'))->toBeEmpty();
+
+    // Star again and check HTML render
+    $page->call('toggleStarMessage', 1);
+    expect($page->html())->toContain('★ penting')
+        ->and($page->html())->toContain('Metode evaluasi F1-score');
+
+    // Test transcript search filtering
+    $page->set('transcriptSearch', 'dataset');
+    expect($page->html())->toContain('Dataset menggunakan repositori UCI')
+        ->and($page->html())->not->toContain('Metode evaluasi F1-score');
+});

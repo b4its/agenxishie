@@ -155,6 +155,7 @@ test("Assistant Focus Scope Selector Present", "FOKUS:" in assistant_html)
 test("Assistant Focus Scope Options (project, manuscript, literature)",
      "setScope('project')" in assistant_html and "setScope('manuscript')" in assistant_html and "setScope('literature')" in assistant_html)
 test("Assistant Session Telemetry Bar Present (SESI:)", "SESI:" in assistant_html)
+test("Assistant Transcript Search Field Present", "Cari transkrip..." in assistant_html)
 test("Assistant Stage-Aware Contextual Prompts Bar Present", "TAHAP " in assistant_html)
 test("Assistant Snapshot Archiving Button Present", "Snapshot" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
@@ -197,6 +198,7 @@ test("Standalone Studio: Multi-tab Navigator (Pustaka & Versi)", "Pustaka" in st
 
 status, studio_file_html, _ = http_get("/studio?tab=file")
 test("Standalone Studio: File Ribbon HTML & JSON Export Formats (?tab=file)", "HTML Web" in studio_file_html and "JSON Data" in studio_file_html)
+test("Standalone Studio: File Ribbon BibTeX Export Format (?tab=file)", "BibTeX (.bib)" in studio_file_html)
 
 test("Standalone Studio: Ribbon Layout DIKTI Preset Present", "DIKTI 4-4-3-3" in studio_standalone_html)
 test("Standalone Studio: Ribbon Table APA Format Present", "Format APA" in studio_standalone_html)
