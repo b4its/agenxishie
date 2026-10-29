@@ -167,9 +167,29 @@ class NaskahStudioApp extends Component
      */
     public function setNavigationTab(string $tab): void
     {
-        if (in_array($tab, ['headings', 'pages', 'pustaka', 'versi', 'results'], true)) {
-            $this->navigationTab = $tab;
+        $normalized = match ($tab) {
+            'outline' => 'headings',
+            'snapshots' => 'versi',
+            'references' => 'pustaka',
+            default => $tab,
+        };
+
+        if (in_array($normalized, ['headings', 'pages', 'pustaka', 'versi', 'results'], true)) {
+            $this->navigationTab = $normalized;
         }
+
+        $sidebarNormalized = match ($tab) {
+            'headings', 'outline' => 'outline',
+            'versi', 'snapshots' => 'snapshots',
+            'pustaka', 'references' => 'references',
+            default => in_array($tab, ['outline', 'snapshots', 'references'], true) ? $tab : 'outline',
+        };
+        $this->navSidebarTab = $sidebarNormalized;
+    }
+
+    public function setNavSidebarTab(string $tab): void
+    {
+        $this->setNavigationTab($tab);
     }
 
     /**

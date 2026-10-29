@@ -1191,6 +1191,9 @@
                             <button type="button" class="word-tool-btn" wire:click="insertCitation" title="Insert Academic Citation into Manuscript">
                                 📚 Insert Citation
                             </button>
+                            <button type="button" class="word-tool-btn" wire:click="setNavigationTab('pustaka')" title="Buka panel daftar referensi riset terverifikasi">
+                                📖 Pustaka Riset
+                            </button>
                             <button type="button" class="word-tool-btn" wire:click="openDialog('sources')" title="Manage Sources">
                                 🗂️ Manage Sources
                             </button>
@@ -1306,14 +1309,20 @@
                         <span style="font-weight:700; color:#4338ca;">Eksekusi Model</span>
                     </button>
                     <div class="word-group__col">
-                        <button type="button" class="word-tool-btn" wire:click="executeModelPreset('polish')" title="Poles ragam bahasa akademik">✨ Poles Cepat</button>
-                        <button type="button" class="word-tool-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
-                        <button type="button" class="word-tool-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset (novelty)">💡 Kebaruan</button>
-                        <button type="button" class="word-tool-btn" wire:click="runTool('/keterbacaan')" title="Audit indeks keterbacaan naskah">📈 Keterbacaan</button>
-                        <button type="button" class="word-tool-btn" wire:click="runTool('/format-paragraf')" title="Audit &amp; rapikan format paragraf naskah">📐 Format Paragraf</button>
+                        <div class="word-group__row">
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('polish')" title="Poles ragam bahasa akademik">✨ Poles Cepat</button>
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset (novelty)">💡 Kebaruan</button>
+                        </div>
+                        <div class="word-group__row">
+                            <button type="button" class="word-tool-btn" wire:click="runTool('/cek-pedoman')" title="Audit kepatuhan pedoman naskah">📜 Cek Pedoman</button>
+                            <button type="button" class="word-tool-btn" wire:click="runTool('/cek-gap')" title="Audit celah riset dan gap literatur">🔬 Cek Gap</button>
+                            <button type="button" class="word-tool-btn" wire:click="runTool('/keterbacaan')" title="Audit indeks keterbacaan naskah">📈 Keterbacaan</button>
+                            <button type="button" class="word-tool-btn" wire:click="runTool('/format-paragraf')" title="Audit &amp; rapikan format paragraf naskah">📐 Format Paragraf</button>
+                        </div>
                     </div>
                 </div>
-                <div class="word-group__footer"><span class="word-group__label">Model AI Aktif</span></div>
+                <div class="word-group__footer"><span class="word-group__label">Audit Asisten &amp; Model AI</span></div>
             </div>
 
             <div class="word-group">

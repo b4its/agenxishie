@@ -3548,7 +3548,26 @@ trait HandlesNaskahStudio
 
     public function setNavSidebarTab(string $tab): void
     {
-        $this->navSidebarTab = in_array($tab, ['outline', 'snapshots', 'references'], true) ? $tab : 'outline';
+        $normalized = match ($tab) {
+            'headings', 'outline' => 'outline',
+            'versi', 'snapshots' => 'snapshots',
+            'pustaka', 'references' => 'references',
+            default => in_array($tab, ['outline', 'snapshots', 'references'], true) ? $tab : 'outline',
+        };
+        $this->navSidebarTab = $normalized;
+        if (property_exists($this, 'navigationTab')) {
+            $this->navigationTab = match ($tab) {
+                'references', 'pustaka' => 'pustaka',
+                'snapshots', 'versi' => 'versi',
+                'outline', 'headings' => 'headings',
+                default => in_array($tab, ['headings', 'pages', 'pustaka', 'versi', 'results'], true) ? $tab : 'headings',
+            };
+        }
+    }
+
+    public function setNavigationTab(string $tab): void
+    {
+        $this->setNavSidebarTab($tab);
     }
 
     public function setDrawerCommandCategory(string $category): void
