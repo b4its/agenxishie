@@ -34,13 +34,18 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    public function handle(XishieProject $project, string $input, ?string $modelId = null): array
-    {
+    public function handle(
+        XishieProject $project,
+        string $input,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         $command = SlashCommand::tryParse($input);
         $argument = trim((string) preg_replace('/^[^\s]+\s*/u', '', $input));
 
         if ($command === null) {
-            return $this->freeform($project, $input, $modelId);
+            return $this->freeform($project, $input, $modelId, $persona, $scope);
         }
 
         return match ($command) {
@@ -51,25 +56,25 @@ final class XishieAssistantService
             SlashCommand::MATRIKS => $this->matriks($project),
             SlashCommand::CARI_REFERENSI => $this->cariReferensi($project, $argument),
             SlashCommand::RINGKAS => $this->ringkas($project),
-            SlashCommand::POLES => $this->poles($project, $argument, $modelId),
+            SlashCommand::POLES => $this->poles($project, $argument, $modelId, $persona, $scope),
             SlashCommand::RUMUS => $this->rumus($project, $argument),
             SlashCommand::GAMBAR => $this->gambar($project, $argument),
-            SlashCommand::ABSTRAK => $this->abstrak($project, $argument, $modelId),
-            SlashCommand::METODOLOGI => $this->metodologi($project, $argument, $modelId),
+            SlashCommand::ABSTRAK => $this->abstrak($project, $argument, $modelId, $persona, $scope),
+            SlashCommand::METODOLOGI => $this->metodologi($project, $argument, $modelId, $persona, $scope),
             SlashCommand::TABEL_ANALISIS => $this->tabelAnalisis($project, $argument),
-            SlashCommand::TERJEMAHKAN => $this->terjemahkan($project, $argument, $modelId),
-            SlashCommand::PUEBI => $this->puebi($project, $argument, $modelId),
-            SlashCommand::KEMBANGKAN => $this->kembangkan($project, $argument, $modelId),
-            SlashCommand::PENDAHULUAN => $this->pendahuluan($project, $argument, $modelId),
-            SlashCommand::PEMBAHASAN => $this->pembahasan($project, $argument, $modelId),
-            SlashCommand::KESIMPULAN => $this->kesimpulan($project, $argument, $modelId),
-            SlashCommand::TINJAUAN_PUSTAKA => $this->tinjauanPustaka($project, $argument, $modelId),
+            SlashCommand::TERJEMAHKAN => $this->terjemahkan($project, $argument, $modelId, $persona, $scope),
+            SlashCommand::PUEBI => $this->puebi($project, $argument, $modelId, $persona, $scope),
+            SlashCommand::KEMBANGKAN => $this->kembangkan($project, $argument, $modelId, $persona, $scope),
+            SlashCommand::PENDAHULUAN => $this->pendahuluan($project, $argument, $modelId, $persona, $scope),
+            SlashCommand::PEMBAHASAN => $this->pembahasan($project, $argument, $modelId, $persona, $scope),
+            SlashCommand::KESIMPULAN => $this->kesimpulan($project, $argument, $modelId, $persona, $scope),
+            SlashCommand::TINJAUAN_PUSTAKA => $this->tinjauanPustaka($project, $argument, $modelId, $persona, $scope),
             SlashCommand::DAFTAR_ISI => $this->daftarIsi($project, $argument),
             SlashCommand::DAFTAR_PUSTAKA => $this->daftarPustaka($project, $argument),
             SlashCommand::FORMAT_PARAGRAF => $this->formatParagraf($project, $argument),
             SlashCommand::CATATAN_KAKI => $this->catatanKaki($project, $argument),
             SlashCommand::KETERBACAAN => $this->keterbacaan($project, $argument),
-            SlashCommand::KEBARUAN => $this->kebaruan($project, $argument, $modelId),
+            SlashCommand::KEBARUAN => $this->kebaruan($project, $argument, $modelId, $persona, $scope),
         };
     }
 
@@ -106,8 +111,13 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function poles(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function poles(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         if ($argument === '') {
             return [
                 'command' => SlashCommand::POLES->value,
@@ -118,13 +128,13 @@ final class XishieAssistantService
 
         $context = $this->memory->build($project, $argument);
         $prompt = "Sebagai asisten penulisan artikel ilmiah bereputasi, poles kalimat/paragraf berikut menjadi bahasa akademik formal, baku, dan kaya diksi ilmiah tanpa mengubah maknanya:\n\n\"{$argument}\"";
-        $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+        $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
         if ($answer !== null && trim($answer) !== '') {
             return [
                 'command' => SlashCommand::POLES->value,
                 'reply' => trim($answer),
-                'data' => ['original' => $argument, 'source' => 'omnigensi-llm'],
+                'data' => ['original' => $argument, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
             ];
         }
 
@@ -133,7 +143,7 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::POLES->value,
             'reply' => $polished,
-            'data' => ['original' => $argument],
+            'data' => ['original' => $argument, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 
@@ -258,15 +268,29 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function freeform(XishieProject $project, string $input, ?string $modelId = null): array
-    {
+    private function freeform(
+        XishieProject $project,
+        string $input,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         $context = $this->memory->build($project, $input);
 
         // Jawab via LLM Omnigensi dengan konteks proyek (terintegrasi).
-        $answer = $this->answerWithLlm($project, $input, $context, $modelId);
+        $answer = $this->answerWithLlm($project, $input, $context, $modelId, $persona, $scope);
 
         if ($answer !== null) {
-            return ['command' => 'freeform', 'reply' => $answer, 'data' => ['request' => $input, 'source' => 'omnigensi-llm']];
+            return [
+                'command' => 'freeform',
+                'reply' => $answer,
+                'data' => [
+                    'request' => $input,
+                    'persona' => $persona,
+                    'scope' => $scope,
+                    'source' => 'omnigensi-llm',
+                ],
+            ];
         }
 
         // Cek apakah ada intensi natural language spesifik saat LLM offline
@@ -284,16 +308,16 @@ final class XishieAssistantService
             return $this->cekGap($project);
         }
         if (preg_match('/(kebaruan|novelty|orisinalitas)/iu', $lower)) {
-            return $this->kebaruan($project, $input);
+            return $this->kebaruan($project, $input, $modelId, $persona, $scope);
         }
         if (preg_match('/(pedoman|aturan naskah|kaidah)/iu', $lower)) {
             return $this->cekPedoman($project);
         }
         if (preg_match('/(metode|metodologi)/iu', $lower)) {
-            return $this->metodologi($project, $input);
+            return $this->metodologi($project, $input, $modelId, $persona, $scope);
         }
         if (preg_match('/(abstrak|abstract)/iu', $lower)) {
-            return $this->abstrak($project, $input);
+            return $this->abstrak($project, $input, $modelId, $persona, $scope);
         }
         if (preg_match('/(keterbacaan|readability)/iu', $lower)) {
             return $this->keterbacaan($project, $input);
@@ -301,34 +325,80 @@ final class XishieAssistantService
 
         // Fallback offline: ringkasan konteks.
         $reply = sprintf(
-            'Konteks proyek: %d referensi (%d terverifikasi), pedoman %s, tahap %s. Gunakan /sitasi, /cek-gap, /cek-pedoman, atau /matriks-literatur.',
+            'Konteks proyek [%s | %s]: %d referensi (%d terverifikasi), pedoman %s, tahap %s. Gunakan /sitasi, /cek-gap, /cek-pedoman, atau /matriks-literatur.',
+            strtoupper($scope),
+            $persona,
             $context->referenceCount,
             $context->verifiedReferenceCount,
             $context->guideline->source,
             $context->stage,
         );
 
-        return ['command' => 'freeform', 'reply' => $reply, 'data' => ['request' => $input, 'source' => 'offline-fallback']];
+        return [
+            'command' => 'freeform',
+            'reply' => $reply,
+            'data' => [
+                'request' => $input,
+                'persona' => $persona,
+                'scope' => $scope,
+                'source' => 'offline-fallback',
+            ],
+        ];
+    }
+
+    /**
+     * Persona framing untuk asisten penulisan ilmiah.
+     */
+    public function getPersonaFraming(string $persona): string
+    {
+        return match ($persona) {
+            'critical_reviewer' => 'Anda bertindak sebagai Reviewer Kritis jurnal bereputasi tinggi (Peer Reviewer). Tinjau dengan ketat setiap klaim argumentasi, identifikasi kelemahan logis atau bias metodologis, serta tunjukkan celah validasi empiris secara konstruktif.',
+            'proofreader' => 'Anda bertindak sebagai Proofreader dan Editor Bahasa Ilmiah spesialis PUEBI dan tata bahasa baku (Academic Writing Specialist). Fokus pada ketepatan diksi, konsistensi istilah teknis, kohesi alinea, dan kelancaran sintaksis ilmiah.',
+            'methodologist' => 'Anda bertindak sebagai Metodolog Riset senior. Tekankan ketepatan desain eksperimen/studi komparatif, instrumen evaluasi empiris, validitas internal/eksternal, serta keterukuran prosedur analitis.',
+            'novelty' => 'Anda bertindak sebagai Spesialis Kebaruan dan Analis State of the Art (SOTA). Fokuskan analisis pada identifikasi research gap, perbandingan diferensiasi terhadap studi sebelumnya, dan penegasan orisinalitas kontribusi riset.',
+            default => 'Anda bertindak sebagai Akademisi Senior berpengalaman dalam publikasi DIKTI dan jurnal internasional bereputasi tinggi (Scopus Q1/WoS). Berikan panduan komprehensif, terstruktur, berbasis bukti rujukan, serta menjunjung tinggi integritas ilmiah.',
+        };
+    }
+
+    /**
+     * Keterangan cakupan fokus analisis asisten.
+     */
+    public function getScopeDetails(XishieProject $project, string $scope): string
+    {
+        return match ($scope) {
+            'manuscript' => 'Fokus Analisis [Draf Naskah]: Prioritaskan analisis pada struktur bab naskah aktif, kepadatan alinea, dan konsistensi argumen akademis langsung pada lembar dokumen.',
+            'literature' => 'Fokus Analisis [Kepustakaan & Sitasi]: Prioritaskan analisis pada pemetaan literatur rujukan, matriks sintesis komparatif, dan kecukupan sitasi terverifikasi.',
+            default => 'Fokus Analisis [Keseluruhan Proyek]: Tinjau keselarasan proyek secara holistik (judul, pedoman publikasi, kepatuhan tahapan, pustaka, dan naskah).',
+        };
     }
 
     /**
      * Jawab pertanyaan bebas memakai LLM Omnigensi dengan konteks proyek.
      */
-    private function answerWithLlm(XishieProject $project, string $input, SharedContextData $context, ?string $modelId = null): ?string
-    {
+    private function answerWithLlm(
+        XishieProject $project,
+        string $input,
+        SharedContextData $context,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): ?string {
         if (! config('omnigensi.agents_enabled', true)) {
             return null;
         }
 
         $citationKeys = $context->citationKeys();
 
-        $system = 'Anda Xishie Assistant untuk penulisan akademik. Jawab ringkas, akurat, '
-            .'dan actionable dalam Bahasa Indonesia. Jangan mengarang referensi; bila menyebut '
-            .'sumber gunakan hanya kunci sitasi yang tersedia: '
+        $personaFraming = $this->getPersonaFraming($persona);
+        $scopeDetails = $this->getScopeDetails($project, $scope);
+
+        $system = $personaFraming.' '
+            .'Jawab ringkas, akurat, dan actionable dalam Bahasa Indonesia. '
+            .'Jangan mengarang referensi; bila menyebut sumber gunakan hanya kunci sitasi yang tersedia: '
             .($citationKeys === [] ? '(belum ada)' : implode(', ', $citationKeys)).'.';
 
         $prompt = sprintf(
-            "Konteks proyek:\n- Judul: %s\n- Bidang: %s\n- Jenis: %s\n- Tahap: %s\n- Referensi: %d (%d terverifikasi)\n- Pedoman: %s\n\nPertanyaan/permintaan pengguna:\n%s",
+            "Konteks proyek:\n- Judul: %s\n- Bidang: %s\n- Jenis: %s\n- Tahap: %s\n- Referensi: %d (%d terverifikasi)\n- Pedoman: %s\n- Persona Asisten: %s\n- Cakupan Fokus: %s\n\n%s\n\nPertanyaan/permintaan pengguna:\n%s",
             $context->projectTitle,
             $context->fieldOfStudy,
             $context->documentType,
@@ -336,6 +406,9 @@ final class XishieAssistantService
             $context->referenceCount,
             $context->verifiedReferenceCount,
             $context->guideline->source,
+            $persona,
+            strtoupper($scope),
+            $scopeDetails,
             $input,
         );
 
@@ -440,21 +513,26 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function abstrak(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function abstrak(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         $title = $project->title ?: 'Naskah Ilmiah';
         $field = $project->field_of_study->value ?? 'lintas disiplin ilmu';
 
         if (trim($argument) !== '') {
             $context = $this->memory->build($project, $argument);
             $prompt = "Sebagai asisten penulisan artikel ilmiah bereputasi, susunlah draf Abstrak terstruktur (Latar Belakang, Tujuan & Masalah, Metodologi, Hasil Utama, Implikasi, Kata Kunci) berdasarkan topik/poin berikut:\n\n\"{$argument}\"";
-            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
             if ($answer !== null && trim($answer) !== '') {
                 return [
                     'command' => SlashCommand::ABSTRAK->value,
                     'reply' => trim($answer),
-                    'data' => ['abstract' => true, 'project_title' => $title, 'source' => 'omnigensi-llm'],
+                    'data' => ['abstract' => true, 'project_title' => $title, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
                 ];
             }
         }
@@ -470,25 +548,30 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::ABSTRAK->value,
             'reply' => $reply,
-            'data' => ['abstract' => true, 'project_title' => $title],
+            'data' => ['abstract' => true, 'project_title' => $title, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function metodologi(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function metodologi(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         if (trim($argument) !== '') {
             $context = $this->memory->build($project, $argument);
             $prompt = "Sebagai metodolog riset akademik, buatkan rancangan metodologi penelitian terperinci (desain riset, populasi/sampel, instrumen evaluasi, prosedur & analisis data) untuk topik:\n\n\"{$argument}\"";
-            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
             if ($answer !== null && trim($answer) !== '') {
                 return [
                     'command' => SlashCommand::METODOLOGI->value,
                     'reply' => trim($answer),
-                    'data' => ['methodology' => true, 'source' => 'omnigensi-llm'],
+                    'data' => ['methodology' => true, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
                 ];
             }
         }
@@ -502,7 +585,7 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::METODOLOGI->value,
             'reply' => $reply,
-            'data' => ['methodology' => true],
+            'data' => ['methodology' => true, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 
@@ -573,8 +656,13 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function terjemahkan(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function terjemahkan(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         if ($argument === '') {
             return [
                 'command' => SlashCommand::TERJEMAHKAN->value,
@@ -585,13 +673,13 @@ final class XishieAssistantService
 
         $context = $this->memory->build($project, $argument);
         $prompt = "Sebagai penerjemah akademik profesional untuk jurnal internasional bereputasi (Scopus/WoS), terjemahkan teks berikut ke dalam Academic English formal berkaidah ilmiah tinggi:\n\n\"{$argument}\"";
-        $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+        $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
         if ($answer !== null && trim($answer) !== '') {
             return [
                 'command' => SlashCommand::TERJEMAHKAN->value,
                 'reply' => trim($answer),
-                'data' => ['translation' => true, 'original' => $argument, 'source' => 'omnigensi-llm'],
+                'data' => ['translation' => true, 'original' => $argument, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
             ];
         }
 
@@ -604,15 +692,20 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::TERJEMAHKAN->value,
             'reply' => $reply,
-            'data' => ['translation' => true, 'original' => $argument],
+            'data' => ['translation' => true, 'original' => $argument, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function puebi(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function puebi(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         if ($argument === '') {
             return [
                 'command' => SlashCommand::PUEBI->value,
@@ -623,13 +716,13 @@ final class XishieAssistantService
 
         $context = $this->memory->build($project, $argument);
         $prompt = "Sebagai auditor bahasa Indonesia baku untuk naskah akademik (PUEBI/KBBI), audit kalimat/paragraf berikut secara cermat:\n\n\"{$argument}\"\n\nBerikan teks hasil koreksi dan jelaskan ringkas perbaikan tata bahasa/ejaannya.";
-        $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+        $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
         if ($answer !== null && trim($answer) !== '') {
             return [
                 'command' => SlashCommand::PUEBI->value,
                 'reply' => trim($answer),
-                'data' => ['original' => $argument, 'source' => 'omnigensi-llm'],
+                'data' => ['original' => $argument, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
             ];
         }
 
@@ -642,15 +735,20 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::PUEBI->value,
             'reply' => $reply,
-            'data' => ['original' => $argument, 'corrected' => $corrected],
+            'data' => ['original' => $argument, 'corrected' => $corrected, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function kembangkan(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function kembangkan(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         if ($argument === '') {
             return [
                 'command' => SlashCommand::KEMBANGKAN->value,
@@ -661,13 +759,13 @@ final class XishieAssistantService
 
         $context = $this->memory->build($project, $argument);
         $prompt = "Sebagai asisten penulisan artikel ilmiah, kembangkan dan elaborasikan premis/poin berikut menjadi satu atau dua paragraf argumentasi akademik yang mendalam, kohesif, dan kaya analisis:\n\n\"{$argument}\"";
-        $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+        $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
         if ($answer !== null && trim($answer) !== '') {
             return [
                 'command' => SlashCommand::KEMBANGKAN->value,
                 'reply' => trim($answer),
-                'data' => ['original' => $argument, 'source' => 'omnigensi-llm'],
+                'data' => ['original' => $argument, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
             ];
         }
 
@@ -677,27 +775,32 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::KEMBANGKAN->value,
             'reply' => $reply,
-            'data' => ['original' => $argument],
+            'data' => ['original' => $argument, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function pendahuluan(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function pendahuluan(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         $focus = $argument !== '' ? $argument : $project->title;
 
         if (trim($argument) !== '') {
             $context = $this->memory->build($project, $argument);
             $prompt = "Sebagai asisten akademik penulisan artikel ilmiah, buatkan draf terstruktur Bab Pendahuluan (Latar Belakang, Identifikasi Masalah & Urgensi Riset, State of the Art, Research Gap, Tujuan & Orisinalitas) untuk topik riset:\n\n\"{$focus}\"";
-            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
             if ($answer !== null && trim($answer) !== '') {
                 return [
                     'command' => SlashCommand::PENDAHULUAN->value,
                     'reply' => trim($answer),
-                    'data' => ['section' => 'pendahuluan', 'focus' => $focus, 'source' => 'omnigensi-llm'],
+                    'data' => ['section' => 'pendahuluan', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
                 ];
             }
         }
@@ -711,27 +814,32 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::PENDAHULUAN->value,
             'reply' => $reply,
-            'data' => ['section' => 'pendahuluan', 'focus' => $focus],
+            'data' => ['section' => 'pendahuluan', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function pembahasan(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function pembahasan(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         $focus = $argument !== '' ? $argument : $project->title;
 
         if (trim($argument) !== '') {
             $context = $this->memory->build($project, $argument);
             $prompt = "Sebagai reviewer naskah ilmiah jurnal bereputasi, buatkan draf bab Pembahasan komprehensif (Interpretasi Temuan Kunci, Komparasi Kritis dengan Literatur Terkait, Implikasi Teoretis & Praktis, Limitasi Penelitian) untuk fokus riset:\n\n\"{$focus}\"";
-            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
             if ($answer !== null && trim($answer) !== '') {
                 return [
                     'command' => SlashCommand::PEMBAHASAN->value,
                     'reply' => trim($answer),
-                    'data' => ['section' => 'pembahasan', 'focus' => $focus, 'source' => 'omnigensi-llm'],
+                    'data' => ['section' => 'pembahasan', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
                 ];
             }
         }
@@ -745,27 +853,32 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::PEMBAHASAN->value,
             'reply' => $reply,
-            'data' => ['section' => 'pembahasan', 'focus' => $focus],
+            'data' => ['section' => 'pembahasan', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function kesimpulan(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function kesimpulan(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         $focus = $argument !== '' ? $argument : $project->title;
 
         if (trim($argument) !== '') {
             $context = $this->memory->build($project, $argument);
             $prompt = "Sebagai asisten akademik, formulasikan rancangan bab Kesimpulan & Saran (Sintesis Temuan Utama, Kontribusi Kebaruan/Novelty, Limitasi Riset, dan Rekomendasi Riset Lanjutan) untuk riset:\n\n\"{$focus}\"";
-            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
             if ($answer !== null && trim($answer) !== '') {
                 return [
                     'command' => SlashCommand::KESIMPULAN->value,
                     'reply' => trim($answer),
-                    'data' => ['section' => 'kesimpulan', 'focus' => $focus, 'source' => 'omnigensi-llm'],
+                    'data' => ['section' => 'kesimpulan', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
                 ];
             }
         }
@@ -779,27 +892,32 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::KESIMPULAN->value,
             'reply' => $reply,
-            'data' => ['section' => 'kesimpulan', 'focus' => $focus],
+            'data' => ['section' => 'kesimpulan', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function tinjauanPustaka(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function tinjauanPustaka(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         $focus = $argument !== '' ? $argument : $project->title;
 
         if (trim($argument) !== '') {
             $context = $this->memory->build($project, $argument);
             $prompt = "Sebagai asisten akademik penulisan tesis dan artikel ilmiah, buatkan rancangan kerangka teoretis dan Tinjauan Pustaka (Landasan Konseptual Utama, Taksonomi & Pemetaan Literatur Terkini, Model Konseptual Hubungan Antar-Variabel) untuk topik:\n\n\"{$focus}\"";
-            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
             if ($answer !== null && trim($answer) !== '') {
                 return [
                     'command' => SlashCommand::TINJAUAN_PUSTAKA->value,
                     'reply' => trim($answer),
-                    'data' => ['section' => 'tinjauan-pustaka', 'focus' => $focus, 'source' => 'omnigensi-llm'],
+                    'data' => ['section' => 'tinjauan-pustaka', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
                 ];
             }
         }
@@ -813,7 +931,7 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::TINJAUAN_PUSTAKA->value,
             'reply' => $reply,
-            'data' => ['section' => 'tinjauan-pustaka', 'focus' => $focus],
+            'data' => ['section' => 'tinjauan-pustaka', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 
@@ -1109,8 +1227,13 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function kebaruan(XishieProject $project, string $argument, ?string $modelId = null): array
-    {
+    private function kebaruan(
+        XishieProject $project,
+        string $argument,
+        ?string $modelId = null,
+        string $persona = 'academic_senior',
+        string $scope = 'project'
+    ): array {
         $focus = trim($argument);
         $title = $project->title;
         $field = $project->field_of_study->label();
@@ -1119,7 +1242,7 @@ final class XishieAssistantService
         if ($focus !== '') {
             $context = $this->memory->build($project, $argument);
             $prompt = "Sebagai pakar artikel ilmiah Scopus, formulasikan pernyataan kebaruan (Statement of Novelty), analisis State of the Art (SOTA), dan diferensiasi komparatif terhadap riset terdahulu untuk topik:\n\n\"{$focus}\"";
-            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId);
+            $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
             if ($answer !== null && trim($answer) !== '') {
                 return [
@@ -1129,6 +1252,8 @@ final class XishieAssistantService
                         'project_title' => $title,
                         'novelty_focus' => $focus,
                         'field_of_study' => $field,
+                        'persona' => $persona,
+                        'scope' => $scope,
                         'source' => 'omnigensi-llm',
                     ],
                 ];
@@ -1158,6 +1283,8 @@ final class XishieAssistantService
                 'project_title' => $title,
                 'novelty_focus' => $noveltyPoint,
                 'field_of_study' => $field,
+                'persona' => $persona,
+                'scope' => $scope,
             ],
         ];
     }

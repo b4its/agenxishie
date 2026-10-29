@@ -6712,7 +6712,13 @@ trait HandlesNaskahStudio
         }
 
         if ($project !== null) {
-            $result = app(XishieAssistantService::class)->handle($project, $effectiveInput, $this->getCurrentAssistantModel());
+            $result = app(XishieAssistantService::class)->handle(
+                $project,
+                $effectiveInput,
+                $this->getCurrentAssistantModel(),
+                'academic_senior',
+                'manuscript'
+            );
             if (! empty($result['data']['latex'])) {
                 $this->equationLatex = (string) $result['data']['latex'];
                 $this->equationCaption = (string) ($result['data']['caption'] ?? '(1)');

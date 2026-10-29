@@ -232,7 +232,13 @@ class XishieAssistantPage extends Page
         $modelId = $this->getCurrentAssistantModel();
 
         try {
-            $result = app(XishieAssistantService::class)->handle($project, $lastUserQuery, $modelId);
+            $result = app(XishieAssistantService::class)->handle(
+                $project,
+                $lastUserQuery,
+                $modelId,
+                $this->currentPersona,
+                $this->assistantScope
+            );
 
             OmnigensiAgentLog::create([
                 'project_id' => $project->id,
@@ -248,6 +254,8 @@ class XishieAssistantPage extends Page
                     'query' => $lastUserQuery,
                     'command' => $result['command'] ?? 'chat',
                     'model' => $modelId,
+                    'persona' => $this->currentPersona,
+                    'scope' => $this->assistantScope,
                     'regenerate' => true,
                 ],
             ]);
@@ -256,6 +264,8 @@ class XishieAssistantPage extends Page
                 'role' => 'assistant',
                 'content' => (string) $result['reply'],
                 'model' => $modelId,
+                'persona' => $this->currentPersona,
+                'scope' => $this->assistantScope,
                 'created_at' => now()->format('H:i:s'),
                 'is_regenerated' => true,
             ];
@@ -326,11 +336,19 @@ class XishieAssistantPage extends Page
         $modelId = $this->getCurrentAssistantModel();
 
         try {
-            $result = app(XishieAssistantService::class)->handle($project, $userQuery, $modelId);
+            $result = app(XishieAssistantService::class)->handle(
+                $project,
+                $userQuery,
+                $modelId,
+                $this->currentPersona,
+                $this->assistantScope
+            );
             $this->log[$logIndex] = [
                 'role' => 'assistant',
                 'content' => (string) $result['reply'],
                 'model' => $modelId,
+                'persona' => $this->currentPersona,
+                'scope' => $this->assistantScope,
                 'command' => $result['command'] ?? 'chat',
                 'created_at' => now()->format('H:i:s'),
                 'is_regenerated' => true,
@@ -418,12 +436,19 @@ class XishieAssistantPage extends Page
             'content' => $text,
             'model' => $modelId,
             'persona' => $this->currentPersona,
+            'scope' => $this->assistantScope,
             'created_at' => now()->format('H:i:s'),
         ];
         $this->message = '';
 
         try {
-            $result = app(XishieAssistantService::class)->handle($project, $text, $modelId);
+            $result = app(XishieAssistantService::class)->handle(
+                $project,
+                $text,
+                $modelId,
+                $this->currentPersona,
+                $this->assistantScope
+            );
 
             // Catat untuk KPI "Assistant Query Effectiveness".
             OmnigensiAgentLog::create([
@@ -441,6 +466,7 @@ class XishieAssistantPage extends Page
                     'command' => $result['command'],
                     'model' => $modelId,
                     'persona' => $this->currentPersona,
+                    'scope' => $this->assistantScope,
                     'metadata' => [
                         'applied' => in_array($result['command'], SlashCommand::names(), true),
                     ],
@@ -451,6 +477,8 @@ class XishieAssistantPage extends Page
                 'role' => 'assistant',
                 'content' => (string) $result['reply'],
                 'model' => $modelId,
+                'persona' => $this->currentPersona,
+                'scope' => $this->assistantScope,
                 'command' => $result['command'] ?? 'chat',
                 'created_at' => now()->format('H:i:s'),
             ];
@@ -572,11 +600,19 @@ class XishieAssistantPage extends Page
             'content' => $input,
             'command' => str_starts_with($input, '/') ? explode(' ', $input)[0] : 'chat',
             'model' => $modelId,
+            'persona' => $this->currentPersona,
+            'scope' => $this->assistantScope,
             'created_at' => now()->format('H:i:s'),
         ];
 
         $service = app(XishieAssistantService::class);
-        $res = $service->handle($project, $input, $modelId);
+        $res = $service->handle(
+            $project,
+            $input,
+            $modelId,
+            $this->currentPersona,
+            $this->assistantScope
+        );
         $reply = $res['reply'] ?? '';
 
         $this->log[] = [
@@ -585,6 +621,8 @@ class XishieAssistantPage extends Page
             'command' => $res['command'] ?? 'chat',
             'data' => $res['data'] ?? [],
             'model' => $modelId,
+            'persona' => $this->currentPersona,
+            'scope' => $this->assistantScope,
             'created_at' => now()->format('H:i:s'),
         ];
         $this->message = '';
