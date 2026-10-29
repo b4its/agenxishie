@@ -190,6 +190,13 @@ test("Standalone Studio: Multi-tab Navigator (Pustaka & Versi)", "Pustaka" in st
 test("Standalone Studio: Ribbon Layout DIKTI Preset Present", "DIKTI 4-4-3-3" in studio_standalone_html)
 test("Standalone Studio: Ribbon Table APA Format Present", "Format APA" in studio_standalone_html)
 
+# Test Ribbon Tab Switching via ?tab=insert and ?tab=table
+status, studio_insert_html, _ = http_get("/studio?tab=insert")
+test("Standalone Studio: Ribbon AI Presets (?tab=insert)", "Matriks AI" in studio_insert_html and "Kebaruan AI" in studio_insert_html)
+
+status, studio_table_html, _ = http_get("/studio?tab=table")
+test("Standalone Studio: Table Calculation Formulas (?tab=table)", "Min" in studio_table_html and "Max" in studio_table_html)
+
 # 5. Omnigensi Platform Integration & Agnes 3.0 Flash Discovery
 print("\n--- 5. Omnigensi Platform Integration & Agnes 3.0 Flash Handshake ---")
 status, handshake_body, _ = http_get(f"{OMNIGENSI_URL}/api/v1/integrations/v1/handshake", headers={

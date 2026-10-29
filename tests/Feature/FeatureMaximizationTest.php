@@ -4358,3 +4358,26 @@ it('supports standalone studio navigation tabs for pustaka and versi with ribbon
     $component->call('setDrawerCommandCategory', 'audit');
     expect($component->get('drawerCommandCategory'))->toBe('audit');
 });
+
+it('supports table calculation for min and max operations and verifies AI presets in insert tab', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+
+    // Test Tab Insert has Matriks AI and Kebaruan AI
+    $component->call('$set', 'activeTab', 'insert');
+    $htmlInsert = $component->html();
+    expect($htmlInsert)->toContain('Matriks AI')
+        ->and($htmlInsert)->toContain('Kebaruan AI');
+
+    // Test Tab Table has Min and Max operations
+    $component->call('$set', 'activeTab', 'table');
+    $htmlTable = $component->html();
+    expect($htmlTable)->toContain('Min (Minimum)')
+        ->and($htmlTable)->toContain('Max (Maksimum)');
+
+    // Test filament page has min and max
+    $filamentPage = Livewire::test(\App\Filament\Pages\NaskahStudioPage::class);
+    $filamentPage->call('$set', 'activeTab', 'table');
+    $filamentHtml = $filamentPage->html();
+    expect($filamentHtml)->toContain('Nilai Min')
+        ->and($filamentHtml)->toContain('Nilai Max');
+});
