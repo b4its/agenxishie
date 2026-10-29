@@ -4783,8 +4783,32 @@ trait HandlesNaskahStudio
     // Dialog
     // =====================================================================
 
+    public function setRibbonTab(string $tab): void
+    {
+        $valid = ['file', 'home', 'insert', 'draw', 'design', 'layout', 'references', 'mailings', 'review', 'view', 'table', 'help'];
+        if (in_array($tab, $valid, true)) {
+            $this->activeTab = $tab;
+        }
+    }
+
     public function openDialog(string $dialog): void
     {
+        $dialog = match ($dialog) {
+            'statistics', 'wordcount', 'stat' => 'stats',
+            'find_replace', 'replace' => 'find',
+            'pages_setup', 'page-setup', 'page_setup' => 'pagesetup',
+            'cross_reference', 'crossreference' => 'crossref',
+            'source', 'citations', 'citation' => 'sources',
+            'symbol' => 'symbols',
+            'shortcut' => 'shortcuts',
+            'snapshot', 'versions', 'version' => 'snapshots',
+            'comments' => 'comment',
+            'equations' => 'equation',
+            'images', 'picture', 'pictures' => 'image',
+            'tables' => 'table',
+            default => $dialog,
+        };
+
         if ($dialog !== 'equation') {
             $this->editingEquationIndex = null;
         }
@@ -7623,6 +7647,7 @@ trait HandlesNaskahStudio
                 'file' => 'Berkas',
                 'home' => 'Home',
                 'insert' => 'Sisipkan',
+                'draw' => 'Gambar',
                 'design' => 'Desain',
                 'layout' => 'Tata Letak',
                 'references' => 'Referensi',
@@ -7630,6 +7655,7 @@ trait HandlesNaskahStudio
                 'view' => 'Tampilan',
                 'mailings' => 'Surat Menyurat',
                 'table' => 'Alat Tabel',
+                'help' => 'Bantuan',
             ],
             'stylesGallery' => [
                 'normal' => 'Normal', 'title' => 'Title', 'heading1' => 'Heading 1',

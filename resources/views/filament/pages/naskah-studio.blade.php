@@ -1580,6 +1580,8 @@
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" @mousedown.prevent="insertTable(3, 3)" title="Sisipkan Tabel 3x3">&#8862; Sisipkan Tabel</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('image')">&#128444; Sisipkan Gambar</button>
+                            <button type="button" class="ns-btn" wire:click="insertSampleDiagram('flowchart')" title="Sisipkan Diagram Alur Metodologi">&#128202; Diagram Alir</button>
+                            <button type="button" class="ns-btn" wire:click="insertSampleDiagram('piechart')" title="Sisipkan Diagram Lingkaran">&#129367; Pie Chart</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1587,6 +1589,7 @@
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="openDialog('equation')">&#960; Rumus (LaTeX)</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('symbols')">&#937; Simbol Khusus</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('crossref')" title="Sisipkan Rujukan Silang Akademik">&#128279; Rujukan Silang</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('footnote')">&#128278; Catatan Kaki</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('link')">&#128279; Tautan</button>
                         </div>
@@ -1615,6 +1618,26 @@
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="insertTableOfContents">&#9776; Daftar Isi</button>
                             <button type="button" class="ns-btn" wire:click="insertBibliography">&#128218; Daftar Pustaka</button>
+                        </div>
+                    </div>
+
+                {{-- TAB: GAMBAR & TINTA (DRAW) --}}
+                @elseif ($activeTab === 'draw')
+                    <div class="ns-group">
+                        <span class="ns-group__label">Alat Gambar &amp; Tinta</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn ns-btn--active" title="Mode Kursor Biasa">&#10148; Pilih</button>
+                            <button type="button" class="ns-btn" wire:click="formatInline('highlight', '#bfdbfe')" title="Pena Biru" style="color:#1d4ed8; font-weight:700;">&#9679; Pena Biru</button>
+                            <button type="button" class="ns-btn" wire:click="formatInline('highlight', '#fecaca')" title="Pena Merah" style="color:#dc2626; font-weight:700;">&#9679; Pena Merah</button>
+                            <button type="button" class="ns-btn" wire:click="formatInline('highlight', '#fef08a')" title="Stabilo Kuning" style="color:#ca8a04; font-weight:700;">&#9679; Stabilo</button>
+                            <button type="button" class="ns-btn" wire:click="formatInline('highlight', null)" title="Penghapus Tinta">&#9003; Penghapus</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Catatan Sketsa</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="insertCallout('sketch')" title="Sisipkan Catatan Sketsa">&#127912; Catatan Sketsa</button>
+                            <button type="button" class="ns-btn" wire:click="clearFormatting" title="Bersihkan Seluruh Format">&#10005; Hapus Tinta</button>
                         </div>
                     </div>
 
@@ -1708,8 +1731,11 @@
                                 <option value="MLA" @selected($citationStyle === 'MLA')>MLA</option>
                             </select>
                             <button type="button" class="ns-btn" wire:click="insertCitation()" title="Sisipkan sitasi in-text ke naskah">+ Sitasi In-text</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('sources')" title="Buka Pengelola Sumber Pustaka &amp; Sitasi">&#128218; Kelola Sumber</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('crossref')" title="Sisipkan Rujukan Silang ke Persamaan, Gambar, atau Tabel">&#128279; Rujukan Silang</button>
                             <button type="button" class="ns-btn" wire:click="insertBibliography" title="Sisipkan daftar pustaka lengkap">&#128218; Sisipkan Daftar Pustaka</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/daftar-pustaka')" title="Format daftar pustaka via asisten">📚 Format Pustaka</button>
+                            <button type="button" class="ns-btn" wire:click="setNavSidebarTab('pustaka')" title="Buka Sidebar Pustaka Riset Proyek">&#128214; Pustaka Riset</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1718,6 +1744,8 @@
                             <button type="button" class="ns-btn" wire:click="runTool('/sitasi')">&#128279; Sitasi</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/cari-referensi')">&#128269; Cari Referensi</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/matriks-literatur')">&#128202; Matriks Literatur</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/cek-pedoman')" title="Audit Kepatuhan Pedoman Naskah">&#128220; Cek Pedoman</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/cek-gap')" title="Audit Research Gap Matriks Literatur">&#128300; Cek Gap</button>
                         </div>
                     </div>
 
@@ -1865,6 +1893,25 @@
                             <button type="button" class="ns-btn" wire:click="tableToggleHeader({{ $activeBlock }})">Toggle Baris Header</button>
                             <button type="button" class="ns-btn" wire:click="tableFormatApa({{ $activeBlock }})" title="Terapkan gaya tabel akademik APA (3 garis horizontal, tanpa garis vertikal)">📊 Format Tabel APA</button>
                             <button type="button" class="ns-btn" style="color:#b91c1c;" @mousedown.prevent="deleteTable()" wire:click="removeBlock({{ $activeBlock }})" title="Hapus Seluruh Tabel">&#128465; Hapus Tabel</button>
+                        </div>
+                    </div>
+
+                {{-- TAB: BANTUAN (HELP) --}}
+                @elseif ($activeTab === 'help')
+                    <div class="ns-group">
+                        <span class="ns-group__label">Pintasan &amp; Bantuan</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="openDialog('shortcuts')" title="Tombol Pintas Papan Ketik">&#9000; Tombol Pintas</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('palette')" title="Pusat Perintah (Ctrl+K)">&#128269; Pusat Perintah</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('stats')" title="Statistik &amp; Keterbacaan">&#128202; Statistik</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Asisten &amp; Audit</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="openAssistant" style="background: linear-gradient(135deg, #eef2ff 0%, #f3e8ff 100%); border: 1px solid #c7d2fe; color: #4338ca; font-weight: 700;">&#10024; Copilot Asisten</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/cek-pedoman')" title="Audit Kepatuhan Pedoman Naskah">&#127919; Cek Pedoman</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/cek-gap')" title="Audit Research Gap">&#128300; Cek Gap</button>
                         </div>
                     </div>
                 @endif
@@ -3264,6 +3311,75 @@
                             <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
                         </div>
 
+                    {{-- Dialog Rujukan Silang Akademik (Cross-Reference) --}}
+                    @elseif ($dialog === 'crossref')
+                        @php
+                            $caps = $this->getManuscriptCaptions();
+                        @endphp
+                        <div class="ns-dialog__header">
+                            <span>&#128279; Rujukan Silang Akademik (Cross-Reference)</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body" style="max-height:420px; overflow-y:auto;">
+                            <div style="font-size:.72rem; color:#64748b; margin-bottom:.6rem;">
+                                Pilih elemen dokumen untuk disisipkan sebagai rujukan silang ke posisi kursor / blok aktif:
+                            </div>
+
+                            {{-- Persamaan Matematika --}}
+                            <div style="margin-bottom:.75rem;">
+                                <label style="display:block; font-weight:700; font-size:.7rem; color:#2563eb; margin-bottom:.25rem;">Persamaan Matematika (Equations):</label>
+                                @if (empty($caps['equations']))
+                                    <div style="font-size:.68rem; color:#94a3b8; font-style:italic; padding:.35rem; background:#f8fafc; border-radius:3px;">Belum ada rumus persamaan dalam naskah.</div>
+                                @else
+                                    <div style="display:flex; flex-direction:column; gap:.25rem;">
+                                        @foreach ($caps['equations'] as $eq)
+                                            <div style="display:flex; align-items:center; justify-content:space-between; padding:.35rem .5rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
+                                                <span style="font-family:monospace; font-size:.68rem;">Persamaan ({{ trim($eq['caption'], '()') }}): <span style="color:#64748b;">{{ \Illuminate\Support\Str::limit($eq['preview'], 35) }}</span></span>
+                                                <button type="button" class="ns-btn ns-btn--primary" style="padding:2px 8px; font-size:.65rem;" wire:click="insertCrossReference('equation', '{{ trim($eq['caption'], '()') }}')">Sisipkan</button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+
+                            {{-- Gambar & Diagram --}}
+                            <div style="margin-bottom:.75rem;">
+                                <label style="display:block; font-weight:700; font-size:.7rem; color:#2563eb; margin-bottom:.25rem;">Gambar &amp; Diagram (Figures):</label>
+                                @if (empty($caps['images']))
+                                    <div style="font-size:.68rem; color:#94a3b8; font-style:italic; padding:.35rem; background:#f8fafc; border-radius:3px;">Belum ada gambar dalam naskah.</div>
+                                @else
+                                    <div style="display:flex; flex-direction:column; gap:.25rem;">
+                                        @foreach ($caps['images'] as $img)
+                                            <div style="display:flex; align-items:center; justify-content:space-between; padding:.35rem .5rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
+                                                <span style="font-size:.68rem;">{{ \Illuminate\Support\Str::limit($img['caption'], 45) }}</span>
+                                                <button type="button" class="ns-btn ns-btn--primary" style="padding:2px 8px; font-size:.65rem;" wire:click="insertCrossReference('image', '{{ $img['caption'] }}')">Sisipkan</button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+
+                            {{-- Tabel Data --}}
+                            <div>
+                                <label style="display:block; font-weight:700; font-size:.7rem; color:#2563eb; margin-bottom:.25rem;">Tabel Data:</label>
+                                @if (empty($caps['tables']))
+                                    <div style="font-size:.68rem; color:#94a3b8; font-style:italic; padding:.35rem; background:#f8fafc; border-radius:3px;">Belum ada tabel dalam naskah.</div>
+                                @else
+                                    <div style="display:flex; flex-direction:column; gap:.25rem;">
+                                        @foreach ($caps['tables'] as $tb)
+                                            <div style="display:flex; align-items:center; justify-content:space-between; padding:.35rem .5rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
+                                                <span style="font-size:.68rem;">{{ $tb['caption'] }} (Blok #{{ $tb['index'] + 1 }})</span>
+                                                <button type="button" class="ns-btn ns-btn--primary" style="padding:2px 8px; font-size:.65rem;" wire:click="insertCrossReference('table', '{{ $tb['caption'] }}')">Sisipkan</button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                        </div>
+
                     {{-- Dialog Sisipkan Tautan --}}
                     @elseif ($dialog === 'link')
                         <div class="ns-dialog__header">
@@ -3302,6 +3418,61 @@
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="insertFootnote">Sisipkan</button>
                         </div>
 
+                    {{-- Dialog Kelola Sumber Pustaka & Sitasi --}}
+                    @elseif ($dialog === 'sources')
+                        <div class="ns-dialog__header">
+                            <span>&#128218; Pengelola Sumber Pustaka &amp; Sitasi</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body" style="max-height:420px; overflow-y:auto;">
+                            <div style="font-size:.72rem; color:#64748b; margin-bottom:.6rem;">
+                                Pilih sumber pustaka untuk disisipkan sebagai acuan sitasi naskah (Gaya Sitasi: <strong>{{ $citationStyle ?? 'APA' }}</strong>):
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:.4rem;">
+                                @if (isset($projectReferences) && $projectReferences->isNotEmpty())
+                                    @foreach ($projectReferences as $pRef)
+                                        <div style="padding:.5rem; border:1px solid #e2e8f0; border-radius:4px; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+                                            <div>
+                                                <div style="font-weight:700; font-size:.72rem; color:#1d4ed8;">{{ $pRef->authors[0]['name'] ?? ($pRef->citation_key ?? 'Penulis') }} ({{ $pRef->year ?? '-' }})</div>
+                                                <div style="font-size:.68rem; color:#334155;">{{ $pRef->title }}</div>
+                                                <div style="font-size:.62rem; color:#64748b;">{{ $pRef->publication ?? $pRef->doi }}</div>
+                                            </div>
+                                            <button type="button" class="ns-btn ns-btn--primary" style="font-size:.65rem; padding:2px 8px; white-space:nowrap;" wire:click="insertReferenceCitation({{ $pRef->id }})">
+                                                + Sisipkan
+                                            </button>
+                                        </div>
+                                    @endforeach
+                                @else
+                                    @php
+                                        $sampleSources = [
+                                            ['author' => 'Anderson, C.', 'year' => '2020', 'title' => 'Makers: The New Industrial Revolution and Shared Tool Collectives', 'publisher' => 'Crown Business Publishing', 'key' => '(Anderson, 2020)'],
+                                            ['author' => 'Gauntlett, D.', 'year' => '2018', 'title' => 'Making is Connecting: The Social Power of Shared Craft Studios', 'publisher' => 'Polity Press', 'key' => '(Gauntlett, 2018)'],
+                                            ['author' => 'Kafai, Y. B., & Peppler, K. A.', 'year' => '2021', 'title' => 'Youth, Technology, and DIY Authoring in Collaborative Workshops', 'publisher' => 'MIT Press', 'key' => '(Kafai & Peppler, 2021)'],
+                                            ['author' => 'Sennett, R.', 'year' => '2019', 'title' => 'The Craftsman: Material Culture, Guild Cooperation, and Studio Ethics', 'publisher' => 'Yale University Press', 'key' => '(Sennett, 2019)'],
+                                        ];
+                                    @endphp
+                                    @foreach ($sampleSources as $src)
+                                        <div style="padding:.5rem; border:1px solid #e2e8f0; border-radius:4px; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+                                            <div>
+                                                <div style="font-weight:700; font-size:.72rem; color:#1d4ed8;">{{ $src['author'] }} ({{ $src['year'] }})</div>
+                                                <div style="font-size:.68rem; color:#334155;">{{ $src['title'] }}</div>
+                                                <div style="font-size:.62rem; color:#64748b;">{{ $src['publisher'] }}</div>
+                                            </div>
+                                            <button type="button" class="ns-btn ns-btn--primary" style="font-size:.65rem; padding:2px 8px; white-space:nowrap;" wire:click="insertCitation('{{ $src['key'] }}')">
+                                                + Sisipkan
+                                            </button>
+                                        </div>
+                                    @endforeach
+                                @endif
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer" style="display:flex; justify-content:space-between;">
+                            <button type="button" class="ns-btn" wire:click="insertBibliography">
+                                &#128218; Buat Daftar Pustaka Lengkap
+                            </button>
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                        </div>
+
                     {{-- Dialog Simbol Khusus --}}
                     @elseif ($dialog === 'symbols')
                         <div class="ns-dialog__header">
@@ -3315,6 +3486,37 @@
                                         {{ $sym }}
                                     </button>
                                 @endforeach
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                        </div>
+
+                    {{-- Dialog Bagikan & Ekspor Cepat --}}
+                    @elseif ($dialog === 'share')
+                        <div class="ns-dialog__header">
+                            <span>&#128279; Bagikan Dokumen — {{ $docTitle }}</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body" style="display:flex; flex-direction:column; gap:.75rem;" x-data="{ copied: false }">
+                            <div>
+                                <label style="display:block; font-weight:700; font-size:.7rem; color:#334155; margin-bottom:.25rem;">Tautan Bagikan Dokumen:</label>
+                                <div style="display:flex; gap:.35rem;">
+                                    <input type="text" readonly :value="window.location.href" class="ns-btn" style="flex:1; font-family:monospace; font-size:.68rem;" />
+                                    <button type="button" class="ns-btn ns-btn--primary" @click="navigator.clipboard.writeText(window.location.href); copied = true; setTimeout(() => copied = false, 2500);" style="white-space:nowrap;">
+                                        <span x-show="!copied">&#128203; Salin</span>
+                                        <span x-show="copied" style="color:#ffffff;">&#10003; Tersalin!</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:700; font-size:.7rem; color:#334155; margin-bottom:.25rem;">Unduh Format Dokumen:</label>
+                                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:.35rem;">
+                                    <button type="button" class="ns-btn" wire:click="export('docx')">&#128196; DOCX</button>
+                                    <button type="button" class="ns-btn" wire:click="export('odt')">&#128214; ODT</button>
+                                    <button type="button" class="ns-btn" wire:click="export('html')">&#127760; HTML</button>
+                                    <button type="button" class="ns-btn" wire:click="export('latex')">&#8734; LaTeX</button>
+                                </div>
                             </div>
                         </div>
                         <div class="ns-dialog__footer">

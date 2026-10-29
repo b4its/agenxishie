@@ -584,6 +584,8 @@
                     <div class="word-group__col">
                         <button type="button" class="word-tool-btn" wire:click="export('md')">📄 Markdown</button>
                         <button type="button" class="word-tool-btn" wire:click="export('rtf')">📑 Rich Text</button>
+                        <button type="button" class="word-tool-btn" wire:click="export('html')">🌐 HTML Web</button>
+                        <button type="button" class="word-tool-btn" wire:click="export('json')">📦 JSON Data</button>
                         <button type="button" class="word-tool-btn" wire:click="export('txt')">📝 Plain Text</button>
                     </div>
                 </div>
@@ -3562,26 +3564,41 @@
                             Pilih sumber pustaka untuk disisipkan sebagai acuan sitasi naskah (Gaya: <strong>{{ $citationStyle ?? 'APA' }}</strong>):
                         </div>
                         <div style="display:flex; flex-direction:column; gap:8px;">
-                            @php
-                                $sampleSources = [
-                                    ['author' => 'Anderson, C.', 'year' => '2020', 'title' => 'Makers: The New Industrial Revolution and Shared Tool Collectives', 'publisher' => 'Crown Business Publishing', 'key' => '(Anderson, 2020)'],
-                                    ['author' => 'Gauntlett, D.', 'year' => '2018', 'title' => 'Making is Connecting: The Social Power of Shared Craft Studios', 'publisher' => 'Polity Press', 'key' => '(Gauntlett, 2018)'],
-                                    ['author' => 'Kafai, Y. B., & Peppler, K. A.', 'year' => '2021', 'title' => 'Youth, Technology, and DIY Authoring in Collaborative Workshops', 'publisher' => 'MIT Press', 'key' => '(Kafai & Peppler, 2021)'],
-                                    ['author' => 'Sennett, R.', 'year' => '2019', 'title' => 'The Craftsman: Material Culture, Guild Cooperation, and Studio Ethics', 'publisher' => 'Yale University Press', 'key' => '(Sennett, 2019)'],
-                                ];
-                            @endphp
-                            @foreach ($sampleSources as $src)
-                                <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:4px; display:flex; justify-content:space-between; align-items:center; background:#faf9f8;">
-                                    <div>
-                                        <div style="font-weight:600; font-size:12px; color:#0f6cbd;">{{ $src['author'] }} ({{ $src['year'] }})</div>
-                                        <div style="font-size:11px; color:#424242;">{{ $src['title'] }}</div>
-                                        <div style="font-size:10px; color:#8a8886;">{{ $src['publisher'] }}</div>
+                            @if (isset($projectReferences) && $projectReferences->isNotEmpty())
+                                @foreach ($projectReferences as $pRef)
+                                    <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:4px; display:flex; justify-content:space-between; align-items:center; background:#faf9f8;">
+                                        <div>
+                                            <div style="font-weight:600; font-size:12px; color:#0f6cbd;">{{ $pRef->authors[0]['name'] ?? ($pRef->citation_key ?? 'Penulis') }} ({{ $pRef->year ?? '-' }})</div>
+                                            <div style="font-size:11px; color:#424242;">{{ $pRef->title }}</div>
+                                            <div style="font-size:10px; color:#8a8886;">{{ $pRef->publication ?? $pRef->doi }}</div>
+                                        </div>
+                                        <button type="button" class="word-tool-btn" style="color:#0f6cbd; border-color:#0f6cbd; font-weight:600; font-size:11px;" wire:click="insertReferenceCitation({{ $pRef->id }})">
+                                            + Sisipkan Sitasi
+                                        </button>
                                     </div>
-                                    <button type="button" class="word-tool-btn" style="color:#0f6cbd; border-color:#0f6cbd; font-weight:600; font-size:11px;" wire:click="insertCitation('{{ $src['key'] }}')">
-                                        + Sisipkan Sitasi
-                                    </button>
-                                </div>
-                            @endforeach
+                                @endforeach
+                            @else
+                                @php
+                                    $sampleSources = [
+                                        ['author' => 'Anderson, C.', 'year' => '2020', 'title' => 'Makers: The New Industrial Revolution and Shared Tool Collectives', 'publisher' => 'Crown Business Publishing', 'key' => '(Anderson, 2020)'],
+                                        ['author' => 'Gauntlett, D.', 'year' => '2018', 'title' => 'Making is Connecting: The Social Power of Shared Craft Studios', 'publisher' => 'Polity Press', 'key' => '(Gauntlett, 2018)'],
+                                        ['author' => 'Kafai, Y. B., & Peppler, K. A.', 'year' => '2021', 'title' => 'Youth, Technology, and DIY Authoring in Collaborative Workshops', 'publisher' => 'MIT Press', 'key' => '(Kafai & Peppler, 2021)'],
+                                        ['author' => 'Sennett, R.', 'year' => '2019', 'title' => 'The Craftsman: Material Culture, Guild Cooperation, and Studio Ethics', 'publisher' => 'Yale University Press', 'key' => '(Sennett, 2019)'],
+                                    ];
+                                @endphp
+                                @foreach ($sampleSources as $src)
+                                    <div style="padding:10px 12px; border:1px solid #e1dfdd; border-radius:4px; display:flex; justify-content:space-between; align-items:center; background:#faf9f8;">
+                                        <div>
+                                            <div style="font-weight:600; font-size:12px; color:#0f6cbd;">{{ $src['author'] }} ({{ $src['year'] }})</div>
+                                            <div style="font-size:11px; color:#424242;">{{ $src['title'] }}</div>
+                                            <div style="font-size:10px; color:#8a8886;">{{ $src['publisher'] }}</div>
+                                        </div>
+                                        <button type="button" class="word-tool-btn" style="color:#0f6cbd; border-color:#0f6cbd; font-weight:600; font-size:11px;" wire:click="insertCitation('{{ $src['key'] }}')">
+                                            + Sisipkan Sitasi
+                                        </button>
+                                    </div>
+                                @endforeach
+                            @endif
                         </div>
                     </div>
                     <div class="word-dialog__footer" style="display:flex; justify-content:space-between;">
