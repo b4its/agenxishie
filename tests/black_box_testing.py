@@ -133,6 +133,13 @@ test("Visit /admin/xishie-assistant-page (Authenticated)", status == 200, f"stat
 # Verify Maximized Assistant Elements in HTML
 test("Assistant Window Titlebar Present", "XISHIE ASSISTANT" in assistant_html)
 test("Model Selector in Assistant Topbar", "MODEL AI ASSISTANT" in assistant_html)
+test("Academic Persona Bar Present (PERSONA AKADEMIK)", "PERSONA AKADEMIK" in assistant_html)
+test("Academic Persona: Akademisi Senior", "Akademisi Senior" in assistant_html)
+test("Academic Persona: Reviewer Kritis", "Reviewer Kritis" in assistant_html)
+test("Academic Persona: Proofreader PUEBI", "Proofreader PUEBI" in assistant_html)
+test("Academic Persona: Metodolog Riset", "Metodolog Riset" in assistant_html)
+test("Academic Persona: Spesialis Kebaruan", "Spesialis Kebaruan" in assistant_html)
+test("Per-Message Regenerate Action Present", "regenerateMessage" in assistant_html or "Regenerate" in assistant_html)
 test("Command Category: Semua Perintah", "Semua Perintah" in assistant_html)
 test("Command Category: Struktur & Bab", "Struktur &amp; Bab" in assistant_html or "Struktur & Bab" in assistant_html)
 test("Command Category: Sitasi & Literatur", "Sitasi &amp; Literatur" in assistant_html or "Sitasi & Literatur" in assistant_html)
@@ -155,7 +162,20 @@ test("Ribbon Preset: Kembangkan", "Kembangkan" in studio_html)
 test("Ribbon Preset: Kebaruan", "Kebaruan" in studio_html)
 test("Ribbon Preset: Abstrak", "Abstrak" in studio_html)
 test("Ribbon Preset: Kesimpulan", "Kesimpulan" in studio_html)
+test("Ribbon Preset: Metodologi", "Metodologi" in studio_html)
+test("Ribbon Preset: Pembahasan", "Pembahasan" in studio_html)
+test("Ribbon Preset: Pustaka", "Pustaka" in studio_html)
+test("Ribbon Preset: Keterbacaan", "Keterbacaan" in studio_html)
 test("Ribbon Button: Eksekusi Model AI", "Eksekusi Model" in studio_html)
+test("Ribbon Navigation Multi-tab: Judul, Versi & Pustaka",
+     "Judul" in studio_html and "Versi" in studio_html and "Pustaka" in studio_html)
+test("Navigator Tab Switching: setNavSidebarTab", "setNavSidebarTab" in studio_html)
+
+# Test Studio with Copilot Drawer Opened via ?assistant=1
+status, studio_drawer_html, _ = http_get("/admin/naskah-studio?assistant=1", headers=auth_headers)
+test("Visit /admin/naskah-studio?assistant=1 (Copilot Drawer Open)", status == 200)
+test("Docked Copilot Drawer: Category Pills (drawerCategories)", "setDrawerCommandCategory" in studio_drawer_html)
+test("Docked Copilot Drawer: Search Input (drawerCommandSearch)", "drawerCommandSearch" in studio_drawer_html)
 
 # 5. Omnigensi Platform Integration & Agnes 3.0 Flash Discovery
 print("\n--- 5. Omnigensi Platform Integration & Agnes 3.0 Flash Handshake ---")

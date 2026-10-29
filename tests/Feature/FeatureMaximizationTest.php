@@ -4240,3 +4240,64 @@ it('performs white box verification on equation and table ai execution in naskah
     $okTable = $component->instance()->executeModelOnTable($tableIndex);
     expect($okTable)->toBeTrue();
 });
+
+it('performs white box verification on navigation sidebar, reference insertion, and table apa formatting in naskah studio', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+
+    // 1. Navigation sidebar tab switching
+    expect($component->get('navSidebarTab'))->toBe('outline');
+    $component->call('setNavSidebarTab', 'references');
+    expect($component->get('navSidebarTab'))->toBe('references');
+    $component->call('setNavSidebarTab', 'snapshots');
+    expect($component->get('navSidebarTab'))->toBe('snapshots');
+
+    // 2. DIKTI margin preset
+    $component->call('setMarginsPreset', 'dikti');
+    $setup = $component->get('pageSetup');
+    expect((float)$setup['marginTop'])->toBe(40.0)
+        ->and((float)$setup['marginLeft'])->toBe(40.0)
+        ->and((float)$setup['marginRight'])->toBe(30.0)
+        ->and((float)$setup['marginBottom'])->toBe(30.0);
+
+    // 3. Table APA formatting
+    $component->call('addBlock', 'table');
+    $blocks = $component->get('blocks');
+    $tIdx = count($blocks) - 1;
+    $component->call('tableFormatApa', $tIdx);
+    $blocksAfter = $component->get('blocks');
+    expect($blocksAfter[$tIdx]['table']['style'])->toBe('apa')
+        ->and($blocksAfter[$tIdx]['table']['header'])->toBeTrue();
+
+    // 4. Drawer command category filtering
+    expect($component->get('drawerCommandCategory'))->toBe('all');
+    expect(count($component->instance()->getDrawerFilteredCommands()))->toBe(26);
+
+    $component->call('setDrawerCommandCategory', 'literature');
+    $litCmds = $component->instance()->getDrawerFilteredCommands();
+    expect(count($litCmds))->toBe(5)
+        ->and(array_column($litCmds, 'name'))->toContain('/sitasi')
+        ->and(array_column($litCmds, 'name'))->toContain('/daftar-pustaka');
+
+    // 5. Reference citation insertion
+    $project = makeProject();
+    $ref = \App\Models\ProjectReference::factory()->create([
+        'project_id' => $project->id,
+        'title' => 'Studi Machine Learning Terapan',
+        'year' => 2024,
+        'citation_key' => 'Smith2024',
+        'authors' => [['name' => 'Smith, J.']],
+    ]);
+
+    $component->set('citationStyle', 'APA');
+    $component->call('insertReferenceCitation', $ref->id);
+    $blocksWithCit = $component->get('blocks');
+    $lastBlock = end($blocksWithCit);
+    expect($lastBlock['text'])->toContain('Smith');
+
+    // IEEE style
+    $component->call('setCitationStyle', 'IEEE');
+    $component->call('insertReferenceCitation', $ref->id);
+    $blocksWithIeee = $component->get('blocks');
+    $lastBlockIeee = end($blocksWithIeee);
+    expect($lastBlockIeee['text'])->toContain("[{$ref->id}]");
+});

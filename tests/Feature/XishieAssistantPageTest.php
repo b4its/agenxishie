@@ -237,3 +237,45 @@ it('answers all extended slash commands in standalone naskah studio mode without
             ->and($res['reply'])->toContain($expectedFragment);
     }
 });
+
+it('manages academic persona mode in assistant page', function (): void {
+    $page = Livewire::test(XishieAssistantPage::class);
+
+    expect($page->get('currentPersona'))->toBe('academic_senior');
+
+    $page->call('setPersona', 'critical_reviewer');
+    expect($page->get('currentPersona'))->toBe('critical_reviewer');
+
+    $page->call('setPersona', 'methodologist');
+    expect($page->get('currentPersona'))->toBe('methodologist');
+
+    expect($page->instance()->getPersonas())->toHaveKeys([
+        'academic_senior',
+        'critical_reviewer',
+        'proofreader',
+        'methodologist',
+        'novelty',
+    ]);
+});
+
+it('regenerates specific assistant message using regenerateMessage', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->call('setAssistantModel', 'hv/agnes-3.0-flash')
+        ->set('message', '/abstrak')
+        ->call('send');
+
+    $log = $page->get('log');
+    expect($log)->toHaveCount(2);
+
+    $page->call('regenerateMessage', 1);
+
+    $logAfter = $page->get('log');
+    expect($logAfter)->toHaveCount(2)
+        ->and($logAfter[1]['is_regenerated'])->toBeTrue()
+        ->and($logAfter[1]['model'])->toBe('hv/agnes-3.0-flash');
+});
