@@ -156,6 +156,7 @@ test("Assistant Focus Scope Options (project, manuscript, literature)",
      "setScope('project')" in assistant_html and "setScope('manuscript')" in assistant_html and "setScope('literature')" in assistant_html)
 test("Assistant Session Telemetry Bar Present (SESI:)", "SESI:" in assistant_html)
 test("Assistant Transcript Search Field Present", "Cari transkrip..." in assistant_html)
+test("Assistant Starred Filter Button Present", "toggleOnlyStarred" in assistant_html)
 test("Assistant Stage-Aware Contextual Prompts Bar Present", "TAHAP " in assistant_html)
 test("Assistant Snapshot Archiving Button Present", "Snapshot" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
@@ -201,6 +202,10 @@ test("Standalone Studio: File Ribbon HTML & JSON Export Formats (?tab=file)", "H
 test("Standalone Studio: File Ribbon BibTeX Export Format (?tab=file)", "BibTeX (.bib)" in studio_file_html)
 
 test("Standalone Studio: Ribbon Layout DIKTI Preset Present", "DIKTI 4-4-3-3" in studio_standalone_html)
+test("Standalone Studio: Target Word Count Indicator in Statusbar", "Target Word Count" in studio_standalone_html)
+
+status, studio_stats_html, _ = http_get("/studio?dialog=stats")
+test("Standalone Studio: Target Word Count Supported in Stats Dialog (?dialog=stats)", "setTargetWordCount" in studio_stats_html)
 test("Standalone Studio: Ribbon Table APA Format Present", "Format APA" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon Generasi AI Group", "Generasi AI" in studio_standalone_html and "Model AI" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon AI Presets (Poles, Kembangkan, Kebaruan, Abstrak)",

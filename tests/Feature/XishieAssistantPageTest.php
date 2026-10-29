@@ -491,3 +491,38 @@ it('supports starring and filtering assistant messages in conversation transcrip
     expect($page->html())->toContain('Dataset menggunakan repositori UCI')
         ->and($page->html())->not->toContain('Metode evaluasi F1-score');
 });
+
+it('supports only-starred toggle filter and clears starred messages', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $log = [
+        ['role' => 'user', 'content' => 'Tanya bab 1', 'created_at' => '12:00:00'],
+        ['role' => 'assistant', 'content' => 'Jawaban bab 1 penting', 'created_at' => '12:00:04'],
+        ['role' => 'user', 'content' => 'Tanya bab 2', 'created_at' => '12:01:00'],
+        ['role' => 'assistant', 'content' => 'Jawaban bab 2 umum', 'created_at' => '12:01:05'],
+    ];
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', $log)
+        ->call('toggleStarMessage', 1);
+
+    expect($page->get('onlyStarred'))->toBeFalse();
+    $page->call('toggleOnlyStarred');
+    expect($page->get('onlyStarred'))->toBeTrue();
+
+    // With onlyStarred active, export should export only starred messages
+    $export = $page->instance()->exportTranscript('json');
+    expect($export)->not->toBeNull();
+    ob_start();
+    $export->sendContent();
+    $json = ob_get_clean();
+    $data = json_decode($json, true);
+
+    expect($data['total_messages'])->toBe(1)
+        ->and($data['messages'][0]['content'])->toBe('Jawaban bab 1 penting');
+
+    // Clear starred
+    $page->call('clearStarred');
+    expect($page->get('starredMessages'))->toBeEmpty();
+});

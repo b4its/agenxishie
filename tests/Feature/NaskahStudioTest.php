@@ -784,3 +784,35 @@ it('exports document bibliography in bibtex format in naskah studio', function (
         ->and($bibContent)->toContain('title =')
         ->and($bibContent)->toContain('year =');
 });
+
+it('supports target word count configuration and progress tracking in naskah studio', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('docTitle', 'Naskah Target Kata')
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Satu dua tiga empat lima enam tujuh delapan sembilan sepuluh.'],
+        ]);
+
+    expect($page->get('targetWordCount'))->toBe(1500);
+
+    // Reset target to 0
+    $page->call('setTargetWordCount', 0);
+    expect($page->get('targetWordCount'))->toBe(0)
+        ->and($page->instance()->getTargetWordProgress())->toBeNull();
+
+    // Set target to 20 words
+    $page->call('setTargetWordCount', 20);
+    expect($page->get('targetWordCount'))->toBe(20)
+        ->and($page->instance()->getTargetWordProgress())->toBe(50); // 10 / 20 = 50%
+
+    // Save document and verify target_word_count persisted
+    $page->call('save');
+    $docId = $page->get('documentId');
+    expect($docId)->not->toBeNull();
+
+    $doc = \App\Models\NaskahDocument::find($docId);
+    expect($doc->style_meta['target_word_count'] ?? 0)->toBe(20);
+
+    // Open and verify reload
+    $reloadPage = Livewire::test(NaskahStudioPage::class, ['document' => $docId]);
+    expect($reloadPage->get('targetWordCount'))->toBe(20);
+});
