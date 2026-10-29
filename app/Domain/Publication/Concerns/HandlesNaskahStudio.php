@@ -7,6 +7,8 @@ namespace App\Domain\Publication\Concerns;
 use App\Domain\Assistant\OmnigensiChatClient;
 use App\Domain\Assistant\SlashCommand;
 use App\Domain\Assistant\XishieAssistantService;
+use App\Domain\GuidelineEngine\Enums\CitationStyle;
+use App\Domain\Publication\CitationFormatter;
 use App\Domain\Publication\NaskahBlockParser;
 use App\Domain\Publication\NaskahDocxExporter;
 use App\Domain\Publication\NaskahOdtExporter;
@@ -3467,19 +3469,30 @@ trait HandlesNaskahStudio
         $this->blocks[] = $this->model->newBlock('heading', 'Daftar Pustaka', 1);
 
         if ($project !== null) {
-            $refs = $project->references()->limit(50)->get();
+            $refs = $project->references()->orderBy('citation_key')->limit(50)->get();
 
             if ($refs->isNotEmpty()) {
-                foreach ($refs as $ref) {
-                    $authors = implode(', ', (array) ($ref->authors ?? []));
-                    $entry = trim($authors.'. '.(string) $ref->title.'. '.(string) ($ref->journal_name ?? '').'. '.((string) ($ref->year ?? '')).'.');
-                    $this->blocks[] = $this->model->newBlock('paragraph', $entry);
+                $formatter = app(CitationFormatter::class);
+                $style = match ($this->citationStyle) {
+                    'IEEE' => CitationStyle::IEEE,
+                    'Harvard' => CitationStyle::HARVARD,
+                    'Chicago' => CitationStyle::CHICAGO,
+                    default => CitationStyle::APA7,
+                };
+                $formattedEntries = $formatter->bibliography($refs, $style);
+
+                foreach ($formattedEntries as $entry) {
+                    $b = $this->model->newBlock('paragraph', trim(strip_tags($entry)));
+                    $b['hangingIndent'] = true;
+                    $b['spacingBefore'] = 4.0;
+                    $b['spacingAfter'] = 6.0;
+                    $this->blocks[] = $b;
                 }
 
                 $this->dirty = true;
                 $this->editorRevision++;
                 $this->dialog = '';
-                $this->notify('Daftar Pustaka Disisipkan', $refs->count().' referensi proyek.', 'success');
+                $this->notify('Daftar Pustaka Disisipkan', $refs->count().' referensi proyek (Gaya: '.$this->citationStyle.').', 'success');
 
                 return;
             }
@@ -3494,7 +3507,11 @@ trait HandlesNaskahStudio
         ];
 
         foreach ($academicRefs as $entry) {
-            $this->blocks[] = $this->model->newBlock('paragraph', $entry);
+            $b = $this->model->newBlock('paragraph', $entry);
+            $b['hangingIndent'] = true;
+            $b['spacingBefore'] = 4.0;
+            $b['spacingAfter'] = 6.0;
+            $this->blocks[] = $b;
         }
 
         $this->dirty = true;
