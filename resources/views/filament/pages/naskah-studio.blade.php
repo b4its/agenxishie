@@ -1748,6 +1748,7 @@
                             <button type="button" class="ns-btn" wire:click="openDialog('sources')" title="Buka Pengelola Sumber Pustaka &amp; Sitasi">&#128218; Kelola Sumber</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('crossref')" title="Sisipkan Rujukan Silang ke Persamaan, Gambar, atau Tabel">&#128279; Rujukan Silang</button>
                             <button type="button" class="ns-btn" wire:click="insertBibliography" title="Sisipkan daftar pustaka lengkap">&#128218; Sisipkan Daftar Pustaka</button>
+                            <button type="button" class="ns-btn" wire:click="updateBibliography" title="Perbarui dan format ulang seluruh daftar pustaka dengan gaya terpilih">&#128260; Perbarui Pustaka</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/daftar-pustaka')" title="Format daftar pustaka via asisten">📚 Format Pustaka</button>
                             <button type="button" class="ns-btn" wire:click="setNavSidebarTab('pustaka')" title="Buka Sidebar Pustaka Riset Proyek">&#128214; Pustaka Riset</button>
                         </div>

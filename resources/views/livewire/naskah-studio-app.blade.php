@@ -1236,6 +1236,9 @@
                             <button type="button" class="word-tool-btn" wire:click="insertBibliography" title="Generate Bibliography / Daftar Pustaka Section at End of Document">
                                 📜 Bibliography
                             </button>
+                            <button type="button" class="word-tool-btn" wire:click="updateBibliography" title="Update Bibliography and Re-format with Active Style">
+                                🔄 Update Bib
+                            </button>
                             <button type="button" class="word-tool-btn" wire:click="runTool('/daftar-pustaka')" title="Format Daftar Pustaka Standar Kaidah Ilmiah (/daftar-pustaka)">
                                 📚 Format Pustaka
                             </button>
