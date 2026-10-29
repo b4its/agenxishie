@@ -92,6 +92,7 @@
                             <button type="button" class="rb-button" wire:click="exportTranscript('txt')" title="Unduh transkrip sesi sebagai Plain Text">&#11015; TXT</button>
                             <button type="button" class="rb-button" style="background:#1d4ed8; color:#ffffff; font-weight:700;" wire:click="exportTranscriptToDocument" title="Konversi sesi percakapan menjadi Dokumen Baru di Naskah Studio">📝 Buat Naskah Studio</button>
                             <button type="button" class="rb-button" wire:click="saveSessionAsSnapshot" title="Simpan transkrip sesi ini ke versi naskah (Snapshot)">💾 Snapshot</button>
+                            <button type="button" class="rb-button" style="background:#4338ca; color:#ffffff; font-weight:700;" wire:click="generateSessionSummary" title="Sintesis dan rangkum seluruh sesi diskusi akademik">📌 Rangkum Sesi</button>
                             @if (!empty($lastClearedLog))
                                 <button type="button" class="rb-button" style="background:#0f766e; color:#ffffff; font-weight:700;" wire:click="restoreClearedLog" title="Pulihkan riwayat percakapan yang baru dibersihkan">↩️ Pulihkan ({{ count($lastClearedLog) }})</button>
                             @endif
@@ -415,6 +416,21 @@
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#0f766e; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/keterbacaan')" title="Eksekusi audit keterbacaan sekarang">⚡ Cek Keterbacaan</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#0369a1; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/daftar-pustaka')" title="Format pustaka sekarang">⚡ Format Pustaka</button>
                     </div>
+
+                    {{-- Riwayat Prompt Sesi --}}
+                    @if (!empty($promptHistory))
+                        <div style="display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; margin-top:.4rem; padding:.25rem .45rem; background:#f1f5f9; border-radius:4px; border:1px solid #e2e8f0;">
+                            <span style="font-size:.58rem; font-weight:700; color:#475569; display:inline-flex; align-items:center; gap:2px;">
+                                🕒 Riwayat Prompt:
+                            </span>
+                            @foreach (array_slice($promptHistory, 0, 5) as $hPrompt)
+                                <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#ffffff; color:#1e293b; border-color:#cbd5e1; max-width:210px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" wire:click="selectPromptFromHistory('{{ addslashes($hPrompt) }}')" title="{{ $hPrompt }}">
+                                    {{ Str::limit($hPrompt, 30) }}
+                                </button>
+                            @endforeach
+                            <button type="button" wire:click="clearPromptHistory" style="background:none; border:none; font-size:.58rem; color:#94a3b8; cursor:pointer; padding:0 3px;" title="Bersihkan riwayat prompt">✕</button>
+                        </div>
+                    @endif
 
                     {{-- Form Input --}}
                     <form wire:submit="send" style="display:flex; gap:.5rem; margin-top:.4rem; align-items:flex-start;">

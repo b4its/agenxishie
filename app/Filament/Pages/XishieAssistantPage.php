@@ -13,6 +13,7 @@ use App\Models\OmnigensiAgentLog;
 use App\Models\XishieProject;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Str;
 use League\CommonMark\GithubFlavoredMarkdownConverter;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -79,6 +80,13 @@ class XishieAssistantPage extends Page
     public string $referenceSearchQuery = '';
 
     public bool $showReferenceDrawer = false;
+
+    /**
+     * Riwayat prompt yang pernah dikirim pengguna dalam sesi ini.
+     *
+     * @var array<int, string>
+     */
+    public array $promptHistory = [];
 
     public function mount(): void
     {
@@ -533,6 +541,14 @@ class XishieAssistantPage extends Page
             return;
         }
 
+        // Rekam prompt ke riwayat unik sesi (maksimal 10)
+        if (! in_array($text, $this->promptHistory, true)) {
+            array_unshift($this->promptHistory, $text);
+            if (count($this->promptHistory) > 10) {
+                array_pop($this->promptHistory);
+            }
+        }
+
         $modelId = $this->getCurrentAssistantModel();
 
         $this->log[] = [
@@ -862,6 +878,110 @@ class XishieAssistantPage extends Page
                 ->info()
                 ->send();
         }
+    }
+
+    public function selectPromptFromHistory(string $prompt): void
+    {
+        $this->message = $prompt;
+    }
+
+    public function clearPromptHistory(): void
+    {
+        $this->promptHistory = [];
+        Notification::make()->title('Riwayat prompt dibersihkan')->info()->send();
+    }
+
+    /**
+     * Kompilasi dan rangkum seluruh sesi diskusi menjadi pesan sintesis eksekutif akademik.
+     */
+    public function generateSessionSummary(): void
+    {
+        if (empty($this->log)) {
+            Notification::make()
+                ->title('Transkrip masih kosong')
+                ->body('Kirimkan pertanyaan atau perintah terlebih dahulu sebelum membuat rangkuman.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $project = $this->getProject();
+        $projectName = $project ? $project->title : 'Proyek Riset Akademik';
+        $contextDoc = $this->activeDocumentId ? NaskahDocument::query()->find($this->activeDocumentId) : null;
+        $docName = $contextDoc ? $contextDoc->title : 'Seluruh Proyek (Tanpa Dokumen Spesifik)';
+
+        $userMessages = array_values(array_filter($this->log, fn ($m) => ($m['role'] ?? '') === 'user'));
+        $assistantMessages = array_values(array_filter($this->log, fn ($m) => ($m['role'] ?? '') === 'assistant'));
+        $starredCount = count($this->starredMessages);
+
+        $queriesList = [];
+        foreach ($userMessages as $msg) {
+            $content = trim((string) ($msg['content'] ?? ''));
+            if ($content !== '') {
+                $queriesList[] = Str::limit($content, 85);
+            }
+        }
+
+        $summaryHeader = "### 📌 Rangkuman Eksekutif Sesi Xishie Assistant\n\n";
+        $summaryHeader .= "**Metadata Sesi:**\n";
+        $summaryHeader .= "- **Waktu Sintesis**: ".now()->format('d M Y, H:i:s')."\n";
+        $summaryHeader .= "- **Proyek Aktif**: {$projectName}\n";
+        $summaryHeader .= "- **Dokumen Konteks**: {$docName}\n";
+        $summaryHeader .= "- **Total Interaksi**: ".count($userMessages).' pertanyaan pengguna, '.count($assistantMessages)." respons asisten\n";
+        if ($starredCount > 0) {
+            $summaryHeader .= "- **Pesan Berbintang**: {$starredCount} pesan ditandai penting\n";
+        }
+        $summaryHeader .= "\n";
+
+        $queriesSummary = "**Fokus Pertanyaan & Arahan Peneliti:**\n";
+        if (! empty($queriesList)) {
+            foreach (array_slice($queriesList, 0, 5) as $idx => $q) {
+                $num = $idx + 1;
+                $queriesSummary .= "{$num}. `{$q}`\n";
+            }
+            if (count($queriesList) > 5) {
+                $rem = count($queriesList) - 5;
+                $queriesSummary .= "_...dan {$rem} pertanyaan interaksi lainnya._\n";
+            }
+        } else {
+            $queriesSummary .= "_Tidak ada catatan pertanyaan pengguna secara eksplisit._\n";
+        }
+        $queriesSummary .= "\n";
+
+        $insights = "**Intisari & Hasil Respons Asisten:**\n";
+        $recentResponses = array_slice($assistantMessages, -3);
+        if (! empty($recentResponses)) {
+            foreach ($recentResponses as $rIdx => $rMsg) {
+                $num = $rIdx + 1;
+                $excerpt = Str::limit(strip_tags((string) ($rMsg['content'] ?? '')), 160);
+                $insights .= "- **Poin {$num}**: {$excerpt}\n";
+            }
+        } else {
+            $insights .= "- Seluruh keluaran asisten telah siap diintegrasikan ke naskah.\n";
+        }
+
+        $actionItems = "\n**Rekomendasi Langkah Tindak Lanjut Akademik:**\n";
+        $actionItems .= "1. Terapkan hasil parafrase dan analisis struktural langsung ke dokumen Naskah Studio aktif.\n";
+        $actionItems .= "2. Validasi konsistensi kunci sitasi pustaka `[@key]` dengan daftar referensi proyek.\n";
+        $actionItems .= "3. Simpan snapshot versi naskah untuk mengarsipkan capaian diskusi sebelum tahapan berikutnya.\n";
+
+        $fullSummary = $summaryHeader.$queriesSummary.$insights.$actionItems;
+
+        $this->log[] = [
+            'role' => 'assistant',
+            'content' => $fullSummary,
+            'model' => 'session_synthesis',
+            'persona' => $this->currentPersona,
+            'scope' => $this->assistantScope,
+            'created_at' => now()->format('H:i:s'),
+        ];
+
+        Notification::make()
+            ->title('Rangkuman Sesi Dibuat')
+            ->body('Intisari interaksi dan poin tindak lanjut berhasil dikompilasi ke transkrip.')
+            ->success()
+            ->send();
     }
 
     /**
