@@ -1054,3 +1054,36 @@ it('supports document duplication and active block case transformation in naskah
         ->and($dbDoc->blocks[0]['text'])->toBe('Analisis data mendalam')
         ->and($dbDoc->style_meta['target_word_count'])->toBe(5000);
 });
+
+it('supports academic cover page insertion and watermark management in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Initial blocks count
+    $initialCount = count($page->get('blocks'));
+
+    // Insert Cover Page
+    $page->call('insertCoverPage', 'skripsi', [
+        'title' => 'EVALUASI MODEL TRANSFORMER',
+        'author' => 'Dr. Aris Wibowo',
+        'institution' => 'Universitas Indonesia',
+        'year' => '2026',
+    ]);
+
+    $blocks = $page->get('blocks');
+    expect(count($blocks))->toBe($initialCount + 5)
+        ->and($blocks[0]['text'])->toBe('EVALUASI MODEL TRANSFORMER')
+        ->and($blocks[1]['text'])->toBe('PROPOSAL PENELITIAN SKRIPSI')
+        ->and($blocks[2]['text'])->toContain('Dr. Aris Wibowo')
+        ->and($blocks[3]['text'])->toContain('Universitas Indonesia')
+        ->and($blocks[4]['type'])->toBe('pagebreak');
+
+    // Test Watermark
+    $page->call('setWatermark', 'RAHASIA');
+    expect($page->get('pageSetup')['watermark'])->toBe('RAHASIA');
+
+    $page->call('setWatermark', '');
+    expect($page->get('pageSetup')['watermark'])->toBe('');
+});

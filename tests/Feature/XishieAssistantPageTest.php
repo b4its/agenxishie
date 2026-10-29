@@ -673,3 +673,42 @@ it('supports academic prompt templates catalog, category filtering, and direct e
         ->and($log[0]['content'])->toContain('abstrak terstruktur')
         ->and($log[1]['role'])->toBe('assistant');
 });
+
+it('grounds assistant responses in selected context document', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $project = makeProject(['title' => 'Riset Bioinformatika']);
+
+    $doc = NaskahDocument::create([
+        'user_id' => $user->id,
+        'project_id' => $project->id,
+        'title' => 'Draf Manuskrip Bioinformatika',
+        'source_type' => NaskahDocument::SOURCE_PROJECT,
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Pendahuluan Bioinformatika'],
+            ['type' => 'paragraph', 'text' => 'Bioinformatika mengintegrasikan sains komputasi dengan biologi molekuler untuk menganalisis data genomik skala masif.'],
+        ],
+        'word_count' => 16,
+    ]);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // Select context document
+    $page->call('selectContextDocument', $doc->id);
+    expect($page->get('activeDocumentId'))->toBe($doc->id);
+
+    // Run /ringkas with selected document context
+    $page->call('executeCommandDirectly', '/ringkas');
+    $log = $page->get('log');
+    $lastReply = end($log)['content'];
+    expect($lastReply)->toContain('Ringkasan Dokumen Naskah: Draf Manuskrip Bioinformatika')
+        ->and($lastReply)->toContain('Bioinformatika mengintegrasikan');
+
+    // Run /keterbacaan with selected document context
+    $page->call('executeCommandDirectly', '/keterbacaan');
+    $log = $page->get('log');
+    $readabilityReply = end($log)['content'];
+    expect($readabilityReply)->toContain('Laporan Analisis Keterbacaan Naskah')
+        ->and($readabilityReply)->toContain('Dokumen Naskah: Draf Manuskrip Bioinformatika');
+});

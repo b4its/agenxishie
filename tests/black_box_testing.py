@@ -227,6 +227,10 @@ test("Standalone Studio: Home Ribbon AI Presets (Metode, Bahas, Simpulan, Baca)"
 # Test Ribbon Tab Switching via ?tab=insert and ?tab=table
 status, studio_insert_html, _ = http_get("/studio?tab=insert")
 test("Standalone Studio: Ribbon AI Presets (?tab=insert)", "Matriks AI" in studio_insert_html and "Kebaruan AI" in studio_insert_html)
+test("Standalone Studio: Ribbon Insert Cover Page Present (?tab=insert)", "insertCoverPage" in studio_insert_html or "Cover Page" in studio_insert_html)
+
+status, studio_layout_html, _ = http_get("/studio?tab=layout")
+test("Standalone Studio: Ribbon Layout Watermark Present (?tab=layout)", "setWatermark" in studio_layout_html or "Watermark" in studio_layout_html)
 
 status, studio_table_html, _ = http_get("/studio?tab=table")
 test("Standalone Studio: Table Calculation Formulas (?tab=table)", "Min" in studio_table_html and "Max" in studio_table_html)
