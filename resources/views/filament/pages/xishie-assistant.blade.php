@@ -13,6 +13,8 @@
                     <span style="color:#fde047;">MODEL:</span> {{ $currentModel }}
                     <span style="color:#64748b;">|</span>
                     <span style="color:#34d399;">FOKUS:</span> {{ strtoupper($assistantScope) }}
+                    <span style="color:#64748b;">|</span>
+                    <span style="color:#a78bfa;">GENERASI:</span> {{ number_format($this->getTotalWordsGenerated()) }} kata
                 </span>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-family:monospace; color:#94a3b8;">

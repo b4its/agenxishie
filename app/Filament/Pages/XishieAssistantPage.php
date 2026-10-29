@@ -709,6 +709,21 @@ class XishieAssistantPage extends Page
     }
 
     /**
+     * Hitung total kata akademik yang dihasilkan oleh asisten pada sesi saat ini.
+     */
+    public function getTotalWordsGenerated(): int
+    {
+        $total = 0;
+        foreach ($this->log as $entry) {
+            if (($entry['role'] ?? '') === 'assistant') {
+                $total += str_word_count((string) ($entry['content'] ?? ''));
+            }
+        }
+
+        return $total;
+    }
+
+    /**
      * Simpan sesi percakapan ke snapshot versi naskah dokumen.
      */
     public function saveSessionAsSnapshot(): void
