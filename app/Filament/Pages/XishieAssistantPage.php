@@ -50,6 +50,8 @@ class XishieAssistantPage extends Page
      */
     public array $starredMessages = [];
 
+    public bool $onlyStarred = false;
+
     public string $currentPersona = 'academic_senior';
 
     public string $assistantScope = 'project';
@@ -690,6 +692,23 @@ class XishieAssistantPage extends Page
     }
 
     /**
+     * Beralih antara menampilkan semua pesan atau hanya pesan berbintang.
+     */
+    public function toggleOnlyStarred(): void
+    {
+        $this->onlyStarred = ! $this->onlyStarred;
+    }
+
+    /**
+     * Bersihkan semua tanda bintang dari transkrip.
+     */
+    public function clearStarred(): void
+    {
+        $this->starredMessages = [];
+        Notification::make()->title('Semua tanda bintang dibersihkan')->info()->send();
+    }
+
+    /**
      * Simpan sesi percakapan ke snapshot versi naskah dokumen.
      */
     public function saveSessionAsSnapshot(): void
@@ -798,6 +817,14 @@ class XishieAssistantPage extends Page
         $timestamp = now()->format('Y-m-d_H-i-s');
         $format = mb_strtolower($format);
 
+        $exportLog = $this->onlyStarred
+            ? array_values(array_filter($this->log, fn (array $e, int $idx): bool => in_array($idx, $this->starredMessages, true), ARRAY_FILTER_USE_BOTH))
+            : $this->log;
+
+        if (empty($exportLog)) {
+            $exportLog = $this->log;
+        }
+
         if ($format === 'json') {
             $filename = 'xishie_assistant_transcript_'.$timestamp.'.json';
             $payload = [
@@ -806,8 +833,8 @@ class XishieAssistantPage extends Page
                     'title' => $title,
                 ],
                 'exported_at' => now()->toIso8601String(),
-                'total_messages' => count($this->log),
-                'messages' => $this->log,
+                'total_messages' => count($exportLog),
+                'messages' => $exportLog,
             ];
             $content = (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             $mime = 'application/json; charset=UTF-8';
@@ -817,12 +844,12 @@ class XishieAssistantPage extends Page
                 'TRANSKRIP PERCAKAPAN XISHIE ASSISTANT',
                 'Proyek: '.$title,
                 'Waktu Ekspor: '.now()->toIso8601String(),
-                'Total Pesan: '.count($this->log),
+                'Total Pesan: '.count($exportLog),
                 str_repeat('=', 50),
                 '',
             ];
 
-            foreach ($this->log as $entry) {
+            foreach ($exportLog as $entry) {
                 $sender = $entry['role'] === 'user' ? 'Peneliti' : 'Xishie Assistant';
                 $lines[] = "[{$sender}]";
                 $lines[] = (string) $entry['content'];
@@ -835,7 +862,7 @@ class XishieAssistantPage extends Page
         } elseif ($format === 'html') {
             $filename = 'xishie_assistant_transcript_'.$timestamp.'.html';
             $msgHtml = [];
-            foreach ($this->log as $entry) {
+            foreach ($exportLog as $entry) {
                 $isUser = ($entry['role'] === 'user');
                 $sender = $isUser ? 'Peneliti' : 'Xishie Assistant';
                 $color = $isUser ? '#1e40af' : '#0369a1';
@@ -857,7 +884,7 @@ class XishieAssistantPage extends Page
                 ."</head>\n<body>\n"
                 ."<div style=\"border-bottom:2px solid #2563eb;padding-bottom:12px;margin-bottom:20px;\">"
                 ."<h1 style=\"margin:0 0 6px;color:#1e40af;font-size:22px;\">✨ Transkrip Percakapan Xishie Assistant</h1>"
-                ."<div style=\"font-size:13px;color:#64748b;\">Proyek: <strong>".htmlspecialchars($title)."</strong> &middot; Waktu: ".now()->toIso8601String()." &middot; Total: ".count($this->log)." Pesan</div>"
+                ."<div style=\"font-size:13px;color:#64748b;\">Proyek: <strong>".htmlspecialchars($title)."</strong> &middot; Waktu: ".now()->toIso8601String()." &middot; Total: ".count($exportLog)." Pesan</div>"
                 ."</div>\n"
                 .implode("\n", $msgHtml)
                 ."\n</body>\n</html>";
@@ -865,7 +892,7 @@ class XishieAssistantPage extends Page
         } elseif ($format === 'latex' || $format === 'tex') {
             $filename = 'xishie_assistant_transcript_'.$timestamp.'.tex';
             $texItems = [];
-            foreach ($this->log as $entry) {
+            foreach ($exportLog as $entry) {
                 $sender = $entry['role'] === 'user' ? '\textbf{Peneliti}' : '\textbf{Xishie Assistant} ('.($entry['model'] ?? 'AI').')';
                 $cleanContent = str_replace(['_', '&', '%', '$', '#'], ['\_', '\&', '\%', '\$', '\#'], (string) $entry['content']);
                 $texItems[] = "\\subsection*{{$sender}}\n\\begin{quote}\n{$cleanContent}\n\\end{quote}\n";
@@ -880,7 +907,7 @@ class XishieAssistantPage extends Page
                 ['Role', 'Model', 'Persona', 'Scope', 'Command', 'Created At', 'Content'],
             ];
 
-            foreach ($this->log as $entry) {
+            foreach ($exportLog as $entry) {
                 $rows[] = [
                     (string) ($entry['role'] ?? ''),
                     (string) ($entry['model'] ?? ''),
@@ -906,13 +933,13 @@ class XishieAssistantPage extends Page
                 '# Transkrip Sesi Xishie Assistant',
                 '- **Proyek**: '.$title,
                 '- **Waktu Ekspor**: '.now()->toIso8601String(),
-                '- **Total Pesan**: '.count($this->log),
+                '- **Total Pesan**: '.count($exportLog),
                 '',
                 '---',
                 '',
             ];
 
-            foreach ($this->log as $entry) {
+            foreach ($exportLog as $entry) {
                 $sender = $entry['role'] === 'user' ? 'Peneliti' : 'Xishie Assistant';
                 $lines[] = "### [{$sender}]";
                 $lines[] = $entry['content'];

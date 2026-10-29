@@ -29,6 +29,14 @@
                         @if ($transcriptSearch !== '')
                             <button type="button" wire:click="$set('transcriptSearch', '')" style="border:0; background:none; color:#94a3b8; cursor:pointer; font-size:.6rem;" title="Reset pencarian transkrip">✕</button>
                         @endif
+                        <button
+                            type="button"
+                            wire:click="toggleOnlyStarred"
+                            style="border:1px solid {{ $onlyStarred ? '#eab308' : '#334155' }}; background:{{ $onlyStarred ? '#eab308' : '#1e293b' }}; color:{{ $onlyStarred ? '#78350f' : '#fde047' }}; cursor:pointer; font-size:.6rem; font-weight:700; padding:1px 5px; height:18px; border-radius:3px; display:inline-flex; align-items:center; gap:2px;"
+                            title="{{ $onlyStarred ? 'Tampilkan semua pesan transkrip' : 'Saring hanya pesan berbintang / penting' }}"
+                        >
+                            <span>★</span>{{ count($starredMessages) > 0 ? count($starredMessages) : '' }}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -159,8 +167,8 @@
                     >
                         @forelse ($log as $msg)
                             @php
-                                $matchesFilter = ($transcriptSearch === '' || stripos((string)$msg['content'], $transcriptSearch) !== false);
                                 $isStarred = in_array($loop->index, $starredMessages, true);
+                                $matchesFilter = ($transcriptSearch === '' || stripos((string)$msg['content'], $transcriptSearch) !== false) && (! $onlyStarred || $isStarred);
                             @endphp
                             @if ($matchesFilter)
                                 @if ($msg['role'] === 'user')
