@@ -82,3 +82,96 @@ it('renders markdown (table) in assistant replies', function (): void {
 
     expect($html)->toContain('<table>')->toContain('<td>1</td>');
 });
+
+it('manages assistant models and default fallback in assistant page', function (): void {
+    $page = Livewire::test(XishieAssistantPage::class);
+
+    $currentModel = $page->instance()->getCurrentAssistantModel();
+    expect($currentModel)->not->toBeEmpty();
+
+    $models = $page->instance()->getAvailableModels();
+    expect($models)->toBeArray()
+        ->and(count($models))->toBeGreaterThanOrEqual(3);
+
+    $ids = array_column($models, 'id');
+    expect($ids)->toContain('hv/agnes-3.0-flash')
+        ->and($ids)->toContain('qwen-2.5-72b-instruct');
+
+    $page->call('setAssistantModel', 'hv/agnes-3.0-flash')
+        ->assertSet('currentAssistantModel', 'hv/agnes-3.0-flash');
+
+    expect($page->instance()->getCurrentAssistantModel())->toBe('hv/agnes-3.0-flash');
+});
+
+it('categorizes and filters the 26 slash commands in assistant page', function (): void {
+    $page = Livewire::test(XishieAssistantPage::class);
+
+    $categories = $page->instance()->getCommandCategories();
+    expect($categories)->toHaveKeys(['all', 'structure', 'literature', 'audit', 'format']);
+
+    // Default 'all'
+    $allCommands = $page->instance()->filteredCommands();
+    expect(count($allCommands))->toBe(26);
+
+    // Structure category
+    $page->call('setCommandCategory', 'structure');
+    $structCommands = array_column($page->instance()->filteredCommands(), 'name');
+    expect($structCommands)->toContain('/pendahuluan')
+        ->and($structCommands)->toContain('/abstrak')
+        ->and($structCommands)->toContain('/metodologi')
+        ->and($structCommands)->not->toContain('/sitasi');
+
+    // Literature category
+    $page->call('setCommandCategory', 'literature');
+    $litCommands = array_column($page->instance()->filteredCommands(), 'name');
+    expect($litCommands)->toContain('/sitasi')
+        ->and($litCommands)->toContain('/daftar-pustaka')
+        ->and($litCommands)->not->toContain('/pendahuluan');
+});
+
+it('regenerates last response using the active assistant model', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+    seedReferences($project);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->call('setAssistantModel', 'hv/agnes-3.0-flash')
+        ->set('message', '/abstrak')
+        ->call('send');
+
+    $logBefore = $page->get('log');
+    expect($logBefore)->toHaveCount(2)
+        ->and($logBefore[1]['role'])->toBe('assistant');
+
+    // Regenerate
+    $page->call('regenerateLastResponse');
+    $logAfter = $page->get('log');
+
+    expect($logAfter)->toHaveCount(3)
+        ->and($logAfter[2]['role'])->toBe('assistant')
+        ->and($logAfter[2]['is_regenerated'])->toBeTrue()
+        ->and($logAfter[2]['model'])->toBe('hv/agnes-3.0-flash');
+});
+
+it('executes current model to naskah studio directly from assistant page', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->call('setAssistantModel', 'hv/agnes-3.0-flash')
+        ->set('message', '/metodologi')
+        ->call('executeCurrentModelToStudio')
+        ->assertDispatched('assistant-updated');
+
+    $log = $page->get('log');
+    expect($log)->toHaveCount(2)
+        ->and($log[1]['model'])->toBe('hv/agnes-3.0-flash');
+
+    $doc = \App\Models\NaskahDocument::query()->where('project_id', $project->id)->first();
+    expect($doc)->not->toBeNull()
+        ->and(count($doc->blocks))->toBeGreaterThan(1);
+});

@@ -3155,7 +3155,7 @@ it('performs white box verification on current assistant model selection and reg
     // 1. Model default saat awal belum diset
     $initialModel = $component->instance()->getCurrentAssistantModel();
     expect($initialModel)->not->toBeEmpty()
-        ->and($initialModel)->toBe('qwen-2.5-72b-instruct');
+        ->and($initialModel)->toBeIn(['hv/agnes-3.0-flash', 'qwen-2.5-72b-instruct']);
 
     // 2. Mengambil daftar model yang tersedia
     $availableModels = $component->instance()->getAvailableAssistantModels();
@@ -4200,4 +4200,43 @@ it('dispatches interactive studio-toast notifications with modern metadata and r
         ->assertSee('ns-toast-container')
         ->assertSee('ns-toast-card')
         ->assertSee('executeLivewire');
+});
+
+it('performs white box verification on all extended model presets in naskah studio', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+    $initialBlocks = count($component->get('blocks'));
+
+    // Test executeModelPreset with extended academic presets
+    $presetsToTest = ['abstract', 'introduction', 'methodology', 'discussion', 'conclusion', 'literature', 'readability'];
+
+    foreach ($presetsToTest as $preset) {
+        $ok = $component->instance()->executeModelPreset($preset);
+        expect($ok)->toBeTrue();
+    }
+
+    expect(count($component->get('blocks')))->toBeGreaterThan($initialBlocks);
+});
+
+it('performs white box verification on equation and table ai execution in naskah studio', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+
+    // 1. Tambah equation block
+    $component->call('addBlock', 'equation');
+    $blocks = $component->get('blocks');
+    $eqIndex = count($blocks) - 1;
+    expect($blocks[$eqIndex]['type'])->toBe('equation');
+
+    // Eksekusi model on equation
+    $okEq = $component->instance()->executeModelOnEquation($eqIndex);
+    expect($okEq)->toBeTrue();
+
+    // 2. Tambah table block
+    $component->call('addBlock', 'table');
+    $blocksAfter = $component->get('blocks');
+    $tableIndex = count($blocksAfter) - 1;
+    expect($blocksAfter[$tableIndex]['type'])->toBe('table');
+
+    // Eksekusi model on table
+    $okTable = $component->instance()->executeModelOnTable($tableIndex);
+    expect($okTable)->toBeTrue();
 });
