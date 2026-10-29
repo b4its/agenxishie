@@ -195,6 +195,9 @@
                                                 @if($isStarred)
                                                     <span style="font-size:.58rem; padding:1px 5px; background:rgba(234,179,8,0.25); border-radius:3px; color:#fde047; font-weight:700;">★ penting</span>
                                                 @endif
+                                                <span style="font-size:.58rem; padding:1px 5px; background:rgba(255,255,255,0.08); border-radius:3px; color:#cbd5e1;">
+                                                    {{ str_word_count((string) $msg['content']) }} kata
+                                                </span>
                                             </div>
                                             <div style="display:flex; gap:4px; align-items:center;">
                                                 <span class="rb-terminal__time" style="font-size:.6rem;">[{{ $msg['created_at'] ?? now()->format('H:i:s') }}]</span>
