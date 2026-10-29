@@ -1853,8 +1853,10 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Kalkulasi Tabel</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="tableSumColumn({{ $activeBlock }}, 0)" title="Jumlahkan Angka Kolom (LibreOffice Table Formula)">&#8721; Jumlahkan Kolom</button>
-                            <button type="button" class="ns-btn" wire:click="tableAverageColumn({{ $activeBlock }}, 0)" title="Hitung Rata-rata Kolom">x̄ Rata-rata</button>
+                            <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'sum')" title="Jumlahkan Angka Kolom (LibreOffice Table Formula)">&#8721; Jumlahkan</button>
+                            <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'avg')" title="Hitung Rata-rata Kolom">x̄ Rata-rata</button>
+                            <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'min')" title="Cari Nilai Minimum Kolom">↓ Nilai Min</button>
+                            <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'max')" title="Cari Nilai Maksimum Kolom">↑ Nilai Max</button>
                         </div>
                     </div>
                     <div class="ns-group">

@@ -1016,6 +1016,8 @@
                     <div class="word-group__col">
                         <button type="button" class="word-tool-btn" wire:click="executeModelPreset('table')" title="Sintesis matriks tabel data akademik menggunakan model aktif">📊 Tabel AI</button>
                         <button type="button" class="word-tool-btn" wire:click="executeModelPreset('equation')" title="Formulasikan rumus LaTeX menggunakan model aktif">∑ Rumus AI</button>
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/matriks-literatur')" title="Sintesis matriks perbandingan literatur (SOTA)">📚 Matriks AI</button>
+                        <button type="button" class="word-tool-btn" wire:click="executeModelPreset('novelty')" title="Formulasikan matriks kebaruan riset">💡 Kebaruan AI</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Generasi AI</span></div>
@@ -1448,6 +1450,12 @@
                         </button>
                         <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'avg')" title="Hitung Rata-rata Kolom Angka">
                             μ Average (Rata-rata)
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'min')" title="Cari Nilai Minimum Kolom">
+                            ↓ Min (Minimum)
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'max')" title="Cari Nilai Maksimum Kolom">
+                            ↑ Max (Maksimum)
                         </button>
                         <button type="button" class="word-tool-btn" wire:click="tableFormatApa({{ $activeBlock }})" title="Format Tabel Kaidah APA 7th (3 Garis Horizontal)">
                             🏛️ Format APA

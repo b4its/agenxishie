@@ -377,6 +377,11 @@ trait HandlesNaskahStudio
             $this->assistantOpen = true;
         }
 
+        $requestedTab = request()->query('tab');
+        if (is_string($requestedTab) && in_array($requestedTab, ['file', 'home', 'insert', 'draw', 'design', 'layout', 'references', 'mailings', 'review', 'view', 'table', 'help'], true)) {
+            $this->activeTab = $requestedTab;
+        }
+
         $documentId = $documentId ?? (request()->query('document') !== null ? (int) request()->query('document') : null);
 
         if (is_numeric($documentId)) {
