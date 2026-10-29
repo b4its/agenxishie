@@ -945,3 +945,57 @@ it('supports target word count presets for academic genres in naskah studio', fu
     $page->call('setTargetWordCountPreset', 'abstrak');
     expect($page->get('targetWordCount'))->toBe(250);
 });
+
+it('supports table styles, merge field tags, endnotes, and heading cross references in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $tableBlock = [
+        'type' => 'table',
+        'table' => [
+            'header' => true,
+            'style' => 'apa',
+            'rows' => [
+                [['text' => 'Variabel', 'runs' => []], ['text' => 'Skor', 'runs' => []]],
+                [['text' => 'X', 'runs' => []], ['text' => '85', 'runs' => []]],
+            ],
+        ],
+    ];
+
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Metodologi Penelitian'],
+            $tableBlock,
+            ['type' => 'paragraph', 'text' => 'Pembahasan data statistik awal.'],
+        ]);
+
+    // Test tableSetStyle
+    $page->call('tableSetStyle', 1, 'grid');
+    expect($page->get('blocks')[1]['table']['style'])->toBe('grid');
+
+    $page->call('tableSetStyle', 1, 'striped');
+    expect($page->get('blocks')[1]['table']['style'])->toBe('striped');
+
+    // Test Mail Merge Headers and Field insertion
+    $page->set('mergeCsv', "peneliti,institusi,kota\nDr. Aris,Universitas Indonesia,Depok");
+    $headers = $page->instance()->getMergeHeaders();
+    expect($headers)->toBe(['peneliti', 'institusi', 'kota']);
+
+    $page->set('activeBlock', 2);
+    $page->call('insertMergeField', 'peneliti');
+    expect($page->get('blocks')[2]['text'])->toContain('{{peneliti}}');
+
+    // Test insertEndnote
+    $page->call('insertEndnote', 'Elaborasi metodologis berdasarkan Creswell (2018).');
+    $blocks = $page->get('blocks');
+    $endnotes = array_filter($blocks, fn ($b): bool => ($b['type'] ?? '') === 'endnote-ref');
+    expect(count($endnotes))->toBe(1);
+
+    // Test cross-reference with heading
+    $captions = $page->instance()->getManuscriptCaptions();
+    expect($captions)->toHaveKey('headings')
+        ->and($captions['headings'])->not->toBeEmpty();
+
+    $page->call('insertCrossReference', 'heading', 'Metodologi Penelitian');
+    expect($page->get('blocks')[2]['text'])->toContain('Bagian "Metodologi Penelitian"');
+});

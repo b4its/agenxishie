@@ -161,6 +161,7 @@ test("Assistant Starred Filter Button Present", "toggleOnlyStarred" in assistant
 test("Assistant Stage-Aware Contextual Prompts Bar Present", "TAHAP " in assistant_html)
 test("Assistant Snapshot Archiving Button Present", "Snapshot" in assistant_html)
 test("Assistant Studio Export Action Present", "exportTranscriptToDocument" in assistant_html or "Buat Naskah Studio" in assistant_html)
+test("Assistant Context Document Selector Present", "KONTEKS NASKAH" in assistant_html or "selectContextDocument" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
 test("Studio Execute Button (⚡ Eksekusi ke Studio)", "Eksekusi ke Studio" in assistant_html)
@@ -225,6 +226,13 @@ test("Standalone Studio: Ribbon AI Presets (?tab=insert)", "Matriks AI" in studi
 
 status, studio_table_html, _ = http_get("/studio?tab=table")
 test("Standalone Studio: Table Calculation Formulas (?tab=table)", "Min" in studio_table_html and "Max" in studio_table_html)
+test("Standalone Studio: Table Styles (?tab=table)", "APA" in studio_table_html and "Grid" in studio_table_html and "Zebra" in studio_table_html)
+
+status, studio_endnote_html, _ = http_get("/studio?dialog=endnote")
+test("Standalone Studio: Endnote Dialog Supported (?dialog=endnote)", status == 200 and ("Insert Endnote" in studio_endnote_html or "Catatan Akhir" in studio_endnote_html))
+
+status, studio_merge_html, _ = http_get("/studio?dialog=merge")
+test("Standalone Studio: Mail Merge Dialog Supported (?dialog=merge)", status == 200 and "Mail Merge" in studio_merge_html)
 
 status, studio_references_html, _ = http_get("/studio?tab=references")
 test("Standalone Studio: References Ribbon Tab (?tab=references)", "Pustaka Riset" in studio_references_html and "Insert Citation" in studio_references_html)

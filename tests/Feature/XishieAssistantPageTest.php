@@ -582,3 +582,54 @@ it('exports assistant conversation transcript as a new NaskahDocument in Naskah 
         ->set('log', []);
     expect($pageEmpty->instance()->exportTranscriptToDocument())->toBeNull();
 });
+
+it('supports selecting context document and searching project references in assistant page', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $project = makeProject(['title' => 'Riset Evaluasi Asisten']);
+
+    // Create a manuscript document for this project
+    $doc = NaskahDocument::create([
+        'title' => 'Draf Bab 1 Evaluasi',
+        'project_id' => $project->id,
+        'source_type' => NaskahDocument::SOURCE_PROJECT,
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+            ['type' => 'paragraph', 'text' => 'Teks awal pendahuluan riset.'],
+        ],
+        'word_count' => 6,
+    ]);
+
+    // Create a reference
+    $project->references()->create([
+        'citation_key' => 'smith2023',
+        'title' => 'Deep Learning in Natural Language Processing',
+        'authors' => ['John Smith', 'Alice Johnson'],
+        'year' => 2023,
+        'journal_name' => 'IEEE Transactions on AI',
+    ]);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // Select context document
+    $page->call('selectContextDocument', $doc->id);
+    expect($page->get('activeDocumentId'))->toBe($doc->id);
+
+    // Apply response to selected document
+    $page->set('log', [
+        ['role' => 'assistant', 'content' => "## Tambahan Pendahuluan\nParagraf tambahan dari asisten AI."],
+    ])->call('applyToNaskahStudio', 0);
+
+    $updatedDoc = NaskahDocument::find($doc->id);
+    expect($updatedDoc->word_count)->toBeGreaterThan(6);
+
+    // Search project references
+    $results = $page->instance()->searchProjectReferences('Deep Learning');
+    expect(count($results))->toBe(1)
+        ->and($results[0]['citation_key'])->toBe('smith2023')
+        ->and($results[0]['title'])->toContain('Natural Language Processing');
+
+    // Deselect context document
+    $page->call('selectContextDocument', null);
+    expect($page->get('activeDocumentId'))->toBeNull();
+});
