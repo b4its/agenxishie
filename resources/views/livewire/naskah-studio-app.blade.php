@@ -921,6 +921,33 @@
                 </div>
             </div>
 
+            <!-- GROUP: MODEL AI PRESETS (AKADEMIK) -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large" wire:click="openDialog('execute_model')" style="background: linear-gradient(135deg, #eef2ff 0%, #ede9fe 100%); border-color: #a5b4fc;" title="Eksekusi model AI saat ini ke naskah">
+                        <span style="font-size:18px;">⚡</span>
+                        <span style="font-weight:700; color:#4338ca;">Model AI</span>
+                    </button>
+                    <div class="word-group__col">
+                        <div class="word-group__row">
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('polish')" title="Poles ragam bahasa akademik">✨ Poles</button>
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset">💡 Kebaruan</button>
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('abstract')" title="Susun draf abstrak akademik">📝 Abstrak</button>
+                        </div>
+                        <div class="word-group__row">
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('methodology')" title="Susun metodologi riset">📐 Metode</button>
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('discussion')" title="Sintesis pembahasan kritis naskah">💬 Bahas</button>
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('conclusion')" title="Formulasi kesimpulan &amp; saran">🏁 Simpulan</button>
+                            <button type="button" class="word-tool-btn" wire:click="executeModelPreset('readability')" title="Audit keterbacaan naskah">📈 Baca</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="word-group__footer">
+                    <span class="word-group__label">Generasi AI</span>
+                </div>
+            </div>
+
         <!-- TAB: INSERT -->
         @elseif ($activeTab === 'insert')
             <div class="word-group">
