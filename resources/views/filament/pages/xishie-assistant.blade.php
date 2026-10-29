@@ -170,6 +170,69 @@
                         </div>
                     </div>
 
+                    {{-- Bar Header & Tombol Buka Katalog Templat Prompt Akademik --}}
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.65rem; padding:.3rem .55rem; background:#f1f5f9; border-radius:4px; border:1px solid #e2e8f0;">
+                        <div style="display:flex; align-items:center; gap:.4rem;">
+                            <span style="font-size:.65rem; font-weight:800; color:#334155; text-transform:uppercase;">📚 KATALOG TEMPLAT PROMPT RISET</span>
+                            <span style="font-size:.58rem; background:#e2e8f0; color:#475569; padding:1px 5px; border-radius:3px;">{{ count($promptTemplates) }} templat</span>
+                        </div>
+                        <button
+                            type="button"
+                            wire:click="togglePromptTemplates"
+                            style="font-size:.6rem; font-weight:700; color:#4338ca; background:none; border:none; cursor:pointer;"
+                        >
+                            {{ $showPromptTemplates ? '▲ Sembunyikan' : '▼ Buka Katalog' }}
+                        </button>
+                    </div>
+
+                    @if ($showPromptTemplates)
+                        <div style="margin-bottom:.85rem; background:#f8fafc; padding:.65rem; border-radius:4px; border:1px solid #cbd5e1;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem; flex-wrap:wrap; gap:.3rem;">
+                                <div style="display:flex; gap:.25rem; flex-wrap:wrap;">
+                                    @foreach (['all' => 'Semua', 'Struktur & Bab' => 'Struktur', 'Sitasi & Literatur' => 'Literatur', 'Audit & Validasi' => 'Audit', 'Gaya & Format' => 'Format'] as $tCatKey => $tCatLabel)
+                                        <button
+                                            type="button"
+                                            wire:click="setTemplateCategoryFilter('{{ $tCatKey }}')"
+                                            style="border:1px solid {{ $templateCategoryFilter === $tCatKey ? '#0284c7' : '#cbd5e1' }};
+                                                   background:{{ $templateCategoryFilter === $tCatKey ? '#0284c7' : '#ffffff' }};
+                                                   color:{{ $templateCategoryFilter === $tCatKey ? '#ffffff' : '#334155' }};
+                                                   font-size:.58rem; font-weight:700; padding:1px 6px; border-radius:3px; cursor:pointer;"
+                                        >{{ $tCatLabel }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:.5rem;">
+                                @foreach ($promptTemplates as $tKey => $tpl)
+                                    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:4px; padding:.5rem; display:flex; flex-direction:column; justify-content:space-between;">
+                                        <div>
+                                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.2rem;">
+                                                <span style="font-size:.65rem; font-weight:700; color:#1e293b;">{{ $tpl['title'] }}</span>
+                                                <span style="font-size:.52rem; background:#e0f2fe; color:#0369a1; padding:1px 4px; border-radius:3px; font-weight:600;">{{ $tpl['category'] }}</span>
+                                            </div>
+                                            <p style="font-size:.58rem; color:#64748b; margin-bottom:.4rem; line-height:1.3;">{{ $tpl['description'] }}</p>
+                                        </div>
+                                        <div style="display:flex; gap:.3rem; justify-content:flex-end;">
+                                            <button
+                                                type="button"
+                                                class="rb-button"
+                                                style="font-size:.58rem; padding:1px 6px;"
+                                                wire:click="applyPromptTemplate('{{ $tKey }}', false)"
+                                                title="Salin templat ke kolom pesan input"
+                                            >📝 Ke Prompt</button>
+                                            <button
+                                                type="button"
+                                                class="rb-button"
+                                                style="font-size:.58rem; padding:1px 6px; background:#4338ca; color:#ffffff; font-weight:700;"
+                                                wire:click="applyPromptTemplate('{{ $tKey }}', true)"
+                                                title="Eksekusi langsung dengan model aktif"
+                                            >⚡ Eksekusi</button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
                     {{-- Transkrip Percakapan --}}
                     <div
                         class="rb-terminal"

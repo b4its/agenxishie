@@ -72,6 +72,10 @@ class XishieAssistantPage extends Page
      */
     public array $lastClearedLog = [];
 
+    public bool $showPromptTemplates = false;
+
+    public string $templateCategoryFilter = 'all';
+
     public function mount(): void
     {
         $param = request()->query('project');
@@ -884,6 +888,108 @@ class XishieAssistantPage extends Page
         };
     }
 
+    public function togglePromptTemplates(): void
+    {
+        $this->showPromptTemplates = ! $this->showPromptTemplates;
+    }
+
+    public function setTemplateCategoryFilter(string $category): void
+    {
+        $this->templateCategoryFilter = $category;
+    }
+
+    /**
+     * @return array<string, array{id: string, title: string, category: string, description: string, prompt: string}>
+     */
+    public function getAcademicPromptTemplates(): array
+    {
+        return [
+            'gap_matrix' => [
+                'id' => 'gap_matrix',
+                'title' => 'Matriks Sintesis Research Gap',
+                'category' => 'Audit & Validasi',
+                'description' => 'Petakan kesenjangan empiris, metodologis, dan teoritis dari literatur acuan dalam format tabel komparatif.',
+                'prompt' => 'Susun Matriks Sintesis Research Gap dari literatur acuan dalam format tabel markdown dengan kolom: [Fokus Peneliti Terdahulu | Temuan Kunci | Keterbatasan Metodologis / Teori | Research Gap Spesifik | Kontribusi Kebaruan Naskah Ini]. Pastikan menyoroti kebaruan spesifik naskah ini.',
+            ],
+            'critical_lit_synthesis' => [
+                'id' => 'critical_lit_synthesis',
+                'title' => 'Sintesis Kritis Tinjauan Pustaka (Thematic)',
+                'category' => 'Sitasi & Literatur',
+                'description' => 'Sintesis silang tema dari beberapa sumber acuan dengan menghubungkan divergensi, konsensus, dan posisi naskah.',
+                'prompt' => 'Lakukan sintesis tematik kritis terhadap topik riset ini. Jangan membuat ringkasan per-penulis satu per satu, melainkan kelompokkan berdasarkan konvergensi/divergensi argumen antar-peneliti, evaluasi kekuatan metodologi mereka, lalu posisikan secara tegas kontribusi naskah kita di antara perdebatan literatur tersebut.',
+            ],
+            'method_justification' => [
+                'id' => 'method_justification',
+                'title' => 'Justifikasi Rigor Metodologi Penelitian',
+                'category' => 'Struktur & Bab',
+                'description' => 'Formulasi argumentasi ilmiah pemilihan paradigma riset, instrumen, validitas/reliabilitas, dan etika.',
+                'prompt' => 'Rumuskan justifikasi metodologis yang kokoh untuk naskah ini: 1) Alasan epistemologis dan ontologis pemilihan desain riset, 2) Kriteria validitas instrumen dan reliabilitas data, 3) Mitigasi bias dan ancaman terhadap validitas internal maupun eksternal, 4) Pertimbangan etika penelitian dan perlindungan data.',
+            ],
+            'peer_review_rebuttal' => [
+                'id' => 'peer_review_rebuttal',
+                'title' => 'Matriks Tanggapan Reviewer Jurnal (Rebuttal Letter)',
+                'category' => 'Gaya & Format',
+                'description' => 'Format tabel tanggapan point-by-point berstandar jurnal bereputasi (Scopus / Sinta).',
+                'prompt' => 'Buat draf Response to Reviewers Letter berstandar jurnal terindeks Scopus/Sinta dalam format tabel 3 kolom: [Komentar/Kritik Reviewer | Tanggapan Penulis yang Santun, Argumentatif & Berbasis Bukti | Tindakan Revisi Spesifik & Lokasi Perubahan pada Naskah].',
+            ],
+            'structured_abstract' => [
+                'id' => 'structured_abstract',
+                'title' => 'Abstrak Terstruktur IMRaD Berdaya Tarik Tinggi',
+                'category' => 'Struktur & Bab',
+                'description' => 'Abstrak padat 200-250 kata dengan 5 elemen: Background, Gap, Method, Key Results, Implications.',
+                'prompt' => 'Susun draf abstrak terstruktur (maksimum 250 kata) mencakup 5 komponen: 1) Latar belakang urgensi (1-2 kalimat), 2) Masalah riset & spesifikasi gap (1 kalimat), 3) Pendekatan metodologi & korpus/sampel (2 kalimat), 4) Temuan utama terkuantifikasi (2-3 kalimat), 5) Implikasi teoretis & praktis (1-2 kalimat). Lengkapi dengan 5 kata kunci (keywords) ilmiah.',
+            ],
+            'implications_limitations' => [
+                'id' => 'implications_limitations',
+                'title' => 'Implikasi Teoritis, Praktis & Keterbatasan Studi',
+                'category' => 'Struktur & Bab',
+                'description' => 'Pemisahan tegas implikasi multi-sektor dan keterbatasan studi beserta agenda riset masa depan.',
+                'prompt' => 'Uraikan pembahasan implikasi naskah menjadi: 1) Implikasi Teoretis (kontribusi terhadap pengembangan konsep/teori yang ada), 2) Implikasi Praktis & Kebijakan (rekomendasi manajerial/kebijakan konkret), 3) Keterbatasan Penelitian dan Agenda Riset Masa Depan (future research directions).',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, array{id: string, title: string, category: string, description: string, prompt: string}>
+     */
+    public function getFilteredPromptTemplates(): array
+    {
+        $templates = $this->getAcademicPromptTemplates();
+        if ($this->templateCategoryFilter === 'all') {
+            return $templates;
+        }
+
+        return array_filter($templates, fn (array $item): bool => $item['category'] === $this->templateCategoryFilter);
+    }
+
+    public function applyPromptTemplate(string $templateKey, bool $executeDirectly = false): void
+    {
+        $templates = $this->getAcademicPromptTemplates();
+        if (! isset($templates[$templateKey])) {
+            Notification::make()->title('Templat tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $template = $templates[$templateKey];
+        $this->message = $template['prompt'];
+
+        if ($executeDirectly) {
+            $this->send();
+            Notification::make()
+                ->title('Templat Dieksekusi')
+                ->body("Templat '{$template['title']}' langsung dieksekusi dengan model {$this->getCurrentAssistantModel()}.")
+                ->success()
+                ->send();
+        } else {
+            Notification::make()
+                ->title('Templat Dimuat')
+                ->body("Prompt '{$template['title']}' dimasukkan ke kolom input.")
+                ->info()
+                ->send();
+        }
+    }
+
     /**
      * Unduh transkrip sesi percakapan sebagai file Markdown, JSON, atau TXT.
      */
@@ -1275,6 +1381,9 @@ class XishieAssistantPage extends Page
             'availableModels' => $this->getAvailableModels(),
             'currentModel' => $this->getCurrentAssistantModel(),
             'stagePrompts' => $this->getStageRecommendedPrompts(),
+            'promptTemplates' => $this->getFilteredPromptTemplates(),
+            'showPromptTemplates' => $this->showPromptTemplates,
+            'templateCategoryFilter' => $this->templateCategoryFilter,
             'documents' => $this->projectId ? NaskahDocument::query()->where('project_id', $this->projectId)->latest('last_saved_at')->get(['id', 'title', 'word_count']) : collect(),
             'activeDocument' => $this->activeDocumentId ? NaskahDocument::query()->find($this->activeDocumentId) : null,
             'kpi' => UxKpiMetric::ASSISTANT_QUERY_EFFECTIVENESS->label(),
