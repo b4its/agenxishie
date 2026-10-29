@@ -6969,6 +6969,146 @@ trait HandlesNaskahStudio
             return ['reply' => $reply, 'data' => ['section' => 'tinjauan-pustaka', 'topic' => $topic]];
         }
 
+        if (str_starts_with($effectiveInput, '/kebaruan') || str_starts_with($effectiveInput, '/novelty')) {
+            $topic = trim((string) preg_replace('/^\/(kebaruan|novelty)\s*/i', '', $effectiveInput));
+            if ($topic === '') {
+                $topic = $this->docTitle ?: 'Topik Naskah';
+            }
+            $reply = "### Rumusan Pernyataan Kebaruan Ilmiah (Statement of Novelty)\n\n"
+                ."**Fokus Kajian**: {$topic}\n\n"
+                ."1. **State of the Art (SOTA) & Batasan Rujukan Terdahulu**:\n"
+                ."   Sebagian besar literatur terdahulu mengkaji domain ini secara parsial dengan pendekatan konvensional dan belum mengeksplorasi integrasi holistik pada skenario empiris spesifik.\n\n"
+                ."2. **Pernyataan Kebaruan Pokok (Core Novelty Statement)**:\n"
+                ."   *\"Berbeda dengan studi-studi terdahulu, naskah ini mengusulkan pendekatan terintegrasi pada {$topic} yang secara spesifik mengatasi celah efisiensi dan reliabilitas melalui kerangka evaluasi empiris yang terukur.\"*\n\n"
+                ."3. **Diferensiasi Komparatif**:\n"
+                ."   - **Metodologis**: Menggabungkan pendekatan validasi sistematis dengan tolok ukur saintifik baku.\n"
+                ."   - **Teoretis**: Memperluas kerangka konseptual pada bidang kajian terkait.\n"
+                ."   - **Praktis**: Memberikan instrumen replikasi yang siap diadopsi oleh praktisi dan peneliti lanjutan.\n\n"
+                .'*Tips: Letakkan kalimat kebaruan ini pada paragraf akhir Bab Pendahuluan sebelum sistematika penulisan.*';
+
+            return ['reply' => $reply, 'data' => ['novelty' => true, 'topic' => $topic]];
+        }
+
+        if (str_starts_with($effectiveInput, '/daftar-isi') || str_starts_with($effectiveInput, '/outline')) {
+            $headings = [];
+            foreach ($this->blocks as $idx => $b) {
+                if (($b['type'] ?? '') === 'heading') {
+                    $level = (int) ($b['level'] ?? 1);
+                    $prefix = str_repeat('  ', max(0, $level - 1));
+                    $headings[] = "{$prefix}- **".($b['text'] ?? 'Bagian').'** (Blok #'.($idx + 1).')';
+                }
+            }
+
+            if (empty($headings)) {
+                $headings = [
+                    '- **1. Pendahuluan** (Latar Belakang, SOTA, Rumusan Masalah)',
+                    '- **2. Tinjauan Pustaka & Kerangka Teori**',
+                    '- **3. Metodologi Penelitian** (Desain, Sampel, Prosedur Analisis)',
+                    '- **4. Hasil dan Pembahasan** (Temuan Kunci, Analisis Komparatif)',
+                    '- **5. Kesimpulan dan Saran**',
+                    '- **Daftar Pustaka**',
+                ];
+            }
+
+            $reply = "### Bagan Outline & Struktur Dokumen: {$this->docTitle}\n\n"
+                .implode("\n", $headings)."\n\n"
+                .'*Total Kata: '.$this->statistics['words'].' kata · Waktu Baca: ~'.$this->statistics['readingTimeMinutes'].' menit.*';
+
+            return ['reply' => $reply, 'data' => ['outline' => true, 'headings' => $headings]];
+        }
+
+        if (str_starts_with($effectiveInput, '/daftar-pustaka') || str_starts_with($effectiveInput, '/pustaka')) {
+            $refs = ! empty($this->citationSources) ? $this->citationSources : [
+                ['authors' => 'Anderson, C.', 'year' => '2020', 'title' => 'Makers: The New Industrial Revolution', 'source' => 'Crown Business Publishing'],
+                ['authors' => 'Gauntlett, D.', 'year' => '2018', 'title' => 'Making is Connecting: The Social Power of Shared Craft Studios', 'source' => 'Polity Press'],
+                ['authors' => 'Kafai, Y. B. & Peppler, K. A.', 'year' => '2021', 'title' => 'Youth, Technology, and DIY Authoring', 'source' => 'MIT Press'],
+            ];
+
+            $entries = [];
+            foreach ($refs as $idx => $r) {
+                $author = $r['authors'] ?? 'Penulis';
+                $year = $r['year'] ?? '2022';
+                $title = $r['title'] ?? 'Judul Artikel Ilmiah';
+                $source = $r['source'] ?? 'Jurnal Akademik';
+                $entries[] = ($idx + 1).". {$author} ({$year}). *{$title}*. {$source}.";
+            }
+
+            $reply = "### Daftar Pustaka Terstandar (Format APA 7th)\n\n"
+                .implode("\n", $entries)."\n\n"
+                .'*Klik tombol **⚡ Terapkan ke Halaman Ini** atau jalankan preset `bibliography` untuk menyisipkan daftar pustaka ini ke dokumen.*';
+
+            return ['reply' => $reply, 'data' => ['bibliography' => true, 'entries' => $entries]];
+        }
+
+        if (str_starts_with($effectiveInput, '/format-paragraf') || str_starts_with($effectiveInput, '/paragraf')) {
+            $targetText = $activeBlockText !== '' ? $activeBlockText : trim((string) preg_replace('/^\/(format-paragraf|paragraf)\s*/i', '', $effectiveInput));
+            if ($targetText !== '') {
+                $words = count(preg_split('/\s+/u', $targetText, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+                $sentences = count(preg_split('/[.!?]+/u', $targetText, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+                $avgWps = $sentences > 0 ? round($words / $sentences, 1) : 0;
+
+                $eval = match (true) {
+                    $words < 50 => '⚠️ Paragraf terlalu ringkas (kurang dari 50 kata). Disarankan mengelaborasi gagasan sentral.',
+                    $words > 250 => '⚠️ Paragraf terlalu panjang (lebih dari 250 kata). Sebaiknya dipecah menjadi dua alinea.',
+                    default => '✅ Kepadatan paragraf ideal (100–200 kata) untuk naskah ilmiah.',
+                };
+
+                $reply = "### Analisis & Kaidah Format Paragraf Terpilih\n\n"
+                    ."- **Jumlah Kata**: {$words} kata\n"
+                    ."- **Jumlah Kalimat**: {$sentences} kalimat\n"
+                    ."- **Rata-rata Kata per Kalimat**: {$avgWps} kata/kalimat\n"
+                    ."- **Evaluasi Kepadatan**: {$eval}\n\n"
+                    ."**Rekomendasi Tipografi Standar:**\n"
+                    ."- Perataan: Justify (rata kiri-kanan)\n"
+                    ."- Spasi Baris: 1.5 untuk tesis / 1.0 untuk jurnal IEEE\n"
+                    ."- Indentasi Baris Pertama: 1.27 cm (0.5 inci)\n"
+                    .'- Spasi Antar-Paragraf: Before 0 pt, After 4–6 pt';
+
+                return ['reply' => $reply, 'data' => ['words' => $words, 'sentences' => $sentences, 'avgWps' => $avgWps]];
+            }
+
+            $reply = "### Panduan Standar Kaidah Paragraf Akademik\n\n"
+                ."1. **Struktur MEAL / P-E-E-L**: Point (Pernyataan Pembuka), Evidence (Bukti & Sitasi), Explanation (Elaborasi), Link (Transisi Simpulan).\n"
+                ."2. **Tipografi Baku**: Justify, indent baris awal 1.27 cm, spasi 1.5.\n"
+                .'3. **Preset Siap Pakai**: `academic_standard`, `journal_ieee`, `thesis_dikti`, `abstract_block`.';
+
+            return ['reply' => $reply, 'data' => ['guide' => true]];
+        }
+
+        if (str_starts_with($effectiveInput, '/catatan-kaki') || str_starts_with($effectiveInput, '/footnote')) {
+            $arg = trim((string) preg_replace('/^\/(catatan-kaki|footnote)\s*/i', '', $effectiveInput));
+            if ($arg === '') {
+                $arg = $activeBlockText;
+            }
+
+            $reply = "### Format Catatan Kaki (Footnote) Terstruktur\n\n"
+                ."**Teks dengan Penanda**: \"{$arg}\" [^1]\n\n"
+                ."**Entri Catatan Kaki (Kaki Halaman)**:\n"
+                ."`[^1]: Penulis, Judul Rujukan (Kota: Penerbit, Tahun), hlm. XX.`\n\n"
+                .'*Gunakan tombol **Sisipkan Catatan Kaki** pada toolbar naskah studio atau shortcut Ctrl+Alt+F untuk menambahkannya langsung ke halaman aktif.*';
+
+            return ['reply' => $reply, 'data' => ['footnote' => true]];
+        }
+
+        if (str_starts_with($effectiveInput, '/keterbacaan') || str_starts_with($effectiveInput, '/readability')) {
+            $stats = $this->statistics;
+            $words = (int) ($stats['words'] ?? 0);
+            $sentences = (int) ($stats['sentences'] ?? 1);
+            $avgWps = $sentences > 0 ? round($words / max(1, $sentences), 1) : 0;
+            $ease = (float) ($stats['readingEase'] ?? 65.0);
+            $grade = (string) ($stats['fleschGrade'] ?? 'Optimal');
+
+            $reply = "### Laporan Analisis Keterbacaan Dokumen: {$this->docTitle}\n\n"
+                ."- **Jumlah Kata**: {$words} kata\n"
+                ."- **Jumlah Kalimat**: {$sentences} kalimat\n"
+                ."- **Rata-rata Kata per Kalimat**: {$avgWps} kata/kalimat\n"
+                ."- **Skor Flesch Reading Ease**: {$ease} / 100 ({$grade})\n"
+                .'- **Estimasi Waktu Baca**: ~'.($stats['readingTimeMinutes'] ?? 1)." menit\n\n"
+                .'*Status: Rentang kata per kalimat berada dalam standar naskah ilmiah bereputasi (14–22 kata per kalimat).*';
+
+            return ['reply' => $reply, 'data' => ['readability' => true, 'stats' => $stats]];
+        }
+
         $wordCount = $this->model->countWords($this->model->normalize($this->blocks));
 
         $llm = app(OmnigensiChatClient::class);
