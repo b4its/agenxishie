@@ -19,7 +19,18 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
-        <env name="APP_KEY" value="base64:2fl+Ktvkfl+Fuz4Qp/A75G2RTiWVA/ZoKZvp6fiiM10="/>
+        <!--
+            APP_KEY memakai nilai .env (runtime, bukan override test) karena
+            Livewire v4 menghitung prefix endpoint update dari hash APP_KEY.
+            Bila override test memakai key berbeda, route update Livewire yang
+            terdaftar saat boot (prefix dari .env) tak akan cocok dengan URI
+            hasil perhitungan ulang (prefix dari key test) sehingga setiap
+            call/set Livewire::test() 404 dan state komponen hilang.
+            .env.example menyediakan key default deterministik untuk CI
+            (composer post-root-package-install membuat .env dari .env.example
+            saat .env belum ada), jadi nilai di sini boleh hardcode.
+        -->
+        <env name="APP_KEY" value="base64:tFCJ2+kYxICd0dJrQOrriP46ilZ/gkKQqM7Ece63UlQ=" force="false"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
