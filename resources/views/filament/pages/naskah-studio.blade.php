@@ -1423,6 +1423,7 @@
                         <span class="ns-group__label">Dokumen</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="newDocument" title="Dokumen baru">&#128196; Baru</button>
+                            <button type="button" class="ns-btn" wire:click="duplicateDocument" title="Duplikasi naskah saat ini menjadi naskah baru">&#128203; Duplikasi</button>
                             <button type="button" class="ns-btn ns-btn--primary" @click="saveDocument()" title="Simpan naskah">&#128190; Simpan</button>
                         </div>
                     </div>
@@ -1488,6 +1489,15 @@
                             <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.strike }" @mousedown.prevent="format('strikeThrough')" title="Coret"><span style="text-decoration:line-through;">S</span></button>
                             <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.subscript }" @mousedown.prevent="format('subscript')" title="Subscript">X<sub>2</sub></button>
                             <button type="button" class="ns-btn ns-btn--icon" :class="{ 'ns-btn--active': currentFormat.superscript }" @mousedown.prevent="format('superscript')" title="Superscript">X<sup>2</sup></button>
+                            <div style="position:relative; display:inline-block;" x-data="{ openCase: false }">
+                                <button type="button" class="ns-btn ns-btn--icon" @click="openCase = !openCase" title="Ubah Kapitalisasi Huruf (Aa)">Aa ▾</button>
+                                <div x-show="openCase" @click.outside="openCase = false" class="word-mini-dropdown" style="width: 165px; top: 32px; left: 0;">
+                                    <button type="button" @click="openCase = false" wire:click="transformActiveBlockCase('sentence')" class="word-mini-dropdown-item">Huruf kalimat</button>
+                                    <button type="button" @click="openCase = false" wire:click="transformActiveBlockCase('lower')" class="word-mini-dropdown-item">huruf kecil</button>
+                                    <button type="button" @click="openCase = false" wire:click="transformActiveBlockCase('upper')" class="word-mini-dropdown-item">HURUF BESAR</button>
+                                    <button type="button" @click="openCase = false" wire:click="transformActiveBlockCase('title')" class="word-mini-dropdown-item">Huruf Besar Tiap Kata</button>
+                                </div>
+                            </div>
                             <button type="button" class="ns-btn" @mousedown.prevent="clearCurrentFormat()" title="Hapus Format Huruf &amp; Paragraf (Ctrl+Space)">&#129529; Bersihkan</button>
                         </div>
                     </div>
@@ -1760,6 +1770,14 @@
                             <button type="button" class="ns-btn" wire:click="runSpellCheck">&#10003; Cek Ejaan</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('thesaurus')">&#128214; Tesaurus</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('stats')">&#128202; Skor Keterbacaan</button>
+                            <div style="position:relative; display:inline-block;" x-data="{ openLang: false }">
+                                <button type="button" class="ns-btn" @click="openLang = !openLang" title="Bahasa Pemeriksaan Ejaan">🌐 {{ strtoupper($proofingLanguage ?? 'id') }} ▾</button>
+                                <div x-show="openLang" @click.outside="openLang = false" class="word-mini-dropdown" style="width: 175px; top: 32px; left: 0;">
+                                    <button type="button" @click="openLang = false" wire:click="setProofingLanguage('id')" class="word-mini-dropdown-item {{ ($proofingLanguage ?? 'id') === 'id' ? 'font-bold' : '' }}">🇮🇩 Indonesia (PUEBI)</button>
+                                    <button type="button" @click="openLang = false" wire:click="setProofingLanguage('en-us')" class="word-mini-dropdown-item {{ ($proofingLanguage ?? 'id') === 'en-us' ? 'font-bold' : '' }}">🇺🇸 English (US Academic)</button>
+                                    <button type="button" @click="openLang = false" wire:click="setProofingLanguage('en-gb')" class="word-mini-dropdown-item {{ ($proofingLanguage ?? 'id') === 'en-gb' ? 'font-bold' : '' }}">🇬🇧 English (GB Academic)</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="ns-group">

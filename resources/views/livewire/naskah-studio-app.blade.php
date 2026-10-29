@@ -536,6 +536,13 @@
                         </svg>
                         <span>Sample</span>
                     </button>
+                    <button type="button" class="word-btn-large" wire:click="duplicateDocument" title="Duplicate Current Document">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                        </svg>
+                        <span>Duplicate</span>
+                    </button>
                     <button type="button" class="word-btn-large" @click="saveDocument()" title="Save Document (Ctrl+S)">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
                             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
@@ -670,7 +677,15 @@
                             </select>
                             <button type="button" class="word-btn-square" @mousedown.prevent="applyFontSize(Math.min(36, (currentFormat.fontSize || 16) + 1))" title="Increase Font Size (Ctrl+])">A<sup>▲</sup></button>
                             <button type="button" class="word-btn-square" @mousedown.prevent="applyFontSize(Math.max(8, (currentFormat.fontSize || 16) - 1))" title="Decrease Font Size (Ctrl+[)">A<sup>▼</sup></button>
-                            <button type="button" class="word-btn-square" wire:click="runAutoCorrect" title="Change Case (Aa ▾)">Aa</button>
+                            <div style="position:relative; display:inline-block;" x-data="{ openCase: false }">
+                                <button type="button" class="word-btn-square" @click="openCase = !openCase" title="Change Case (Aa ▾)">Aa</button>
+                                <div x-show="openCase" @click.outside="openCase = false" class="word-mini-dropdown" style="width: 165px; top: 26px; left: 0;">
+                                    <button type="button" @click="openCase = false" wire:click="transformActiveBlockCase('sentence')" class="word-mini-dropdown-item">Sentence case</button>
+                                    <button type="button" @click="openCase = false" wire:click="transformActiveBlockCase('lower')" class="word-mini-dropdown-item">lowercase</button>
+                                    <button type="button" @click="openCase = false" wire:click="transformActiveBlockCase('upper')" class="word-mini-dropdown-item">UPPERCASE</button>
+                                    <button type="button" @click="openCase = false" wire:click="transformActiveBlockCase('title')" class="word-mini-dropdown-item">Capitalize Each Word</button>
+                                </div>
+                            </div>
                             <button type="button" class="word-btn-square" @mousedown.prevent="clearCurrentFormat()" title="Clear All Formatting (Ctrl+Space)">✕</button>
                         </div>
 
@@ -1288,6 +1303,17 @@
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
                         <span>Word Count</span>
                     </button>
+                    <div style="position:relative; display:inline-block;" x-data="{ openLang: false }">
+                        <button type="button" class="word-btn-large" @click="openLang = !openLang" title="Proofing Language (PUEBI / English)">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            <span>{{ strtoupper($proofingLanguage ?? 'id') }}</span>
+                        </button>
+                        <div x-show="openLang" @click.outside="openLang = false" class="word-mini-dropdown" style="width: 175px; top: 48px; left: 0;">
+                            <button type="button" @click="openLang = false" wire:click="setProofingLanguage('id')" class="word-mini-dropdown-item {{ ($proofingLanguage ?? 'id') === 'id' ? 'active' : '' }}">🇮🇩 Indonesia (PUEBI)</button>
+                            <button type="button" @click="openLang = false" wire:click="setProofingLanguage('en-us')" class="word-mini-dropdown-item {{ ($proofingLanguage ?? 'id') === 'en-us' ? 'active' : '' }}">🇺🇸 English (US Academic)</button>
+                            <button type="button" @click="openLang = false" wire:click="setProofingLanguage('en-gb')" class="word-mini-dropdown-item {{ ($proofingLanguage ?? 'id') === 'en-gb' ? 'active' : '' }}">🇬🇧 English (GB Academic)</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Proofing</span></div>
             </div>

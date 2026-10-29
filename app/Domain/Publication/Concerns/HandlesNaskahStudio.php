@@ -632,6 +632,48 @@ trait HandlesNaskahStudio
         $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
+    /**
+     * Gandakan / duplikasi naskah aktif saat ini menjadi NaskahDocument baru yang independen.
+     */
+    public function duplicateDocument(?string $newTitle = null): ?NaskahDocument
+    {
+        $richModel = $this->model ?? app(NaskahRichModel::class);
+        $normalizedBlocks = $richModel->normalize($this->blocks);
+        $wordCount = $richModel->countWords($normalizedBlocks);
+
+        $baseTitle = trim((string) $this->docTitle);
+        $title = $newTitle ?: 'Salinan dari '.($baseTitle !== '' ? $baseTitle : 'Naskah');
+
+        $styleMeta = array_merge($this->styleMeta, [
+            'snapshots' => $this->snapshots,
+            'metadata' => $this->metadata,
+            'target_word_count' => $this->targetWordCount,
+            'proofing_language' => $this->proofingLanguage ?? 'id',
+            'custom_dictionary' => $this->customDictionary ?? [],
+        ]);
+
+        $document = NaskahDocument::create([
+            'user_id' => Auth::id(),
+            'project_id' => $this->sourceProjectId,
+            'title' => $title,
+            'source_type' => $this->sourceProjectId ? NaskahDocument::SOURCE_PROJECT : NaskahDocument::SOURCE_LOCAL,
+            'source_stage' => $this->sourceStage,
+            'source_filename' => null,
+            'blocks' => $normalizedBlocks,
+            'comments' => $this->comments,
+            'revisions' => $this->revisions,
+            'page_setup' => $this->pageSetup,
+            'style_meta' => $styleMeta,
+            'word_count' => $wordCount,
+            'last_saved_at' => now(),
+        ]);
+
+        $this->loadDocument($document);
+        $this->notify('Dokumen Diduplikasi', "Salinan naskah berhasil dibuat: '{$title}'.", 'success');
+
+        return $document;
+    }
+
     // =====================================================================
     // Blok
     // =====================================================================
@@ -1837,6 +1879,48 @@ trait HandlesNaskahStudio
         }
 
         return $count;
+    }
+
+    /**
+     * Ubah format kapitalisasi teks pada blok aktif saat ini (sentence, title, upper, lower).
+     */
+    public function transformActiveBlockCase(string $casing): bool
+    {
+        $index = $this->activeBlock;
+        if (! isset($this->blocks[$index])) {
+            return false;
+        }
+
+        $currentText = (string) ($this->blocks[$index]['text'] ?? '');
+        if ($currentText === '') {
+            return false;
+        }
+
+        $this->pushUndo();
+        $this->model ??= app(NaskahRichModel::class);
+        $newText = $this->model->transformCase($currentText, $casing);
+
+        if ($newText === $currentText) {
+            return false;
+        }
+
+        $this->blocks[$index]['text'] = $newText;
+        $this->blocks[$index]['runs'] = $this->model->normalizeRuns($this->blocks[$index]['runs'] ?? [], $newText);
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+
+        $label = match (strtolower($casing)) {
+            'upper', 'uppercase' => 'HURUF BESAR',
+            'lower', 'lowercase' => 'huruf kecil',
+            'title', 'titlecase' => 'Huruf Besar Tiap Kata',
+            'sentence', 'sentencecase' => 'Huruf Kalimat',
+            default => $casing,
+        };
+
+        $this->notify('Kapitalisasi Diubah', "Blok #".($index + 1)." diubah menjadi {$label}.", 'success');
+
+        return true;
     }
 
     /**
