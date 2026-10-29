@@ -1388,6 +1388,10 @@
                 @if ($copiedFormat)
                     <span style="background:#fef3c7; color:#b45309; font-size:.6rem; padding:.15rem .45rem; border-radius:3px; font-weight:700;">&#128396; Sapu Format Aktif</span>
                 @endif
+
+                <span class="badge" style="background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe; font-size:.62rem; padding:.15rem .45rem; border-radius:3px; font-weight:700; display:inline-flex; align-items:center; gap:3px;" title="Model AI Aktif yang digunakan untuk eksekusi ke naskah">
+                    <span>🤖</span> {{ $this->getCurrentAssistantModel() }}
+                </span>
             </div>
 
             <div class="ns-topbar__actions">
@@ -2746,10 +2750,16 @@
 
         {{-- ================= BILAH STATUS (STATUS BAR) ================= --}}
         <footer class="ns-statusbar">
-            <span>Halaman 1 dari 1</span>
+            <span>Halaman <span x-text="currentPage || 1">1</span> dari {{ $pageCount }}</span>
             <span>{{ $blockCount }} blok</span>
             <span x-text="(liveWordCount || {{ $wordCount }}) + ' kata'">{{ number_format($wordCount) }} kata</span>
             <span x-text="(liveCharCount || {{ $charCount }}) + ' karakter'">{{ number_format($charCount) }} karakter</span>
+            <span style="display:inline-flex; align-items:center; gap:3px;">
+                <span>🤖</span> {{ $this->getCurrentAssistantModel() }}
+            </span>
+            <span style="display:inline-flex; align-items:center; gap:3px;">
+                <span>📄</span> {{ $pageSetup['size'] ?? 'A4' }} ({{ ($pageSetup['marginTop'] ?? 25) == 40 ? 'DIKTI 4-4-3-3' : 'Normal' }})
+            </span>
             <span>{{ $proofingLanguage ?? 'Indonesia (PUEBI)' }}</span>
             <span style="display:inline-flex; align-items:center; gap:3px;">
                 <span x-show="savingState === 'saving'" style="color:#b45309;">● Menyimpan…</span>

@@ -417,6 +417,11 @@
                 <span>Eksekusi Model</span>
             </button>
 
+            <!-- Active Model Badge -->
+            <span class="badge" style="background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe; font-size:.65rem; padding:.2rem .5rem; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:4px;" title="Model AI Aktif yang digunakan untuk eksekusi ke naskah">
+                <span>🤖</span> {{ $this->getCurrentAssistantModel() }}
+            </span>
+
             <!-- Xishie Assistant Topbar Trigger Button -->
             <button type="button" wire:click="openAssistant" class="word-assistant-pill-btn {{ $assistantOpen ? 'active' : '' }}" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">
                 <span class="word-assistant-pill-icon">✨</span>
@@ -2641,11 +2646,18 @@
     <footer class="word-statusbar">
         <!-- Left: Page X of Y, Words, Proofing Language -->
         <div class="word-statusbar__left">
-            <div class="word-status-item" wire:click="openDialog('stats')" title="Jump to page">
-                <span x-text="'Page ' + activePage + ' of {{ $pageCount ?? 1 }}'">Page 1 of {{ $pageCount ?? 1 }}</span>
+            <div class="word-status-item" wire:click="openDialog('stats')" title="Lompat ke halaman">
+                <span>Halaman <span x-text="activePage || 1">1</span> dari {{ $pageCount ?? 1 }}</span>
+                <span class="sr-only">Page 1 of {{ $pageCount ?? 1 }}</span>
             </div>
             <div class="word-status-item" wire:click="openDialog('stats')" title="Word Count">
-                <span x-text="(liveWordCount || {{ $wordCount }}) + ' words'">{{ number_format($wordCount) }} words</span>
+                <span x-text="(liveWordCount || {{ $wordCount }}) + ' kata'">{{ number_format($wordCount) }} kata</span>
+            </div>
+            <div class="word-status-item" style="display:inline-flex; align-items:center; gap:4px;" title="Model AI Aktif">
+                <span>🤖</span> {{ $this->getCurrentAssistantModel() }}
+            </div>
+            <div class="word-status-item" style="display:inline-flex; align-items:center; gap:4px;" title="Format Margin Halaman">
+                <span>📄</span> {{ $pageSetup['size'] ?? 'A4' }} ({{ ($pageSetup['marginTop'] ?? 25) == 40 ? 'DIKTI 4-4-3-3' : 'Normal' }})
             </div>
             <div class="word-status-item" wire:click="openDialog('spelling')" title="Proofing Language">
                 {{ $proofingLanguage ?? 'Indonesia (PUEBI)' }}
