@@ -35,6 +35,8 @@ class XishieAssistantPage extends Page
 
     public ?int $projectId = null;
 
+    public ?int $activeDocumentId = null;
+
     public string $message = '';
 
     public ?string $currentAssistantModel = null;
@@ -77,6 +79,11 @@ class XishieAssistantPage extends Page
         $this->projectId = $param !== null
             ? (int) $param
             : XishieProject::query()->latest()->value('id');
+
+        $docParam = request()->query('document');
+        if ($docParam !== null) {
+            $this->activeDocumentId = (int) $docParam;
+        }
 
         $this->getCurrentAssistantModel();
     }
@@ -405,6 +412,63 @@ class XishieAssistantPage extends Page
         $this->dispatch('$refresh');
     }
 
+    public function selectContextDocument(?int $docId): void
+    {
+        if ($docId === null || $docId <= 0) {
+            $this->activeDocumentId = null;
+            Notification::make()
+                ->title('Konteks Naskah Dilepas')
+                ->body('Xishie Assistant kini merujuk pada seluruh konteks proyek secara umum.')
+                ->info()
+                ->send();
+
+            return;
+        }
+
+        $doc = NaskahDocument::query()->find($docId);
+        if ($doc === null) {
+            Notification::make()->title('Dokumen tidak ditemukan')->warning()->send();
+
+            return;
+        }
+
+        $this->activeDocumentId = $doc->id;
+        Notification::make()
+            ->title('Konteks Naskah Terhubung')
+            ->body("Xishie Assistant kini terfokus pada: '{$doc->title}' ({$doc->word_count} kata).")
+            ->success()
+            ->send();
+    }
+
+    /**
+     * @return array<int, array{id: int, citation_key: string, title: string, authors: string, year: ?int}>
+     */
+    public function searchProjectReferences(string $query): array
+    {
+        $q = trim($query);
+        $project = $this->getProject();
+        if ($project === null || $q === '') {
+            return [];
+        }
+
+        return $project->references()
+            ->where(function ($sub) use ($q): void {
+                $sub->where('title', 'like', "%{$q}%")
+                    ->orWhere('citation_key', 'like', "%{$q}%")
+                    ->orWhere('journal_name', 'like', "%{$q}%");
+            })
+            ->limit(10)
+            ->get()
+            ->map(fn ($r): array => [
+                'id' => $r->id,
+                'citation_key' => (string) $r->citation_key,
+                'title' => (string) $r->title,
+                'authors' => is_array($r->authors) ? implode(', ', array_map(fn ($a) => is_array($a) ? ($a['name'] ?? '') : (string) $a, $r->authors)) : (string) $r->authors,
+                'year' => $r->year ? (int) $r->year : null,
+            ])
+            ->all();
+    }
+
     /**
      * Sisipkan sebuah slash command ke kolom pesan.
      */
@@ -532,7 +596,11 @@ class XishieAssistantPage extends Page
         $project = $this->getProject();
         $doc = null;
 
-        if ($project !== null) {
+        if ($this->activeDocumentId !== null) {
+            $doc = NaskahDocument::query()->find($this->activeDocumentId);
+        }
+
+        if ($doc === null && $project !== null) {
             $doc = NaskahDocument::query()
                 ->where('source_type', NaskahDocument::SOURCE_PROJECT)
                 ->where('project_id', $project->id)
@@ -1207,6 +1275,8 @@ class XishieAssistantPage extends Page
             'availableModels' => $this->getAvailableModels(),
             'currentModel' => $this->getCurrentAssistantModel(),
             'stagePrompts' => $this->getStageRecommendedPrompts(),
+            'documents' => $this->projectId ? NaskahDocument::query()->where('project_id', $this->projectId)->latest('last_saved_at')->get(['id', 'title', 'word_count']) : collect(),
+            'activeDocument' => $this->activeDocumentId ? NaskahDocument::query()->find($this->activeDocumentId) : null,
             'kpi' => UxKpiMetric::ASSISTANT_QUERY_EFFECTIVENESS->label(),
         ];
     }

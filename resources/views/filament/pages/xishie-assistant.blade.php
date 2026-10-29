@@ -71,6 +71,17 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div style="flex:1 1 14rem; min-width:12rem;">
+                            <div class="rb-kpi-card__label" style="margin-bottom:.3rem;">📄 KONTEKS NASKAH</div>
+                            <select class="rb-select" wire:change="selectContextDocument($event.target.value)" style="width:100%;">
+                                <option value="">(Semua / Keseluruhan Proyek)</option>
+                                @foreach ($documents as $d)
+                                    <option value="{{ $d->id }}" @selected($d->id === $activeDocumentId)>
+                                        {{ \Illuminate\Support\Str::limit($d->title, 35) }} ({{ number_format($d->word_count) }} kata)
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                         <div style="display:flex; gap:.35rem; align-items:flex-end; flex-wrap:wrap;">
                             <button type="button" class="rb-button" wire:click="regenerateLastResponse" title="Regenerate respon asisten terakhir dengan model saat ini">&#128260; Regenerate</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('markdown')" title="Unduh transkrip sesi sebagai Markdown">&#11015; MD</button>
