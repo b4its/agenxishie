@@ -165,6 +165,8 @@ test("Assistant Context Document Selector Present", "KONTEKS NASKAH" in assistan
 test("Assistant Academic Prompt Templates Bar Present", "KATALOG TEMPLAT PROMPT RISET" in assistant_html or "togglePromptTemplates" in assistant_html)
 test("Assistant Academic Prompt Templates Actions Supported", "applyPromptTemplate" in assistant_html or "togglePromptTemplates" in assistant_html)
 test("Assistant Reference Search Drawer Present", "PUSTAKA REFERENSI PROYEK" in assistant_html or "toggleReferenceDrawer" in assistant_html)
+test("Assistant Session Summary Action Present", "generateSessionSummary" in assistant_html or "Rangkum Sesi" in assistant_html)
+test("Assistant Prompt History Support Present", "selectPromptFromHistory" in assistant_html or "Riwayat Prompt" in assistant_html or "promptHistory" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
 test("Studio Execute Button (⚡ Eksekusi ke Studio)", "Eksekusi ke Studio" in assistant_html)
@@ -191,6 +193,8 @@ test("Ribbon Navigation Multi-tab: Judul, Versi & Pustaka",
 test("Navigator Tab Switching: setNavSidebarTab", "setNavSidebarTab" in studio_html)
 test("Filament Studio: Draw & Help Ribbon Tabs in Navigation",
      "Gambar" in studio_html and "Bantuan" in studio_html)
+test("Filament Studio: Outline Heading Section Reordering & Hierarchy Controls",
+     "moveSection" in studio_html and "promoteHeading" in studio_html)
 
 # Test Studio with Copilot Drawer Opened via ?assistant=1
 status, studio_drawer_html, _ = http_get("/admin/naskah-studio?assistant=1", headers=auth_headers)
@@ -202,6 +206,8 @@ test("Docked Copilot Drawer: Search Input (drawerCommandSearch)", "drawerCommand
 status, studio_standalone_html, _ = http_get("/studio")
 test("Visit Standalone /studio (Public Access)", status == 200, f"status={status}")
 test("Standalone Studio: Multi-tab Navigator (Pustaka & Versi)", "Pustaka" in studio_standalone_html and "Versi" in studio_standalone_html)
+test("Standalone Studio: Outline Heading Section Reordering & Hierarchy Controls",
+     "moveSection" in studio_standalone_html and "promoteHeading" in studio_standalone_html)
 
 status, studio_file_html, _ = http_get("/studio?tab=file")
 test("Standalone Studio: File Ribbon HTML & JSON Export Formats (?tab=file)", "HTML Web" in studio_file_html and "JSON Data" in studio_file_html)

@@ -743,3 +743,44 @@ it('supports reference search drawer and citation key insertion in assistant', f
     $page->call('insertCitationKey', 'vaswani2017');
     expect($page->get('message'))->toContain('[@vaswani2017]');
 });
+
+it('supports prompt history tracking, reuse, and session summary compilation in assistant', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $project = makeProject(['title' => 'Riset Bioetika Kedokteran']);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // Send first query
+    $page->set('message', 'Bagaimana menyusun kerangka konseptual?')
+        ->call('send');
+
+    // Send second query
+    $page->set('message', 'Buatkan daftar pertanyaan wawancara etis')
+        ->call('send');
+
+    $history = $page->get('promptHistory');
+    expect(count($history))->toBe(2)
+        ->and($history[0])->toBe('Buatkan daftar pertanyaan wawancara etis')
+        ->and($history[1])->toBe('Bagaimana menyusun kerangka konseptual?');
+
+    // Select prompt from history
+    $page->call('selectPromptFromHistory', 'Bagaimana menyusun kerangka konseptual?');
+    expect($page->get('message'))->toBe('Bagaimana menyusun kerangka konseptual?');
+
+    // Generate session summary
+    $page->call('generateSessionSummary');
+    $log = $page->get('log');
+    $lastMsg = end($log);
+
+    expect($lastMsg['role'])->toBe('assistant')
+        ->and($lastMsg['model'])->toBe('session_synthesis')
+        ->and($lastMsg['content'])->toContain('Rangkuman Eksekutif Sesi Xishie Assistant')
+        ->and($lastMsg['content'])->toContain('Riset Bioetika Kedokteran')
+        ->and($lastMsg['content'])->toContain('Rekomendasi Langkah Tindak Lanjut Akademik');
+
+    // Clear prompt history
+    $page->call('clearPromptHistory');
+    expect($page->get('promptHistory'))->toBe([]);
+});

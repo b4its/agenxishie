@@ -1121,3 +1121,59 @@ it('supports dynamic bibliography update and style reformatting in naskah studio
         ->and($firstEntry['spacingBefore'])->toBe(4.0)
         ->and($firstEntry['spacingAfter'])->toBe(6.0);
 });
+
+it('supports heading promotion, demotion, and section reordering in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Prepare clear structured blocks with 2 chapters and subsections
+    $testBlocks = [
+        ['id' => 'b0', 'type' => 'heading', 'level' => 1, 'text' => 'Bab I: Pendahuluan'],
+        ['id' => 'b1', 'type' => 'paragraph', 'text' => 'Latar belakang penelitian ini adalah...'],
+        ['id' => 'b2', 'type' => 'heading', 'level' => 2, 'text' => '1.1 Rumusan Masalah'],
+        ['id' => 'b3', 'type' => 'paragraph', 'text' => 'Rumusan masalah dirinci sebagai berikut...'],
+        ['id' => 'b4', 'type' => 'heading', 'level' => 1, 'text' => 'Bab II: Kajian Pustaka'],
+        ['id' => 'b5', 'type' => 'paragraph', 'text' => 'Teori yang mendasari mencakup...'],
+    ];
+
+    $page->set('blocks', $testBlocks);
+
+    // Test promoteHeading: H2 at index 2 promoted to H1
+    $page->call('promoteHeading', 2);
+    $blocks = $page->get('blocks');
+    expect($blocks[2]['level'])->toBe(1);
+
+    // Promote again at level 1 should stay at level 1 (boundary check)
+    $page->call('promoteHeading', 2);
+    $blocks = $page->get('blocks');
+    expect($blocks[2]['level'])->toBe(1);
+
+    // Test demoteHeading: H1 at index 2 demoted back to H2
+    $page->call('demoteHeading', 2);
+    $blocks = $page->get('blocks');
+    expect($blocks[2]['level'])->toBe(2);
+
+    // Test moveSection DOWN:
+    // Move Bab I (index 0, spanning blocks 0..3) DOWN past Bab II (index 4, spanning blocks 4..5)
+    $page->call('moveSection', 0, 'down');
+    $reorderedBlocks = $page->get('blocks');
+
+    // After moving down: Bab II (and its paragraph) should be at index 0 and 1
+    // Bab I (and its subsections) should be at index 2..5
+    expect($reorderedBlocks[0]['text'])->toBe('Bab II: Kajian Pustaka')
+        ->and($reorderedBlocks[1]['text'])->toBe('Teori yang mendasari mencakup...')
+        ->and($reorderedBlocks[2]['text'])->toBe('Bab I: Pendahuluan')
+        ->and($reorderedBlocks[3]['text'])->toBe('Latar belakang penelitian ini adalah...')
+        ->and($reorderedBlocks[4]['text'])->toBe('1.1 Rumusan Masalah')
+        ->and($reorderedBlocks[5]['text'])->toBe('Rumusan masalah dirinci sebagai berikut...');
+
+    // Test moveSection UP:
+    // Move Bab I (now at index 2) UP back to the top
+    $page->call('moveSection', 2, 'up');
+    $restoredBlocks = $page->get('blocks');
+    expect($restoredBlocks[0]['text'])->toBe('Bab I: Pendahuluan')
+        ->and($restoredBlocks[2]['text'])->toBe('1.1 Rumusan Masalah')
+        ->and($restoredBlocks[4]['text'])->toBe('Bab II: Kajian Pustaka');
+});
