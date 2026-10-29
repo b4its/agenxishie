@@ -155,6 +155,8 @@ test("Assistant Focus Scope Selector Present", "FOKUS:" in assistant_html)
 test("Assistant Focus Scope Options (project, manuscript, literature)",
      "setScope('project')" in assistant_html and "setScope('manuscript')" in assistant_html and "setScope('literature')" in assistant_html)
 test("Assistant Session Telemetry Bar Present (SESI:)", "SESI:" in assistant_html)
+test("Assistant Stage-Aware Contextual Prompts Bar Present", "TAHAP " in assistant_html)
+test("Assistant Snapshot Archiving Button Present", "Snapshot" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
 test("Studio Execute Button (⚡ Eksekusi ke Studio)", "Eksekusi ke Studio" in assistant_html)
@@ -179,6 +181,8 @@ test("Ribbon Button: Eksekusi Model AI", "Eksekusi Model" in studio_html)
 test("Ribbon Navigation Multi-tab: Judul, Versi & Pustaka",
      "Judul" in studio_html and "Versi" in studio_html and "Pustaka" in studio_html)
 test("Navigator Tab Switching: setNavSidebarTab", "setNavSidebarTab" in studio_html)
+test("Filament Studio: Draw & Help Ribbon Tabs in Navigation",
+     "Gambar" in studio_html and "Bantuan" in studio_html)
 
 # Test Studio with Copilot Drawer Opened via ?assistant=1
 status, studio_drawer_html, _ = http_get("/admin/naskah-studio?assistant=1", headers=auth_headers)
@@ -190,6 +194,10 @@ test("Docked Copilot Drawer: Search Input (drawerCommandSearch)", "drawerCommand
 status, studio_standalone_html, _ = http_get("/studio")
 test("Visit Standalone /studio (Public Access)", status == 200, f"status={status}")
 test("Standalone Studio: Multi-tab Navigator (Pustaka & Versi)", "Pustaka" in studio_standalone_html and "Versi" in studio_standalone_html)
+
+status, studio_file_html, _ = http_get("/studio?tab=file")
+test("Standalone Studio: File Ribbon HTML & JSON Export Formats (?tab=file)", "HTML Web" in studio_file_html and "JSON Data" in studio_file_html)
+
 test("Standalone Studio: Ribbon Layout DIKTI Preset Present", "DIKTI 4-4-3-3" in studio_standalone_html)
 test("Standalone Studio: Ribbon Table APA Format Present", "Format APA" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon Generasi AI Group", "Generasi AI" in studio_standalone_html and "Model AI" in studio_standalone_html)
@@ -210,6 +218,12 @@ test("Standalone Studio: References Ribbon Tab (?tab=references)", "Pustaka Rise
 
 status, studio_review_html, _ = http_get("/studio?tab=review")
 test("Standalone Studio: Review Ribbon Tab (?tab=review)", "Cek Pedoman" in studio_review_html and "Cek Gap" in studio_review_html and "Keterbacaan" in studio_review_html)
+
+status, studio_draw_html, _ = http_get("/studio?tab=draw")
+test("Standalone Studio: Draw Ribbon Tab (?tab=draw)", status == 200 and ("Pena Biru" in studio_draw_html or "Eraser" in studio_draw_html or "Drawing Tools" in studio_draw_html or "Blue Pen" in studio_draw_html))
+
+status, studio_help_html, _ = http_get("/studio?tab=help")
+test("Standalone Studio: Help Ribbon Tab (?tab=help)", status == 200 and ("Shortcuts" in studio_help_html or "Commands" in studio_help_html or "Pintasan" in studio_help_html))
 
 # 5. Omnigensi Platform Integration & Agnes 3.0 Flash Discovery
 print("\n--- 5. Omnigensi Platform Integration & Agnes 3.0 Flash Handshake ---")

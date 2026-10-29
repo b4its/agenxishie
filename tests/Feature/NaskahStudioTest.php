@@ -668,3 +668,76 @@ it('renders filament naskah studio with multi-page sheets, headers and footers',
         ->and($html)->toContain('&mdash; 1 &mdash;')
         ->and($html)->toContain('&mdash; 2 &mdash;');
 });
+
+it('supports setRibbonTab for draw and help tabs and normalizes dialog aliases', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    $page->call('setRibbonTab', 'draw');
+    expect($page->get('activeTab'))->toBe('draw');
+
+    $page->call('setRibbonTab', 'help');
+    expect($page->get('activeTab'))->toBe('help');
+
+    // Test dialog alias normalization
+    $page->call('openDialog', 'cross_reference');
+    expect($page->get('dialog'))->toBe('crossref');
+
+    $page->call('openDialog', 'citations');
+    expect($page->get('dialog'))->toBe('sources');
+
+    $page->call('openDialog', 'wordcount');
+    expect($page->get('dialog'))->toBe('stats');
+
+    $page->call('openDialog', 'pages_setup');
+    expect($page->get('dialog'))->toBe('pagesetup');
+});
+
+it('renders crossref, sources, and share dialogs in filament naskah studio', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Teks naskah utama'],
+            ['type' => 'equation', 'equation' => ['latex' => 'E=mc^2', 'caption' => '1']],
+        ]);
+
+    // Dialog Crossref
+    $page->call('openDialog', 'crossref');
+    expect($page->html())->toContain('Rujukan Silang Akademik')
+        ->and($page->html())->toContain('Persamaan (1)');
+
+    // Dialog Sources
+    $page->call('openDialog', 'sources');
+    expect($page->html())->toContain('Pengelola Sumber Pustaka &amp; Sitasi')
+        ->and($page->html())->toContain('Anderson, C.');
+
+    // Dialog Share
+    $page->call('openDialog', 'share');
+    expect($page->html())->toContain('Bagikan Dokumen')
+        ->and($page->html())->toContain('DOCX');
+});
+
+it('exports document in html and json formats in naskah studio', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('docTitle', 'Naskah Riset Ekspor')
+        ->set('blocks', [
+            ['type' => 'title', 'text' => 'Naskah Riset Ekspor'],
+            ['type' => 'paragraph', 'text' => 'Paragraf percobaan ekspor.'],
+        ]);
+
+    $htmlExport = $page->instance()->export('html');
+    expect($htmlExport)->not->toBeNull();
+    ob_start();
+    $htmlExport->sendContent();
+    $htmlContent = ob_get_clean();
+    expect($htmlContent)->toContain('<!DOCTYPE html>')
+        ->and($htmlContent)->toContain('Naskah Riset Ekspor');
+
+    $jsonExport = $page->instance()->export('json');
+    expect($jsonExport)->not->toBeNull();
+    ob_start();
+    $jsonExport->sendContent();
+    $jsonContent = ob_get_clean();
+    $data = json_decode($jsonContent, true);
+    expect($data)->toBeArray()
+        ->and($data['title'])->toBe('Naskah Riset Ekspor')
+        ->and($data['blocks'])->toHaveCount(2);
+});

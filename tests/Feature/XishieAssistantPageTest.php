@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Domain\Workspace\Enums\ProjectStage;
 use App\Filament\Pages\XishieAssistantPage;
+use App\Models\NaskahDocument;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -364,4 +366,96 @@ it('renders assistant session telemetry bar and direct execution buttons', funct
         ->and($html)->toContain('⚡ Cek Kebaruan')
         ->and($html)->toContain('⚡ Cek Keterbacaan')
         ->and($html)->toContain('⚡ Format Pustaka');
+});
+
+it('provides stage-recommended prompts matching the active project stage', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject(['current_stage' => ProjectStage::DRAFT]);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+    $prompts = $page->instance()->getStageRecommendedPrompts();
+    $commands = array_column($prompts, 'command');
+
+    expect($commands)->toContain('/kebaruan')
+        ->and($commands)->toContain('/cek-gap')
+        ->and($commands)->toContain('/cari-referensi');
+
+    // Switch to Proposal stage
+    $project->current_stage = ProjectStage::PROPOSAL;
+    $project->save();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+    $prompts = $page->instance()->getStageRecommendedPrompts();
+    $commands = array_column($prompts, 'command');
+
+    expect($commands)->toContain('/pendahuluan')
+        ->and($commands)->toContain('/metodologi')
+        ->and($commands)->toContain('/matriks-literatur');
+
+    // Switch to Final stage
+    $project->current_stage = ProjectStage::FINAL;
+    $project->save();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+    $prompts = $page->instance()->getStageRecommendedPrompts();
+    $commands = array_column($prompts, 'command');
+
+    expect($commands)->toContain('/abstrak')
+        ->and($commands)->toContain('/kesimpulan')
+        ->and($commands)->toContain('/daftar-pustaka');
+});
+
+it('supports undo and restore for cleared conversation transcripts', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $initialLog = [
+        ['role' => 'user', 'content' => 'Pertanyaan riset', 'created_at' => '10:00:00'],
+        ['role' => 'assistant', 'content' => 'Jawaban akademik', 'created_at' => '10:00:02'],
+    ];
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', $initialLog)
+        ->call('clearLog')
+        ->assertDispatched('assistant-cleared');
+
+    expect($page->get('log'))->toBeEmpty()
+        ->and($page->get('lastClearedLog'))->toHaveCount(2);
+
+    // Pulihkan transkrip
+    $page->call('restoreClearedLog')
+        ->assertDispatched('assistant-updated');
+
+    expect($page->get('log'))->toHaveCount(2)
+        ->and($page->get('log')[0]['content'])->toBe('Pertanyaan riset')
+        ->and($page->get('lastClearedLog'))->toBeEmpty();
+});
+
+it('archives assistant transcript into document snapshots', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $doc = NaskahDocument::factory()->create([
+        'project_id' => $project->id,
+        'title' => 'Naskah Proyek',
+        'blocks' => [
+            ['type' => 'paragraph', 'text' => 'Teks awal naskah'],
+        ],
+        'style_meta' => ['snapshots' => []],
+    ]);
+
+    $log = [
+        ['role' => 'user', 'content' => 'Analisis metodologi', 'created_at' => '11:00:00'],
+        ['role' => 'assistant', 'content' => 'Rekomendasi metode campuran', 'created_at' => '11:00:05'],
+    ];
+
+    Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', $log)
+        ->call('saveSessionAsSnapshot');
+
+    $doc->refresh();
+    $snapshots = $doc->style_meta['snapshots'] ?? [];
+    expect($snapshots)->toHaveCount(1)
+        ->and($snapshots[0]['label'])->toContain('Sesi Asisten')
+        ->and($snapshots[0]['assistant_log'])->toHaveCount(2);
 });
