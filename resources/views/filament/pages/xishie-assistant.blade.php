@@ -39,29 +39,45 @@
                             <button type="button" class="rb-button" wire:click="regenerateLastResponse" title="Regenerate respon asisten terakhir dengan model saat ini">&#128260; Regenerate</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('markdown')" title="Unduh transkrip sesi sebagai Markdown">&#11015; MD</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('html')" title="Unduh transkrip sesi sebagai Dokumen HTML">&#11015; HTML</button>
+                            <button type="button" class="rb-button" wire:click="exportTranscript('latex')" title="Unduh transkrip sesi sebagai Dokumen LaTeX (.tex)">&#11015; LaTeX</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('json')" title="Unduh transkrip sesi sebagai JSON">&#11015; JSON</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('txt')" title="Unduh transkrip sesi sebagai Plain Text">&#11015; TXT</button>
                             <button type="button" class="rb-button" wire:click="clearLog" title="Bersihkan riwayat percakapan">&#128465; Bersihkan</button>
                         </div>
                     </div>
 
-                    {{-- Bar Persona / Gaya Respon Ilmiah --}}
-                    <div style="display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; margin-bottom:.85rem; padding:.35rem .6rem; background:rgba(67,56,202,0.04); border-radius:4px; border:1px solid rgba(67,56,202,0.12);">
-                        <span class="rb-mono" style="font-size:.6rem; color:#4338ca; font-weight:700; text-transform:uppercase;">PERSONA AKADEMIK:</span>
-                        @foreach ($this->getPersonas() as $pKey => $pLabel)
-                            <button
-                                type="button"
-                                wire:click="setPersona('{{ $pKey }}')"
-                                style="border:1px solid {{ $currentPersona === $pKey ? 'var(--rb-primary, #4338ca)' : '#cbd5e1' }};
-                                       background:{{ $currentPersona === $pKey ? 'var(--rb-primary, #4338ca)' : '#ffffff' }};
-                                       color:{{ $currentPersona === $pKey ? '#ffffff' : '#334155' }};
-                                       font-size:.58rem; font-weight:600; padding:2px 7px; border-radius:3px; cursor:pointer;"
-                                title="Atur gaya respon asisten ke {{ $pLabel }}"
-                            >
-                                @if($pKey === 'academic_senior') 🎓 @elseif($pKey === 'critical_reviewer') 🔍 @elseif($pKey === 'proofreader') ✍️ @elseif($pKey === 'methodologist') 📐 @else 💡 @endif
-                                {{ $pLabel }}
-                            </button>
-                        @endforeach
+                    {{-- Bar Lingkup & Persona Akademik --}}
+                    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:.4rem; align-items:center; margin-bottom:.85rem; padding:.35rem .6rem; background:rgba(67,56,202,0.04); border-radius:4px; border:1px solid rgba(67,56,202,0.12);">
+                        <div style="display:flex; flex-wrap:wrap; gap:.3rem; align-items:center;">
+                            <span class="rb-mono" style="font-size:.6rem; color:#4338ca; font-weight:700; text-transform:uppercase;">PERSONA AKADEMIK:</span>
+                            @foreach ($this->getPersonas() as $pKey => $pLabel)
+                                <button
+                                    type="button"
+                                    wire:click="setPersona('{{ $pKey }}')"
+                                    style="border:1px solid {{ $currentPersona === $pKey ? 'var(--rb-primary, #4338ca)' : '#cbd5e1' }};
+                                           background:{{ $currentPersona === $pKey ? 'var(--rb-primary, #4338ca)' : '#ffffff' }};
+                                           color:{{ $currentPersona === $pKey ? '#ffffff' : '#334155' }};
+                                           font-size:.58rem; font-weight:600; padding:2px 7px; border-radius:3px; cursor:pointer;"
+                                    title="Atur gaya respon asisten ke {{ $pLabel }}"
+                                >
+                                    @if($pKey === 'academic_senior') 🎓 @elseif($pKey === 'critical_reviewer') 🔍 @elseif($pKey === 'proofreader') ✍️ @elseif($pKey === 'methodologist') 📐 @else 💡 @endif
+                                    {{ $pLabel }}
+                                </button>
+                            @endforeach
+                        </div>
+                        <div style="display:flex; gap:.25rem; align-items:center;">
+                            <span class="rb-mono" style="font-size:.58rem; color:#64748b; font-weight:700;">FOKUS:</span>
+                            @foreach (['project' => 'Proyek', 'manuscript' => 'Naskah', 'literature' => 'Literatur'] as $scKey => $scLabel)
+                                <button
+                                    type="button"
+                                    wire:click="setScope('{{ $scKey }}')"
+                                    style="border:1px solid {{ $assistantScope === $scKey ? '#0f766e' : '#cbd5e1' }};
+                                           background:{{ $assistantScope === $scKey ? '#0f766e' : '#ffffff' }};
+                                           color:{{ $assistantScope === $scKey ? '#ffffff' : '#475569' }};
+                                           font-size:.55rem; font-weight:700; padding:1px 6px; border-radius:3px; cursor:pointer;"
+                                >{{ $scLabel }}</button>
+                            @endforeach
+                        </div>
                     </div>
 
                     {{-- Palet Slash Command Berdasarkan Kategori --}}

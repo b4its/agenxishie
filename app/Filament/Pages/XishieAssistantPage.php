@@ -45,6 +45,8 @@ class XishieAssistantPage extends Page
 
     public string $currentPersona = 'academic_senior';
 
+    public string $assistantScope = 'project';
+
     /**
      * Transkrip: [['role' => 'user'|'assistant', 'content' => ...]].
      *
@@ -379,6 +381,17 @@ class XishieAssistantPage extends Page
         $this->message = trim($this->message.' '.$name).' ';
     }
 
+    public function setScope(string $scope): void
+    {
+        $this->assistantScope = in_array($scope, ['project', 'manuscript', 'literature'], true) ? $scope : 'project';
+    }
+
+    public function executeCommandDirectly(string $command): void
+    {
+        $this->message = $command;
+        $this->send();
+    }
+
     /**
      * Kirim pesan ke Xishie Assistant dan tambahkan jawabannya ke transkrip.
      */
@@ -668,6 +681,18 @@ class XishieAssistantPage extends Page
                 .implode("\n", $msgHtml)
                 ."\n</body>\n</html>";
             $mime = 'text/html; charset=UTF-8';
+        } elseif ($format === 'latex' || $format === 'tex') {
+            $filename = 'xishie_assistant_transcript_'.$timestamp.'.tex';
+            $texItems = [];
+            foreach ($this->log as $entry) {
+                $sender = $entry['role'] === 'user' ? '\textbf{Peneliti}' : '\textbf{Xishie Assistant} ('.($entry['model'] ?? 'AI').')';
+                $cleanContent = str_replace(['_', '&', '%', '$', '#'], ['\_', '\&', '\%', '\$', '\#'], (string) $entry['content']);
+                $texItems[] = "\\subsection*{{$sender}}\n\\begin{quote}\n{$cleanContent}\n\\end{quote}\n";
+            }
+            $content = "\\documentclass[11pt,a4paper]{article}\n\\usepackage[utf8]{inputenc}\n\\usepackage{geometry}\n\\geometry{margin=2.5cm}\n\\usepackage{amsmath,amssymb}\n"
+                ."\\title{Transkrip Sesi Xishie Assistant - ".addslashes($title)."}\n\\author{Peneliti / Xishie}\n\\date{".now()->format('d F Y')."}\n"
+                ."\\begin{document}\n\\maketitle\n\n".implode("\n", $texItems)."\n\\end{document}\n";
+            $mime = 'application/x-latex; charset=UTF-8';
         } else {
             $filename = 'xishie_assistant_transcript_'.$timestamp.'.md';
             $lines = [
