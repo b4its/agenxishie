@@ -155,6 +155,7 @@ test("Assistant Focus Scope Selector Present", "FOKUS:" in assistant_html)
 test("Assistant Focus Scope Options (project, manuscript, literature)",
      "setScope('project')" in assistant_html and "setScope('manuscript')" in assistant_html and "setScope('literature')" in assistant_html)
 test("Assistant Session Telemetry Bar Present (SESI:)", "SESI:" in assistant_html)
+test("Assistant Session Generated Words Telemetry (GENERASI:)", "GENERASI:" in assistant_html)
 test("Assistant Transcript Search Field Present", "Cari transkrip..." in assistant_html)
 test("Assistant Starred Filter Button Present", "toggleOnlyStarred" in assistant_html)
 test("Assistant Stage-Aware Contextual Prompts Bar Present", "TAHAP " in assistant_html)

@@ -526,3 +526,21 @@ it('supports only-starred toggle filter and clears starred messages', function (
     $page->call('clearStarred');
     expect($page->get('starredMessages'))->toBeEmpty();
 });
+
+it('tracks total generated words in telemetry session bar in assistant page', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $log = [
+        ['role' => 'user', 'content' => 'Pertanyaan', 'created_at' => '12:00:00'],
+        ['role' => 'assistant', 'content' => 'Satu dua tiga empat lima kata.', 'created_at' => '12:00:04'],
+        ['role' => 'assistant', 'content' => 'Enam tujuh delapan sembilan sepuluh kata lagi.', 'created_at' => '12:01:05'],
+    ];
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', $log);
+
+    expect($page->instance()->getTotalWordsGenerated())->toBe(13)
+        ->and($page->html())->toContain('GENERASI:')
+        ->and($page->html())->toContain('13 kata');
+});

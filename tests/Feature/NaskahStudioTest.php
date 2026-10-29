@@ -816,3 +816,36 @@ it('supports target word count configuration and progress tracking in naskah stu
     $reloadPage = Livewire::test(NaskahStudioPage::class, ['document' => $docId]);
     expect($reloadPage->get('targetWordCount'))->toBe(20);
 });
+
+it('inserts formatted bibliography with hanging indents based on citation style in naskah studio', function (): void {
+    $project = makeProject();
+    $project->references()->create([
+        'citation_key' => 'creswell2018',
+        'title' => 'Research Design Qualitative Quantitative and Mixed Methods',
+        'authors' => ['John W. Creswell', 'J. David Creswell'],
+        'year' => 2018,
+        'journal_name' => 'SAGE Publications',
+    ]);
+
+    $page = Livewire::test(NaskahStudioPage::class, ['project' => $project->id])
+        ->set('citationStyle', 'IEEE')
+        ->call('insertBibliography', $project->id);
+
+    $blocks = $page->get('blocks');
+    expect($blocks)->not->toBeEmpty();
+
+    // Must have heading "Daftar Pustaka"
+    $hasHeading = false;
+    $hasHangingIndent = false;
+    foreach ($blocks as $b) {
+        if (($b['type'] ?? '') === 'heading' && ($b['text'] ?? '') === 'Daftar Pustaka') {
+            $hasHeading = true;
+        }
+        if (! empty($b['hangingIndent'])) {
+            $hasHangingIndent = true;
+        }
+    }
+
+    expect($hasHeading)->toBeTrue()
+        ->and($hasHangingIndent)->toBeTrue();
+});
