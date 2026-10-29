@@ -1543,6 +1543,8 @@
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('polish')" title="Poles ragam bahasa akademik pada halaman saat ini">✨ Poles Cepat</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset (novelty)">💡 Kebaruan</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('abstract')" title="Susun draf abstrak akademik">📝 Abstrak</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('conclusion')" title="Formulasi kesimpulan & saran">🏁 Kesimpulan</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1742,6 +1744,8 @@
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('polish')" title="Poles ragam bahasa akademik pada halaman saat ini">✨ Poles Cepat</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset (novelty)">💡 Kebaruan</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('abstract')" title="Susun draf abstrak akademik">📝 Abstrak</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('conclusion')" title="Formulasi kesimpulan & saran">🏁 Kesimpulan</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -2736,6 +2740,9 @@
                                     <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Buatkan rumus regresi linear LaTeX')">π Buatkan Rumus</button>
                                     <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Buatkan draf abstrak penelitian')">📝 Buatkan Abstrak</button>
                                     <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Buatkan bab kesimpulan dan saran')">🏁 Buatkan Kesimpulan</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Rancang bab metodologi penelitian')">🔬 Metodologi</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Susun bab pendahuluan dan latar belakang')">📑 Pendahuluan</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:2px 6px; background:#f8fafc;" wire:click="$set('executeModelPrompt', 'Susun sintesis bab pembahasan kritis')">💬 Pembahasan</button>
                                 </div>
                             </div>
                             <div style="display:flex; justify-content:flex-end; gap:.5rem;">

@@ -5102,7 +5102,8 @@ trait HandlesNaskahStudio
             // Abaikan kegagalan resolusi bila backend offline
         }
 
-        $this->currentAssistantModel = 'qwen-2.5-72b-instruct';
+        $configured = (string) config('omnigensi.default_model', 'hv/agnes-3.0-flash');
+        $this->currentAssistantModel = $configured !== '' ? $configured : 'hv/agnes-3.0-flash';
 
         return $this->currentAssistantModel;
     }
@@ -5135,9 +5136,9 @@ trait HandlesNaskahStudio
         }
 
         if (empty($models)) {
-            $current = $this->getCurrentAssistantModel();
             $models = [
-                ['id' => 'qwen-2.5-72b-instruct', 'name' => 'Qwen 2.5 72B (Akademik & Cepat)', 'provider' => 'Omnigensi', 'is_default' => true],
+                ['id' => 'hv/agnes-3.0-flash', 'name' => 'HV Agnes 3.0 Flash (Default / Upstream)', 'provider' => 'Omnigensi', 'is_default' => true],
+                ['id' => 'qwen-2.5-72b-instruct', 'name' => 'Qwen 2.5 72B (Akademik & Cepat)', 'provider' => 'Omnigensi', 'is_default' => false],
                 ['id' => 'gemini-3.8-flash', 'name' => 'Gemini 3.8 Flash (High Performance)', 'provider' => 'Google', 'is_default' => false],
                 ['id' => 'gemini-2.0-flash', 'name' => 'Gemini 2.0 Flash (Super Cepat)', 'provider' => 'Google', 'is_default' => false],
                 ['id' => 'deepseek-chat', 'name' => 'DeepSeek V3 (Penalaran & Logika)', 'provider' => 'DeepSeek', 'is_default' => false],
@@ -5789,6 +5790,14 @@ trait HandlesNaskahStudio
             'table' => 'Buatkan tabel matriks sintesis data atau perbandingan indikator penelitian secara terstruktur.',
             'equation' => 'Formulasikan persamaan matematis atau ekonometris relevan menggunakan notasi LaTeX $$...$$.',
             'critique' => 'Lakukan evaluasi kritis komprehensif terhadap kelemahan argumen, ancaman validitas, dan saran mitigasi metodologis.',
+            'abstract' => 'Susun draf abstrak akademik terstruktur (latar belakang, tujuan, metodologi, temuan kunci, dan implikasi) untuk naskah ini.',
+            'introduction' => 'Buatkan draf bab pendahuluan komprehensif lengkap dengan urgensi riset, state of the art, research gap, dan tujuan.',
+            'methodology' => 'Rancang bab metodologi penelitian terperinci mencakup desain riset, sampel, instrumen, dan prosedur analisis data.',
+            'discussion' => 'Susun sintesis bab pembahasan kritis yang membandingkan temuan empiris dengan literatur rujukan serta implikasinya.',
+            'conclusion' => 'Formulasikan kesimpulan, kontribusi kebaruan, keterbatasan riset, dan rekomendasi studi lanjutan.',
+            'literature' => 'Susun kerangka tinjauan pustaka dan taksonomi literatur yang menautkan variabel-variabel kunci naskah.',
+            'bibliography' => 'Buatkan daftar pustaka terstandar berdasarkan referensi yang tersitasi dalam naskah ini.',
+            'readability' => 'Audit keterbacaan, kejelasan kalimat majemuk, dan kepadatan gagasan akademik pada naskah ini.',
         ];
 
         $prompt = $presets[$presetKey] ?? $presets['polish'];
@@ -5957,6 +5966,23 @@ trait HandlesNaskahStudio
         }
 
         $explanationText = "Persamaan {$caption} mengartikulasikan spesifikasi model estimasi di mana parameter koefisien merefleksikan elastisitas variabel terhadap respon penelitian. Komponen residual merepresentasikan galat acak yang diasumsikan berdistribusi normal identik independen (iid).";
+
+        try {
+            $llm = app(OmnigensiChatClient::class);
+            $generated = $llm->generate(
+                $prompt,
+                'Anda adalah ahli metodologi kuantitatif naskah akademik. Jelaskan variabel, parameter koefisien, dan asumsi model matematis secara ringkas dan presisi dalam satu paragraf akademik.',
+                0.5,
+                400,
+                $modelId
+            );
+            if ($generated !== null && trim((string) ($generated['content'] ?? '')) !== '') {
+                $clean = trim((string) $generated['content']);
+                $clean = preg_replace('/^###?\s*.*?\n+/u', '', $clean) ?? $clean;
+                $explanationText = $clean;
+            }
+        } catch (\Throwable) {
+        }
 
         $explanationBlock = $this->model->newBlock('paragraph', $explanationText);
         $explanationBlock['is_under_review'] = true;
