@@ -38,6 +38,7 @@
                         <div style="display:flex; gap:.35rem; align-items:flex-end; flex-wrap:wrap;">
                             <button type="button" class="rb-button" wire:click="regenerateLastResponse" title="Regenerate respon asisten terakhir dengan model saat ini">&#128260; Regenerate</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('markdown')" title="Unduh transkrip sesi sebagai Markdown">&#11015; MD</button>
+                            <button type="button" class="rb-button" wire:click="exportTranscript('html')" title="Unduh transkrip sesi sebagai Dokumen HTML">&#11015; HTML</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('json')" title="Unduh transkrip sesi sebagai JSON">&#11015; JSON</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('txt')" title="Unduh transkrip sesi sebagai Plain Text">&#11015; TXT</button>
                             <button type="button" class="rb-button" wire:click="clearLog" title="Bersihkan riwayat percakapan">&#128465; Bersihkan</button>
@@ -48,7 +49,7 @@
                     <div style="margin-bottom:.85rem; background:rgba(0,0,0,0.02); padding:.6rem; border-radius:4px; border:1px solid rgba(0,0,0,0.06);">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; flex-wrap:wrap; gap:.4rem;">
                             <div class="rb-kpi-card__label" style="margin-bottom:0;">PALET SLASH COMMAND (26 PERINTAH AKADEMIK)</div>
-                            <div style="display:flex; gap:.25rem; flex-wrap:wrap;">
+                            <div style="display:flex; gap:.25rem; flex-wrap:wrap; align-items:center;">
                                 @foreach ($categories as $catKey => $catLabel)
                                     <button
                                         type="button"
@@ -59,6 +60,13 @@
                                                font-size:.62rem; font-weight:700; padding:2px 7px; border-radius:3px; cursor:pointer;"
                                     >{{ $catLabel }}</button>
                                 @endforeach
+                                <input
+                                    type="text"
+                                    class="rb-input"
+                                    placeholder="Cari..."
+                                    wire:model.live.debounce.150ms="commandSearch"
+                                    style="font-size:.62rem; padding:2px 6px; height:22px; width:90px; border-radius:3px; border:1px solid #cbd5e1;"
+                                />
                             </div>
                         </div>
                         <div style="display:flex; flex-wrap:wrap; gap:.3rem;">
@@ -143,8 +151,23 @@
                         </div>
                     </div>
 
+                    {{-- Rekomendasi Cepat --}}
+                    <div style="display:flex; flex-wrap:wrap; gap:.25rem; margin-top:.6rem; align-items:center;">
+                        <span class="rb-mono" style="font-size:.58rem; color:#64748b; font-weight:700;">PROMPT CEPAT:</span>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/abstrak')">📝 /abstrak</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/pendahuluan')">📑 /pendahuluan</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/metodologi')">🔬 /metodologi</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/pembahasan')">💬 /pembahasan</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/kesimpulan')">🏁 /kesimpulan</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/kebaruan')">💡 /kebaruan</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/daftar-pustaka')">📚 /daftar-pustaka</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/tabel-analisis')">📊 /tabel-analisis</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/rumus')">π /rumus</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/keterbacaan')">📈 /keterbacaan</button>
+                    </div>
+
                     {{-- Form Input --}}
-                    <form wire:submit="send" style="display:flex; gap:.5rem; margin-top:.75rem; align-items:flex-start;">
+                    <form wire:submit="send" style="display:flex; gap:.5rem; margin-top:.4rem; align-items:flex-start;">
                         <textarea
                             class="rb-textarea"
                             rows="2"

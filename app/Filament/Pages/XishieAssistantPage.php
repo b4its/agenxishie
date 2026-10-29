@@ -41,6 +41,8 @@ class XishieAssistantPage extends Page
 
     public string $activeCommandCategory = 'all';
 
+    public string $commandSearch = '';
+
     /**
      * Transkrip: [['role' => 'user'|'assistant', 'content' => ...]].
      *
@@ -163,6 +165,8 @@ class XishieAssistantPage extends Page
     public function filteredCommands(): array
     {
         $categorized = [];
+        $query = trim(mb_strtolower($this->commandSearch));
+
         foreach (SlashCommand::cases() as $c) {
             $cat = match ($c) {
                 SlashCommand::PENDAHULUAN, SlashCommand::ABSTRAK, SlashCommand::METODOLOGI,
@@ -178,7 +182,12 @@ class XishieAssistantPage extends Page
                 default => 'format',
             };
 
-            if ($this->activeCommandCategory === 'all' || $this->activeCommandCategory === $cat) {
+            $matchesCat = ($this->activeCommandCategory === 'all' || $this->activeCommandCategory === $cat);
+            $matchesSearch = $query === ''
+                || str_contains(mb_strtolower($c->value), $query)
+                || str_contains(mb_strtolower($c->description()), $query);
+
+            if ($matchesCat && $matchesSearch) {
                 $categorized[] = [
                     'name' => $c->value,
                     'description' => $c->description(),
@@ -550,6 +559,36 @@ class XishieAssistantPage extends Page
 
             $content = implode("\n", $lines);
             $mime = 'text/plain; charset=UTF-8';
+        } elseif ($format === 'html') {
+            $filename = 'xishie_assistant_transcript_'.$timestamp.'.html';
+            $msgHtml = [];
+            foreach ($this->log as $entry) {
+                $isUser = ($entry['role'] === 'user');
+                $sender = $isUser ? 'Peneliti' : 'Xishie Assistant';
+                $color = $isUser ? '#1e40af' : '#0369a1';
+                $bg = $isUser ? '#eff6ff' : '#f0f9ff';
+                $border = $isUser ? '#bfdbfe' : '#bae6fd';
+                $time = htmlspecialchars((string) ($entry['created_at'] ?? now()->format('H:i:s')));
+                $modelTag = ! empty($entry['model']) ? ' <span style="font-size:11px;background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:3px;">'.htmlspecialchars((string) $entry['model']).'</span>' : '';
+                $body = $isUser ? nl2br(htmlspecialchars((string) $entry['content'])) : $this->markdownToHtml((string) $entry['content']);
+                $msgHtml[] = "<div style=\"margin-bottom:16px;padding:14px;background:{$bg};border:1px solid {$border};border-radius:6px;\">"
+                    ."<div style=\"font-weight:700;color:{$color};margin-bottom:6px;display:flex;justify-content:space-between;\">"
+                    ."<span>".($isUser ? '👤' : '✨')." {$sender}{$modelTag}</span>"
+                    ."<span style=\"font-size:11px;color:#64748b;font-weight:normal;\">{$time}</span>"
+                    ."</div>"
+                    ."<div style=\"line-height:1.6;font-size:14px;color:#1e293b;\">{$body}</div>"
+                    ."</div>";
+            }
+            $content = "<!DOCTYPE html>\n<html lang=\"id\">\n<head>\n<meta charset=\"utf-8\">\n<title>Transkrip Xishie Assistant - ".htmlspecialchars($title)."</title>\n"
+                ."<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:860px;margin:30px auto;padding:0 20px;background:#f8fafc;color:#1e293b;}table{border-collapse:collapse;width:100%;margin:12px 0;}th,td{border:1px solid #cbd5e1;padding:8px 12px;text-align:left;}th{background:#f1f5f9;}code{background:#f1f5f9;padding:2px 5px;border-radius:3px;font-size:13px;}</style>\n"
+                ."</head>\n<body>\n"
+                ."<div style=\"border-bottom:2px solid #2563eb;padding-bottom:12px;margin-bottom:20px;\">"
+                ."<h1 style=\"margin:0 0 6px;color:#1e40af;font-size:22px;\">✨ Transkrip Percakapan Xishie Assistant</h1>"
+                ."<div style=\"font-size:13px;color:#64748b;\">Proyek: <strong>".htmlspecialchars($title)."</strong> &middot; Waktu: ".now()->toIso8601String()." &middot; Total: ".count($this->log)." Pesan</div>"
+                ."</div>\n"
+                .implode("\n", $msgHtml)
+                ."\n</body>\n</html>";
+            $mime = 'text/html; charset=UTF-8';
         } else {
             $filename = 'xishie_assistant_transcript_'.$timestamp.'.md';
             $lines = [
