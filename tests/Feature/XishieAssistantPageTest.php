@@ -303,6 +303,29 @@ it('exports assistant conversation transcript as LaTeX document', function (): v
         ->and($latexContent)->toContain('\\begin{document}');
 });
 
+it('exports assistant conversation transcript as CSV spreadsheet document', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $this->actingAs(User::factory()->create());
+    $project = makeProject(['title' => 'Riset Evaluasi Model']);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('message', '/abstrak')
+        ->call('send');
+
+    $response = $page->instance()->exportTranscript('csv');
+    expect($response)->not->toBeNull()
+        ->and($response->headers->get('content-type'))->toBe('text/csv; charset=UTF-8');
+
+    ob_start();
+    $response->sendContent();
+    $csvContent = ob_get_clean();
+
+    expect($csvContent)->toContain('Role,Model,Persona,Scope,Command')
+        ->and($csvContent)->toContain('user')
+        ->and($csvContent)->toContain('assistant');
+});
+
 it('switches assistant focus scope between project, manuscript, and literature', function (): void {
     $page = Livewire::test(XishieAssistantPage::class);
 

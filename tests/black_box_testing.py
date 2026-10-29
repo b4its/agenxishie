@@ -150,6 +150,7 @@ test("Academic Slash Commands Present (/abstrak, /pendahuluan, /sitasi, /kebarua
 test("Command Search Input Field Present", "commandSearch" in assistant_html or "Cari..." in assistant_html)
 test("HTML Transcript Export Option Present", "HTML" in assistant_html)
 test("LaTeX Transcript Export Option Present", "LaTeX" in assistant_html)
+test("CSV Transcript Export Option Present", "CSV" in assistant_html)
 test("Assistant Focus Scope Selector Present", "FOKUS:" in assistant_html)
 test("Assistant Focus Scope Options (project, manuscript, literature)",
      "setScope('project')" in assistant_html and "setScope('manuscript')" in assistant_html and "setScope('literature')" in assistant_html)
@@ -203,6 +204,12 @@ test("Standalone Studio: Ribbon AI Presets (?tab=insert)", "Matriks AI" in studi
 
 status, studio_table_html, _ = http_get("/studio?tab=table")
 test("Standalone Studio: Table Calculation Formulas (?tab=table)", "Min" in studio_table_html and "Max" in studio_table_html)
+
+status, studio_references_html, _ = http_get("/studio?tab=references")
+test("Standalone Studio: References Ribbon Tab (?tab=references)", "Pustaka Riset" in studio_references_html and "Insert Citation" in studio_references_html)
+
+status, studio_review_html, _ = http_get("/studio?tab=review")
+test("Standalone Studio: Review Ribbon Tab (?tab=review)", "Cek Pedoman" in studio_review_html and "Cek Gap" in studio_review_html and "Keterbacaan" in studio_review_html)
 
 # 5. Omnigensi Platform Integration & Agnes 3.0 Flash Discovery
 print("\n--- 5. Omnigensi Platform Integration & Agnes 3.0 Flash Handshake ---")

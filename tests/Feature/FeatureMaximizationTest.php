@@ -4438,3 +4438,34 @@ it('renders model ai presets group in standalone studio home tab ribbon with all
         ->and($html)->toContain('executeModelPreset(\'readability\')')
         ->and($html)->toContain('Generasi AI');
 });
+
+it('verifies navigation tab aliases and audit tools in references and review ribbon tabs', function (): void {
+    // 1. Standalone studio aliases
+    $standalone = Livewire::test(NaskahStudioApp::class);
+    $standalone->call('setNavSidebarTab', 'references');
+    expect($standalone->get('navigationTab'))->toBe('pustaka');
+
+    $standalone->call('setNavSidebarTab', 'snapshots');
+    expect($standalone->get('navigationTab'))->toBe('versi');
+
+    // 2. References Tab in Standalone Studio
+    $standalone->call('$set', 'activeTab', 'references');
+    $htmlRef = $standalone->html();
+    expect($htmlRef)->toContain('Pustaka Riset')
+        ->and($htmlRef)->toContain('Insert Citation');
+
+    // 3. Review Tab in Standalone Studio
+    $standalone->call('$set', 'activeTab', 'review');
+    $htmlReview = $standalone->html();
+    expect($htmlReview)->toContain('Cek Pedoman')
+        ->and($htmlReview)->toContain('Cek Gap')
+        ->and($htmlReview)->toContain('Keterbacaan');
+
+    // 4. Filament studio navigation aliases
+    $filament = Livewire::test(\App\Filament\Pages\NaskahStudioPage::class);
+    $filament->call('setNavigationTab', 'pustaka');
+    expect($filament->get('navSidebarTab'))->toBe('references');
+
+    $filament->call('setNavigationTab', 'versi');
+    expect($filament->get('navSidebarTab'))->toBe('snapshots');
+});
