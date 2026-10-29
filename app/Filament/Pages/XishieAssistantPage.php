@@ -43,6 +43,13 @@ class XishieAssistantPage extends Page
 
     public string $commandSearch = '';
 
+    public string $transcriptSearch = '';
+
+    /**
+     * @var array<int, int>
+     */
+    public array $starredMessages = [];
+
     public string $currentPersona = 'academic_senior';
 
     public string $assistantScope = 'project';
@@ -666,6 +673,20 @@ class XishieAssistantPage extends Page
         $this->lastClearedLog = [];
         $this->dispatch('assistant-updated');
         Notification::make()->title('Riwayat percakapan berhasil dipulihkan')->success()->send();
+    }
+
+    /**
+     * Tandai atau hapus tanda penting (bintang) pada pesan tertentu.
+     */
+    public function toggleStarMessage(int $logIndex): void
+    {
+        if (in_array($logIndex, $this->starredMessages, true)) {
+            $this->starredMessages = array_values(array_diff($this->starredMessages, [$logIndex]));
+            Notification::make()->title('Bintang dihapus dari pesan')->info()->send();
+        } else {
+            $this->starredMessages[] = $logIndex;
+            Notification::make()->title('Pesan ditandai sebagai penting (⭐)')->success()->send();
+        }
     }
 
     /**

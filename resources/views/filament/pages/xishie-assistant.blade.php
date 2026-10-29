@@ -14,9 +14,23 @@
                     <span style="color:#64748b;">|</span>
                     <span style="color:#34d399;">FOKUS:</span> {{ strtoupper($assistantScope) }}
                 </span>
-                <span style="font-family:monospace; color:#94a3b8;">
-                    PERSONA: {{ strtoupper(str_replace('_', ' ', $currentPersona)) }}
-                </span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-family:monospace; color:#94a3b8;">
+                        PERSONA: {{ strtoupper(str_replace('_', ' ', $currentPersona)) }}
+                    </span>
+                    <span style="color:#64748b;">|</span>
+                    <div style="display:inline-flex; align-items:center; gap:3px;">
+                        <input
+                            type="text"
+                            placeholder="Cari transkrip..."
+                            wire:model.live.debounce.150ms="transcriptSearch"
+                            style="font-size:.6rem; padding:1px 5px; height:18px; width:100px; border-radius:3px; border:1px solid #334155; background:#1e293b; color:#f8fafc;"
+                        />
+                        @if ($transcriptSearch !== '')
+                            <button type="button" wire:click="$set('transcriptSearch', '')" style="border:0; background:none; color:#94a3b8; cursor:pointer; font-size:.6rem;" title="Reset pencarian transkrip">✕</button>
+                        @endif
+                    </div>
+                </div>
             </div>
             <div class="rb-window__body">
                 @if ($project === null)
@@ -144,59 +158,74 @@
                         x-init="scrollEnd()"
                     >
                         @forelse ($log as $msg)
-                            @if ($msg['role'] === 'user')
-                                <div style="margin-bottom:1rem; padding-bottom:.5rem; border-bottom:1px dashed rgba(255,255,255,0.1);">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-                                        <div class="rb-terminal__agent" style="font-weight:700; color:#93c5fd;">&#128100; PENELITI</div>
-                                        <span class="rb-terminal__time">[{{ $msg['created_at'] ?? now()->format('H:i:s') }}]</span>
-                                    </div>
-                                    <div style="white-space:pre-wrap; color:#f8fafc;">{{ $msg['content'] }}</div>
-                                </div>
-                            @else
-                                <div style="margin-bottom:1rem; padding-bottom:.5rem; border-bottom:1px dashed rgba(255,255,255,0.1);" x-data="{ copied: false, copyContent() { navigator.clipboard.writeText({{ json_encode($msg['content']) }}); this.copied = true; setTimeout(() => this.copied = false, 2000); } }">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:4px;">
-                                        <div style="font-weight:700; color:#38bdf8; display:inline-flex; align-items:center; gap:6px;">
-                                            &#10024; XISHIE ASSISTANT
-                                            <span style="font-size:.6rem; padding:1px 5px; background:rgba(56,189,248,0.15); border-radius:3px; color:#7dd3fc; font-weight:normal;">
-                                                {{ $msg['model'] ?? $currentModel }}
-                                            </span>
-                                            @if(!empty($msg['is_regenerated']))
-                                                <span style="font-size:.58rem; padding:1px 4px; background:rgba(234,179,8,0.2); border-radius:3px; color:#fde047;">regenerated</span>
-                                            @endif
+                            @php
+                                $matchesFilter = ($transcriptSearch === '' || stripos((string)$msg['content'], $transcriptSearch) !== false);
+                                $isStarred = in_array($loop->index, $starredMessages, true);
+                            @endphp
+                            @if ($matchesFilter)
+                                @if ($msg['role'] === 'user')
+                                    <div style="margin-bottom:1rem; padding-bottom:.5rem; border-bottom:1px dashed rgba(255,255,255,0.1);">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                                            <div class="rb-terminal__agent" style="font-weight:700; color:#93c5fd;">&#128100; PENELITI</div>
+                                            <span class="rb-terminal__time">[{{ $msg['created_at'] ?? now()->format('H:i:s') }}]</span>
                                         </div>
-                                        <div style="display:flex; gap:4px; align-items:center;">
-                                            <span class="rb-terminal__time" style="font-size:.6rem;">[{{ $msg['created_at'] ?? now()->format('H:i:s') }}]</span>
-                                            <button
-                                                type="button"
-                                                @click="copyContent()"
-                                                style="border:0; background:rgba(255,255,255,0.1); color:#cbd5e1; cursor:pointer; font-size:.6rem; padding:2px 6px; border-radius:3px;"
-                                                title="Salin teks ke papan klip"
-                                            >
-                                                <span x-show="!copied">&#128203; Salin</span>
-                                                <span x-show="copied" style="color:#4ade80;">&#10003; Tersalin</span>
-                                            </button>
-                                            @unless (str_starts_with($msg['content'], '[Gagal]'))
+                                        <div style="white-space:pre-wrap; color:#f8fafc;">{{ $msg['content'] }}</div>
+                                    </div>
+                                @else
+                                    <div style="margin-bottom:1rem; padding:8px 10px; border-radius:4px; border:{{ $isStarred ? '1px solid rgba(234,179,8,0.5)' : '1px dashed rgba(255,255,255,0.1)' }}; background:{{ $isStarred ? 'rgba(234,179,8,0.06)' : 'transparent' }};" x-data="{ copied: false, copyContent() { navigator.clipboard.writeText({{ json_encode($msg['content']) }}); this.copied = true; setTimeout(() => this.copied = false, 2000); } }">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:4px;">
+                                            <div style="font-weight:700; color:#38bdf8; display:inline-flex; align-items:center; gap:6px;">
+                                                &#10024; XISHIE ASSISTANT
+                                                <span style="font-size:.6rem; padding:1px 5px; background:rgba(56,189,248,0.15); border-radius:3px; color:#7dd3fc; font-weight:normal;">
+                                                    {{ $msg['model'] ?? $currentModel }}
+                                                </span>
+                                                @if(!empty($msg['is_regenerated']))
+                                                    <span style="font-size:.58rem; padding:1px 4px; background:rgba(234,179,8,0.2); border-radius:3px; color:#fde047;">regenerated</span>
+                                                @endif
+                                                @if($isStarred)
+                                                    <span style="font-size:.58rem; padding:1px 5px; background:rgba(234,179,8,0.25); border-radius:3px; color:#fde047; font-weight:700;">★ penting</span>
+                                                @endif
+                                            </div>
+                                            <div style="display:flex; gap:4px; align-items:center;">
+                                                <span class="rb-terminal__time" style="font-size:.6rem;">[{{ $msg['created_at'] ?? now()->format('H:i:s') }}]</span>
                                                 <button
                                                     type="button"
-                                                    class="rb-terminal__time"
-                                                    style="border:0; background:rgba(234,179,8,0.2); color:#fde047; cursor:pointer; font-size:.62rem; font-weight:700; padding:2px 6px; border-radius:3px;"
-                                                    title="Regenerate respon ini dengan model aktif"
-                                                    wire:click="regenerateMessage({{ $loop->index }})"
-                                                >🔄 Regenerate</button>
+                                                    wire:click="toggleStarMessage({{ $loop->index }})"
+                                                    style="border:0; background:none; color:{{ $isStarred ? '#fde047' : '#94a3b8' }}; cursor:pointer; font-size:.75rem; padding:0 3px;"
+                                                    title="{{ $isStarred ? 'Hapus tanda penting (bintang)' : 'Tandai jawaban penting (bintang)' }}"
+                                                >{{ $isStarred ? '★' : '☆' }}</button>
                                                 <button
                                                     type="button"
-                                                    class="rb-terminal__time"
-                                                    style="border:0; background:rgba(99,102,241,0.25); color:#a5b4fc; cursor:pointer; font-size:.62rem; font-weight:700; padding:2px 6px; border-radius:3px;"
-                                                    title="Terapkan rekomendasi ini langsung ke Naskah Studio"
-                                                    wire:click="applyToNaskahStudio({{ $loop->index }})"
-                                                >⚡ Ke Naskah Studio</button>
-                                            @endunless
+                                                    @click="copyContent()"
+                                                    style="border:0; background:rgba(255,255,255,0.1); color:#cbd5e1; cursor:pointer; font-size:.6rem; padding:2px 6px; border-radius:3px;"
+                                                    title="Salin teks ke papan klip"
+                                                >
+                                                    <span x-show="!copied">&#128203; Salin</span>
+                                                    <span x-show="copied" style="color:#4ade80;">&#10003; Tersalin</span>
+                                                </button>
+                                                @unless (str_starts_with($msg['content'], '[Gagal]'))
+                                                    <button
+                                                        type="button"
+                                                        class="rb-terminal__time"
+                                                        style="border:0; background:rgba(234,179,8,0.2); color:#fde047; cursor:pointer; font-size:.62rem; font-weight:700; padding:2px 6px; border-radius:3px;"
+                                                        title="Regenerate respon ini dengan model aktif"
+                                                        wire:click="regenerateMessage({{ $loop->index }})"
+                                                    >🔄 Regenerate</button>
+                                                    <button
+                                                        type="button"
+                                                        class="rb-terminal__time"
+                                                        style="border:0; background:rgba(99,102,241,0.25); color:#a5b4fc; cursor:pointer; font-size:.62rem; font-weight:700; padding:2px 6px; border-radius:3px;"
+                                                        title="Terapkan rekomendasi ini langsung ke Naskah Studio"
+                                                        wire:click="applyToNaskahStudio({{ $loop->index }})"
+                                                    >⚡ Ke Naskah Studio</button>
+                                                @endunless
+                                            </div>
+                                        </div>
+                                        <div class="rb-chat-md {{ str_starts_with($msg['content'], '[Gagal]') ? 'rb-chat-md--error' : '' }}">
+                                            {!! $this->markdownToHtml($msg['content']) !!}
                                         </div>
                                     </div>
-                                    <div class="rb-chat-md {{ str_starts_with($msg['content'], '[Gagal]') ? 'rb-chat-md--error' : '' }}">
-                                        {!! $this->markdownToHtml($msg['content']) !!}
-                                    </div>
-                                </div>
+                                @endif
                             @endif
                         @empty
                             <div class="rb-terminal__line">
