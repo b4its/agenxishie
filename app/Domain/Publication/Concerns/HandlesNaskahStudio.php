@@ -194,6 +194,8 @@ trait HandlesNaskahStudio
 
     public string $findResult = '';
 
+    public int $findCurrentHitIndex = -1;
+
     public string $thesaurusWord = '';
 
     public string $thesaurusResult = '';
@@ -4554,6 +4556,72 @@ trait HandlesNaskahStudio
         $this->editorRevision++;
     }
 
+    public function findNext(): void
+    {
+        $query = trim($this->findQuery);
+        if ($query === '') {
+            $this->findResult = 'Masukkan kata yang dicari.';
+
+            return;
+        }
+
+        $matches = [];
+        foreach ($this->blocks as $i => $block) {
+            $text = (string) ($block['text'] ?? '');
+            if (($block['type'] ?? '') === 'table') {
+                $rows = (array) ($block['table']['rows'] ?? []);
+                foreach ($rows as $r => $row) {
+                    foreach ((array) $row as $c => $cell) {
+                        $cellText = (string) ($cell['text'] ?? '');
+                        if (mb_stripos($cellText, $query) !== false) {
+                            $matches[] = ['block' => $i, 'type' => 'table', 'row' => $r, 'col' => $c];
+                        }
+                    }
+                }
+            } elseif (mb_stripos($text, $query) !== false) {
+                $matches[] = ['block' => $i, 'type' => 'block'];
+            }
+        }
+
+        if (empty($matches)) {
+            $this->findResult = "Tidak ditemukan '{$query}'.";
+
+            return;
+        }
+
+        $this->findCurrentHitIndex = ($this->findCurrentHitIndex + 1) % count($matches);
+        $activeHit = $matches[$this->findCurrentHitIndex];
+        $this->activeBlock = $activeHit['block'];
+        $this->findResult = "Ditemukan ".count($matches)." kemunculan. Posisi #".($this->findCurrentHitIndex + 1)." di blok #".($this->activeBlock + 1).".";
+    }
+
+    public function replaceCurrent(): void
+    {
+        $find = trim($this->findQuery);
+        $replace = $this->replaceQuery;
+
+        if ($find === '') {
+            return;
+        }
+
+        $index = $this->activeBlock;
+        if (isset($this->blocks[$index])) {
+            $text = (string) ($this->blocks[$index]['text'] ?? '');
+            if (mb_stripos($text, $find) !== false) {
+                $this->blocks[$index]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $text, 1);
+                $this->blocks[$index]['runs'] = [];
+                $this->dirty = true;
+                $this->editorRevision++;
+                $this->findResult = "1 kemunculan pada blok #".($index + 1)." berhasil diganti.";
+                $this->findNext();
+
+                return;
+            }
+        }
+
+        $this->findNext();
+    }
+
     // =====================================================================
     // Mail merge
     // =====================================================================
@@ -4749,6 +4817,40 @@ trait HandlesNaskahStudio
             return response()->streamDownload(static function () use ($jsonContent): void {
                 echo $jsonContent;
             }, $base.'.json', ['Content-Type' => 'application/json; charset=UTF-8']);
+        }
+
+        if ($format === 'bibtex' || $format === 'bib') {
+            $bibEntries = [];
+            $refs = $this->sourceProjectId
+                ? ProjectReference::query()->where('project_id', $this->sourceProjectId)->get()
+                : collect();
+
+            if ($refs->isNotEmpty()) {
+                foreach ($refs as $ref) {
+                    $key = $ref->citation_key ?: 'ref_'.$ref->id;
+                    $author = ! empty($ref->authors[0]['name']) ? (string) $ref->authors[0]['name'] : (is_string($ref->authors[0] ?? null) ? $ref->authors[0] : 'Anonim');
+                    $year = $ref->year ?: date('Y');
+                    $title = addcslashes((string) $ref->title, '{}');
+                    $journal = addcslashes((string) ($ref->publication ?? 'Jurnal Ilmiah'), '{}');
+                    $doi = (string) ($ref->doi ?? '');
+                    $doiField = $doi !== '' ? "  doi = {{$doi}},\n" : '';
+
+                    $bibEntries[] = "@article{{$key},\n  author = {{$author}},\n  title = {{$title}},\n  journal = {{$journal}},\n  year = {{$year}},\n{$doiField}}";
+                }
+            } else {
+                $contextual = $this->generateContextualBibliography(1);
+                $entries = $contextual['data']['entries'] ?? [];
+                foreach ($entries as $i => $entryText) {
+                    $key = 'ref_'.($i + 1);
+                    $bibEntries[] = "@misc{{$key},\n  title = {".addcslashes((string) $entryText, '{}')."},\n  year = {".date('Y')."}\n}";
+                }
+            }
+
+            $bibContent = implode("\n\n", $bibEntries)."\n";
+
+            return response()->streamDownload(static function () use ($bibContent): void {
+                echo $bibContent;
+            }, $base.'.bib', ['Content-Type' => 'application/x-bibtex; charset=UTF-8']);
         }
 
         [$content, $extension, $mime] = match ($format) {

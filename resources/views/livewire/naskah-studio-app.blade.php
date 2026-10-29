@@ -586,6 +586,7 @@
                         <button type="button" class="word-tool-btn" wire:click="export('rtf')">📑 Rich Text</button>
                         <button type="button" class="word-tool-btn" wire:click="export('html')">🌐 HTML Web</button>
                         <button type="button" class="word-tool-btn" wire:click="export('json')">📦 JSON Data</button>
+                        <button type="button" class="word-tool-btn" wire:click="export('bibtex')">📚 BibTeX (.bib)</button>
                         <button type="button" class="word-tool-btn" wire:click="export('txt')">📝 Plain Text</button>
                     </div>
                 </div>
@@ -2866,9 +2867,15 @@
                             </div>
                         @endif
                     </div>
-                    <div class="word-dialog__footer">
-                        <button type="button" class="word-btn-pill" wire:click="findText">Find Next</button>
-                        <button type="button" class="word-btn-pill word-btn-share" wire:click="replaceAll">Replace All</button>
+                    <div class="word-dialog__footer" style="display:flex; justify-content:space-between; gap:6px;">
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" class="word-btn-pill" wire:click="findText">Find All</button>
+                            <button type="button" class="word-btn-pill" wire:click="findNext" title="Find next match">Find Next ⏭</button>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" class="word-btn-pill" wire:click="replaceCurrent" title="Replace current match in active block">Replace</button>
+                            <button type="button" class="word-btn-pill word-btn-share" wire:click="replaceAll">Replace All</button>
+                        </div>
                     </div>
 
                 {{-- DOCUMENT STATS --}}

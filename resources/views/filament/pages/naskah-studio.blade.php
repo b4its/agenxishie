@@ -1432,6 +1432,8 @@
                             <button type="button" class="ns-btn" wire:click="export('docx')" title="Ekspor ke Microsoft Word (.docx)">&#128196; DOCX</button>
                             <button type="button" class="ns-btn" wire:click="export('odt')" title="Ekspor ke LibreOffice Writer (.odt)">&#128214; ODT</button>
                             <button type="button" class="ns-btn" wire:click="export('html')" title="Ekspor HTML / Print Web">&#127760; HTML</button>
+                            <button type="button" class="ns-btn" wire:click="export('json')" title="Ekspor JSON Struktur Data">&#128230; JSON</button>
+                            <button type="button" class="ns-btn" wire:click="export('bibtex')" title="Ekspor BibTeX Pustaka (.bib)">&#128218; BibTeX</button>
                             <button type="button" class="ns-btn" wire:click="export('md')" title="Ekspor Markdown">&#9888; MD</button>
                             <button type="button" class="ns-btn" wire:click="export('rtf')" title="Ekspor Rich Text Format">&#128221; RTF</button>
                             <button type="button" class="ns-btn" wire:click="export('latex')" title="Ekspor LaTeX (.tex)">&#8734; LaTeX</button>
@@ -2911,13 +2913,19 @@
                                 </div>
                             @endif
                         </div>
-                        <div class="ns-dialog__footer">
-                            <button type="button" class="ns-btn" wire:click="findText">Cari</button>
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="replaceAll">Ganti Semua</button>
+                        <div class="ns-dialog__footer" style="display:flex; justify-content:space-between; gap:.4rem;">
+                            <div style="display:flex; gap:.35rem;">
+                                <button type="button" class="ns-btn" wire:click="findText">Cari Semua</button>
+                                <button type="button" class="ns-btn" wire:click="findNext" title="Cari kemunculan berikutnya">Berikutnya ⏭</button>
+                            </div>
+                            <div style="display:flex; gap:.35rem;">
+                                <button type="button" class="ns-btn" wire:click="replaceCurrent" title="Ganti kemunculan saat ini pada blok aktif">Ganti Satuan</button>
+                                <button type="button" class="ns-btn ns-btn--primary" wire:click="replaceAll">Ganti Semua</button>
+                            </div>
                         </div>
 
                     {{-- Dialog Info Statistik & Keterbacaan --}}
-                    @elseif ($dialog === 'stats')
+                    @elseif (in_array($dialog, ['stats', 'statistics', 'wordcount'], true))
                         <div class="ns-dialog__header">
                             <span>&#128202; Statistik Dokumen &amp; Skor Keterbacaan</span>
                             <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
