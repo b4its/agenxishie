@@ -257,6 +257,7 @@ class XishieAssistantPage extends Page
         }
 
         $modelId = $this->getCurrentAssistantModel();
+        $contextDoc = $this->activeDocumentId ? NaskahDocument::query()->find($this->activeDocumentId) : null;
 
         try {
             $result = app(XishieAssistantService::class)->handle(
@@ -264,7 +265,8 @@ class XishieAssistantPage extends Page
                 $lastUserQuery,
                 $modelId,
                 $this->currentPersona,
-                $this->assistantScope
+                $this->assistantScope,
+                $contextDoc
             );
 
             OmnigensiAgentLog::create([
@@ -361,6 +363,7 @@ class XishieAssistantPage extends Page
         }
 
         $modelId = $this->getCurrentAssistantModel();
+        $contextDoc = $this->activeDocumentId ? NaskahDocument::query()->find($this->activeDocumentId) : null;
 
         try {
             $result = app(XishieAssistantService::class)->handle(
@@ -368,7 +371,8 @@ class XishieAssistantPage extends Page
                 $userQuery,
                 $modelId,
                 $this->currentPersona,
-                $this->assistantScope
+                $this->assistantScope,
+                $contextDoc
             );
             $this->log[$logIndex] = [
                 'role' => 'assistant',
@@ -526,12 +530,14 @@ class XishieAssistantPage extends Page
         $this->message = '';
 
         try {
+            $contextDoc = $this->activeDocumentId ? NaskahDocument::query()->find($this->activeDocumentId) : null;
             $result = app(XishieAssistantService::class)->handle(
                 $project,
                 $text,
                 $modelId,
                 $this->currentPersona,
-                $this->assistantScope
+                $this->assistantScope,
+                $contextDoc
             );
 
             // Catat untuk KPI "Assistant Query Effectiveness".

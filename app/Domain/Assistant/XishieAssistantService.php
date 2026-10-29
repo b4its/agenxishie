@@ -10,12 +10,14 @@ use App\Domain\Publication\CitationFormatter;
 use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Research\LiteratureMatrixBuilder;
 use App\Domain\Workspace\Enums\ProjectStage;
+use App\Models\NaskahDocument;
 use App\Models\ProjectStageRecord;
 use App\Models\XishieProject;
 use App\Omnigensi\Agents\RuleKeeperAgent;
 use App\Omnigensi\Agents\ScholarScoutAgent;
 use App\Omnigensi\Data\SharedContextData;
 use App\Omnigensi\Memory\SharedProjectMemory;
+use Illuminate\Support\Str;
 
 /**
  * XishieAssistantService: menjalankan slash command kontekstual di atas
@@ -39,13 +41,14 @@ final class XishieAssistantService
         string $input,
         ?string $modelId = null,
         string $persona = 'academic_senior',
-        string $scope = 'project'
+        string $scope = 'project',
+        ?NaskahDocument $contextDocument = null
     ): array {
         $command = SlashCommand::tryParse($input);
         $argument = trim((string) preg_replace('/^[^\s]+\s*/u', '', $input));
 
         if ($command === null) {
-            return $this->freeform($project, $input, $modelId, $persona, $scope);
+            return $this->freeform($project, $input, $modelId, $persona, $scope, $contextDocument);
         }
 
         return match ($command) {
@@ -55,7 +58,7 @@ final class XishieAssistantService
             SlashCommand::CEK_PEDOMAN => $this->cekPedoman($project),
             SlashCommand::MATRIKS => $this->matriks($project),
             SlashCommand::CARI_REFERENSI => $this->cariReferensi($project, $argument),
-            SlashCommand::RINGKAS => $this->ringkas($project),
+            SlashCommand::RINGKAS => $this->ringkas($project, $contextDocument),
             SlashCommand::POLES => $this->poles($project, $argument, $modelId, $persona, $scope),
             SlashCommand::RUMUS => $this->rumus($project, $argument),
             SlashCommand::GAMBAR => $this->gambar($project, $argument),
@@ -73,7 +76,7 @@ final class XishieAssistantService
             SlashCommand::DAFTAR_PUSTAKA => $this->daftarPustaka($project, $argument),
             SlashCommand::FORMAT_PARAGRAF => $this->formatParagraf($project, $argument),
             SlashCommand::CATATAN_KAKI => $this->catatanKaki($project, $argument),
-            SlashCommand::KETERBACAAN => $this->keterbacaan($project, $argument),
+            SlashCommand::KETERBACAAN => $this->keterbacaan($project, $argument, $contextDocument),
             SlashCommand::KEBARUAN => $this->kebaruan($project, $argument, $modelId, $persona, $scope),
         };
     }
@@ -218,8 +221,34 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function ringkas(XishieProject $project): array
+    private function ringkas(XishieProject $project, ?NaskahDocument $contextDocument = null): array
     {
+        if ($contextDocument !== null) {
+            $blocks = (array) ($contextDocument->blocks ?? []);
+            $plainText = app(NaskahRichModel::class)->toPlainText($blocks);
+            $totalWords = app(NaskahRichModel::class)->countWords($blocks);
+            $headings = array_values(array_map(
+                static fn (array $b): string => (string) ($b['text'] ?? ''),
+                array_filter($blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'heading')
+            ));
+            $reply = "### Ringkasan Dokumen Naskah: {$contextDocument->title}\n\n"
+                ."- **Total Kata**: {$totalWords} kata\n"
+                ."- **Total Blok**: ".count($blocks)." blok\n"
+                .'- **Struktur Bagian**: '.(empty($headings) ? '(tanpa sub-bab terpisah)' : implode(' ➔ ', array_slice($headings, 0, 5)))."\n\n"
+                ."**Intisari Dokumen**:\n"
+                .Str::limit($plainText, 450);
+
+            return [
+                'command' => SlashCommand::RINGKAS->value,
+                'reply' => $reply,
+                'data' => [
+                    'document_id' => $contextDocument->id,
+                    'document_title' => $contextDocument->title,
+                    'word_count' => $totalWords,
+                ],
+            ];
+        }
+
         $stage = $this->stageRecord($project);
 
         if ($stage === null || empty($stage->sections_content)) {
@@ -273,12 +302,13 @@ final class XishieAssistantService
         string $input,
         ?string $modelId = null,
         string $persona = 'academic_senior',
-        string $scope = 'project'
+        string $scope = 'project',
+        ?NaskahDocument $contextDocument = null
     ): array {
         $context = $this->memory->build($project, $input);
 
         // Jawab via LLM Omnigensi dengan konteks proyek (terintegrasi).
-        $answer = $this->answerWithLlm($project, $input, $context, $modelId, $persona, $scope);
+        $answer = $this->answerWithLlm($project, $input, $context, $modelId, $persona, $scope, $contextDocument);
 
         if ($answer !== null) {
             return [
@@ -302,7 +332,7 @@ final class XishieAssistantService
             return $this->rumus($project, $input);
         }
         if (preg_match('/(ringkas|ringkasan|rangkum)/iu', $lower)) {
-            return $this->ringkas($project);
+            return $this->ringkas($project, $contextDocument);
         }
         if (preg_match('/(gap|research gap|celah riset)/iu', $lower)) {
             return $this->cekGap($project);
@@ -320,7 +350,7 @@ final class XishieAssistantService
             return $this->abstrak($project, $input, $modelId, $persona, $scope);
         }
         if (preg_match('/(keterbacaan|readability)/iu', $lower)) {
-            return $this->keterbacaan($project, $input);
+            return $this->keterbacaan($project, $input, $contextDocument);
         }
 
         // Fallback offline: ringkasan konteks.
@@ -381,7 +411,8 @@ final class XishieAssistantService
         SharedContextData $context,
         ?string $modelId = null,
         string $persona = 'academic_senior',
-        string $scope = 'project'
+        string $scope = 'project',
+        ?NaskahDocument $contextDocument = null
     ): ?string {
         if (! config('omnigensi.agents_enabled', true)) {
             return null;
@@ -392,13 +423,24 @@ final class XishieAssistantService
         $personaFraming = $this->getPersonaFraming($persona);
         $scopeDetails = $this->getScopeDetails($project, $scope);
 
+        $docContextPrompt = '';
+        if ($contextDocument !== null) {
+            $plainText = app(NaskahRichModel::class)->toPlainText((array) ($contextDocument->blocks ?? []));
+            $docContextPrompt = sprintf(
+                "\n\nDOKUMEN NASKAH ACUAN:\n- Judul Naskah: %s\n- Jumlah Kata: %d\n- Cuplikan Teks:\n%s",
+                $contextDocument->title,
+                $contextDocument->word_count,
+                Str::limit($plainText, 1500)
+            );
+        }
+
         $system = $personaFraming.' '
             .'Jawab ringkas, akurat, dan actionable dalam Bahasa Indonesia. '
             .'Jangan mengarang referensi; bila menyebut sumber gunakan hanya kunci sitasi yang tersedia: '
             .($citationKeys === [] ? '(belum ada)' : implode(', ', $citationKeys)).'.';
 
         $prompt = sprintf(
-            "Konteks proyek:\n- Judul: %s\n- Bidang: %s\n- Jenis: %s\n- Tahap: %s\n- Referensi: %d (%d terverifikasi)\n- Pedoman: %s\n- Persona Asisten: %s\n- Cakupan Fokus: %s\n\n%s\n\nPertanyaan/permintaan pengguna:\n%s",
+            "Konteks proyek:\n- Judul: %s\n- Bidang: %s\n- Jenis: %s\n- Tahap: %s\n- Referensi: %d (%d terverifikasi)\n- Pedoman: %s\n- Persona Asisten: %s\n- Cakupan Fokus: %s\n\n%s%s\n\nPertanyaan/permintaan pengguna:\n%s",
             $context->projectTitle,
             $context->fieldOfStudy,
             $context->documentType,
@@ -409,6 +451,7 @@ final class XishieAssistantService
             $persona,
             strtoupper($scope),
             $scopeDetails,
+            $docContextPrompt,
             $input,
         );
 
@@ -1158,22 +1201,27 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function keterbacaan(XishieProject $project, string $argument): array
+    private function keterbacaan(XishieProject $project, string $argument, ?NaskahDocument $contextDocument = null): array
     {
         $textToAnalyze = trim($argument);
         $sourceLabel = 'Teks Masukan';
 
         if ($textToAnalyze === '') {
-            $stage = $this->stageRecord($project);
-            $sections = $stage?->sections_content ?? [];
-            $collected = [];
-            foreach ($sections as $sec) {
-                if (! empty($sec['content'])) {
-                    $collected[] = strip_tags((string) $sec['content']);
+            if ($contextDocument !== null) {
+                $textToAnalyze = app(NaskahRichModel::class)->toPlainText((array) ($contextDocument->blocks ?? []));
+                $sourceLabel = 'Dokumen Naskah: '.$contextDocument->title;
+            } else {
+                $stage = $this->stageRecord($project);
+                $sections = $stage?->sections_content ?? [];
+                $collected = [];
+                foreach ($sections as $sec) {
+                    if (! empty($sec['content'])) {
+                        $collected[] = strip_tags((string) $sec['content']);
+                    }
                 }
+                $textToAnalyze = implode("\n\n", $collected);
+                $sourceLabel = 'Draf Naskah Tahap '.strtoupper($project->current_stage->value);
             }
-            $textToAnalyze = implode("\n\n", $collected);
-            $sourceLabel = 'Draf Naskah Tahap '.strtoupper($project->current_stage->value);
         }
 
         if ($textToAnalyze === '') {
