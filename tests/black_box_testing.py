@@ -140,6 +140,9 @@ test("Command Category: Audit & Validasi", "Audit &amp; Validasi" in assistant_h
 test("Command Category: Gaya & Format", "Gaya &amp; Format" in assistant_html or "Gaya & Format" in assistant_html)
 test("Academic Slash Commands Present (/abstrak, /pendahuluan, /sitasi, /kebaruan)",
      "/abstrak" in assistant_html and "/pendahuluan" in assistant_html and "/sitasi" in assistant_html and "/kebaruan" in assistant_html)
+test("Command Search Input Field Present", "commandSearch" in assistant_html or "Cari..." in assistant_html)
+test("HTML Transcript Export Option Present", "HTML" in assistant_html)
+test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
 test("Studio Execute Button (⚡ Eksekusi ke Studio)", "Eksekusi ke Studio" in assistant_html)
 
 # 4. Naskah Studio Filament Page & Ribbon UI

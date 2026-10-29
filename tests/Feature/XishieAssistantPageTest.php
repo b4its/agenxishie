@@ -175,3 +175,65 @@ it('executes current model to naskah studio directly from assistant page', funct
     expect($doc)->not->toBeNull()
         ->and(count($doc->blocks))->toBeGreaterThan(1);
 });
+
+it('filters slash commands dynamically using commandSearch query', function (): void {
+    $page = Livewire::test(XishieAssistantPage::class);
+
+    // Initial all 26
+    expect(count($page->instance()->filteredCommands()))->toBe(26);
+
+    // Search query 'abstrak'
+    $page->set('commandSearch', 'abstrak');
+    $filtered = $page->instance()->filteredCommands();
+    expect(count($filtered))->toBe(1)
+        ->and($filtered[0]['name'])->toBe('/abstrak');
+
+    // Search query 'sitasi'
+    $page->set('commandSearch', 'sitasi');
+    $filtered = $page->instance()->filteredCommands();
+    expect(array_column($filtered, 'name'))->toContain('/sitasi');
+});
+
+it('exports assistant conversation transcript as styled HTML document', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $this->actingAs(User::factory()->create());
+    $project = makeProject(['title' => 'Riset Evaluasi Model']);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('message', '/abstrak')
+        ->call('send');
+
+    $response = $page->instance()->exportTranscript('html');
+    expect($response)->not->toBeNull()
+        ->and($response->headers->get('content-type'))->toBe('text/html; charset=UTF-8');
+
+    ob_start();
+    $response->sendContent();
+    $htmlContent = ob_get_clean();
+
+    expect($htmlContent)->toContain('<!DOCTYPE html>')
+        ->and($htmlContent)->toContain('Transkrip Percakapan Xishie Assistant')
+        ->and($htmlContent)->toContain('Riset Evaluasi Model');
+});
+
+it('answers all extended slash commands in standalone naskah studio mode without project', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $studio = Livewire::test(\App\Livewire\NaskahStudioApp::class);
+
+    $commands = [
+        '/kebaruan' => 'Pernyataan Kebaruan Ilmiah',
+        '/daftar-isi' => 'Bagan Outline & Struktur Dokumen',
+        '/daftar-pustaka' => 'Daftar Pustaka Terstandar',
+        '/format-paragraf' => 'Format Paragraf',
+        '/catatan-kaki' => 'Format Catatan Kaki',
+        '/keterbacaan' => 'Laporan Analisis Keterbacaan Dokumen',
+    ];
+
+    foreach ($commands as $cmd => $expectedFragment) {
+        $res = $studio->instance()->answerResponse(null, $cmd);
+        expect($res)->toHaveKey('reply')
+            ->and($res['reply'])->toContain($expectedFragment);
+    }
+});
