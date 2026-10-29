@@ -731,6 +731,32 @@ class XishieAssistantPage extends Page
                 ."\\title{Transkrip Sesi Xishie Assistant - ".addslashes($title)."}\n\\author{Peneliti / Xishie}\n\\date{".now()->format('d F Y')."}\n"
                 ."\\begin{document}\n\\maketitle\n\n".implode("\n", $texItems)."\n\\end{document}\n";
             $mime = 'application/x-latex; charset=UTF-8';
+        } elseif ($format === 'csv') {
+            $filename = 'xishie_assistant_transcript_'.$timestamp.'.csv';
+            $rows = [
+                ['Role', 'Model', 'Persona', 'Scope', 'Command', 'Created At', 'Content'],
+            ];
+
+            foreach ($this->log as $entry) {
+                $rows[] = [
+                    (string) ($entry['role'] ?? ''),
+                    (string) ($entry['model'] ?? ''),
+                    (string) ($entry['persona'] ?? ''),
+                    (string) ($entry['scope'] ?? ''),
+                    (string) ($entry['command'] ?? ''),
+                    (string) ($entry['created_at'] ?? ''),
+                    str_replace(["\r\n", "\r", "\n"], ' ', (string) ($entry['content'] ?? '')),
+                ];
+            }
+
+            $output = fopen('php://temp', 'r+');
+            foreach ($rows as $row) {
+                fputcsv($output, $row);
+            }
+            rewind($output);
+            $content = (string) stream_get_contents($output);
+            fclose($output);
+            $mime = 'text/csv; charset=UTF-8';
         } else {
             $filename = 'xishie_assistant_transcript_'.$timestamp.'.md';
             $lines = [

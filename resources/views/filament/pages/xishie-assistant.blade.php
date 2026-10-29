@@ -53,6 +53,7 @@
                             <button type="button" class="rb-button" wire:click="exportTranscript('html')" title="Unduh transkrip sesi sebagai Dokumen HTML">&#11015; HTML</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('latex')" title="Unduh transkrip sesi sebagai Dokumen LaTeX (.tex)">&#11015; LaTeX</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('json')" title="Unduh transkrip sesi sebagai JSON">&#11015; JSON</button>
+                            <button type="button" class="rb-button" wire:click="exportTranscript('csv')" title="Unduh transkrip sesi sebagai CSV (Spreadsheet / Excel)">&#11015; CSV</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('txt')" title="Unduh transkrip sesi sebagai Plain Text">&#11015; TXT</button>
                             <button type="button" class="rb-button" wire:click="clearLog" title="Bersihkan riwayat percakapan">&#128465; Bersihkan</button>
                         </div>
