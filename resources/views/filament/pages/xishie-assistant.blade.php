@@ -233,6 +233,58 @@
                         </div>
                     @endif
 
+                    {{-- Bar Header & Drawer Pencarian Referensi Proyek --}}
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.65rem; padding:.3rem .55rem; background:#f0fdfa; border-radius:4px; border:1px solid #ccfbf1;">
+                        <div style="display:flex; align-items:center; gap:.4rem;">
+                            <span style="font-size:.65rem; font-weight:800; color:#0f766e; text-transform:uppercase;">🔍 PUSTAKA REFERENSI PROYEK</span>
+                            <span style="font-size:.58rem; background:#ccfbf1; color:#0f766e; padding:1px 5px; border-radius:3px; font-weight:600;">{{ count($searchedReferences) }} rujukan</span>
+                        </div>
+                        <button
+                            type="button"
+                            wire:click="toggleReferenceDrawer"
+                            style="font-size:.6rem; font-weight:700; color:#0f766e; background:none; border:none; cursor:pointer;"
+                        >
+                            {{ $showReferenceDrawer ? '▲ Sembunyikan' : '▼ Buka Pencarian' }}
+                        </button>
+                    </div>
+
+                    @if ($showReferenceDrawer)
+                        <div style="margin-bottom:.85rem; background:#f0fdfa; padding:.65rem; border-radius:4px; border:1px solid #99f6e4;">
+                            <div style="margin-bottom:.5rem;">
+                                <input
+                                    type="text"
+                                    class="rb-input"
+                                    placeholder="Cari rujukan (judul, penulis, kunci sitasi, atau nama jurnal)..."
+                                    wire:model.live.debounce.150ms="referenceSearchQuery"
+                                    style="width:100%; font-size:.65rem; padding:4px 8px; border-radius:3px; border:1px solid #5eead4; background:#ffffff;"
+                                />
+                            </div>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:.4rem; max-height:14rem; overflow-y:auto;">
+                                @forelse ($searchedReferences as $ref)
+                                    <div style="background:#ffffff; border:1px solid #ccfbf1; border-radius:4px; padding:.45rem; display:flex; justify-content:space-between; align-items:center; gap:.4rem;">
+                                        <div style="overflow:hidden;">
+                                            <div style="font-size:.63rem; font-weight:700; color:#0f766e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ $ref['title'] }}</div>
+                                            <div style="font-size:.55rem; color:#64748b;">
+                                                <span style="font-weight:600; color:#0d9488;">{{ $ref['citation_key'] }}</span> &bull; {{ $ref['authors'] }} ({{ $ref['year'] ?? 'n.d.' }})
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            class="rb-button"
+                                            style="font-size:.58rem; padding:2px 7px; background:#0f766e; color:#ffffff; white-space:nowrap;"
+                                            wire:click="insertCitationKey('{{ $ref['citation_key'] }}')"
+                                            title="Sisipkan tag kunci sitasi ke dalam pesan input"
+                                        >+ Sisipkan</button>
+                                    </div>
+                                @empty
+                                    <div style="font-size:.6rem; color:#64748b; padding:.5rem; grid-column:1/-1;">
+                                        Ketik kata kunci pencarian di atas untuk menemukan referensi proyek.
+                                    </div>
+                                @endforelse
+                            </div>
+                        </div>
+                    @endif
+
                     {{-- Transkrip Percakapan --}}
                     <div
                         class="rb-terminal"

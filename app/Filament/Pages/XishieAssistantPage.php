@@ -76,6 +76,10 @@ class XishieAssistantPage extends Page
 
     public string $templateCategoryFilter = 'all';
 
+    public string $referenceSearchQuery = '';
+
+    public bool $showReferenceDrawer = false;
+
     public function mount(): void
     {
         $param = request()->query('project');
@@ -475,6 +479,18 @@ class XishieAssistantPage extends Page
                 'year' => $r->year ? (int) $r->year : null,
             ])
             ->all();
+    }
+
+    public function toggleReferenceDrawer(): void
+    {
+        $this->showReferenceDrawer = ! $this->showReferenceDrawer;
+    }
+
+    public function insertCitationKey(string $citationKey): void
+    {
+        $tag = "[@{$citationKey}]";
+        $this->message = trim($this->message.' '.$tag);
+        Notification::make()->title("Kunci Sitasi Disisipkan: {$tag}")->success()->send();
     }
 
     /**
@@ -1390,6 +1406,9 @@ class XishieAssistantPage extends Page
             'promptTemplates' => $this->getFilteredPromptTemplates(),
             'showPromptTemplates' => $this->showPromptTemplates,
             'templateCategoryFilter' => $this->templateCategoryFilter,
+            'searchedReferences' => $this->searchProjectReferences($this->referenceSearchQuery),
+            'showReferenceDrawer' => $this->showReferenceDrawer,
+            'referenceSearchQuery' => $this->referenceSearchQuery,
             'documents' => $this->projectId ? NaskahDocument::query()->where('project_id', $this->projectId)->latest('last_saved_at')->get(['id', 'title', 'word_count']) : collect(),
             'activeDocument' => $this->activeDocumentId ? NaskahDocument::query()->find($this->activeDocumentId) : null,
             'kpi' => UxKpiMetric::ASSISTANT_QUERY_EFFECTIVENESS->label(),
