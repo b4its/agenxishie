@@ -232,6 +232,7 @@ test("Standalone Studio: Draw Ribbon Tab (?tab=draw)", status == 200 and ("Pena 
 
 status, studio_help_html, _ = http_get("/studio?tab=help")
 test("Standalone Studio: Help Ribbon Tab (?tab=help)", status == 200 and ("Shortcuts" in studio_help_html or "Commands" in studio_help_html or "Pintasan" in studio_help_html))
+test("Standalone Studio: Help Ribbon Audit Presets (?tab=help)", "Cek Gap" in studio_help_html and "Kebaruan" in studio_help_html)
 
 # 5. Omnigensi Platform Integration & Agnes 3.0 Flash Discovery
 print("\n--- 5. Omnigensi Platform Integration & Agnes 3.0 Flash Handshake ---")

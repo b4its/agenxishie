@@ -542,5 +542,7 @@ it('tracks total generated words in telemetry session bar in assistant page', fu
 
     expect($page->instance()->getTotalWordsGenerated())->toBe(13)
         ->and($page->html())->toContain('GENERASI:')
-        ->and($page->html())->toContain('13 kata');
+        ->and($page->html())->toContain('13 kata')
+        ->and($page->html())->toContain('6 kata')
+        ->and($page->html())->toContain('7 kata');
 });

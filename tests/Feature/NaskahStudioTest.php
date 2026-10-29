@@ -849,3 +849,14 @@ it('inserts formatted bibliography with hanging indents based on citation style 
     expect($hasHeading)->toBeTrue()
         ->and($hasHangingIndent)->toBeTrue();
 });
+
+it('renders novelty and puebi audit actions in naskah studio help ribbon', function (): void {
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->call('setRibbonTab', 'help');
+
+    expect($page->get('activeTab'))->toBe('help')
+        ->and($page->html())->toContain('Cek Pedoman')
+        ->and($page->html())->toContain('Cek Gap')
+        ->and($page->html())->toContain('Kebaruan')
+        ->and($page->html())->toContain('PUEBI');
+});
