@@ -65,13 +65,14 @@ it('answers a free-form question when agents are disabled (offline summary)', fu
     $project = makeProject();
 
     $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
-        ->set('message', 'Ringkas proyek saya')
+        ->set('message', 'Ringkas naskah pada tahap aktif')
         ->call('send');
 
     $log = $page->get('log');
 
+    // Intensi "ringkas" tanpa draf jatuh ke jawaban ringkas deterministik.
     expect($log)->toHaveCount(2)
-        ->and($log[1]['content'])->toContain('Konteks proyek');
+        ->and($log[1]['content'])->toContain('Belum ada draf naskah');
 });
 
 it('renders markdown (table) in assistant replies', function (): void {

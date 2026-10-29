@@ -3330,6 +3330,10 @@ it('performs white box verification on OmnigensiChatClient integration when exec
     expect($lastEntry['model'])->toBe('claude-3-5-sonnet')
         ->and($lastEntry['data']['source'])->toBe('llm')
         ->and($lastEntry['data']['latency_ms'])->toBe(145);
+
+    config()->set('omnigensi.agents_enabled', false);
+    config()->set('omnigensi.api_key', '');
+    $this->app->forgetInstance(OmnigensiChatClient::class);
 });
 
 it('performs white box verification on automatic bibliography generation, review mode, and regeneration in studio', function (): void {

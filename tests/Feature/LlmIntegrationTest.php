@@ -181,6 +181,10 @@ it('analyses reviewer feedback into action items with the LLM', function (): voi
     expect($revision->action_items)->toHaveCount(2)
         ->and($revision->action_items[0]['task'])->toBe('Perjelas rumusan masalah')
         ->and($revision->diff_payload[0]['after'])->toBe('Rumusan masalah dipertegas.');
+
+    config()->set('omnigensi.agents_enabled', false);
+    config()->set('omnigensi.api_key', '');
+    $this->app->forgetInstance(OmnigensiChatClient::class);
 });
 
 it('normalizes an array custom_guideline_path to a string at the model layer', function (): void {
