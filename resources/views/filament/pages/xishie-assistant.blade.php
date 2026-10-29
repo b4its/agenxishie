@@ -6,6 +6,18 @@
                 <span>[&#10024;] XISHIE ASSISTANT — {{ $project?->title ? strtoupper(\Illuminate\Support\Str::limit($project->title, 40)) : 'NO PROJECT' }} [MODEL: {{ strtoupper($currentModel) }}]</span>
                 <span class="rb-window__controls"><span class="rb-window__control">-</span><span class="rb-window__control">&#9633;</span><span class="rb-window__control">&#215;</span></span>
             </div>
+            <div style="background:#0f172a; color:#94a3b8; font-size:.62rem; padding:.25rem .75rem; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.4rem;">
+                <span style="font-family:monospace; display:inline-flex; align-items:center; gap:5px;">
+                    <span style="color:#38bdf8;">● SESI:</span> {{ count($log) }} pesan
+                    <span style="color:#64748b;">|</span>
+                    <span style="color:#fde047;">MODEL:</span> {{ $currentModel }}
+                    <span style="color:#64748b;">|</span>
+                    <span style="color:#34d399;">FOKUS:</span> {{ strtoupper($assistantScope) }}
+                </span>
+                <span style="font-family:monospace; color:#94a3b8;">
+                    PERSONA: {{ strtoupper(str_replace('_', ' ', $currentPersona)) }}
+                </span>
+            </div>
             <div class="rb-window__body">
                 @if ($project === null)
                     <div class="rb-notice rb-notice--alert">
@@ -206,6 +218,10 @@
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/tabel-analisis')">📊 /tabel-analisis</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/rumus')">π /rumus</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/keterbacaan')">📈 /keterbacaan</button>
+                        <span style="border-left:1px solid #cbd5e1; height:14px; margin:0 3px;"></span>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#4338ca; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/kebaruan')" title="Eksekusi analisis kebaruan sekarang">⚡ Cek Kebaruan</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#0f766e; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/keterbacaan')" title="Eksekusi audit keterbacaan sekarang">⚡ Cek Keterbacaan</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#0369a1; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/daftar-pustaka')" title="Format pustaka sekarang">⚡ Format Pustaka</button>
                     </div>
 
                     {{-- Form Input --}}
