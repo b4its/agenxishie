@@ -860,3 +860,88 @@ it('renders novelty and puebi audit actions in naskah studio help ribbon', funct
         ->and($page->html())->toContain('Kebaruan')
         ->and($page->html())->toContain('PUEBI');
 });
+
+it('supports snapshot diff comparison and snapshot branching into a new document in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $project = makeProject();
+
+    $initialBlocks = [
+        ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+        ['type' => 'paragraph', 'text' => 'Latar belakang riset awal lima kata saja.'],
+    ];
+
+    $page = Livewire::test(NaskahStudioPage::class, ['project' => $project->id])
+        ->set('docTitle', 'Naskah Uji Snapshot')
+        ->set('blocks', $initialBlocks)
+        ->call('createSnapshot', 'Draf Awal');
+
+    $snapshots = $page->get('snapshots');
+    expect(count($snapshots))->toBe(1);
+
+    // Now modify the document (add more blocks)
+    $expandedBlocks = [
+        ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+        ['type' => 'paragraph', 'text' => 'Latar belakang riset awal lima kata saja.'],
+        ['type' => 'paragraph', 'text' => 'Paragraf tambahan kedua untuk memperjelas konteks riset secara mendalam.'],
+    ];
+    $page->set('blocks', $expandedBlocks);
+
+    // Run snapshot comparison
+    $diff = $page->instance()->compareSnapshot(0);
+    expect($diff)->not->toBeNull()
+        ->and($diff['snapshot_label'])->toBe('Draf Awal')
+        ->and($diff['delta_blocks'])->toBe(1)
+        ->and($diff['delta_words'])->toBeGreaterThan(0)
+        ->and($page->get('dialog'))->toBe('snapshot_diff');
+
+    // Branch snapshot into new document
+    $branchedDoc = $page->instance()->branchSnapshotToDocument(0);
+    expect($branchedDoc)->not->toBeNull()
+        ->and($branchedDoc->title)->toContain('(Cabang: Draf Awal)')
+        ->and($branchedDoc->project_id)->toBe($project->id)
+        ->and(count($branchedDoc->blocks))->toBe(2);
+});
+
+it('supports proofing language switching and custom academic dictionary in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    expect($page->get('proofingLanguage'))->toBe('Indonesia (PUEBI)');
+
+    // Switch to English
+    $page->call('setProofingLanguage', 'English (Academic en-US)');
+    expect($page->get('proofingLanguage'))->toBe('English (Academic en-US)');
+
+    // Add custom word to dictionary
+    $page->call('addCustomWordToDictionary', 'ScopusQ1');
+    expect($page->get('styleMeta')['custom_dictionary'] ?? [])->toContain('scopusq1');
+
+    // Spellcheck does not flag whitelisted custom word
+    $page->set('blocks', [
+        ['type' => 'paragraph', 'text' => 'Penelitian ini menargetkan jurnal scopusq1 bereputasi.'],
+    ])->call('runSpellCheck');
+
+    expect($page->get('spellResult'))->not->toContain('scopusq1');
+});
+
+it('supports target word count presets for academic genres in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    $page->call('setTargetWordCountPreset', 'skripsi');
+    expect($page->get('targetWordCount'))->toBe(12000);
+
+    $page->call('setTargetWordCountPreset', 'tesis');
+    expect($page->get('targetWordCount'))->toBe(25000);
+
+    $page->call('setTargetWordCountPreset', 'jurnal_scopus');
+    expect($page->get('targetWordCount'))->toBe(6000);
+
+    $page->call('setTargetWordCountPreset', 'abstrak');
+    expect($page->get('targetWordCount'))->toBe(250);
+});

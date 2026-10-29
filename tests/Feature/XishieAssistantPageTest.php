@@ -546,3 +546,39 @@ it('tracks total generated words in telemetry session bar in assistant page', fu
         ->and($page->html())->toContain('6 kata')
         ->and($page->html())->toContain('7 kata');
 });
+
+it('exports assistant conversation transcript as a new NaskahDocument in Naskah Studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $project = makeProject(['title' => 'Riset Komparatif LLM']);
+
+    $log = [
+        ['role' => 'user', 'content' => 'Bagaimana metodologi benchmarking LLM?', 'created_at' => '10:00:00'],
+        ['role' => 'assistant', 'content' => "Metodologi benchmarking memerlukan evaluasi holistik:\n\n| Metrik | Definisi | Skala |\n| Akurasi | Kebenaran jawaban | 0-100 |\n| Latensi | Waktu inferensi | ms |\n\n> Pastikan dataset evaluasi bebas dari kontaminasi data latih.", 'created_at' => '10:00:05'],
+    ];
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', $log);
+
+    $document = $page->instance()->exportTranscriptToDocument('Dokumen Hasil Benchmarking LLM');
+
+    expect($document)->not->toBeNull()
+        ->and($document->title)->toBe('Dokumen Hasil Benchmarking LLM')
+        ->and($document->project_id)->toBe($project->id)
+        ->and($document->source_type)->toBe(NaskahDocument::SOURCE_PROJECT)
+        ->and($document->word_count)->toBeGreaterThan(10);
+
+    $blocks = $document->blocks;
+    expect(count($blocks))->toBeGreaterThanOrEqual(4);
+
+    $types = array_column($blocks, 'type');
+    expect($types)->toContain('heading')
+        ->and($types)->toContain('callout')
+        ->and($types)->toContain('table')
+        ->and($types)->toContain('quote');
+
+    // Also test with empty log returns null
+    $pageEmpty = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', []);
+    expect($pageEmpty->instance()->exportTranscriptToDocument())->toBeNull();
+});

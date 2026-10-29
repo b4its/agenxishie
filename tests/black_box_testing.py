@@ -160,6 +160,7 @@ test("Assistant Transcript Search Field Present", "Cari transkrip..." in assista
 test("Assistant Starred Filter Button Present", "toggleOnlyStarred" in assistant_html)
 test("Assistant Stage-Aware Contextual Prompts Bar Present", "TAHAP " in assistant_html)
 test("Assistant Snapshot Archiving Button Present", "Snapshot" in assistant_html)
+test("Assistant Studio Export Action Present", "exportTranscriptToDocument" in assistant_html or "Buat Naskah Studio" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
 test("Studio Execute Button (⚡ Eksekusi ke Studio)", "Eksekusi ke Studio" in assistant_html)
@@ -207,6 +208,10 @@ test("Standalone Studio: Target Word Count Indicator in Statusbar", "Target Word
 
 status, studio_stats_html, _ = http_get("/studio?dialog=stats")
 test("Standalone Studio: Target Word Count Supported in Stats Dialog (?dialog=stats)", "setTargetWordCount" in studio_stats_html)
+test("Standalone Studio: Proofing Language Indicator in Statusbar", "Indonesia (PUEBI)" in studio_standalone_html)
+
+status, studio_snap_html, _ = http_get("/studio?dialog=snapshots")
+test("Standalone Studio: Snapshot Dialog Supported (?dialog=snapshots)", status == 200 and ("compareSnapshot" in studio_snap_html or "restoreSnapshot" in studio_snap_html or "Snapshot" in studio_snap_html))
 test("Standalone Studio: Ribbon Table APA Format Present", "Format APA" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon Generasi AI Group", "Generasi AI" in studio_standalone_html and "Model AI" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon AI Presets (Poles, Kembangkan, Kebaruan, Abstrak)",
