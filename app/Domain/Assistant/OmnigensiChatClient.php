@@ -141,6 +141,15 @@ final class OmnigensiChatClient
                 return null;
             }
 
+            $configured = (string) config('omnigensi.default_model', '');
+            if ($configured !== '') {
+                foreach ($models as $model) {
+                    if ($model['model_id'] === $configured) {
+                        return ['provider_id' => $model['provider_id'], 'model_id' => $model['model_id']];
+                    }
+                }
+            }
+
             foreach ($models as $model) {
                 if (($model['is_default'] ?? false) && $model['model_id'] !== '') {
                     return ['provider_id' => $model['provider_id'], 'model_id' => $model['model_id']];

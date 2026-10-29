@@ -37,10 +37,14 @@ class XishieAssistantPage extends Page
 
     public string $message = '';
 
+    public ?string $currentAssistantModel = null;
+
+    public string $activeCommandCategory = 'all';
+
     /**
      * Transkrip: [['role' => 'user'|'assistant', 'content' => ...]].
      *
-     * @var array<int, array{role: string, content: string}>
+     * @var array<int, array<string, mixed>>
      */
     public array $log = [];
 
@@ -51,6 +55,209 @@ class XishieAssistantPage extends Page
         $this->projectId = $param !== null
             ? (int) $param
             : XishieProject::query()->latest()->value('id');
+
+        $this->getCurrentAssistantModel();
+    }
+
+    public function getCurrentAssistantModel(): string
+    {
+        if ($this->currentAssistantModel !== null && trim($this->currentAssistantModel) !== '') {
+            return trim($this->currentAssistantModel);
+        }
+
+        try {
+            $client = app(\App\Domain\Assistant\OmnigensiChatClient::class);
+            $default = $client->defaultModel();
+            if ($default !== null && trim($default) !== '') {
+                $this->currentAssistantModel = trim($default);
+
+                return $this->currentAssistantModel;
+            }
+        } catch (\Throwable) {
+        }
+
+        $configured = (string) config('omnigensi.default_model', 'hv/agnes-3.0-flash');
+        $this->currentAssistantModel = $configured !== '' ? $configured : 'hv/agnes-3.0-flash';
+
+        return $this->currentAssistantModel;
+    }
+
+    public function setAssistantModel(string $modelId): void
+    {
+        $trimmed = trim($modelId);
+        if ($trimmed === '') {
+            return;
+        }
+
+        $this->currentAssistantModel = $trimmed;
+        Notification::make()
+            ->title('Model Xishie Assistant Diubah')
+            ->body("Model aktif dialihkan ke: {$this->currentAssistantModel}")
+            ->info()
+            ->send();
+    }
+
+    /**
+     * @return array<int, array{id: string, name: string, provider: string, is_default: bool}>
+     */
+    public function getAvailableModels(): array
+    {
+        $models = [];
+
+        try {
+            $client = app(\App\Domain\Assistant\OmnigensiChatClient::class);
+            $rawModels = $client->hasIntegrationKey() ? $client->integrationModels() : $client->models();
+
+            foreach ($rawModels as $m) {
+                if (! empty($m['model_id'])) {
+                    $models[] = [
+                        'id' => (string) $m['model_id'],
+                        'name' => (string) ($m['display_name'] ?? $m['model_id']),
+                        'provider' => (string) ($m['provider_name'] ?? 'Omnigensi'),
+                        'is_default' => (bool) ($m['is_default'] ?? false),
+                    ];
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        if (empty($models)) {
+            $models = [
+                ['id' => 'hv/agnes-3.0-flash', 'name' => 'HV Agnes 3.0 Flash (Default / Upstream)', 'provider' => 'Omnigensi', 'is_default' => true],
+                ['id' => 'qwen-2.5-72b-instruct', 'name' => 'Qwen 2.5 72B (Akademik & Cepat)', 'provider' => 'Omnigensi', 'is_default' => false],
+                ['id' => 'gemini-3.8-flash', 'name' => 'Gemini 3.8 Flash (High Performance)', 'provider' => 'Google', 'is_default' => false],
+                ['id' => 'gemini-2.0-flash', 'name' => 'Gemini 2.0 Flash (Super Cepat)', 'provider' => 'Google', 'is_default' => false],
+                ['id' => 'deepseek-chat', 'name' => 'DeepSeek V3 (Penalaran & Logika)', 'provider' => 'DeepSeek', 'is_default' => false],
+                ['id' => 'gpt-4o', 'name' => 'GPT-4o (Multimodal & Presisi)', 'provider' => 'OpenAI', 'is_default' => false],
+                ['id' => 'claude-3-5-sonnet', 'name' => 'Claude 3.5 Sonnet (Penulisan Ilmiah)', 'provider' => 'Anthropic', 'is_default' => false],
+                ['id' => 'gemini-1.5-pro', 'name' => 'Gemini 1.5 Pro (Konteks Panjang)', 'provider' => 'Google', 'is_default' => false],
+                ['id' => 'llama-3.3-70b-instruct', 'name' => 'Llama 3.3 70B (Open Source Riset)', 'provider' => 'Meta', 'is_default' => false],
+            ];
+        }
+
+        return $models;
+    }
+
+    public function setCommandCategory(string $category): void
+    {
+        $this->activeCommandCategory = $category;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getCommandCategories(): array
+    {
+        return [
+            'all' => 'Semua Perintah',
+            'structure' => 'Struktur & Bab',
+            'literature' => 'Sitasi & Literatur',
+            'audit' => 'Audit & Validasi',
+            'format' => 'Gaya & Format',
+        ];
+    }
+
+    /**
+     * @return array<int, array{name: string, description: string, category: string}>
+     */
+    public function filteredCommands(): array
+    {
+        $categorized = [];
+        foreach (SlashCommand::cases() as $c) {
+            $cat = match ($c) {
+                SlashCommand::PENDAHULUAN, SlashCommand::ABSTRAK, SlashCommand::METODOLOGI,
+                SlashCommand::PEMBAHASAN, SlashCommand::KESIMPULAN, SlashCommand::TINJAUAN_PUSTAKA,
+                SlashCommand::DAFTAR_ISI => 'structure',
+
+                SlashCommand::SITASI, SlashCommand::MATRIKS, SlashCommand::CARI_REFERENSI,
+                SlashCommand::DAFTAR_PUSTAKA, SlashCommand::CATATAN_KAKI => 'literature',
+
+                SlashCommand::CEK_GAP, SlashCommand::CEK_PEDOMAN, SlashCommand::KETERBACAAN,
+                SlashCommand::KEBARUAN => 'audit',
+
+                default => 'format',
+            };
+
+            if ($this->activeCommandCategory === 'all' || $this->activeCommandCategory === $cat) {
+                $categorized[] = [
+                    'name' => $c->value,
+                    'description' => $c->description(),
+                    'category' => $cat,
+                ];
+            }
+        }
+
+        return $categorized;
+    }
+
+    /**
+     * Regenerate jawaban terakhir dari Xishie Assistant dengan model aktif.
+     */
+    public function regenerateLastResponse(): void
+    {
+        $project = $this->getProject();
+        if ($project === null) {
+            Notification::make()->title('Tidak ada proyek aktif')->warning()->send();
+
+            return;
+        }
+
+        $lastUserQuery = null;
+        for ($i = count($this->log) - 1; $i >= 0; $i--) {
+            if (($this->log[$i]['role'] ?? '') === 'user') {
+                $lastUserQuery = (string) ($this->log[$i]['content'] ?? '');
+                break;
+            }
+        }
+
+        if ($lastUserQuery === null || trim($lastUserQuery) === '') {
+            Notification::make()->title('Tidak ada pertanyaan sebelumnya untuk di-regenerate')->info()->send();
+
+            return;
+        }
+
+        $modelId = $this->getCurrentAssistantModel();
+
+        try {
+            $result = app(XishieAssistantService::class)->handle($project, $lastUserQuery, $modelId);
+
+            OmnigensiAgentLog::create([
+                'project_id' => $project->id,
+                'agent_name' => 'Xishie-Assistant',
+                'action' => ($result['command'] ?? 'regenerate').':regenerate',
+                'control_mode' => $project->control_mode->value,
+                'ttft_ms' => 0,
+                'execution_time_ms' => 0,
+                'token_usage' => str_word_count((string) $result['reply']),
+                'hallucination_rejected_count' => 0,
+                'status' => 'success',
+                'payload' => [
+                    'query' => $lastUserQuery,
+                    'command' => $result['command'] ?? 'chat',
+                    'model' => $modelId,
+                    'regenerate' => true,
+                ],
+            ]);
+
+            $this->log[] = [
+                'role' => 'assistant',
+                'content' => (string) $result['reply'],
+                'model' => $modelId,
+                'created_at' => now()->format('H:i:s'),
+                'is_regenerated' => true,
+            ];
+
+            Notification::make()->title('Jawaban Berhasil Di-regenerate')->success()->send();
+        } catch (\Throwable $exception) {
+            $this->log[] = [
+                'role' => 'assistant',
+                'content' => '[Gagal] '.$exception->getMessage(),
+                'model' => $modelId,
+                'created_at' => now()->format('H:i:s'),
+            ];
+        }
+
+        $this->dispatch('assistant-updated');
     }
 
     public function getProject(): ?XishieProject
@@ -105,11 +312,18 @@ class XishieAssistantPage extends Page
             return;
         }
 
-        $this->log[] = ['role' => 'user', 'content' => $text];
+        $modelId = $this->getCurrentAssistantModel();
+
+        $this->log[] = [
+            'role' => 'user',
+            'content' => $text,
+            'model' => $modelId,
+            'created_at' => now()->format('H:i:s'),
+        ];
         $this->message = '';
 
         try {
-            $result = app(XishieAssistantService::class)->handle($project, $text);
+            $result = app(XishieAssistantService::class)->handle($project, $text, $modelId);
 
             // Catat untuk KPI "Assistant Query Effectiveness".
             OmnigensiAgentLog::create([
@@ -125,15 +339,27 @@ class XishieAssistantPage extends Page
                 'payload' => [
                     'query' => $text,
                     'command' => $result['command'],
+                    'model' => $modelId,
                     'metadata' => [
                         'applied' => in_array($result['command'], SlashCommand::names(), true),
                     ],
                 ],
             ]);
 
-            $this->log[] = ['role' => 'assistant', 'content' => (string) $result['reply']];
+            $this->log[] = [
+                'role' => 'assistant',
+                'content' => (string) $result['reply'],
+                'model' => $modelId,
+                'command' => $result['command'] ?? 'chat',
+                'created_at' => now()->format('H:i:s'),
+            ];
         } catch (\Throwable $exception) {
-            $this->log[] = ['role' => 'assistant', 'content' => '[Gagal] '.$exception->getMessage()];
+            $this->log[] = [
+                'role' => 'assistant',
+                'content' => '[Gagal] '.$exception->getMessage(),
+                'model' => $modelId,
+                'created_at' => now()->format('H:i:s'),
+            ];
         }
 
         $this->dispatch('assistant-updated');
@@ -238,15 +464,18 @@ class XishieAssistantPage extends Page
         }
 
         $project = $this->getProject();
+        $modelId = $this->getCurrentAssistantModel();
+
         $this->log[] = [
             'role' => 'user',
             'content' => $input,
             'command' => str_starts_with($input, '/') ? explode(' ', $input)[0] : 'chat',
+            'model' => $modelId,
             'created_at' => now()->format('H:i:s'),
         ];
 
         $service = app(XishieAssistantService::class);
-        $res = $service->handle($project, $input);
+        $res = $service->handle($project, $input, $modelId);
         $reply = $res['reply'] ?? '';
 
         $this->log[] = [
@@ -254,11 +483,13 @@ class XishieAssistantPage extends Page
             'content' => $reply,
             'command' => $res['command'] ?? 'chat',
             'data' => $res['data'] ?? [],
+            'model' => $modelId,
             'created_at' => now()->format('H:i:s'),
         ];
         $this->message = '';
 
         $this->applyToNaskahStudio(count($this->log) - 1);
+        $this->dispatch('assistant-updated');
     }
 
     /**
@@ -396,6 +627,11 @@ class XishieAssistantPage extends Page
             'project' => $this->getProject(),
             'projects' => XishieProject::query()->latest()->get(['id', 'title']),
             'commands' => $this->commands(),
+            'filteredCommands' => $this->filteredCommands(),
+            'categories' => $this->getCommandCategories(),
+            'activeCategory' => $this->activeCommandCategory,
+            'availableModels' => $this->getAvailableModels(),
+            'currentModel' => $this->getCurrentAssistantModel(),
             'kpi' => UxKpiMetric::ASSISTANT_QUERY_EFFECTIVENESS->label(),
         ];
     }

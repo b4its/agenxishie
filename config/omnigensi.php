@@ -34,6 +34,11 @@ return [
     'api_key' => env('OMNIGENSI_API_KEY', ''),
 
     /*
+    | Model LLM default yang digunakan untuk asisten dan naskah studio.
+    */
+    'default_model' => env('OMNIGENSI_DEFAULT_MODEL', 'hv/agnes-3.0-flash'),
+
+    /*
     | Apakah agen (Academic-Scribe, dll.) memakai LLM Omnigensi untuk menulis.
     | Bila false, agen memakai template deterministik (berguna untuk test yang
     | harus deterministik/offline). Default true: terintegrasi dengan omnigensi.
