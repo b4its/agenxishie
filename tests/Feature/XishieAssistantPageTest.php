@@ -712,3 +712,34 @@ it('grounds assistant responses in selected context document', function (): void
     expect($readabilityReply)->toContain('Laporan Analisis Keterbacaan Naskah')
         ->and($readabilityReply)->toContain('Dokumen Naskah: Draf Manuskrip Bioinformatika');
 });
+
+it('supports reference search drawer and citation key insertion in assistant', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $project = makeProject(['title' => 'Riset Deep Learning']);
+
+    $project->references()->create([
+        'citation_key' => 'vaswani2017',
+        'title' => 'Attention Is All You Need',
+        'authors' => ['Ashish Vaswani', 'Noam Shazeer'],
+        'year' => 2017,
+        'journal_name' => 'NeurIPS',
+    ]);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // Test toggle drawer
+    expect($page->get('showReferenceDrawer'))->toBeFalse();
+    $page->call('toggleReferenceDrawer');
+    expect($page->get('showReferenceDrawer'))->toBeTrue();
+
+    // Test searchProjectReferences
+    $results = $page->instance()->searchProjectReferences('Vaswani');
+    expect(count($results))->toBe(1)
+        ->and($results[0]['citation_key'])->toBe('vaswani2017');
+
+    // Test insertCitationKey
+    $page->call('insertCitationKey', 'vaswani2017');
+    expect($page->get('message'))->toContain('[@vaswani2017]');
+});

@@ -1087,3 +1087,37 @@ it('supports academic cover page insertion and watermark management in naskah st
     $page->call('setWatermark', '');
     expect($page->get('pageSetup')['watermark'])->toBe('');
 });
+
+it('supports dynamic bibliography update and style reformatting in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Initial bibliography insertion
+    $page->call('insertBibliography');
+    $blocks = $page->get('blocks');
+    $bibHeadingIdx = null;
+    foreach ($blocks as $idx => $b) {
+        if (($b['type'] ?? '') === 'heading' && str_contains(strtolower($b['text']), 'daftar pustaka')) {
+            $bibHeadingIdx = $idx;
+            break;
+        }
+    }
+    expect($bibHeadingIdx)->not->toBeNull();
+
+    // Change citation style to IEEE
+    $page->call('setCitationStyle', 'IEEE');
+    expect($page->get('citationStyle'))->toBe('IEEE');
+
+    // Trigger updateBibliography
+    $page->call('updateBibliography');
+    $updatedBlocks = $page->get('blocks');
+
+    // Check that bibliography entries exist and are formatted
+    expect(count($updatedBlocks))->toBeGreaterThan($bibHeadingIdx);
+    $firstEntry = $updatedBlocks[$bibHeadingIdx + 1];
+    expect($firstEntry['hangingIndent'])->toBeTrue()
+        ->and($firstEntry['spacingBefore'])->toBe(4.0)
+        ->and($firstEntry['spacingAfter'])->toBe(6.0);
+});

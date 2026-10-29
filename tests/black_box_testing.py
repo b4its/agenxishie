@@ -164,6 +164,7 @@ test("Assistant Studio Export Action Present", "exportTranscriptToDocument" in a
 test("Assistant Context Document Selector Present", "KONTEKS NASKAH" in assistant_html or "selectContextDocument" in assistant_html)
 test("Assistant Academic Prompt Templates Bar Present", "KATALOG TEMPLAT PROMPT RISET" in assistant_html or "togglePromptTemplates" in assistant_html)
 test("Assistant Academic Prompt Templates Actions Supported", "applyPromptTemplate" in assistant_html or "togglePromptTemplates" in assistant_html)
+test("Assistant Reference Search Drawer Present", "PUSTAKA REFERENSI PROYEK" in assistant_html or "toggleReferenceDrawer" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
 test("Studio Execute Button (⚡ Eksekusi ke Studio)", "Eksekusi ke Studio" in assistant_html)
@@ -244,6 +245,7 @@ test("Standalone Studio: Mail Merge Dialog Supported (?dialog=merge)", status ==
 
 status, studio_references_html, _ = http_get("/studio?tab=references")
 test("Standalone Studio: References Ribbon Tab (?tab=references)", "Pustaka Riset" in studio_references_html and "Insert Citation" in studio_references_html)
+test("Standalone Studio: References Ribbon Update Bibliography Present (?tab=references)", "updateBibliography" in studio_references_html or "Update Bib" in studio_references_html)
 
 status, studio_review_html, _ = http_get("/studio?tab=review")
 test("Standalone Studio: Review Ribbon Tab (?tab=review)", "Cek Pedoman" in studio_review_html and "Cek Gap" in studio_review_html and "Keterbacaan" in studio_review_html)
