@@ -329,3 +329,16 @@ it('executes slash command immediately using executeCommandDirectly', function (
         ->and($log[0]['content'])->toBe('/sitasi')
         ->and($log[1]['role'])->toBe('assistant');
 });
+
+it('renders assistant session telemetry bar and direct execution buttons', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    $html = $page->html();
+    expect($html)->toContain('SESI:')
+        ->and($html)->toContain('⚡ Cek Kebaruan')
+        ->and($html)->toContain('⚡ Cek Keterbacaan')
+        ->and($html)->toContain('⚡ Format Pustaka');
+});

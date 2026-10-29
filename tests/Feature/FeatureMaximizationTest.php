@@ -4315,3 +4315,46 @@ it('renders active model badge in topbar and dynamic status bar with page count 
     $htmlAfter = $component->html();
     expect($htmlAfter)->toContain('DIKTI 4-4-3-3');
 });
+
+it('supports standalone studio navigation tabs for pustaka and versi with ribbon apa table and dikti presets', function (): void {
+    $project = makeProject();
+    $ref = \App\Models\ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'Rahman2026',
+        'title' => 'Algoritma Pemrosesan Naskah',
+        'authors' => 'Rahman et al.',
+        'year' => 2026,
+        'venue_name' => 'Jurnal Sistem Cerdas',
+        'venue_tier' => 'Q1',
+        'is_verified' => true,
+    ]);
+
+    $component = Livewire::test(NaskahStudioApp::class, ['projectId' => $project->id]);
+
+    // Test switching to Pustaka tab
+    $component->call('setNavigationTab', 'pustaka');
+    expect($component->get('navigationTab'))->toBe('pustaka');
+    $html = $component->html();
+    expect($html)->toContain('Algoritma Pemrosesan Naskah')
+        ->and($html)->toContain('insertReferenceCitation');
+
+    // Test switching to Versi tab
+    $component->call('createSnapshot', 'Snapshot Awal');
+    $component->call('setNavigationTab', 'versi');
+    expect($component->get('navigationTab'))->toBe('versi');
+    $htmlVersi = $component->html();
+    expect($htmlVersi)->toContain('Snapshot Awal')
+        ->and($htmlVersi)->toContain('Pulihkan');
+
+    // Test ribbon apa format and dikti presets in HTML
+    $component->call('$set', 'activeTab', 'layout');
+    expect($component->html())->toContain('DIKTI 4-4-3-3');
+
+    $component->call('$set', 'activeTab', 'table');
+    expect($component->html())->toContain('Format APA');
+
+    // Test copilot drawer category filtering and search
+    $component->call('openAssistant');
+    $component->call('setDrawerCommandCategory', 'audit');
+    expect($component->get('drawerCommandCategory'))->toBe('audit');
+});

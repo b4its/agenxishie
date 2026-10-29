@@ -151,6 +151,8 @@ test("Command Search Input Field Present", "commandSearch" in assistant_html or 
 test("HTML Transcript Export Option Present", "HTML" in assistant_html)
 test("LaTeX Transcript Export Option Present", "LaTeX" in assistant_html)
 test("Assistant Focus Scope Selector Present", "FOKUS:" in assistant_html)
+test("Assistant Session Telemetry Bar Present (SESI:)", "SESI:" in assistant_html)
+test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
 test("Studio Execute Button (⚡ Eksekusi ke Studio)", "Eksekusi ke Studio" in assistant_html)
 
@@ -180,6 +182,13 @@ status, studio_drawer_html, _ = http_get("/admin/naskah-studio?assistant=1", hea
 test("Visit /admin/naskah-studio?assistant=1 (Copilot Drawer Open)", status == 200)
 test("Docked Copilot Drawer: Category Pills (drawerCategories)", "setDrawerCommandCategory" in studio_drawer_html)
 test("Docked Copilot Drawer: Search Input (drawerCommandSearch)", "drawerCommandSearch" in studio_drawer_html)
+
+# Test Standalone Studio Route (/studio)
+status, studio_standalone_html, _ = http_get("/studio")
+test("Visit Standalone /studio (Public Access)", status == 200, f"status={status}")
+test("Standalone Studio: Multi-tab Navigator (Pustaka & Versi)", "Pustaka" in studio_standalone_html and "Versi" in studio_standalone_html)
+test("Standalone Studio: Ribbon Layout DIKTI Preset Present", "DIKTI 4-4-3-3" in studio_standalone_html)
+test("Standalone Studio: Ribbon Table APA Format Present", "Format APA" in studio_standalone_html)
 
 # 5. Omnigensi Platform Integration & Agnes 3.0 Flash Discovery
 print("\n--- 5. Omnigensi Platform Integration & Agnes 3.0 Flash Handshake ---")
