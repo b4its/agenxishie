@@ -1433,6 +1433,14 @@
                             <span>📊 Statistik</span>
                         </button>
                     </div>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/cek-gap')" title="Audit Research Gap">
+                            <span>🔬 Cek Gap</span>
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="executeModelPreset('novelty')" title="Formulasi Kebaruan Riset">
+                            <span>💡 Kebaruan</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Asisten &amp; Audit</span></div>
             </div>

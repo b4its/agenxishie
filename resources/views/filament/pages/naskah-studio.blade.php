@@ -1914,6 +1914,8 @@
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="openAssistant" style="background: linear-gradient(135deg, #eef2ff 0%, #f3e8ff 100%); border: 1px solid #c7d2fe; color: #4338ca; font-weight: 700;">&#10024; Copilot Asisten</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/cek-pedoman')" title="Audit Kepatuhan Pedoman Naskah">&#127919; Cek Pedoman</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/cek-gap')" title="Audit Research Gap">&#128300; Cek Gap</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('novelty')" title="Formulasi Kebaruan Riset">💡 Kebaruan</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/puebi')" title="Audit Kaidah Ejaan &amp; PUEBI">✍️ PUEBI</button>
                         </div>
                     </div>
                 @endif
