@@ -35,8 +35,6 @@ class NaskahStudioApp extends Component
 
     public ?string $sessionStartedAt = null;
 
-    public int $targetWordCount = 1500;
-
     /**
      * Metrik Kepuasan Pengguna / CSAT (HEART - Happiness).
      */
@@ -268,13 +266,6 @@ class NaskahStudioApp extends Component
         }
     }
 
-    /**
-     * Update target jumlah kata sprint.
-     */
-    public function setTargetWordCount(int $target): void
-    {
-        $this->targetWordCount = max(100, $target);
-    }
 
     /**
      * Tambah detik sesi (dijalankan via polling alpine.js).

@@ -57,6 +57,8 @@ trait HandlesNaskahStudio
 
     public array $statistics = [];
 
+    public int $targetWordCount = 1500;
+
     public ?string $lastSavedAt = null;
 
     // ===== Sumber dokumen =====
@@ -384,6 +386,11 @@ trait HandlesNaskahStudio
             $this->activeTab = $requestedTab;
         }
 
+        $requestedDialog = request()->query('dialog');
+        if (is_string($requestedDialog) && $requestedDialog !== '') {
+            $this->openDialog($requestedDialog);
+        }
+
         $documentId = $documentId ?? (request()->query('document') !== null ? (int) request()->query('document') : null);
 
         if (is_numeric($documentId)) {
@@ -572,6 +579,7 @@ trait HandlesNaskahStudio
         $this->styleMeta = array_merge($this->styleMeta, (array) ($document->style_meta ?? []));
         $this->snapshots = (array) ($document->style_meta['snapshots'] ?? []);
         $this->metadata = array_merge($this->metadata, (array) ($document->style_meta['metadata'] ?? []));
+        $this->targetWordCount = (int) ($document->style_meta['target_word_count'] ?? 0);
         $this->lastSavedAt = $document->last_saved_at?->diffForHumans();
         $this->dirty = false;
         $this->editorRevision++;
@@ -4734,6 +4742,7 @@ trait HandlesNaskahStudio
         $styleMeta = array_merge($this->styleMeta, [
             'snapshots' => $this->snapshots,
             'metadata' => $this->metadata,
+            'target_word_count' => $this->targetWordCount,
         ]);
 
         $data = [
@@ -4760,6 +4769,7 @@ trait HandlesNaskahStudio
         }
 
         $this->blocks = $blocks;
+        $this->statistics = $this->model->computeStatistics($blocks);
         $this->dirty = false;
         $this->lastSavedAt = 'baru saja';
         $this->editorRevision++;
@@ -4967,6 +4977,28 @@ trait HandlesNaskahStudio
         $steps = ['50', '75', '100', '125', '150', '200'];
         $i = array_search($this->zoom, $steps, true);
         $this->zoom = $steps[max(0, ($i === false ? 2 : $i) - 1)];
+    }
+
+    public function setTargetWordCount(int $target): void
+    {
+        $this->targetWordCount = max(0, $target);
+        $this->dirty = true;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+        if ($this->targetWordCount > 0) {
+            $this->notify('Target Kata Diatur', "Target dokumen diatur ke {$this->targetWordCount} kata.", 'success');
+        } else {
+            $this->notify('Target Kata Direset', 'Target kata dinonaktifkan.', 'info');
+        }
+    }
+
+    public function getTargetWordProgress(): ?int
+    {
+        if ($this->targetWordCount <= 0) {
+            return null;
+        }
+        $current = ! empty($this->statistics['words']) ? (int) $this->statistics['words'] : $this->model->countWords($this->blocks);
+
+        return (int) min(100, max(0, round(($current / $this->targetWordCount) * 100)));
     }
 
     // =====================================================================

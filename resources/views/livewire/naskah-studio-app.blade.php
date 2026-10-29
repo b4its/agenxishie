@@ -2735,6 +2735,11 @@
             <div class="word-status-item" wire:click="openDialog('stats')" title="Word Count">
                 <span x-text="(liveWordCount || {{ $wordCount }}) + ' kata'">{{ number_format($wordCount) }} kata</span>
             </div>
+            @if ($targetWordCount > 0)
+                <div class="word-status-item" wire:click="openDialog('stats')" title="Target Word Count" style="color:#0f6cbd; font-weight:700;">
+                    🎯 {{ number_format($statistics['words'] ?? $wordCount) }}/{{ number_format($targetWordCount) }} kata ({{ $this->getTargetWordProgress() }}%)
+                </div>
+            @endif
             <div class="word-status-item" style="display:inline-flex; align-items:center; gap:4px;" title="Model AI Aktif">
                 <span>🤖</span> {{ $this->getCurrentAssistantModel() }}
             </div>
@@ -2919,6 +2924,41 @@
                             <div style="padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; font-size:11px;">
                                 <div style="color:#64748b;">Catatan Kaki:</div>
                                 <strong style="font-size:14px; color:#d97706;">{{ count(array_filter($blocks, static fn ($b) => ($b['type'] ?? '') === 'footnote-ref')) }}</strong>
+                            </div>
+                        </div>
+
+                        {{-- Target Word Count Box --}}
+                        <div style="margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                <span style="font-size:11px; font-weight:700; color:#166534;">🎯 TARGET KATA DOKUMEN:</span>
+                                <span style="font-size:11px; font-weight:700; color:{{ ($targetWordCount > 0 && ($statistics['words'] ?? $wordCount) >= $targetWordCount) ? '#16a34a' : '#0f6cbd' }};">
+                                    @if ($targetWordCount > 0)
+                                        {{ number_format($statistics['words'] ?? $wordCount) }} / {{ number_format($targetWordCount) }} kata ({{ $this->getTargetWordProgress() }}%)
+                                    @else
+                                        Belum diatur
+                                    @endif
+                                </span>
+                            </div>
+                            @if ($targetWordCount > 0)
+                                <div style="width:100%; height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden; margin-bottom:6px;">
+                                    <div style="width:{{ min(100, $this->getTargetWordProgress() ?? 0) }}%; height:100%; background:{{ ($statistics['words'] ?? $wordCount) >= $targetWordCount ? '#16a34a' : '#0f6cbd' }}; transition:width 0.3s;"></div>
+                                </div>
+                                <div style="font-size:10px; color:#64748b; margin-bottom:6px;">
+                                    @if (($statistics['words'] ?? $wordCount) >= $targetWordCount)
+                                        <span style="color:#16a34a; font-weight:700;">✅ Target kata tercapai! (+{{ number_format(($statistics['words'] ?? $wordCount) - $targetWordCount) }} kata lebih)</span>
+                                    @else
+                                        <span>Sisa {{ number_format($targetWordCount - ($statistics['words'] ?? $wordCount)) }} kata lagi untuk mencapai target.</span>
+                                    @endif
+                                </div>
+                            @endif
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
+                                <span style="font-size:10px; color:#475569; font-weight:600;">Preset:</span>
+                                <button type="button" class="word-tool-btn" style="font-size:10px; padding:1px 6px; height:20px;" wire:click="setTargetWordCount(500)">500 (Abstrak)</button>
+                                <button type="button" class="word-tool-btn" style="font-size:10px; padding:1px 6px; height:20px;" wire:click="setTargetWordCount(2000)">2.000 (Bab 1)</button>
+                                <button type="button" class="word-tool-btn" style="font-size:10px; padding:1px 6px; height:20px;" wire:click="setTargetWordCount(5000)">5.000 (Artikel)</button>
+                                <button type="button" class="word-tool-btn" style="font-size:10px; padding:1px 6px; height:20px;" wire:click="setTargetWordCount(10000)">10.000 (Proposal)</button>
+                                <button type="button" class="word-tool-btn" style="font-size:10px; padding:1px 6px; height:20px;" wire:click="setTargetWordCount(25000)">25.000 (Tesis)</button>
+                                <button type="button" class="word-tool-btn" style="font-size:10px; padding:1px 6px; height:20px; color:#ef4444;" wire:click="setTargetWordCount(0)">✕ Reset</button>
                             </div>
                         </div>
                         <div style="font-size:12px; color:#616161; line-height:1.6; padding-top:6px; margin-top:8px; border-top:1px solid #edebe9;">
