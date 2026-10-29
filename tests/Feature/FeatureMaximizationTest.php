@@ -4381,3 +4381,60 @@ it('supports table calculation for min and max operations and verifies AI preset
     expect($filamentHtml)->toContain('Nilai Min')
         ->and($filamentHtml)->toContain('Nilai Max');
 });
+
+it('verifies persona framing and focus scope context in xishie assistant service and page', function (): void {
+    $project = makeProject();
+    $service = app(\App\Domain\Assistant\XishieAssistantService::class);
+
+    // Test persona framings
+    expect($service->getPersonaFraming('academic_senior'))->toContain('Akademisi Senior')
+        ->and($service->getPersonaFraming('critical_reviewer'))->toContain('Reviewer Kritis')
+        ->and($service->getPersonaFraming('proofreader'))->toContain('Proofreader')
+        ->and($service->getPersonaFraming('methodologist'))->toContain('Metodolog Riset')
+        ->and($service->getPersonaFraming('novelty'))->toContain('Spesialis Kebaruan')
+        ->and($service->getPersonaFraming('unknown'))->toContain('Akademisi Senior');
+
+    // Test scope details
+    expect($service->getScopeDetails($project, 'manuscript'))->toContain('Draf Naskah')
+        ->and($service->getScopeDetails($project, 'literature'))->toContain('Kepustakaan & Sitasi')
+        ->and($service->getScopeDetails($project, 'project'))->toContain('Keseluruhan Proyek');
+
+    // Test service handle with persona and scope
+    $res = $service->handle($project, 'Bagaimana meningkatkan kebaruan naskah ini?', null, 'critical_reviewer', 'manuscript');
+    expect($res)->toHaveKey('command')
+        ->and($res['data'])->toHaveKey('persona', 'critical_reviewer')
+        ->and($res['data'])->toHaveKey('scope', 'manuscript');
+
+    // Test assistant page wiring
+    $page = Livewire::test(\App\Filament\Pages\XishieAssistantPage::class, ['projectId' => $project->id]);
+    $page->call('setPersona', 'critical_reviewer');
+    expect($page->get('currentPersona'))->toBe('critical_reviewer');
+
+    $page->call('setScope', 'manuscript');
+    expect($page->get('assistantScope'))->toBe('manuscript');
+
+    $page->set('message', '/kebaruan fokus optimasi parameter');
+    $page->call('send');
+
+    $log = $page->get('log');
+    $lastAssistantLog = end($log);
+    expect($lastAssistantLog['persona'])->toBe('critical_reviewer')
+        ->and($lastAssistantLog['scope'])->toBe('manuscript');
+});
+
+it('renders model ai presets group in standalone studio home tab ribbon with all buttons', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+    $component->call('$set', 'activeTab', 'home');
+
+    $html = $component->html();
+    expect($html)->toContain('Model AI')
+        ->and($html)->toContain('executeModelPreset(\'polish\')')
+        ->and($html)->toContain('executeModelPreset(\'expand\')')
+        ->and($html)->toContain('executeModelPreset(\'novelty\')')
+        ->and($html)->toContain('executeModelPreset(\'abstract\')')
+        ->and($html)->toContain('executeModelPreset(\'methodology\')')
+        ->and($html)->toContain('executeModelPreset(\'discussion\')')
+        ->and($html)->toContain('executeModelPreset(\'conclusion\')')
+        ->and($html)->toContain('executeModelPreset(\'readability\')')
+        ->and($html)->toContain('Generasi AI');
+});

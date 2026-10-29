@@ -151,6 +151,8 @@ test("Command Search Input Field Present", "commandSearch" in assistant_html or 
 test("HTML Transcript Export Option Present", "HTML" in assistant_html)
 test("LaTeX Transcript Export Option Present", "LaTeX" in assistant_html)
 test("Assistant Focus Scope Selector Present", "FOKUS:" in assistant_html)
+test("Assistant Focus Scope Options (project, manuscript, literature)",
+     "setScope('project')" in assistant_html and "setScope('manuscript')" in assistant_html and "setScope('literature')" in assistant_html)
 test("Assistant Session Telemetry Bar Present (SESI:)", "SESI:" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
@@ -189,6 +191,11 @@ test("Visit Standalone /studio (Public Access)", status == 200, f"status={status
 test("Standalone Studio: Multi-tab Navigator (Pustaka & Versi)", "Pustaka" in studio_standalone_html and "Versi" in studio_standalone_html)
 test("Standalone Studio: Ribbon Layout DIKTI Preset Present", "DIKTI 4-4-3-3" in studio_standalone_html)
 test("Standalone Studio: Ribbon Table APA Format Present", "Format APA" in studio_standalone_html)
+test("Standalone Studio: Home Ribbon Generasi AI Group", "Generasi AI" in studio_standalone_html and "Model AI" in studio_standalone_html)
+test("Standalone Studio: Home Ribbon AI Presets (Poles, Kembangkan, Kebaruan, Abstrak)",
+     "Poles" in studio_standalone_html and "Kembangkan" in studio_standalone_html and "Kebaruan" in studio_standalone_html and "Abstrak" in studio_standalone_html)
+test("Standalone Studio: Home Ribbon AI Presets (Metode, Bahas, Simpulan, Baca)",
+     "Metode" in studio_standalone_html and "Bahas" in studio_standalone_html and "Simpulan" in studio_standalone_html and "Baca" in studio_standalone_html)
 
 # Test Ribbon Tab Switching via ?tab=insert and ?tab=table
 status, studio_insert_html, _ = http_get("/studio?tab=insert")
