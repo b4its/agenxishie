@@ -342,8 +342,12 @@ final class UxKpiTelemetryService
     private function satisfactionScore(XishieProject $project): float
     {
         $latest = $project->kpiTelemetries()
-            ->where('metric_key', UxKpiMetric::USER_SATISFACTION_SCORE->value)
+            ->where(function ($q): void {
+                $q->where('metric_key', UxKpiMetric::USER_SATISFACTION_SCORE)
+                    ->orWhere('metric_key', UxKpiMetric::USER_SATISFACTION_SCORE->value);
+            })
             ->latest('recorded_at')
+            ->latest('id')
             ->first();
 
         return $latest === null ? 0.0 : (float) $latest->metric_value;
