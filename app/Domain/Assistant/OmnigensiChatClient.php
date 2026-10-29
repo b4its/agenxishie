@@ -53,6 +53,10 @@ final class OmnigensiChatClient
     public function generate(string $prompt, ?string $system = null, float $temperature = 0.7, int $maxTokens = 1024, ?string $modelId = null): ?array
     {
         try {
+            if (! config('omnigensi.agents_enabled', true)) {
+                return null;
+            }
+
             if (! $this->isAvailable()) {
                 return null;
             }
