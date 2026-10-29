@@ -2023,11 +2023,20 @@
                     <div class="ns-nav__body">
                         @if (($navSidebarTab ?? 'outline') === 'outline')
                             @forelse ($outline as $node)
-                                <button type="button" class="ns-nav__item @if($node['level'] === 2) ns-nav__item--l2 @elseif($node['level'] >= 3) ns-nav__item--l3 @endif"
-                                        x-on:click="(document.getElementById('heading-{{ $node['index'] }}') || document.getElementById('word-block-{{ $node['index'] }}'))?.scrollIntoView({behavior:'smooth', block:'center'})">
-                                    <span>{{ $node['text'] }}</span>
-                                    <span style="font-size:.55rem; color:var(--rb-ink-muted);">H{{ $node['level'] }}</span>
-                                </button>
+                                <div class="ns-nav__node-row" style="display:flex; align-items:center; justify-content:space-between; gap:2px; margin-bottom:1px; border-radius:3px;">
+                                    <button type="button" class="ns-nav__item @if($node['level'] === 2) ns-nav__item--l2 @elseif($node['level'] >= 3) ns-nav__item--l3 @endif"
+                                            style="flex:1; text-align:left; display:flex; justify-content:space-between; align-items:center; padding-right:4px;"
+                                            x-on:click="(document.getElementById('heading-{{ $node['index'] }}') || document.getElementById('word-block-{{ $node['index'] }}'))?.scrollIntoView({behavior:'smooth', block:'center'})">
+                                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $node['text'] }}</span>
+                                        <span style="font-size:.55rem; color:var(--rb-ink-muted); margin-left:4px;">H{{ $node['level'] }}</span>
+                                    </button>
+                                    <div style="display:inline-flex; align-items:center; gap:1px; flex-shrink:0;">
+                                        <button type="button" wire:click="moveSection({{ $node['index'] }}, 'up')" title="Pindahkan Bagian ke Atas" style="background:transparent; border:none; padding:1px 3px; font-size:9px; cursor:pointer; color:#64748b;" onmouseover="this.style.color='#1e40af'" onmouseout="this.style.color='#64748b'">&#9650;</button>
+                                        <button type="button" wire:click="moveSection({{ $node['index'] }}, 'down')" title="Pindahkan Bagian ke Bawah" style="background:transparent; border:none; padding:1px 3px; font-size:9px; cursor:pointer; color:#64748b;" onmouseover="this.style.color='#1e40af'" onmouseout="this.style.color='#64748b'">&#9660;</button>
+                                        <button type="button" wire:click="promoteHeading({{ $node['index'] }})" title="Tingkatkan Level Judul (Promote)" style="background:transparent; border:none; padding:1px 3px; font-size:9px; cursor:pointer; color:#64748b;" onmouseover="this.style.color='#1e40af'" onmouseout="this.style.color='#64748b'">&#9664;</button>
+                                        <button type="button" wire:click="demoteHeading({{ $node['index'] }})" title="Turunkan Level Judul (Demote)" style="background:transparent; border:none; padding:1px 3px; font-size:9px; cursor:pointer; color:#64748b;" onmouseover="this.style.color='#1e40af'" onmouseout="this.style.color='#64748b'">&#9654;</button>
+                                    </div>
+                                </div>
                             @empty
                                 <div style="padding:.5rem; font-family:var(--rb-font-mono); font-size:.62rem; color:var(--rb-ink-muted);">
                                     Belum ada judul. Sisipkan blok Heading untuk membuat navigasi.

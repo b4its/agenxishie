@@ -1635,22 +1635,30 @@
                             $isBibHeading = stripos($item['text'], 'daftar pustaka') !== false || stripos($item['text'], 'referensi') !== false || stripos($item['text'], 'bibliography') !== false;
                         @endphp
                         @if ($matchesSearch)
-                            <button type="button" wire:click="selectBlock({{ $item['index'] }})"
-                                @click="
-                                    const target = document.getElementById('heading-{{ $item['index'] }}') || document.getElementById('word-block-{{ $item['index'] }}');
-                                    if (target) {
-                                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                        target.classList.add('word-nav-target');
-                                        setTimeout(() => target.classList.remove('word-nav-target'), 1500);
-                                    }
-                                "
-                                class="word-nav-item {{ $activeBlock === $item['index'] ? 'active' : '' }}"
-                                style="padding-left: {{ $item['level'] === 1 ? '12px' : '26px' }}; font-weight: {{ $item['level'] === 1 ? '600' : '400' }}; font-size: 12px; display: flex; align-items: center; justify-content: space-between;">
-                                <span>{{ $item['text'] ?: '(Untitled Heading)' }}</span>
-                                @if ($isBibHeading)
-                                    <span style="font-size: 10px; color: #0f6cbd; background: #ebf3fc; padding: 1px 6px; border-radius: 9999px; font-weight: 600;">Acuan</span>
-                                @endif
-                            </button>
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; padding-right: 6px;">
+                                <button type="button" wire:click="selectBlock({{ $item['index'] }})"
+                                    @click="
+                                        const target = document.getElementById('heading-{{ $item['index'] }}') || document.getElementById('word-block-{{ $item['index'] }}');
+                                        if (target) {
+                                            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            target.classList.add('word-nav-target');
+                                            setTimeout(() => target.classList.remove('word-nav-target'), 1500);
+                                        }
+                                    "
+                                    class="word-nav-item {{ $activeBlock === $item['index'] ? 'active' : '' }}"
+                                    style="flex: 1; text-align: left; padding-left: {{ $item['level'] === 1 ? '12px' : '26px' }}; font-weight: {{ $item['level'] === 1 ? '600' : '400' }}; font-size: 12px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>{{ $item['text'] ?: '(Untitled Heading)' }}</span>
+                                    @if ($isBibHeading)
+                                        <span style="font-size: 10px; color: #0f6cbd; background: #ebf3fc; padding: 1px 6px; border-radius: 9999px; font-weight: 600;">Acuan</span>
+                                    @endif
+                                </button>
+                                <div style="display: inline-flex; align-items: center; gap: 1px; flex-shrink: 0;">
+                                    <button type="button" wire:click="moveSection({{ $item['index'] }}, 'up')" title="Pindahkan Bagian ke Atas" style="background:transparent; border:none; padding:1px 3px; font-size:9px; cursor:pointer; color:#64748b;" onmouseover="this.style.color='#0f6cbd'" onmouseout="this.style.color='#64748b'">&#9650;</button>
+                                    <button type="button" wire:click="moveSection({{ $item['index'] }}, 'down')" title="Pindahkan Bagian ke Bawah" style="background:transparent; border:none; padding:1px 3px; font-size:9px; cursor:pointer; color:#64748b;" onmouseover="this.style.color='#0f6cbd'" onmouseout="this.style.color='#64748b'">&#9660;</button>
+                                    <button type="button" wire:click="promoteHeading({{ $item['index'] }})" title="Tingkatkan Level Judul (Promote)" style="background:transparent; border:none; padding:1px 3px; font-size:9px; cursor:pointer; color:#64748b;" onmouseover="this.style.color='#0f6cbd'" onmouseout="this.style.color='#64748b'">&#9664;</button>
+                                    <button type="button" wire:click="demoteHeading({{ $item['index'] }})" title="Turunkan Level Judul (Demote)" style="background:transparent; border:none; padding:1px 3px; font-size:9px; cursor:pointer; color:#64748b;" onmouseover="this.style.color='#0f6cbd'" onmouseout="this.style.color='#64748b'">&#9654;</button>
+                                </div>
+                            </div>
                         @endif
                     @empty
                         <div style="padding:16px 12px; color:var(--ms-text-muted); font-size:12px; text-align:center;">

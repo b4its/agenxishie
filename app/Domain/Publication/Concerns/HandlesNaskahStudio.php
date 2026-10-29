@@ -8246,6 +8246,148 @@ trait HandlesNaskahStudio
     }
 
     /**
+     * Tingkatkan hierarki heading (e.g. H2 -> H1).
+     */
+    public function promoteHeading(int $index): void
+    {
+        if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'heading') {
+            return;
+        }
+
+        $currentLevel = (int) ($this->blocks[$index]['level'] ?? 1);
+        if ($currentLevel <= 1) {
+            $this->notify('Batas Tingkat Judul', 'Judul sudah berada pada tingkat tertinggi (H1).', 'info');
+
+            return;
+        }
+
+        $this->blocks[$index]['level'] = $currentLevel - 1;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Tingkat Judul Ditingkatkan', "Diubah menjadi H{$this->blocks[$index]['level']}.", 'success');
+    }
+
+    /**
+     * Turunkan hierarki heading (e.g. H1 -> H2).
+     */
+    public function demoteHeading(int $index): void
+    {
+        if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'heading') {
+            return;
+        }
+
+        $currentLevel = (int) ($this->blocks[$index]['level'] ?? 1);
+        if ($currentLevel >= 6) {
+            $this->notify('Batas Tingkat Judul', 'Judul sudah berada pada tingkat terendah (H6).', 'info');
+
+            return;
+        }
+
+        $this->blocks[$index]['level'] = $currentLevel + 1;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Tingkat Judul Diturunkan', "Diubah menjadi H{$this->blocks[$index]['level']}.", 'success');
+    }
+
+    /**
+     * Pindahkan satu seksi dokumen lengkap (heading berserta seluruh blok bawahannya) ke atas atau ke bawah.
+     */
+    public function moveSection(int $headingIndex, string $direction = 'up'): bool
+    {
+        if (! isset($this->blocks[$headingIndex]) || ($this->blocks[$headingIndex]['type'] ?? '') !== 'heading') {
+            return false;
+        }
+
+        $currentStart = $headingIndex;
+        $level = (int) ($this->blocks[$headingIndex]['level'] ?? 1);
+        $totalBlocks = count($this->blocks);
+
+        // Cari batas akhir seksi saat ini
+        $currentEnd = $currentStart + 1;
+        while ($currentEnd < $totalBlocks) {
+            $block = $this->blocks[$currentEnd];
+            if (($block['type'] ?? '') === 'heading' && (int) ($block['level'] ?? 1) <= $level) {
+                break;
+            }
+            $currentEnd++;
+        }
+
+        if ($direction === 'up') {
+            // Cari heading saudara sebelumnya dengan tingkat yang sama
+            $prevStart = null;
+            for ($i = $currentStart - 1; $i >= 0; $i--) {
+                $block = $this->blocks[$i];
+                if (($block['type'] ?? '') === 'heading') {
+                    $blockLevel = (int) ($block['level'] ?? 1);
+                    if ($blockLevel < $level) {
+                        break;
+                    }
+                    if ($blockLevel === $level) {
+                        $prevStart = $i;
+                        break;
+                    }
+                }
+            }
+
+            if ($prevStart === null) {
+                $this->notify('Tidak Dapat Memindahkan', 'Bagian ini sudah berada pada posisi teratas di tingkatnya.', 'warning');
+
+                return false;
+            }
+
+            $prevSlice = array_slice($this->blocks, $prevStart, $currentStart - $prevStart);
+            $currentSlice = array_slice($this->blocks, $currentStart, $currentEnd - $currentStart);
+
+            array_splice($this->blocks, $prevStart, $currentEnd - $prevStart, array_merge($currentSlice, $prevSlice));
+            $this->activeBlock = $prevStart;
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Bagian Dipindahkan ke Atas', 'Urutan bagian naskah berhasil diperbarui.', 'success');
+
+            return true;
+        }
+
+        if ($direction === 'down') {
+            if ($currentEnd >= $totalBlocks) {
+                $this->notify('Tidak Dapat Memindahkan', 'Bagian ini sudah berada di posisi paling bawah.', 'warning');
+
+                return false;
+            }
+
+            $nextBlock = $this->blocks[$currentEnd];
+            if (($nextBlock['type'] ?? '') !== 'heading' || (int) ($nextBlock['level'] ?? 1) !== $level) {
+                $this->notify('Tidak Dapat Memindahkan', 'Bagian ini tidak dapat dipindahkan melampaui batas bab.', 'warning');
+
+                return false;
+            }
+
+            $nextStart = $currentEnd;
+            $nextEnd = $nextStart + 1;
+            while ($nextEnd < $totalBlocks) {
+                $block = $this->blocks[$nextEnd];
+                if (($block['type'] ?? '') === 'heading' && (int) ($block['level'] ?? 1) <= $level) {
+                    break;
+                }
+                $nextEnd++;
+            }
+
+            $currentSlice = array_slice($this->blocks, $currentStart, $nextStart - $currentStart);
+            $nextSlice = array_slice($this->blocks, $nextStart, $nextEnd - $nextStart);
+
+            array_splice($this->blocks, $currentStart, $nextEnd - $currentStart, array_merge($nextSlice, $currentSlice));
+            $newIndex = $currentStart + count($nextSlice);
+            $this->activeBlock = $newIndex;
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Bagian Dipindahkan ke Bawah', 'Urutan bagian naskah berhasil diperbarui.', 'success');
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * @param  array<string, mixed>  $action
      */
     protected function notify(string $title, string $body = '', string $type = 'success', array $action = []): void
