@@ -999,3 +999,58 @@ it('supports table styles, merge field tags, endnotes, and heading cross referen
     $page->call('insertCrossReference', 'heading', 'Metodologi Penelitian');
     expect($page->get('blocks')[2]['text'])->toContain('Bagian "Metodologi Penelitian"');
 });
+
+it('supports document duplication and active block case transformation in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $originalDoc = NaskahDocument::create([
+        'user_id' => $user->id,
+        'title' => 'Naskah Asli Penelitian',
+        'source_type' => NaskahDocument::SOURCE_LOCAL,
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'analisis data mendalam'],
+            ['type' => 'paragraph', 'text' => 'ini adalah paragraf penjelasan.'],
+        ],
+        'comments' => [],
+        'revisions' => [],
+        'page_setup' => ['orientation' => 'portrait'],
+        'style_meta' => ['target_word_count' => 5000],
+        'word_count' => 8,
+    ]);
+
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->call('openDocument', $originalDoc->id);
+
+    // Test transformActiveBlockCase
+    $page->set('activeBlock', 0);
+
+    // UPPERCASE
+    $page->call('transformActiveBlockCase', 'upper');
+    expect($page->get('blocks')[0]['text'])->toBe('ANALISIS DATA MENDALAM');
+
+    // lowercase
+    $page->call('transformActiveBlockCase', 'lower');
+    expect($page->get('blocks')[0]['text'])->toBe('analisis data mendalam');
+
+    // Title Case
+    $page->call('transformActiveBlockCase', 'title');
+    expect($page->get('blocks')[0]['text'])->toBe('Analisis Data Mendalam');
+
+    // Sentence case
+    $page->call('transformActiveBlockCase', 'sentence');
+    expect($page->get('blocks')[0]['text'])->toBe('Analisis data mendalam');
+
+    // Test duplicateDocument
+    $clonedDoc = $page->instance()->duplicateDocument();
+    expect($clonedDoc)->not->toBeNull()
+        ->and($clonedDoc->id)->not->toBe($originalDoc->id)
+        ->and($clonedDoc->title)->toContain('Salinan dari')
+        ->and($page->get('documentId'))->toBe($clonedDoc->id);
+
+    // Verify cloned document in DB
+    $dbDoc = NaskahDocument::find($clonedDoc->id);
+    expect($dbDoc)->not->toBeNull()
+        ->and($dbDoc->blocks[0]['text'])->toBe('Analisis data mendalam')
+        ->and($dbDoc->style_meta['target_word_count'])->toBe(5000);
+});

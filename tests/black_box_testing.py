@@ -162,6 +162,8 @@ test("Assistant Stage-Aware Contextual Prompts Bar Present", "TAHAP " in assista
 test("Assistant Snapshot Archiving Button Present", "Snapshot" in assistant_html)
 test("Assistant Studio Export Action Present", "exportTranscriptToDocument" in assistant_html or "Buat Naskah Studio" in assistant_html)
 test("Assistant Context Document Selector Present", "KONTEKS NASKAH" in assistant_html or "selectContextDocument" in assistant_html)
+test("Assistant Academic Prompt Templates Bar Present", "KATALOG TEMPLAT PROMPT RISET" in assistant_html or "togglePromptTemplates" in assistant_html)
+test("Assistant Academic Prompt Templates Actions Supported", "applyPromptTemplate" in assistant_html or "togglePromptTemplates" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
 test("Studio Execute Button (⚡ Eksekusi ke Studio)", "Eksekusi ke Studio" in assistant_html)
@@ -203,9 +205,11 @@ test("Standalone Studio: Multi-tab Navigator (Pustaka & Versi)", "Pustaka" in st
 status, studio_file_html, _ = http_get("/studio?tab=file")
 test("Standalone Studio: File Ribbon HTML & JSON Export Formats (?tab=file)", "HTML Web" in studio_file_html and "JSON Data" in studio_file_html)
 test("Standalone Studio: File Ribbon BibTeX Export Format (?tab=file)", "BibTeX (.bib)" in studio_file_html)
+test("Standalone Studio: File Ribbon Duplicate Action (?tab=file)", "duplicateDocument" in studio_file_html or "Duplicate" in studio_file_html)
 
 test("Standalone Studio: Ribbon Layout DIKTI Preset Present", "DIKTI 4-4-3-3" in studio_standalone_html)
 test("Standalone Studio: Target Word Count Indicator in Statusbar", "Target Word Count" in studio_standalone_html)
+test("Standalone Studio: Home Ribbon Case Transform Aa Dropdown", "transformActiveBlockCase" in studio_standalone_html or "Change Case" in studio_standalone_html)
 
 status, studio_stats_html, _ = http_get("/studio?dialog=stats")
 test("Standalone Studio: Target Word Count Supported in Stats Dialog (?dialog=stats)", "setTargetWordCount" in studio_stats_html)

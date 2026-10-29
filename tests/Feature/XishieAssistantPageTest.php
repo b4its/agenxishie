@@ -633,3 +633,43 @@ it('supports selecting context document and searching project references in assi
     $page->call('selectContextDocument', null);
     expect($page->get('activeDocumentId'))->toBeNull();
 });
+
+it('supports academic prompt templates catalog, category filtering, and direct execution', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $project = makeProject(['title' => 'Riset Pembelajaran Mesin']);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // Check catalog toggle
+    expect($page->get('showPromptTemplates'))->toBeFalse();
+    $page->call('togglePromptTemplates');
+    expect($page->get('showPromptTemplates'))->toBeTrue();
+
+    // Check templates definitions
+    $templates = $page->instance()->getAcademicPromptTemplates();
+    expect($templates)->toHaveKeys(['gap_matrix', 'critical_lit_synthesis', 'method_justification', 'peer_review_rebuttal', 'structured_abstract', 'implications_limitations'])
+        ->and($templates['gap_matrix']['title'])->toBe('Matriks Sintesis Research Gap');
+
+    // Filter by category
+    $page->call('setTemplateCategoryFilter', 'Audit & Validasi');
+    $filtered = $page->instance()->getFilteredPromptTemplates();
+    expect(count($filtered))->toBe(1)
+        ->and(array_key_first($filtered))->toBe('gap_matrix');
+
+    // Reset filter
+    $page->call('setTemplateCategoryFilter', 'all');
+    expect(count($page->instance()->getFilteredPromptTemplates()))->toBe(6);
+
+    // Apply template into input message
+    $page->call('applyPromptTemplate', 'gap_matrix', false);
+    expect($page->get('message'))->toContain('Matriks Sintesis Research Gap');
+
+    // Apply template with direct execution
+    $page->call('applyPromptTemplate', 'structured_abstract', true);
+    $log = $page->get('log');
+    expect(count($log))->toBeGreaterThanOrEqual(2)
+        ->and($log[0]['content'])->toContain('abstrak terstruktur')
+        ->and($log[1]['role'])->toBe('assistant');
+});
