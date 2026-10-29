@@ -55,6 +55,10 @@
                             <button type="button" class="rb-button" wire:click="exportTranscript('json')" title="Unduh transkrip sesi sebagai JSON">&#11015; JSON</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('csv')" title="Unduh transkrip sesi sebagai CSV (Spreadsheet / Excel)">&#11015; CSV</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('txt')" title="Unduh transkrip sesi sebagai Plain Text">&#11015; TXT</button>
+                            <button type="button" class="rb-button" wire:click="saveSessionAsSnapshot" title="Simpan transkrip sesi ini ke versi naskah (Snapshot)">💾 Snapshot</button>
+                            @if (!empty($lastClearedLog))
+                                <button type="button" class="rb-button" style="background:#0f766e; color:#ffffff; font-weight:700;" wire:click="restoreClearedLog" title="Pulihkan riwayat percakapan yang baru dibersihkan">↩️ Pulihkan ({{ count($lastClearedLog) }})</button>
+                            @endif
                             <button type="button" class="rb-button" wire:click="clearLog" title="Bersihkan riwayat percakapan">&#128465; Bersihkan</button>
                         </div>
                     </div>
@@ -206,8 +210,26 @@
                         </div>
                     </div>
 
-                    {{-- Rekomendasi Cepat --}}
-                    <div style="display:flex; flex-wrap:wrap; gap:.25rem; margin-top:.6rem; align-items:center;">
+                    {{-- Rekomendasi Cepat Berdasarkan Tahap Proyek Aktif --}}
+                    @if (!empty($stagePrompts))
+                        <div style="display:flex; flex-wrap:wrap; gap:.25rem; margin-top:.6rem; align-items:center; background:rgba(79,70,229,0.05); padding:.3rem .5rem; border-radius:4px; border:1px solid rgba(79,70,229,0.12);">
+                            <span class="rb-mono" style="font-size:.58rem; color:#4338ca; font-weight:700;">TAHAP {{ strtoupper($project?->current_stage?->value ?? $project?->stage?->value ?? 'DRAFT') }}:</span>
+                            @foreach ($stagePrompts as $sp)
+                                <button
+                                    type="button"
+                                    class="rb-button"
+                                    style="font-size:.58rem; padding:1px 6px; background:#4338ca; color:#ffffff; font-weight:600;"
+                                    wire:click="executeCommandDirectly('{{ $sp['command'] }}')"
+                                    title="Jalankan perintah {{ $sp['command'] }}"
+                                >
+                                    {{ $sp['label'] }}
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    {{-- Rekomendasi Cepat Umum --}}
+                    <div style="display:flex; flex-wrap:wrap; gap:.25rem; margin-top:.4rem; align-items:center;">
                         <span class="rb-mono" style="font-size:.58rem; color:#64748b; font-weight:700;">PROMPT CEPAT:</span>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/abstrak')">📝 /abstrak</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/pendahuluan')">📑 /pendahuluan</button>

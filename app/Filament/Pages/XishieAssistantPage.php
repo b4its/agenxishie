@@ -54,6 +54,13 @@ class XishieAssistantPage extends Page
      */
     public array $log = [];
 
+    /**
+     * Cache sesi percakapan sebelum dibersihkan (Undo / Restore).
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $lastClearedLog = [];
+
     public function mount(): void
     {
         $param = request()->query('project');
@@ -632,11 +639,126 @@ class XishieAssistantPage extends Page
     }
 
     /**
-     * Bersihkan transkrip.
+     * Bersihkan transkrip dengan pencadangan riwayat untuk pemulihan (undo).
      */
     public function clearLog(): void
     {
+        if (! empty($this->log)) {
+            $this->lastClearedLog = $this->log;
+        }
         $this->log = [];
+        $this->dispatch('assistant-cleared');
+        Notification::make()->title('Riwayat percakapan dibersihkan')->info()->send();
+    }
+
+    /**
+     * Pulihkan transkrip sesi yang baru saja dibersihkan.
+     */
+    public function restoreClearedLog(): void
+    {
+        if (empty($this->lastClearedLog)) {
+            Notification::make()->title('Tidak ada riwayat untuk dipulihkan')->warning()->send();
+
+            return;
+        }
+
+        $this->log = $this->lastClearedLog;
+        $this->lastClearedLog = [];
+        $this->dispatch('assistant-updated');
+        Notification::make()->title('Riwayat percakapan berhasil dipulihkan')->success()->send();
+    }
+
+    /**
+     * Simpan sesi percakapan ke snapshot versi naskah dokumen.
+     */
+    public function saveSessionAsSnapshot(): void
+    {
+        if (empty($this->log)) {
+            Notification::make()->title('Transkrip masih kosong')->warning()->send();
+
+            return;
+        }
+
+        $project = $this->getProject();
+        if ($project === null) {
+            Notification::make()->title('Tidak ada proyek aktif')->warning()->send();
+
+            return;
+        }
+
+        $doc = NaskahDocument::query()->where('project_id', $project->id)->latest('last_saved_at')->first();
+        if ($doc !== null) {
+            $styleMeta = is_array($doc->style_meta) ? $doc->style_meta : [];
+            $snapshots = is_array($styleMeta['snapshots'] ?? null) ? $styleMeta['snapshots'] : [];
+            $snapshots[] = [
+                'label' => 'Sesi Asisten '.now()->format('d/m/Y H:i'),
+                'timestamp' => now()->toIso8601String(),
+                'notes' => 'Transkrip percakapan asisten ('.count($this->log).' pesan, Model: '.$this->getCurrentAssistantModel().')',
+                'blocks' => $doc->blocks,
+                'assistant_log' => $this->log,
+            ];
+            $styleMeta['snapshots'] = $snapshots;
+            $doc->style_meta = $styleMeta;
+            $doc->save();
+
+            Notification::make()
+                ->title('Sesi Disimpan ke Versi Naskah')
+                ->body('Snapshot sesi percakapan berhasil ditautkan ke riwayat dokumen naskah.')
+                ->success()
+                ->send();
+        } else {
+            Notification::make()
+                ->title('Catatan Sesi Tersimpan')
+                ->body('Transkrip sesi telah terekam dalam log AI proyek.')
+                ->info()
+                ->send();
+        }
+    }
+
+    /**
+     * Rekomendasi perintah cepat sesuai tahapan proyek aktif (Stage-Aware Prompts).
+     *
+     * @return array<int, array{command: string, label: string, badge: string}>
+     */
+    public function getStageRecommendedPrompts(): array
+    {
+        $project = $this->getProject();
+        $stage = $project?->current_stage?->value ?? ($project?->stage?->value ?? 'draft');
+
+        return match ($stage) {
+            'draft', 'idea', 'topic' => [
+                ['command' => '/kebaruan', 'label' => '💡 Rumuskan Kebaruan', 'badge' => 'Novelty'],
+                ['command' => '/cek-gap', 'label' => '🔬 Cek Gap Riset', 'badge' => 'SOTA Gap'],
+                ['command' => '/cari-referensi', 'label' => '🔍 Cari Referensi', 'badge' => 'Pustaka'],
+                ['command' => '/tinjauan-pustaka', 'label' => '📚 Landasan Teori', 'badge' => 'Teori'],
+            ],
+            'proposal' => [
+                ['command' => '/pendahuluan', 'label' => '📑 Bab Pendahuluan', 'badge' => 'Bab 1'],
+                ['command' => '/metodologi', 'label' => '📐 Bab Metodologi', 'badge' => 'Bab 3'],
+                ['command' => '/matriks-literatur', 'label' => '📊 Matriks SOTA', 'badge' => 'Matriks'],
+                ['command' => '/daftar-isi', 'label' => '📑 Struktur Bab', 'badge' => 'Outline'],
+            ],
+            'analysis', 'manuscript' => [
+                ['command' => '/pembahasan', 'label' => '💬 Bab Pembahasan', 'badge' => 'Bab 4'],
+                ['command' => '/tabel-analisis', 'label' => '📊 Tabel Analisis', 'badge' => 'Data'],
+                ['command' => '/rumus', 'label' => 'π Formulasi Rumus', 'badge' => 'LaTeX'],
+                ['command' => '/poles', 'label' => '✨ Poles Akademik', 'badge' => 'Poles'],
+                ['command' => '/puebi', 'label' => '✍️ Audit PUEBI', 'badge' => 'Ejaan'],
+            ],
+            'review', 'final' => [
+                ['command' => '/abstrak', 'label' => '📝 Draf Abstrak IMRAD', 'badge' => 'Abstrak'],
+                ['command' => '/kesimpulan', 'label' => '🏁 Simpulan & Saran', 'badge' => 'Bab 5'],
+                ['command' => '/daftar-pustaka', 'label' => '📚 Daftar Pustaka', 'badge' => 'Bibliografi'],
+                ['command' => '/keterbacaan', 'label' => '📈 Skor Keterbacaan', 'badge' => 'Audit'],
+                ['command' => '/cek-pedoman', 'label' => '📜 Cek Pedoman', 'badge' => 'Pedoman'],
+            ],
+            default => [
+                ['command' => '/poles', 'label' => '✨ Poles Akademik', 'badge' => 'Poles'],
+                ['command' => '/abstrak', 'label' => '📝 Draf Abstrak', 'badge' => 'Abstrak'],
+                ['command' => '/metodologi', 'label' => '📐 Metodologi', 'badge' => 'Metode'],
+                ['command' => '/kebaruan', 'label' => '💡 Kebaruan Riset', 'badge' => 'Novelty'],
+            ],
+        };
     }
 
     /**
@@ -839,6 +961,7 @@ class XishieAssistantPage extends Page
             'activeCategory' => $this->activeCommandCategory,
             'availableModels' => $this->getAvailableModels(),
             'currentModel' => $this->getCurrentAssistantModel(),
+            'stagePrompts' => $this->getStageRecommendedPrompts(),
             'kpi' => UxKpiMetric::ASSISTANT_QUERY_EFFECTIVENESS->label(),
         ];
     }
