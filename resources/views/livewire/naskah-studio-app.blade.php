@@ -3889,6 +3889,8 @@
                                         <div style="font-size:10px; color:#8a8886;">{{ $snap['at'] }} · {{ $snap['count'] }} blocks</div>
                                     </div>
                                     <div style="display:flex; gap:4px;">
+                                        <button type="button" wire:click="compareSnapshot({{ $sIdx }})" class="word-tool-btn" style="color:#0f766e;" title="Compare version difference">Diff</button>
+                                        <button type="button" wire:click="branchSnapshotToDocument({{ $sIdx }})" class="word-tool-btn" style="color:#0284c7;" title="Branch snapshot into new document">Branch</button>
                                         <button type="button" wire:click="restoreSnapshot({{ $sIdx }})" class="word-tool-btn" style="color:#0f6cbd;">Restore</button>
                                         <button type="button" wire:click="deleteSnapshot({{ $sIdx }})" class="word-tool-btn" style="color:#c50f1f;">✕</button>
                                     </div>
@@ -3900,6 +3902,39 @@
                     </div>
                     <div class="word-dialog__footer">
                         <button type="button" class="word-btn-pill" wire:click="closeDialog">Close</button>
+                    </div>
+
+                {{-- SNAPSHOT DIFF --}}
+                @elseif ($dialog === 'snapshot_diff' && $snapshotDiffResult)
+                    <div class="word-dialog__header">
+                        <span>Version Comparison: {{ $snapshotDiffResult['snapshot_label'] }} vs Active Manuscript</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
+                    </div>
+                    <div class="word-dialog__body">
+                        <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:8px 12px; border-radius:4px; margin-bottom:10px; font-size:12px; color:#1e40af;">
+                            <strong>{{ $snapshotDiffResult['summary'] }}</strong>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div style="background:#f9f9fb; border:1px solid #e1dfdd; padding:10px; border-radius:4px;">
+                                <div style="font-weight:700; font-size:12px; color:#475569; margin-bottom:4px;">Snapshot ({{ $snapshotDiffResult['snapshot_label'] }})</div>
+                                <div style="font-size:11px; color:#64748b; margin-bottom:6px;">{{ $snapshotDiffResult['snapshot_at'] }}</div>
+                                <div style="font-size:12px;">Words: <strong>{{ number_format($snapshotDiffResult['snapshot_words']) }}</strong></div>
+                                <div style="font-size:12px;">Blocks: <strong>{{ $snapshotDiffResult['snapshot_blocks'] }}</strong></div>
+                            </div>
+                            <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:10px; border-radius:4px;">
+                                <div style="font-weight:700; font-size:12px; color:#15803d; margin-bottom:4px;">Current Active Version</div>
+                                <div style="font-size:11px; color:#166534; margin-bottom:6px;">Live Editor Session</div>
+                                <div style="font-size:12px;">Words: <strong>{{ number_format($snapshotDiffResult['current_words']) }}</strong> ({{ $snapshotDiffResult['delta_words'] >= 0 ? '+'.$snapshotDiffResult['delta_words'] : $snapshotDiffResult['delta_words'] }})</div>
+                                <div style="font-size:12px;">Blocks: <strong>{{ $snapshotDiffResult['current_blocks'] }}</strong> ({{ $snapshotDiffResult['delta_blocks'] >= 0 ? '+'.$snapshotDiffResult['delta_blocks'] : $snapshotDiffResult['delta_blocks'] }})</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="word-dialog__footer" style="display:flex; justify-content:space-between;">
+                        <button type="button" class="word-btn-pill" wire:click="openDialog('snapshots')">&larr; Back to Versions</button>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" class="word-btn-pill" wire:click="branchSnapshotToDocument({{ $snapshotDiffResult['snapshot_index'] }})">Branch New Document</button>
+                            <button type="button" class="word-btn-pill word-btn-share" wire:click="restoreSnapshot({{ $snapshotDiffResult['snapshot_index'] }})">Restore This Version</button>
+                        </div>
                     </div>
 
                 {{-- SHORTCUTS --}}

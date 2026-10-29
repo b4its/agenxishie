@@ -3710,6 +3710,8 @@
                                             </div>
                                         </div>
                                         <div style="display:flex; gap:.3rem;">
+                                            <button type="button" class="ns-block__btn" wire:click="compareSnapshot({{ $sIdx }})" title="Bandingkan perbedaan kata dan blok dengan versi saat ini">🔍 Bandingkan</button>
+                                            <button type="button" class="ns-block__btn" wire:click="branchSnapshotToDocument({{ $sIdx }})" title="Cabangkan snapshot menjadi naskah baru">🌿 Cabang</button>
                                             <button type="button" class="ns-block__btn" wire:click="restoreSnapshot({{ $sIdx }})" title="Kembalikan naskah ke versi ini">&#8630; Pulihkan</button>
                                             <button type="button" class="ns-block__btn" style="color:#b91c1c;" wire:click="deleteSnapshot({{ $sIdx }})" title="Hapus snapshot ini">&#128465;</button>
                                         </div>
@@ -3721,6 +3723,39 @@
                         </div>
                         <div class="ns-dialog__footer">
                             <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>
+                        </div>
+
+                    {{-- Dialog Komparasi Snapshot / Versi --}}
+                    @elseif ($dialog === 'snapshot_diff' && $snapshotDiffResult)
+                        <div class="ns-dialog__header">
+                            <span>🔍 Komparasi Versi: {{ $snapshotDiffResult['snapshot_label'] }} vs Versi Aktif</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:.6rem; border-radius:4px; margin-bottom:.6rem; font-size:.72rem; color:#1e40af;">
+                                <strong>{{ $snapshotDiffResult['summary'] }}</strong>
+                            </div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:.6rem;">
+                                <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:.6rem; border-radius:4px;">
+                                    <div style="font-weight:700; font-size:.7rem; color:#475569; margin-bottom:4px;">📌 Versi Snapshot ({{ $snapshotDiffResult['snapshot_label'] }})</div>
+                                    <div style="font-size:.65rem; color:#64748b; margin-bottom:6px;">Waktu: {{ $snapshotDiffResult['snapshot_at'] }}</div>
+                                    <div style="font-size:.75rem;">• Total Kata: <strong>{{ number_format($snapshotDiffResult['snapshot_words']) }}</strong></div>
+                                    <div style="font-size:.75rem;">• Total Blok: <strong>{{ $snapshotDiffResult['snapshot_blocks'] }}</strong></div>
+                                </div>
+                                <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:.6rem; border-radius:4px;">
+                                    <div style="font-weight:700; font-size:.7rem; color:#15803d; margin-bottom:4px;">✏️ Versi Naskah Aktif</div>
+                                    <div style="font-size:.65rem; color:#166534; margin-bottom:6px;">Status: Sesi Saat Ini</div>
+                                    <div style="font-size:.75rem;">• Total Kata: <strong>{{ number_format($snapshotDiffResult['current_words']) }}</strong> ({{ $snapshotDiffResult['delta_words'] >= 0 ? '+'.$snapshotDiffResult['delta_words'] : $snapshotDiffResult['delta_words'] }})</div>
+                                    <div style="font-size:.75rem;">• Total Blok: <strong>{{ $snapshotDiffResult['current_blocks'] }}</strong> ({{ $snapshotDiffResult['delta_blocks'] >= 0 ? '+'.$snapshotDiffResult['delta_blocks'] : $snapshotDiffResult['delta_blocks'] }})</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer" style="display:flex; justify-content:space-between;">
+                            <button type="button" class="ns-btn" wire:click="openDialog('snapshots')">← Kembali ke Daftar Versi</button>
+                            <div style="display:flex; gap:.3rem;">
+                                <button type="button" class="ns-btn" wire:click="branchSnapshotToDocument({{ $snapshotDiffResult['snapshot_index'] }})">🌿 Buat Cabang Dokumen</button>
+                                <button type="button" class="ns-btn ns-btn--primary" wire:click="restoreSnapshot({{ $snapshotDiffResult['snapshot_index'] }})">↩️ Pulihkan ke Versi Ini</button>
+                            </div>
                         </div>
 
                     {{-- Dialog Tombol Pintas Papan Ketik (Keyboard Shortcuts) --}}

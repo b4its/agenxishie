@@ -266,6 +266,13 @@ trait HandlesNaskahStudio
 
     public string $snapshotLabel = '';
 
+    public ?int $selectedSnapshotForDiff = null;
+
+    /**
+     * @var array{snapshot_index: int, snapshot_label: string, snapshot_at: string, snapshot_words: int, snapshot_blocks: int, current_words: int, current_blocks: int, delta_words: int, delta_blocks: int, summary: string}|null
+     */
+    public ?array $snapshotDiffResult = null;
+
     /**
      * Metadata dokumen (Author, Subject, Keywords).
      *
@@ -4461,12 +4468,51 @@ trait HandlesNaskahStudio
         $this->dialog = 'spelling';
     }
 
+    public function setProofingLanguage(string $language): void
+    {
+        $normalized = match (strtolower(trim($language))) {
+            'en', 'english', 'en-us', 'english (academic en-us)' => 'English (Academic en-US)',
+            'en-gb', 'english (academic en-gb)' => 'English (Academic en-GB)',
+            default => 'Indonesia (PUEBI)',
+        };
+
+        $this->proofingLanguage = $normalized;
+        $this->styleMeta['proofing_language'] = $normalized;
+        $this->dirty = true;
+        $this->notify('Bahasa Pemeriksaan Diubah', "Bahasa proofing aktif: {$normalized}", 'info');
+    }
+
+    public function addCustomWordToDictionary(string $word): void
+    {
+        $cleanWord = mb_strtolower(trim($word));
+        if ($cleanWord === '') {
+            return;
+        }
+
+        $custom = (array) ($this->styleMeta['custom_dictionary'] ?? []);
+        if (! in_array($cleanWord, $custom, true)) {
+            $custom[] = $cleanWord;
+            $this->styleMeta['custom_dictionary'] = $custom;
+            $this->dirty = true;
+            $this->notify('Kata Ditambahkan ke Kamus', "'{$cleanWord}' sekarang diakui sebagai kata baku.", 'success');
+        }
+    }
+
     /**
      * @return array<int, string>
      */
     private function smallDictionary(): array
     {
-        return explode(' ', 'yang dan atau dengan untuk pada dari dalam adalah ini itu tidak akan dapat juga karena sebagai oleh terhadap serta para telah sudah akan masih lebih sangat hanya jika maka bahwa secara melalui antara hingga sampai bagi bahwa tanpa harus perlu suatu setiap semua beberapa banyak sedikit besar kecil tinggi rendah baru lama baik buruk dapat bisa harus data penelitian metode hasil analisis pembahasan kesimpulan tujuan masalah solusi sistem model proses teori konsep kajian studi artikel jurnal penulis referensi abstrak pendahuluan latar belakang tinjauan pustaka metodologi diskusi saran kontribusi implikasi praktis akademik ilmiah kualitas efektivitas pengaruh hubungan perbandingan pengembangan implementasi evaluasi pengukuran sampel populasi variabel hipotesis signifikan valid reliabel responden kuesioner wawancara observasi dokumentasi kuantitatif kualitatif campuran eksperimen survei kasus literature review framework design research development testing results discussion conclusion this that with from have been were their which these those using based approach analysis method data system model process theory concept study article journal author reference abstract introduction background review methodology contribution implication practical academic scientific quality effectiveness influence relationship comparison implementation evaluation measurement sample population variable hypothesis significant valid reliable respondent questionnaire interview observation documentation quantitative qualitative mixed experiment survey case');
+        $custom = (array) ($this->styleMeta['custom_dictionary'] ?? []);
+        $academicIndonesia = [
+            'sota', 'puebi', 'mendeley', 'zotero', 'latex', 'scopus', 'sinta', 'omnigensi', 'xishie',
+            'bibliometrik', 'tokenizer', 'lora', 'llm', 'bert', 'deep learning', 'machine learning',
+            'hyperparameter', 'dataset', 'benchmark', 'pos-tagging', 'transformer',
+        ];
+
+        $base = explode(' ', 'yang dan atau dengan untuk pada dari dalam adalah ini itu tidak akan dapat juga karena sebagai oleh terhadap serta para telah sudah akan masih lebih sangat hanya jika maka bahwa secara melalui antara hingga sampai bagi bahwa tanpa harus perlu suatu setiap semua beberapa banyak sedikit besar kecil tinggi rendah baru lama baik buruk dapat bisa harus data penelitian metode hasil analisis pembahasan kesimpulan tujuan masalah solusi sistem model proses teori konsep kajian studi artikel jurnal penulis referensi abstrak pendahuluan latar belakang tinjauan pustaka metodologi diskusi saran kontribusi implikasi praktis akademik ilmiah kualitas efektivitas pengaruh hubungan perbandingan pengembangan implementasi evaluasi pengukuran sampel populasi variabel hipotesis signifikan valid reliabel responden kuesioner wawancara observasi dokumentasi kuantitatif kualitatif campuran eksperimen survei kasus literature review framework design research development testing results discussion conclusion this that with from have been were their which these those using based approach analysis method data system model process theory concept study article journal author reference abstract introduction background review methodology contribution implication practical academic scientific quality effectiveness influence relationship comparison implementation evaluation measurement sample population variable hypothesis significant valid reliable respondent questionnaire interview observation documentation quantitative qualitative mixed experiment survey case');
+
+        return array_unique(array_merge($base, $academicIndonesia, $custom));
     }
 
     public function runThesaurus(): void
@@ -4931,6 +4977,8 @@ trait HandlesNaskahStudio
             'symbol' => 'symbols',
             'shortcut' => 'shortcuts',
             'snapshot', 'versions', 'version' => 'snapshots',
+            'snapshot_diff', 'snapshot-diff', 'version_diff' => 'snapshot_diff',
+            'proofing', 'spell', 'ejaan' => 'spelling',
             'comments' => 'comment',
             'equations' => 'equation',
             'images', 'picture', 'pictures' => 'image',
@@ -5006,6 +5054,22 @@ trait HandlesNaskahStudio
         } else {
             $this->notify('Target Kata Direset', 'Target kata dinonaktifkan.', 'info');
         }
+    }
+
+    public function setTargetWordCountPreset(string $preset): void
+    {
+        $count = match (strtolower(trim($preset))) {
+            'skripsi' => 12000,
+            'tesis' => 25000,
+            'disertasi' => 50000,
+            'jurnal_scopus', 'scopus' => 6000,
+            'jurnal_sinta', 'sinta' => 4000,
+            'konferensi', 'conference' => 3000,
+            'abstrak', 'abstract' => 250,
+            default => is_numeric($preset) ? (int) $preset : 1500,
+        };
+
+        $this->setTargetWordCount($count);
     }
 
     public function getTargetWordProgress(): ?int
@@ -7706,6 +7770,89 @@ trait HandlesNaskahStudio
         $this->snapshots = array_values($this->snapshots);
         $this->dirty = true;
         $this->notify('Snapshot dihapus', '', 'info');
+    }
+
+    /**
+     * @return array{snapshot_index: int, snapshot_label: string, snapshot_at: string, snapshot_words: int, snapshot_blocks: int, current_words: int, current_blocks: int, delta_words: int, delta_blocks: int, summary: string}|null
+     */
+    public function compareSnapshot(int $snapshotIndex): ?array
+    {
+        if (! isset($this->snapshots[$snapshotIndex])) {
+            return null;
+        }
+
+        $snapshot = $this->snapshots[$snapshotIndex];
+        $snapBlocks = (array) ($snapshot['blocks'] ?? []);
+        $snapWords = $this->model->countWords($snapBlocks);
+        $currentBlocks = $this->blocks;
+        $currentWords = $this->model->countWords($currentBlocks);
+
+        $deltaWords = $currentWords - $snapWords;
+        $deltaBlocks = count($currentBlocks) - count($snapBlocks);
+
+        $wordSummary = $deltaWords >= 0 ? "+{$deltaWords} kata" : "{$deltaWords} kata";
+        $blockSummary = $deltaBlocks >= 0 ? "+{$deltaBlocks} blok" : "{$deltaBlocks} blok";
+
+        $diff = [
+            'snapshot_index' => $snapshotIndex,
+            'snapshot_label' => (string) ($snapshot['label'] ?? 'Snapshot'),
+            'snapshot_at' => (string) ($snapshot['at'] ?? ''),
+            'snapshot_words' => $snapWords,
+            'snapshot_blocks' => count($snapBlocks),
+            'current_words' => $currentWords,
+            'current_blocks' => count($currentBlocks),
+            'delta_words' => $deltaWords,
+            'delta_blocks' => $deltaBlocks,
+            'summary' => "Perubahan sejak versi '{$snapshot['label']}': {$wordSummary}, {$blockSummary}.",
+        ];
+
+        $this->selectedSnapshotForDiff = $snapshotIndex;
+        $this->snapshotDiffResult = $diff;
+        $this->dialog = 'snapshot_diff';
+
+        return $diff;
+    }
+
+    public function branchSnapshotToDocument(int $snapshotIndex): ?NaskahDocument
+    {
+        if (! isset($this->snapshots[$snapshotIndex])) {
+            return null;
+        }
+
+        $snapshot = $this->snapshots[$snapshotIndex];
+        $snapBlocks = (array) ($snapshot['blocks'] ?? []);
+        $label = (string) ($snapshot['label'] ?? 'Versi Snapshot');
+        $branchTitle = trim($this->docTitle).' (Cabang: '.$label.')';
+
+        $richModel = $this->model ?? app(NaskahRichModel::class);
+        $normalizedBlocks = $richModel->normalize($snapBlocks);
+        $wordCount = $richModel->countWords($normalizedBlocks);
+
+        $styleMeta = array_merge($this->styleMeta, [
+            'snapshots' => [],
+            'metadata' => $this->metadata,
+            'target_word_count' => $this->targetWordCount,
+        ]);
+
+        $document = NaskahDocument::create([
+            'user_id' => Auth::id(),
+            'project_id' => $this->sourceProjectId,
+            'title' => $branchTitle,
+            'source_type' => $this->sourceProjectId ? NaskahDocument::SOURCE_PROJECT : NaskahDocument::SOURCE_LOCAL,
+            'source_stage' => $this->sourceStage,
+            'source_filename' => null,
+            'blocks' => $normalizedBlocks,
+            'comments' => [],
+            'revisions' => [],
+            'page_setup' => $this->pageSetup,
+            'style_meta' => $styleMeta,
+            'word_count' => $wordCount,
+            'last_saved_at' => now(),
+        ]);
+
+        $this->notify('Cabang Dokumen Dibuat', "Versi '{$label}' berhasil dicabangkan menjadi dokumen baru: '{$branchTitle}'.", 'success');
+
+        return $document;
     }
 
     public function insertCallout(string $type = 'info', ?string $text = null): void
