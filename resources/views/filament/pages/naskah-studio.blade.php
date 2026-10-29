@@ -1716,10 +1716,11 @@
                 {{-- TAB: REFERENSI (REFERENCES) --}}
                 @elseif ($activeTab === 'references')
                     <div class="ns-group">
-                        <span class="ns-group__label">Daftar Isi &amp; Catatan Kaki</span>
+                        <span class="ns-group__label">Daftar Isi &amp; Catatan</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="insertTableOfContents">&#9776; Buat/Perbarui Daftar Isi</button>
-                            <button type="button" class="ns-btn" wire:click="openDialog('footnote')">&#128278; Sisipkan Catatan Kaki</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('footnote')">&#128278; Catatan Kaki</button>
+                            <button type="button" class="ns-btn" wire:click="openDialog('endnote')">&#128214; Catatan Akhir</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1892,9 +1893,12 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Struktur &amp; Gaya</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="tableToggleHeader({{ $activeBlock }})">Toggle Baris Header</button>
-                            <button type="button" class="ns-btn" wire:click="tableFormatApa({{ $activeBlock }})" title="Terapkan gaya tabel akademik APA (3 garis horizontal, tanpa garis vertikal)">📊 Format Tabel APA</button>
-                            <button type="button" class="ns-btn" style="color:#b91c1c;" @mousedown.prevent="deleteTable()" wire:click="removeBlock({{ $activeBlock }})" title="Hapus Seluruh Tabel">&#128465; Hapus Tabel</button>
+                            <button type="button" class="ns-btn" wire:click="tableToggleHeader({{ $activeBlock }})">Toggle Header</button>
+                            <button type="button" class="ns-btn" wire:click="tableSetStyle({{ $activeBlock }}, 'apa')" title="Terapkan gaya tabel akademik APA (3 garis horizontal, tanpa garis vertikal)">APA</button>
+                            <button type="button" class="ns-btn" wire:click="tableSetStyle({{ $activeBlock }}, 'grid')" title="Terapkan gaya tabel grid penuh">Grid</button>
+                            <button type="button" class="ns-btn" wire:click="tableSetStyle({{ $activeBlock }}, 'striped')" title="Terapkan gaya tabel bergaris belang (Zebra)">Zebra</button>
+                            <button type="button" class="ns-btn" wire:click="tableSetStyle({{ $activeBlock }}, 'minimal')" title="Terapkan gaya tabel minimalis">Minimal</button>
+                            <button type="button" class="ns-btn" style="color:#b91c1c;" @mousedown.prevent="deleteTable()" wire:click="removeBlock({{ $activeBlock }})" title="Hapus Seluruh Tabel">&#128465; Hapus</button>
                         </div>
                     </div>
 
@@ -3471,6 +3475,23 @@
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="insertFootnote">Sisipkan</button>
                         </div>
 
+                    {{-- Dialog Catatan Akhir (Endnote) --}}
+                    @elseif ($dialog === 'endnote')
+                        <div class="ns-dialog__header">
+                            <span>&#128214; Sisipkan Catatan Akhir (Endnote)</span>
+                            <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
+                        </div>
+                        <div class="ns-dialog__body">
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem;">Isi Catatan Akhir (ditempatkan di bagian akhir sebelum Daftar Pustaka):</label>
+                                <textarea class="ns-btn" style="width:100%; height:75px;" wire:model="endnoteText" placeholder="Ketik elaborasi atau rujukan catatan akhir..."></textarea>
+                            </div>
+                        </div>
+                        <div class="ns-dialog__footer">
+                            <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertEndnote">Sisipkan Catatan Akhir</button>
+                        </div>
+
                     {{-- Dialog Kelola Sumber Pustaka & Sitasi --}}
                     @elseif ($dialog === 'sources')
                         <div class="ns-dialog__header">
@@ -3585,8 +3606,17 @@
                         <div class="ns-dialog__body">
                             <div>
                                 <label style="font-weight:600; font-size:.68rem;">Data CSV (baris 1 = header nama kolom):</label>
-                                <textarea class="ns-btn" style="width:100%; height:80px; font-family:var(--rb-font-mono); font-size:.68rem;" wire:model="mergeCsv" placeholder="nama,instansi,kota&#10;Budi,Universitas Indonesia,Jakarta&#10;Siti,ITB,Bandung"></textarea>
+                                <textarea class="ns-btn" style="width:100%; height:80px; font-family:var(--rb-font-mono); font-size:.68rem;" wire:model.live="mergeCsv" placeholder="nama,instansi,kota&#10;Budi,Universitas Indonesia,Jakarta&#10;Siti,ITB,Bandung"></textarea>
                             </div>
+                            @php $detectedHeaders = $this->getMergeHeaders(); @endphp
+                            @if (!empty($detectedHeaders))
+                                <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin:.3rem 0;">
+                                    <span style="font-size:.62rem; color:#475569; font-weight:600;">Sisipkan Tag:</span>
+                                    @foreach ($detectedHeaders as $h)
+                                        <button type="button" class="ns-btn" style="font-size:.58rem; padding:1px 6px;" wire:click="insertMergeField('{{ $h }}')">+ &#123;&#123;{{ $h }}&#125;&#125;</button>
+                                    @endforeach
+                                </div>
+                            @endif
                             <div>
                                 <label style="font-weight:600; font-size:.68rem;">Template Dokumen (gunakan &#123;&#123;kolom&#125;&#125;):</label>
                                 <textarea class="ns-btn" style="width:100%; height:60px;" wire:model="mergeTemplate" placeholder="Yth. {{nama}} di {{instansi}}..."></textarea>

@@ -1175,15 +1175,19 @@
                 <div class="word-group__footer"><span class="word-group__label">Table of Contents</span></div>
             </div>
 
-            <!-- Group: Footnotes -->
+            <!-- Group: Footnotes & Endnotes -->
             <div class="word-group">
                 <div class="word-group__content">
                     <button type="button" class="word-btn-large" wire:click="openDialog('footnote')" title="Insert Footnote (Catatan Kaki)">
                         <span style="font-size:18px;">⚓</span>
-                        <span>Insert Footnote</span>
+                        <span>Footnote</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="openDialog('endnote')" title="Insert Endnote (Catatan Akhir)">
+                        <span style="font-size:18px;">📖</span>
+                        <span>Endnote</span>
                     </button>
                 </div>
-                <div class="word-group__footer"><span class="word-group__label">Footnotes</span></div>
+                <div class="word-group__footer"><span class="word-group__label">Footnotes &amp; Endnotes</span></div>
             </div>
 
             <!-- Group: Citations & Bibliography -->
@@ -1506,6 +1510,15 @@
                         </button>
                         <button type="button" class="word-tool-btn" wire:click="tableFormatApa({{ $activeBlock }})" title="Format Tabel Kaidah APA 7th (3 Garis Horizontal)">
                             🏛️ Format APA
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableSetStyle({{ $activeBlock }}, 'grid')" title="Format Grid Penuh">
+                            ▦ Grid
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableSetStyle({{ $activeBlock }}, 'striped')" title="Format Baris Belang Zebra">
+                            ☰ Zebra
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableSetStyle({{ $activeBlock }}, 'minimal')" title="Format Minimalis">
+                            ― Minimal
                         </button>
                     </div>
                 </div>
@@ -3608,6 +3621,23 @@
                         <button type="button" class="word-btn-pill word-btn-share" wire:click="insertFootnote">Insert</button>
                     </div>
 
+                {{-- ENDNOTE --}}
+                @elseif ($dialog === 'endnote')
+                    <div class="word-dialog__header">
+                        <span>Insert Endnote</span>
+                        <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
+                    </div>
+                    <div class="word-dialog__body">
+                        <div>
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Endnote text (placed before references):</label>
+                            <textarea rows="3" class="word-select" style="width:100%; height:auto;" wire:model="endnoteText" placeholder="Type endnote..."></textarea>
+                        </div>
+                    </div>
+                    <div class="word-dialog__footer">
+                        <button type="button" class="word-btn-pill" wire:click="closeDialog">Cancel</button>
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertEndnote">Insert</button>
+                    </div>
+
                 {{-- SOURCES MANAGER (CITATION MANAGER) --}}
                 @elseif ($dialog === 'sources')
                     <div class="word-dialog__header">
@@ -3784,8 +3814,17 @@
                     <div class="word-dialog__body">
                         <div>
                             <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">CSV Data (Row 1 = Headers):</label>
-                            <textarea rows="4" class="word-select" style="width:100%; height:auto; font-family:var(--ms-font-mono); font-size:11px;" wire:model="mergeCsv" placeholder="name,organization&#10;Alice,Alder Studios&#10;Bob,Makers Guild"></textarea>
+                            <textarea rows="4" class="word-select" style="width:100%; height:auto; font-family:var(--ms-font-mono); font-size:11px;" wire:model.live="mergeCsv" placeholder="name,organization&#10;Alice,Alder Studios&#10;Bob,Makers Guild"></textarea>
                         </div>
+                        @php $detectedHeaders = $this->getMergeHeaders(); @endphp
+                        @if (!empty($detectedHeaders))
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin:6px 0;">
+                                <span style="font-size:11px; color:#475569; font-weight:600;">Insert Tags:</span>
+                                @foreach ($detectedHeaders as $h)
+                                    <button type="button" class="word-tool-btn" style="font-size:10.5px; padding:1px 6px; height:20px;" wire:click="insertMergeField('{{ $h }}')">+ &#123;&#123;{{ $h }}&#125;&#125;</button>
+                                @endforeach
+                            </div>
+                        @endif
                         <div>
                             <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Template (Use @{{name}}):</label>
                             <textarea rows="2" class="word-select" style="width:100%; height:auto;" wire:model="mergeTemplate" placeholder="Dear @{{name}} at @{{organization}}..."></textarea>

@@ -236,6 +236,8 @@ trait HandlesNaskahStudio
 
     public string $footnoteText = '';
 
+    public string $endnoteText = '';
+
     public string $citationStyle = 'APA';
 
     public string $mergeCsv = '';
@@ -3159,6 +3161,7 @@ trait HandlesNaskahStudio
             'equation' => str_starts_with($label, '(') ? 'persamaan '.$label : 'persamaan ('.$label.')',
             'image', 'figure' => str_starts_with(strtolower($label), 'gambar') ? $label : 'Gambar '.$label,
             'table' => str_starts_with(strtolower($label), 'tabel') ? $label : 'Tabel '.$label,
+            'heading', 'section' => str_starts_with(strtolower($label), 'bagian') || str_starts_with(strtolower($label), 'bab') ? $label : 'Bagian "'.$label.'"',
             default => $label,
         };
 
@@ -3181,13 +3184,14 @@ trait HandlesNaskahStudio
     }
 
     /**
-     * @return array{equations: array<int, array{index: int, caption: string, preview: string}>, images: array<int, array{index: int, caption: string, src: string}>, tables: array<int, array{index: int, caption: string}>}
+     * @return array{equations: array<int, array{index: int, caption: string, preview: string}>, images: array<int, array{index: int, caption: string, src: string}>, tables: array<int, array{index: int, caption: string}>, headings: array<int, array{index: int, level: int, caption: string}>}
      */
     public function getManuscriptCaptions(): array
     {
         $equations = [];
         $images = [];
         $tables = [];
+        $headings = [];
 
         foreach ($this->blocks as $idx => $block) {
             $type = (string) ($block['type'] ?? '');
@@ -3210,6 +3214,12 @@ trait HandlesNaskahStudio
                     'index' => $idx,
                     'caption' => 'Tabel '.(count($tables) + 1),
                 ];
+            } elseif ($type === 'heading') {
+                $headings[] = [
+                    'index' => $idx,
+                    'level' => (int) ($block['level'] ?? 1),
+                    'caption' => (string) ($block['text'] ?? ('Bab '.(count($headings) + 1))),
+                ];
             }
         }
 
@@ -3217,6 +3227,7 @@ trait HandlesNaskahStudio
             'equations' => $equations,
             'images' => $images,
             'tables' => $tables,
+            'headings' => $headings,
         ];
     }
 
@@ -3313,6 +3324,34 @@ trait HandlesNaskahStudio
         $this->editorRevision++;
         $this->dirty = true;
         $this->notify('Catatan kaki disisipkan', '', 'success');
+    }
+
+    public function insertEndnote(?string $text = null): void
+    {
+        $cleanNote = trim((string) ($text ?: $this->endnoteText));
+        if ($cleanNote === '') {
+            return;
+        }
+
+        $existing = count(array_filter($this->blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'endnote-ref'));
+        $enNumber = $existing + 1;
+
+        $insertAt = count($this->blocks);
+        foreach ($this->blocks as $i => $block) {
+            if (($block['type'] ?? '') === 'heading' && mb_stripos((string) ($block['text'] ?? ''), 'Daftar Pustaka') !== false) {
+                $insertAt = $i;
+                break;
+            }
+        }
+
+        $newBlock = $this->model->newBlock('endnote-ref', "[#{$enNumber}] {$cleanNote}");
+        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+
+        $this->endnoteText = '';
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->dialog = '';
+        $this->notify('Catatan akhir disisipkan', "[#{$enNumber}] {$cleanNote}", 'success');
     }
 
     public function insertPageBreak(): void
@@ -3609,17 +3648,37 @@ trait HandlesNaskahStudio
         $this->drawerCommandCategory = $category;
     }
 
-    public function tableFormatApa(int $index): void
+    public function tableSetStyle(int $index, string $style): void
     {
         if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
             return;
         }
 
-        $this->blocks[$index]['table']['header'] = true;
-        $this->blocks[$index]['table']['style'] = 'apa';
+        $validStyles = ['apa', 'grid', 'minimal', 'striped'];
+        $clean = strtolower(trim($style));
+        $normalized = in_array($clean, $validStyles, true) ? $clean : 'apa';
+
+        $this->pushUndo();
+        $this->blocks[$index]['table']['style'] = $normalized;
+        if ($normalized === 'apa') {
+            $this->blocks[$index]['table']['header'] = true;
+        }
         $this->dirty = true;
         $this->editorRevision++;
-        $this->notify('Format Tabel APA Diterapkan', 'Tabel telah diformat mengikuti kaidah APA (3 garis horizontal baku, tanpa garis vertikal).', 'success');
+
+        $labels = [
+            'apa' => 'Format APA (3 garis horizontal, tanpa garis vertikal)',
+            'grid' => 'Format Grid Lengkap (semua garis batas aktif)',
+            'minimal' => 'Format Minimalis (garis header tipis)',
+            'striped' => 'Format Baris Belang (Zebra Striped)',
+        ];
+
+        $this->notify('Gaya Tabel Diubah', $labels[$normalized] ?? $normalized, 'success');
+    }
+
+    public function tableFormatApa(int $index): void
+    {
+        $this->tableSetStyle($index, 'apa');
     }
 
     /**
@@ -4738,6 +4797,57 @@ trait HandlesNaskahStudio
         $this->notify('Mail merge disisipkan', count($rows).' dokumen.', 'success');
     }
 
+    public function insertMergeField(string $fieldName): void
+    {
+        $cleanField = trim($fieldName, " {}\t\n\r\0\x0B");
+        if ($cleanField === '') {
+            return;
+        }
+
+        $tag = '{{'.$cleanField.'}}';
+        $index = $this->activeBlock;
+        if (isset($this->blocks[$index]) && in_array($this->blocks[$index]['type'] ?? '', ['paragraph', 'heading', 'title', 'subtitle', 'quote', 'bullet', 'numbered'], true)) {
+            $existing = (string) ($this->blocks[$index]['text'] ?? '');
+            $this->blocks[$index]['text'] = $existing !== '' ? $existing.' '.$tag : $tag;
+            if (isset($this->blocks[$index]['runs'][0])) {
+                $this->blocks[$index]['runs'][0]['text'] = $this->blocks[$index]['text'];
+            }
+        } else {
+            $newBlock = $this->model->newBlock('paragraph', $tag);
+            $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+                ? $this->activeBlock + 1
+                : count($this->blocks);
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->activeBlock = $insertAt;
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Field Merge Disisipkan', $tag, 'success');
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getMergeHeaders(): array
+    {
+        $csv = trim($this->mergeCsv);
+        if ($csv === '') {
+            return [];
+        }
+
+        $lines = explode("\n", $csv);
+        $firstLine = trim((string) ($lines[0] ?? ''));
+        if ($firstLine === '') {
+            return [];
+        }
+
+        $delimiter = str_contains($firstLine, ';') ? ';' : ',';
+        $headers = str_getcsv($firstLine, $delimiter);
+
+        return array_values(array_filter(array_map('trim', $headers), fn (string $h): bool => $h !== ''));
+    }
+
     /**
      * @return array<int, array<string, string>>
      */
@@ -4979,6 +5089,8 @@ trait HandlesNaskahStudio
             'snapshot', 'versions', 'version' => 'snapshots',
             'snapshot_diff', 'snapshot-diff', 'version_diff' => 'snapshot_diff',
             'proofing', 'spell', 'ejaan' => 'spelling',
+            'footnotes', 'catatan_kaki', 'catatan-kaki' => 'footnote',
+            'endnotes', 'catatan_akhir', 'catatan-akhir' => 'endnote',
             'comments' => 'comment',
             'equations' => 'equation',
             'images', 'picture', 'pictures' => 'image',

@@ -29,10 +29,10 @@ namespace App\Domain\Publication;
 final class NaskahRichModel
 {
     /** @var array<int, string> */
-    public const TEXT_TYPES = ['title', 'subtitle', 'heading', 'paragraph', 'quote', 'bullet', 'numbered', 'footnote-ref', 'callout', 'toc'];
+    public const TEXT_TYPES = ['title', 'subtitle', 'heading', 'paragraph', 'quote', 'bullet', 'numbered', 'footnote-ref', 'endnote-ref', 'callout', 'toc'];
 
     /** @var array<int, string> */
-    public const ALL_TYPES = ['title', 'subtitle', 'heading', 'paragraph', 'quote', 'bullet', 'numbered', 'table', 'image', 'pagebreak', 'footnote-ref', 'callout', 'toc', 'equation'];
+    public const ALL_TYPES = ['title', 'subtitle', 'heading', 'paragraph', 'quote', 'bullet', 'numbered', 'table', 'image', 'pagebreak', 'footnote-ref', 'endnote-ref', 'callout', 'toc', 'equation'];
 
     /**
      * Preset kaidah tata letak paragraf akademik baku.
