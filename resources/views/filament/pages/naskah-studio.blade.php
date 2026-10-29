@@ -1544,6 +1544,10 @@
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset (novelty)">💡 Kebaruan</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('abstract')" title="Susun draf abstrak akademik">📝 Abstrak</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('methodology')" title="Susun rancangan metodologi penelitian">📐 Metodologi</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('discussion')" title="Sintesis pembahasan kritis naskah">💬 Pembahasan</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('literature')" title="Sintesis tinjauan pustaka & teori">📚 Pustaka</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('readability')" title="Audit keterbacaan naskah">📈 Keterbacaan</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('conclusion')" title="Formulasi kesimpulan & saran">🏁 Kesimpulan</button>
                         </div>
                     </div>
@@ -1598,6 +1602,8 @@
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="openDialog('execute_model')" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-weight: 700;" title="Eksekusi model AI saat ini ke naskah">⚡ Eksekusi Model</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('table')" title="Sintesis matriks tabel data akademik menggunakan model aktif">📊 Tabel AI</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('equation')" title="Formulasikan rumus LaTeX menggunakan model aktif">∑ Rumus AI</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/matriks-literatur')" title="Sintesis matriks perbandingan literatur (SOTA)">📚 Matriks AI</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('novelty')" title="Formulasikan matriks kebaruan riset">💡 Kebaruan AI</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1647,6 +1653,7 @@
                         <span class="ns-group__label">Margin</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="setMarginsPreset('normal')">Normal (2.5 cm)</button>
+                            <button type="button" class="ns-btn" wire:click="setMarginsPreset('dikti')" style="color:#1d4ed8; font-weight:700;" title="Margin standar DIKTI: Kiri 4cm, Atas 4cm, Kanan 3cm, Bawah 3cm">DIKTI (4-4-3-3 cm)</button>
                             <button type="button" class="ns-btn" wire:click="setMarginsPreset('narrow')">Sempit (1.2 cm)</button>
                             <button type="button" class="ns-btn" wire:click="setMarginsPreset('wide')">Lebar (3.8 cm)</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('pagesetup')">Kustom…</button>
@@ -1687,9 +1694,18 @@
                         </div>
                     </div>
                     <div class="ns-group">
-                        <span class="ns-group__label">Bibliografi Proyek</span>
+                        <span class="ns-group__label">Gaya Sitasi &amp; Pustaka</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="insertBibliography">&#128218; Sisipkan Daftar Pustaka</button>
+                            <select class="ns-btn" style="padding:.2rem .35rem; font-weight:600;" wire:change="setCitationStyle($event.target.value)">
+                                <option value="APA" @selected($citationStyle === 'APA')>APA 7th</option>
+                                <option value="IEEE" @selected($citationStyle === 'IEEE')>IEEE [1]</option>
+                                <option value="Harvard" @selected($citationStyle === 'Harvard')>Harvard</option>
+                                <option value="Chicago" @selected($citationStyle === 'Chicago')>Chicago</option>
+                                <option value="MLA" @selected($citationStyle === 'MLA')>MLA</option>
+                            </select>
+                            <button type="button" class="ns-btn" wire:click="insertCitation()" title="Sisipkan sitasi in-text ke naskah">+ Sitasi In-text</button>
+                            <button type="button" class="ns-btn" wire:click="insertBibliography" title="Sisipkan daftar pustaka lengkap">&#128218; Sisipkan Daftar Pustaka</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/daftar-pustaka')" title="Format daftar pustaka via asisten">📚 Format Pustaka</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1734,6 +1750,9 @@
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="runTool('/cek-pedoman')">&#128269; Cek Pedoman</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/cek-gap')">&#128300; Cek Gap Riset</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/kebaruan')" title="Audit novelty dan kebaruan riset">💡 Kebaruan</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/keterbacaan')" title="Audit skor keterbacaan naskah">📈 Keterbacaan</button>
+                            <button type="button" class="ns-btn" wire:click="runTool('/format-paragraf')" title="Audit kaidah format paragraf">📐 Format Paragraf</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/ringkas')">&#128221; Ringkas Naskah</button>
                         </div>
                     </div>
@@ -1745,6 +1764,10 @@
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset (novelty)">💡 Kebaruan</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('abstract')" title="Susun draf abstrak akademik">📝 Abstrak</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('methodology')" title="Susun rancangan metodologi penelitian">📐 Metodologi</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('discussion')" title="Sintesis pembahasan kritis naskah">💬 Pembahasan</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('literature')" title="Sintesis tinjauan pustaka & teori">📚 Pustaka</button>
+                            <button type="button" class="ns-btn" wire:click="executeModelPreset('readability')" title="Audit keterbacaan naskah">📈 Keterbacaan</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('conclusion')" title="Formulasi kesimpulan & saran">🏁 Kesimpulan</button>
                         </div>
                     </div>
@@ -1831,9 +1854,10 @@
                         </div>
                     </div>
                     <div class="ns-group">
-                        <span class="ns-group__label">Struktur Tabel</span>
+                        <span class="ns-group__label">Struktur &amp; Gaya</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="tableToggleHeader({{ $activeBlock }})">Toggle Baris Header</button>
+                            <button type="button" class="ns-btn" wire:click="tableFormatApa({{ $activeBlock }})" title="Terapkan gaya tabel akademik APA (3 garis horizontal, tanpa garis vertikal)">📊 Format Tabel APA</button>
                             <button type="button" class="ns-btn" style="color:#b91c1c;" @mousedown.prevent="deleteTable()" wire:click="removeBlock({{ $activeBlock }})" title="Hapus Seluruh Tabel">&#128465; Hapus Tabel</button>
                         </div>
                     </div>
@@ -1904,34 +1928,70 @@
             {{-- 1. LEFT SIDEBAR: NAVIGATOR --}}
             @if ($showNavigation)
                 <aside class="ns-nav" aria-label="Navigator Dokumen">
-                    <div class="ns-nav__header">
-                        <div class="ns-nav__tab ns-nav__tab--active">&#9776; Judul ({{ $elements['headings'] ?? 0 }})</div>
+                    <div class="ns-nav__header" style="display:flex; border-bottom:1px solid #e2e8f0; background:#f8fafc; padding:2px;">
+                        <button type="button" class="ns-nav__tab @if(($navSidebarTab ?? 'outline') === 'outline') ns-nav__tab--active @endif" style="flex:1; padding:.35rem .15rem; font-size:.62rem; text-align:center; font-weight:700;" wire:click="setNavSidebarTab('outline')">
+                            &#9776; Judul ({{ $elements['headings'] ?? 0 }})
+                        </button>
+                        <button type="button" class="ns-nav__tab @if(($navSidebarTab ?? '') === 'snapshots') ns-nav__tab--active @endif" style="flex:1; padding:.35rem .15rem; font-size:.62rem; text-align:center; font-weight:700;" wire:click="setNavSidebarTab('snapshots')">
+                            📁 Versi ({{ count($snapshots) }})
+                        </button>
+                        <button type="button" class="ns-nav__tab @if(($navSidebarTab ?? '') === 'references') ns-nav__tab--active @endif" style="flex:1; padding:.35rem .15rem; font-size:.62rem; text-align:center; font-weight:700;" wire:click="setNavSidebarTab('references')">
+                            📚 Pustaka ({{ count($projectReferences) }})
+                        </button>
                     </div>
                     <div class="ns-nav__body">
-                        @forelse ($outline as $node)
-                            <button type="button" class="ns-nav__item @if($node['level'] === 2) ns-nav__item--l2 @elseif($node['level'] >= 3) ns-nav__item--l3 @endif"
-                                    x-on:click="(document.getElementById('heading-{{ $node['index'] }}') || document.getElementById('word-block-{{ $node['index'] }}'))?.scrollIntoView({behavior:'smooth', block:'center'})">
-                                <span>{{ $node['text'] }}</span>
-                                <span style="font-size:.55rem; color:var(--rb-ink-muted);">H{{ $node['level'] }}</span>
-                            </button>
-                        @empty
-                            <div style="padding:.5rem; font-family:var(--rb-font-mono); font-size:.62rem; color:var(--rb-ink-muted);">
-                                Belum ada judul. Sisipkan blok Heading untuk membuat navigasi.
+                        @if (($navSidebarTab ?? 'outline') === 'outline')
+                            @forelse ($outline as $node)
+                                <button type="button" class="ns-nav__item @if($node['level'] === 2) ns-nav__item--l2 @elseif($node['level'] >= 3) ns-nav__item--l3 @endif"
+                                        x-on:click="(document.getElementById('heading-{{ $node['index'] }}') || document.getElementById('word-block-{{ $node['index'] }}'))?.scrollIntoView({behavior:'smooth', block:'center'})">
+                                    <span>{{ $node['text'] }}</span>
+                                    <span style="font-size:.55rem; color:var(--rb-ink-muted);">H{{ $node['level'] }}</span>
+                                </button>
+                            @empty
+                                <div style="padding:.5rem; font-family:var(--rb-font-mono); font-size:.62rem; color:var(--rb-ink-muted);">
+                                    Belum ada judul. Sisipkan blok Heading untuk membuat navigasi.
+                                </div>
+                            @endforelse
+                        @elseif (($navSidebarTab ?? '') === 'snapshots')
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; padding:.2rem 0;">
+                                <strong style="font-size:.65rem; color:#1e40af;">📁 Riwayat Versi Dokumen</strong>
+                                <button type="button" class="ns-block__btn" wire:click="openDialog('snapshots')">+ Buat Versi</button>
                             </div>
-                        @endforelse
+                            @forelse ($snapshots as $sIdx => $snap)
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.3rem; padding:.3rem .4rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:3px;">
+                                    <div style="min-width:0; flex:1;">
+                                        <div style="font-weight:700; font-size:.62rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $snap['label'] }}</div>
+                                        <div style="font-size:.52rem; color:#64748b;">{{ $snap['at'] ?? '' }} &middot; {{ $snap['count'] ?? 0 }} blok</div>
+                                    </div>
+                                    <button type="button" class="ns-btn ns-btn--primary" style="padding:1px 5px; font-size:.55rem;" wire:click="restoreSnapshot({{ $sIdx }})" title="Pulihkan versi ini">&#8630; Pulihkan</button>
+                                </div>
+                            @empty
+                                <div style="padding:.5rem; font-size:.62rem; color:#64748b;">Belum ada snapshot tersimpan. Klik "+ Buat Versi" untuk menyimpan versi baru.</div>
+                            @endforelse
+                        @elseif (($navSidebarTab ?? '') === 'references')
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; padding:.2rem 0;">
+                                <strong style="font-size:.65rem; color:#1e40af;">📚 Pustaka Proyek ({{ count($projectReferences) }})</strong>
+                                <button type="button" class="ns-block__btn" wire:click="insertBibliography" title="Sisipkan semua ke daftar pustaka">&#128218; Semua</button>
+                            </div>
+                            @forelse ($projectReferences as $pRef)
+                                <div style="margin-bottom:.35rem; padding:.35rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:3px;">
+                                    <div style="font-weight:700; font-size:.62rem; color:#1e293b; line-height:1.3; margin-bottom:2px;">
+                                        {{ Str::limit($pRef->title, 45) }}
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:.55rem; color:#64748b;">
+                                        <span>{{ $pRef->year }} &middot; {{ $pRef->citation_key }}</span>
+                                        <button type="button" class="ns-btn ns-btn--primary" style="font-size:.52rem; padding:1px 5px;" wire:click="insertReferenceCitation({{ $pRef->id }})" title="Sisipkan sitasi ke teks">+ Sitasi</button>
+                                    </div>
+                                </div>
+                            @empty
+                                <div style="padding:.5rem; font-size:.62rem; color:#64748b;">
+                                    Belum ada referensi pada proyek. Impor referensi melalui Smart Revision Center atau Academic Workspace.
+                                </div>
+                            @endforelse
+                        @endif
 
                         <div style="border-top:1px solid #e2e8f0; margin-top:.5rem; padding-top:.4rem; font-family:var(--rb-font-mono); font-size:.58rem; color:var(--rb-ink-muted);">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.25rem;">
-                                <strong style="color:#1e40af;">📁 Versi / Snapshot ({{ count($snapshots) }})</strong>
-                                <button type="button" class="ns-block__btn" wire:click="openDialog('snapshots')">+ Versi</button>
-                            </div>
-                            @foreach (array_slice($snapshots, -3) as $sIdx => $snap)
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.2rem;">
-                                    <span>{{ Str::limit($snap['label'], 16) }}</span>
-                                    <button type="button" class="ns-block__btn" style="padding:0 .25rem;" wire:click="restoreSnapshot({{ $sIdx }})" title="Pulihkan versi ini">&#8630;</button>
-                                </div>
-                            @endforeach
-                            <div style="margin-top:.4rem;">&#8862; Tabel: {{ $elements['tables'] ?? 0 }}</div>
+                            <div style="margin-top:.2rem;">&#8862; Tabel: {{ $elements['tables'] ?? 0 }}</div>
                             <div>&#128444; Gambar: {{ $elements['images'] ?? 0 }}</div>
                             <div>&#128278; Catatan Kaki: {{ $elements['footnotes'] ?? 0 }}</div>
                             <div>&#128172; Komentar: {{ $elements['comments'] ?? 0 }}</div>
@@ -2243,17 +2303,18 @@
                                                     <div contenteditable="false" style="position:absolute; right:6px; top:-10px; z-index:10; display:flex; gap:4px;">
                                                         <button type="button" class="ns-btn" style="padding:1px 6px; font-size:10px; height:20px; color:#4f46e5; font-weight:700; background:#eef2ff; border:1px solid #c7d2fe;" wire:click="executeModelOnTable({{ $index }})" title="Eksekusi model AI saat ini untuk menyintesis data tabel">⚡ Model Tabel</button>
                                                     </div>
-                                                    <table class="word-table ns-table" style="width:100%; border-collapse:collapse; margin:4px 0;" data-block-index="{{ $index }}">
+                                                    @php
+                                                        $rows = (array) ($block['table']['rows'] ?? []);
+                                                        $hasHeader = (bool) ($block['table']['header'] ?? true);
+                                                        $isApa = (($block['table']['style'] ?? '') === 'apa');
+                                                    @endphp
+                                                    <table class="word-table ns-table" style="width:100%; border-collapse:collapse; margin:6px 0; @if($isApa) border-top:2px solid #0f172a; border-bottom:2px solid #0f172a; @endif" data-block-index="{{ $index }}">
                                                         <tbody contenteditable="true">
-                                                            @php
-                                                                $rows = (array) ($block['table']['rows'] ?? []);
-                                                                $hasHeader = (bool) ($block['table']['header'] ?? true);
-                                                            @endphp
                                                             @foreach ($rows as $r => $row)
-                                                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                                                <tr style="@if($isApa && $hasHeader && $r === 0) border-bottom:1.5px solid #0f172a; @elseif($isApa && $r === count($rows) - 1) border-bottom:none; @else border-bottom: 1px solid #e2e8f0; @endif">
                                                                     @foreach ((array) $row as $c => $cell)
                                                                         @php $cellTag = ($hasHeader && $r === 0) ? 'th' : 'td'; @endphp
-                                                                        <{{ $cellTag }} style="padding:6px 10px; border-right:1px solid #e2e8f0; text-align:left; @if($hasHeader && $r === 0) background:#f8fafc; font-weight:700; @endif">
+                                                                        <{{ $cellTag }} style="padding:6px 10px; @if(!$isApa) border-right:1px solid #e2e8f0; @endif text-align:left; @if($hasHeader && $r === 0) background:@if($isApa) transparent @else #f8fafc @endif; font-weight:700; @endif">
                                                                             {!! (string) ($cell['text'] ?? '') ?: '<br>' !!}
                                                                         </{{ $cellTag }}>
                                                                     @endforeach
@@ -2446,25 +2507,41 @@
                             </div>
                         @endif
 
-                        {{-- Quick Academic Slash Command Chips --}}
-                        <div style="display:flex; flex-wrap:wrap; gap:.25rem; padding:.45rem .6rem; background:#f8fafc; border-bottom:1px solid #e2e8f0; max-height:85px; overflow-y:auto;">
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/poles')" title="Poles tata bahasa akademik">✍️ /poles</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/parafrase')" title="Parafrase akademik kalimat aktif">🔄 /parafrase</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/cek-pedoman')" title="Audit kepatuhan pedoman &amp; kaidah ilmiah">🎯 /cek-pedoman</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/sitasi')" title="Cari rekomendasi sitasi valid">📚 /sitasi</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/matriks-literatur')" title="Bangun tabel matriks literatur (SOTA)">📊 /matriks-literatur</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/cek-gap')" title="Audit gap riset &amp; kebaruan">🔬 /cek-gap</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/kembangkan')" title="Elaborasi dan kembangkan poin">⚡ /kembangkan</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/rumus')" title="Rekomendasi formula LaTeX">π /rumus</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/abstrak')" title="Susun draf abstrak IMRAD">📜 /abstrak</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/metodologi')" title="Rancang struktur metodologi">📐 /metode</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/tabel-analisis')" title="Buat tabel komparasi analisis">📊 /tabel-analisis</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/puebi')" title="Periksa ejaan dan PUEBI baku">🔍 /puebi</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/terjemahkan')" title="Terjemahan akademik formal">🌐 /terjemahkan</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/pendahuluan')" title="Rancang Bab Pendahuluan">📖 /pendahuluan</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/pembahasan')" title="Sintesis Bab Pembahasan">💬 /pembahasan</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/kesimpulan')" title="Rumuskan Bab Kesimpulan">🏁 /kesimpulan</button>
-                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:.12rem .35rem; background:#ffffff; border-color:#cbd5e1;" wire:click="runTool('/tinjauan-pustaka')" title="Tinjauan Pustaka &amp; Teori">📚 /tinjauan-pustaka</button>
+                        {{-- Quick Academic Slash Command Palette (26 Perintah dengan Kategori & Pencarian) --}}
+                        <div style="padding:.35rem .6rem; background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.3rem; gap:.25rem; flex-wrap:wrap;">
+                                <div style="display:flex; gap:.2rem; flex-wrap:wrap;">
+                                    @foreach ($drawerCategories as $catKey => $catLabel)
+                                        <button
+                                            type="button"
+                                            wire:click="setDrawerCommandCategory('{{ $catKey }}')"
+                                            style="border:1px solid {{ $drawerCommandCategory === $catKey ? '#4338ca' : '#cbd5e1' }};
+                                                   background:{{ $drawerCommandCategory === $catKey ? '#4338ca' : '#ffffff' }};
+                                                   color:{{ $drawerCommandCategory === $catKey ? '#ffffff' : '#475569' }};
+                                                   font-size:.55rem; font-weight:700; padding:1px 5px; border-radius:3px; cursor:pointer;"
+                                        >{{ $catLabel }}</button>
+                                    @endforeach
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Cari..."
+                                    wire:model.live.debounce.150ms="drawerCommandSearch"
+                                    style="font-size:.58rem; padding:1px 5px; height:20px; width:65px; border-radius:3px; border:1px solid #cbd5e1; background:#ffffff;"
+                                />
+                            </div>
+                            <div style="display:flex; flex-wrap:wrap; gap:.2rem; max-height:85px; overflow-y:auto;">
+                                @forelse ($drawerCommands as $dCmd)
+                                    <button
+                                        type="button"
+                                        class="ns-btn"
+                                        style="font-size:.58rem; padding:.12rem .32rem; background:#ffffff; border-color:#cbd5e1;"
+                                        wire:click="runTool('{{ $dCmd['name'] }}')"
+                                        title="{{ $dCmd['description'] }}"
+                                    >{{ $dCmd['name'] }}</button>
+                                @empty
+                                    <span style="font-size:.55rem; color:#94a3b8; padding:.2rem;">Tidak ada perintah yang sesuai.</span>
+                                @endforelse
+                            </div>
                         </div>
 
                         {{-- Assistant Body / Chat Stream --}}

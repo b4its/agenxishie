@@ -15,6 +15,7 @@ use App\Domain\Shared\DocumentTextExtractor;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Models\NaskahDocument;
 use App\Models\OmnigensiAgentLog;
+use App\Models\ProjectReference;
 use App\Models\XishieProject;
 use App\Omnigensi\Memory\SharedProjectMemory;
 use Illuminate\Support\Facades\Auth;
@@ -242,6 +243,12 @@ trait HandlesNaskahStudio
 
     public string $commandSearch = '';
 
+    public string $drawerCommandSearch = '';
+
+    public string $drawerCommandCategory = 'all';
+
+    public string $navSidebarTab = 'outline';
+
     public string $calloutType = 'info';
 
     /**
@@ -365,6 +372,10 @@ trait HandlesNaskahStudio
     public function mountHandlesNaskahStudio(?int $documentId = null, ?int $projectId = null, ?string $stage = null): void
     {
         $this->model = app(NaskahRichModel::class);
+
+        if (request()->boolean('assistant') || request()->query('assistant') !== null) {
+            $this->assistantOpen = true;
+        }
 
         $documentId = $documentId ?? (request()->query('document') !== null ? (int) request()->query('document') : null);
 
@@ -3505,6 +3516,94 @@ trait HandlesNaskahStudio
         $this->notify('Sitasi Disisipkan', "Acuan sitasi {$citation} disisipkan ke naskah.", 'success');
     }
 
+    public function insertReferenceCitation(int $refId): void
+    {
+        $ref = ProjectReference::find($refId);
+        if (! $ref) {
+            return;
+        }
+
+        $authors = (array) ($ref->authors ?? []);
+        $authorName = ! empty($authors[0]['name'])
+            ? (string) $authors[0]['name']
+            : (! empty($authors[0]) && is_string($authors[0]) ? $authors[0] : (string) ($ref->citation_key ?? 'Penulis'));
+
+        $year = $ref->year ?: date('Y');
+
+        $citationText = match ($this->citationStyle) {
+            'IEEE' => "[{$ref->id}]",
+            'Harvard' => "({$authorName} {$year})",
+            'Chicago' => "({$authorName} {$year})",
+            'MLA' => "({$authorName})",
+            default => "({$authorName}, {$year})",
+        };
+
+        $this->insertCitation($citationText);
+    }
+
+    public function setNavSidebarTab(string $tab): void
+    {
+        $this->navSidebarTab = in_array($tab, ['outline', 'snapshots', 'references'], true) ? $tab : 'outline';
+    }
+
+    public function setDrawerCommandCategory(string $category): void
+    {
+        $this->drawerCommandCategory = $category;
+    }
+
+    public function tableFormatApa(int $index): void
+    {
+        if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+            return;
+        }
+
+        $this->blocks[$index]['table']['header'] = true;
+        $this->blocks[$index]['table']['style'] = 'apa';
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Format Tabel APA Diterapkan', 'Tabel telah diformat mengikuti kaidah APA (3 garis horizontal baku, tanpa garis vertikal).', 'success');
+    }
+
+    /**
+     * @return array<int, array{name: string, description: string, category: string}>
+     */
+    public function getDrawerFilteredCommands(): array
+    {
+        $categorized = [];
+        $query = trim(mb_strtolower($this->drawerCommandSearch));
+
+        foreach (SlashCommand::cases() as $c) {
+            $cat = match ($c) {
+                SlashCommand::PENDAHULUAN, SlashCommand::ABSTRAK, SlashCommand::METODOLOGI,
+                SlashCommand::PEMBAHASAN, SlashCommand::KESIMPULAN, SlashCommand::TINJAUAN_PUSTAKA,
+                SlashCommand::DAFTAR_ISI => 'structure',
+
+                SlashCommand::SITASI, SlashCommand::MATRIKS, SlashCommand::CARI_REFERENSI,
+                SlashCommand::DAFTAR_PUSTAKA, SlashCommand::CATATAN_KAKI => 'literature',
+
+                SlashCommand::CEK_GAP, SlashCommand::CEK_PEDOMAN, SlashCommand::KETERBACAAN,
+                SlashCommand::KEBARUAN => 'audit',
+
+                default => 'format',
+            };
+
+            $matchesCat = ($this->drawerCommandCategory === 'all' || $this->drawerCommandCategory === $cat);
+            $matchesSearch = $query === ''
+                || str_contains(mb_strtolower($c->value), $query)
+                || str_contains(mb_strtolower($c->description()), $query);
+
+            if ($matchesCat && $matchesSearch) {
+                $categorized[] = [
+                    'name' => $c->value,
+                    'description' => $c->description(),
+                    'category' => $cat,
+                ];
+            }
+        }
+
+        return $categorized;
+    }
+
     /**
      * Membagi blok naskah ke dalam lembar halaman dinamis tanpa batas
      * berdasarkan kapasitas karakter/tinggi halaman A4 Microsoft Word atau pemisah halaman manual.
@@ -6204,7 +6303,7 @@ trait HandlesNaskahStudio
 
         if (str_starts_with($tool, '/')) {
             $input = $tool;
-            if (str_contains($tool, 'parafrase') || str_contains($tool, 'poles') || str_contains($tool, 'kembangkan') || str_contains($tool, 'ringkaskan') || str_contains($tool, 'perbaiki-ejaan') || str_contains($tool, 'puebi') || str_contains($tool, 'terjemahkan')) {
+            if (str_contains($tool, 'parafrase') || str_contains($tool, 'poles') || str_contains($tool, 'kembangkan') || str_contains($tool, 'ringkaskan') || str_contains($tool, 'perbaiki-ejaan') || str_contains($tool, 'puebi') || str_contains($tool, 'terjemahkan') || str_contains($tool, 'ringkas') || str_contains($tool, 'keterbacaan') || str_contains($tool, 'format-paragraf') || str_contains($tool, 'kebaruan') || str_contains($tool, 'catatan-kaki')) {
                 $target = $targetText !== '' ? $targetText : Str::limit(trim($documentText), 400, '');
                 $input = $tool.' '.$target;
             } elseif (str_contains($tool, 'sitasi')) {
@@ -7518,6 +7617,15 @@ trait HandlesNaskahStudio
             'styleMeta' => $this->styleMeta,
             'snapshots' => $this->snapshots,
             'metadata' => $this->metadata,
+            'projectReferences' => $this->sourceProjectId ? ProjectReference::query()->where('project_id', $this->sourceProjectId)->latest()->get() : collect(),
+            'drawerCategories' => [
+                'all' => 'Semua',
+                'structure' => 'Struktur',
+                'literature' => 'Sitasi',
+                'audit' => 'Audit',
+                'format' => 'Format',
+            ],
+            'drawerCommands' => $this->getDrawerFilteredCommands(),
             'commands' => $this->commands(),
             'statistics' => $this->model->computeStatistics($blocks),
             'elements' => [
