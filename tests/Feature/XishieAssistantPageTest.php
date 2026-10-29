@@ -279,3 +279,53 @@ it('regenerates specific assistant message using regenerateMessage', function ()
         ->and($logAfter[1]['is_regenerated'])->toBeTrue()
         ->and($logAfter[1]['model'])->toBe('hv/agnes-3.0-flash');
 });
+
+it('exports assistant conversation transcript as LaTeX document', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $this->actingAs(User::factory()->create());
+    $project = makeProject(['title' => 'Riset Evaluasi Model']);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('message', '/abstrak')
+        ->call('send');
+
+    $response = $page->instance()->exportTranscript('latex');
+    expect($response)->not->toBeNull()
+        ->and($response->headers->get('content-type'))->toBe('application/x-latex; charset=UTF-8');
+
+    ob_start();
+    $response->sendContent();
+    $latexContent = ob_get_clean();
+
+    expect($latexContent)->toContain('\\documentclass')
+        ->and($latexContent)->toContain('Riset Evaluasi Model')
+        ->and($latexContent)->toContain('\\begin{document}');
+});
+
+it('switches assistant focus scope between project, manuscript, and literature', function (): void {
+    $page = Livewire::test(XishieAssistantPage::class);
+
+    expect($page->get('assistantScope'))->toBe('project');
+
+    $page->call('setScope', 'manuscript');
+    expect($page->get('assistantScope'))->toBe('manuscript');
+
+    $page->call('setScope', 'literature');
+    expect($page->get('assistantScope'))->toBe('literature');
+});
+
+it('executes slash command immediately using executeCommandDirectly', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->call('executeCommandDirectly', '/sitasi');
+
+    $log = $page->get('log');
+    expect($log)->toHaveCount(2)
+        ->and($log[0]['content'])->toBe('/sitasi')
+        ->and($log[1]['role'])->toBe('assistant');
+});

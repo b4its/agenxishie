@@ -4301,3 +4301,17 @@ it('performs white box verification on navigation sidebar, reference insertion, 
     $lastBlockIeee = end($blocksWithIeee);
     expect($lastBlockIeee['text'])->toContain("[{$ref->id}]");
 });
+
+it('renders active model badge in topbar and dynamic status bar with page count and dikti indicators', function (): void {
+    $component = Livewire::test(NaskahStudioApp::class);
+
+    // Initial render
+    $html = $component->html();
+    expect($html)->toContain('🤖')
+        ->and($html)->toContain('Halaman');
+
+    // Switch to DIKTI margin
+    $component->call('setMarginsPreset', 'dikti');
+    $htmlAfter = $component->html();
+    expect($htmlAfter)->toContain('DIKTI 4-4-3-3');
+});
