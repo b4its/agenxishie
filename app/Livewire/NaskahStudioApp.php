@@ -167,7 +167,7 @@ class NaskahStudioApp extends Component
      */
     public function setNavigationTab(string $tab): void
     {
-        if (in_array($tab, ['headings', 'pages', 'results'], true)) {
+        if (in_array($tab, ['headings', 'pages', 'pustaka', 'versi', 'results'], true)) {
             $this->navigationTab = $tab;
         }
     }

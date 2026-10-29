@@ -1103,6 +1103,10 @@
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="1"/><line x1="8" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/></svg>
                         <span>Margins ▾</span>
                     </button>
+                    <button type="button" class="word-btn-large" wire:click="setMarginsPreset('dikti')" title="Batas Margin Standar DIKTI (4-4-3-3 cm: Kiri 4, Atas 4, Kanan 3, Bawah 3)">
+                        <span style="font-size:18px;">📐</span>
+                        <span>DIKTI 4-4-3-3</span>
+                    </button>
                     <button type="button" class="word-btn-large" wire:click="setOrientation('{{ ($pageSetup['orientation'] ?? 'portrait') === 'portrait' ? 'landscape' : 'portrait' }}')" title="Page Orientation">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
                         <span>{{ ucfirst($pageSetup['orientation'] ?? 'portrait') }}</span>
@@ -1173,6 +1177,9 @@
                             </select>
                             <button type="button" class="word-tool-btn" wire:click="insertBibliography" title="Generate Bibliography / Daftar Pustaka Section at End of Document">
                                 📜 Bibliography
+                            </button>
+                            <button type="button" class="word-tool-btn" wire:click="runTool('/daftar-pustaka')" title="Format Daftar Pustaka Standar Kaidah Ilmiah (/daftar-pustaka)">
+                                📚 Format Pustaka
                             </button>
                         </div>
                     </div>
@@ -1273,6 +1280,8 @@
                         <button type="button" class="word-tool-btn" wire:click="executeModelPreset('polish')" title="Poles ragam bahasa akademik">✨ Poles Cepat</button>
                         <button type="button" class="word-tool-btn" wire:click="executeModelPreset('expand')" title="Kembangkan argumen ilmiah">📖 Kembangkan</button>
                         <button type="button" class="word-tool-btn" wire:click="executeModelPreset('novelty')" title="Formulasi kebaruan riset (novelty)">💡 Kebaruan</button>
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/keterbacaan')" title="Audit indeks keterbacaan naskah">📈 Keterbacaan</button>
+                        <button type="button" class="word-tool-btn" wire:click="runTool('/format-paragraf')" title="Audit &amp; rapikan format paragraf naskah">📐 Format Paragraf</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Model AI Aktif</span></div>
@@ -1440,6 +1449,9 @@
                         <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'avg')" title="Hitung Rata-rata Kolom Angka">
                             μ Average (Rata-rata)
                         </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableFormatApa({{ $activeBlock }})" title="Format Tabel Kaidah APA 7th (3 Garis Horizontal)">
+                            🏛️ Format APA
+                        </button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Formulas &amp; Data</span></div>
@@ -1494,16 +1506,22 @@
                 </div>
             </div>
 
-            <!-- Sub-tabs: Headings, Pages, Results -->
-            <div class="word-nav-subtabs">
-                <button type="button" wire:click="setNavigationTab('headings')" class="word-nav-pill {{ $navigationTab === 'headings' ? 'active' : '' }}">
-                    Headings
+            <!-- Sub-tabs: Headings, Pages, Pustaka, Versi, Results -->
+            <div class="word-nav-subtabs" style="display:flex; gap:3px; padding:0 8px 6px; overflow-x:auto;">
+                <button type="button" wire:click="setNavigationTab('headings')" class="word-nav-pill {{ $navigationTab === 'headings' ? 'active' : '' }}" title="Struktur Bab &amp; Heading">
+                    Judul
                 </button>
-                <button type="button" wire:click="setNavigationTab('pages')" class="word-nav-pill {{ $navigationTab === 'pages' ? 'active' : '' }}">
-                    Pages
+                <button type="button" wire:click="setNavigationTab('pages')" class="word-nav-pill {{ $navigationTab === 'pages' ? 'active' : '' }}" title="Daftar Lembar Halaman">
+                    Lembar
                 </button>
-                <button type="button" wire:click="setNavigationTab('results')" class="word-nav-pill {{ $navigationTab === 'results' ? 'active' : '' }}">
-                    Results
+                <button type="button" wire:click="setNavigationTab('pustaka')" class="word-nav-pill {{ $navigationTab === 'pustaka' ? 'active' : '' }}" title="Daftar Referensi Proyek">
+                    Pustaka ({{ count($projectReferences) }})
+                </button>
+                <button type="button" wire:click="setNavigationTab('versi')" class="word-nav-pill {{ $navigationTab === 'versi' ? 'active' : '' }}" title="Riwayat Versi &amp; Snapshot">
+                    Versi ({{ count($snapshots) }})
+                </button>
+                <button type="button" wire:click="setNavigationTab('results')" class="word-nav-pill {{ $navigationTab === 'results' ? 'active' : '' }}" title="Pencarian Teks">
+                    Cari
                 </button>
             </div>
 
@@ -1566,6 +1584,51 @@
                             </div>
                         </div>
                     @endforeach
+                </div>
+
+            <!-- TAB: PUSTAKA (PROJECT REFERENCES) -->
+            @elseif ($navigationTab === 'pustaka')
+                <div style="padding:8px 10px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; max-height:calc(100vh - 280px);">
+                    @forelse ($projectReferences as $pRef)
+                        <div style="border:1px solid #e2e8f0; border-radius:4px; padding:6px 8px; background:#ffffff; font-size:11px;">
+                            <div style="font-weight:700; color:#1e293b; margin-bottom:2px;">{{ Str::limit($pRef->title, 45) }}</div>
+                            <div style="font-size:10px; color:#64748b; margin-bottom:4px;">{{ $pRef->authors ?: 'Penulis' }} ({{ $pRef->year ?: 'n.d.' }})</div>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-size:9.5px; background:#f1f5f9; padding:1px 5px; border-radius:3px; color:#475569;">{{ strtoupper($pRef->venue_tier ?? 'Q1') }}</span>
+                                <button type="button" wire:click="insertReferenceCitation({{ $pRef->id }})" class="word-tool-btn" style="color:#4338ca; font-weight:700;" title="Sisipkan Sitasi In-text ke Naskah">+ Sisip Sitasi</button>
+                            </div>
+                        </div>
+                    @empty
+                        <div style="padding:16px 12px; color:var(--ms-text-muted); font-size:11.5px; text-align:center;">
+                            Belum ada referensi proyek terdaftar.
+                        </div>
+                    @endforelse
+                </div>
+
+            <!-- TAB: VERSI (SNAPSHOTS) -->
+            @elseif ($navigationTab === 'versi')
+                <div style="padding:8px 10px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; max-height:calc(100vh - 280px);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <span style="font-size:11px; font-weight:700; color:#334155;">Riwayat Snapshot</span>
+                        <button type="button" wire:click="createSnapshot('Manual Snapshot')" class="word-tool-btn" style="color:#0f766e; font-weight:700;">+ Simpan Versi</button>
+                    </div>
+                    @forelse ($snapshots as $sIdx => $snap)
+                        <div style="border:1px solid #e2e8f0; border-radius:4px; padding:6px 8px; background:#ffffff; font-size:11px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                                <strong style="color:#1e293b;">{{ $snap['label'] ?? ('Versi #'.($sIdx + 1)) }}</strong>
+                                <span style="font-size:9.5px; color:#64748b;">{{ $snap['created_at'] ?? '' }}</span>
+                            </div>
+                            <div style="font-size:10px; color:#64748b; margin-bottom:4px;">{{ $snap['words'] ?? 0 }} kata · {{ $snap['blocks_count'] ?? count($snap['blocks'] ?? []) }} blok</div>
+                            <div style="display:flex; justify-content:flex-end; gap:4px;">
+                                <button type="button" wire:click="restoreSnapshot({{ $sIdx }})" class="word-tool-btn" style="color:#4338ca; font-weight:700;">Pulihkan</button>
+                                <button type="button" wire:click="deleteSnapshot({{ $sIdx }})" class="word-tool-btn" style="color:#dc2626;">Hapus</button>
+                            </div>
+                        </div>
+                    @empty
+                        <div style="padding:16px 12px; color:var(--ms-text-muted); font-size:11.5px; text-align:center;">
+                            Belum ada snapshot tersimpan.
+                        </div>
+                    @endforelse
                 </div>
 
             <!-- TAB 3: RESULTS -->
@@ -2301,68 +2364,40 @@
                         </div>
                     @endif
 
-                    <!-- Quick Command Chips Bar -->
-                    <div class="word-assistant-tools-bar">
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/poles')" title="Poles kalimat/paragraf dengan gaya penulisan akademik">
-                            🪄 /poles
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/parafrase')" title="Parafrase kalimat untuk menghindari plagiasi">
-                            🔄 /parafrase
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/cek-pedoman')" title="Audit kepatuhan naskah terhadap kaidah ilmiah &amp; pedoman">
-                            🎯 /cek-pedoman
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/sitasi')" title="Cari rekomendasi sitasi dan referensi ilmiah yang valid">
-                            📚 /sitasi
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/ringkas')" title="Ringkasan eksekutif progres dan statistik naskah">
-                            📝 /ringkas
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/cek-gap')" title="Identifikasi research gap dan kebaruan penelitian">
-                            🔬 /cek-gap
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/matriks-literatur')" title="Bangun tabel matriks sintesis literatur (SOTA)">
-                            📊 /matriks-literatur
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/cari-referensi')" title="Cari rekomendasi referensi akademik relevan">
-                            🔍 /cari-referensi
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/rumus')" title="Rekomendasi rumus matematika &amp; LaTeX">
-                            π /rumus
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/gambar')" title="Panduan diagram alur &amp; penyisipan gambar">
-                            🖼️ /gambar
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/abstrak')" title="Susun draf abstrak akademik terstruktur IMRAD">
-                            📄 /abstrak
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/metodologi')" title="Rancang struktur bab metodologi riset">
-                            📐 /metode
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/tabel-analisis')" title="Buat tabel evaluasi komparasi kinerja">
-                            📊 /tabel-analisis
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/terjemahkan')" title="Konversi terjemahan bahasa akademik formal">
-                            🌐 /terjemahkan
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/puebi')" title="Periksa ejaan baku dan kaidah bahasa PUEBI/KBBI">
-                            🔤 /puebi
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/kembangkan')" title="Elaborasi dan kembangkan poin menjadi teks utuh">
-                            ✍️ /kembangkan
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/pendahuluan')" title="Rancang struktur Bab Pendahuluan &amp; SOTA">
-                            📖 /pendahuluan
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/pembahasan')" title="Sintesis Bab Pembahasan &amp; temuan">
-                            💬 /pembahasan
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/kesimpulan')" title="Rumuskan Bab Kesimpulan &amp; saran riset">
-                            🏁 /kesimpulan
-                        </button>
-                        <button type="button" class="word-assistant-tool-chip" wire:click="runTool('/tinjauan-pustaka')" title="Bangun kerangka teoretis &amp; tinjauan pustaka">
-                            📚 /tinjauan-pustaka
-                        </button>
+                    <!-- Palet Slash Command Berdasarkan Kategori (26 Perintah Ilmiah) -->
+                    <div style="padding:.4rem .6rem; background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.35rem; flex-wrap:wrap; gap:.3rem;">
+                            <span style="font-size:.62rem; font-weight:700; color:#475569; text-transform:uppercase;">PERINTAH (26 SLASH COMMAND):</span>
+                            <input
+                                type="text"
+                                wire:model.live.debounce.150ms="drawerCommandSearch"
+                                placeholder="Cari..."
+                                style="font-size:.62rem; padding:1px 5px; height:20px; width:80px; border:1px solid #cbd5e1; border-radius:3px; background:#fff;"
+                            />
+                        </div>
+                        <div style="display:flex; gap:.25rem; flex-wrap:wrap; margin-bottom:.35rem;">
+                            @foreach ($drawerCategories as $dcKey => $dcLabel)
+                                <button
+                                    type="button"
+                                    wire:click="setDrawerCommandCategory('{{ $dcKey }}')"
+                                    style="border:1px solid {{ ($drawerCommandCategory ?? 'all') === $dcKey ? '#4338ca' : '#cbd5e1' }};
+                                           background:{{ ($drawerCommandCategory ?? 'all') === $dcKey ? '#4338ca' : '#ffffff' }};
+                                           color:{{ ($drawerCommandCategory ?? 'all') === $dcKey ? '#ffffff' : '#475569' }};
+                                           font-size:.58rem; font-weight:700; padding:1px 5px; border-radius:3px; cursor:pointer;"
+                                >{{ $dcLabel }}</button>
+                            @endforeach
+                        </div>
+                        <div class="word-assistant-tools-bar" style="max-height:85px; overflow-y:auto;">
+                            @foreach ($drawerCommands as $dCmd)
+                                <button
+                                    type="button"
+                                    class="word-assistant-tool-chip"
+                                    wire:click="runTool('{{ $dCmd['name'] }}')"
+                                    title="{{ $dCmd['description'] }}"
+                                    style="font-size:.6rem; padding:2px 5px;"
+                                >{{ $dCmd['name'] }}</button>
+                            @endforeach
+                        </div>
                     </div>
 
                     <!-- Conversation Stream -->
@@ -2656,7 +2691,7 @@
             <div class="word-status-item" style="display:inline-flex; align-items:center; gap:4px;" title="Model AI Aktif">
                 <span>🤖</span> {{ $this->getCurrentAssistantModel() }}
             </div>
-            <div class="word-status-item" style="display:inline-flex; align-items:center; gap:4px;" title="Format Margin Halaman">
+            <div class="word-status-item" style="display:inline-flex; align-items:center; gap:4px;" title="Format Margin Halaman (DIKTI 4-4-3-3)">
                 <span>📄</span> {{ $pageSetup['size'] ?? 'A4' }} ({{ ($pageSetup['marginTop'] ?? 25) == 40 ? 'DIKTI 4-4-3-3' : 'Normal' }})
             </div>
             <div class="word-status-item" wire:click="openDialog('spelling')" title="Proofing Language">
