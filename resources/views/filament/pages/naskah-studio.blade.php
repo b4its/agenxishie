@@ -1607,8 +1607,9 @@
                         </div>
                     </div>
                     <div class="ns-group">
-                        <span class="ns-group__label">Pemisah &amp; Bidang</span>
+                        <span class="ns-group__label">Pemisah &amp; Halaman</span>
                         <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="insertCoverPage('skripsi')" title="Sisipkan Halaman Sampul Akademik (Cover Page) di Awal Dokumen">📑 Halaman Sampul</button>
                             <button type="button" class="ns-btn" @mousedown.prevent="insertPageBreak()" title="Pemisah Halaman (Ctrl+Enter)">&#9986; Pemisah Halaman</button>
                             <button type="button" class="ns-btn" @mousedown.prevent="insertHorizontalRule()" title="Garis Pembatas (---)">&#8213; Garis Pembatas</button>
                             <button type="button" class="ns-btn" wire:click="insertDate">&#128197; Tanggal</button>
@@ -1679,10 +1680,10 @@
                     <div class="ns-group">
                         <span class="ns-group__label">Tanda Air (Watermark)</span>
                         <div class="ns-group__row">
-                            <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', 'DRAF')">DRAF</button>
-                            <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', 'RAHASIA')">RAHASIA</button>
-                            <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', 'CONFIDENTIAL')">CONFIDENTIAL</button>
-                            <button type="button" class="ns-btn" wire:click="updatePageSetup('watermark', '')">Hapus Tanda Air</button>
+                            <button type="button" class="ns-btn @if(($pageSetup['watermark'] ?? '') === 'DRAF') ns-btn--active @endif" wire:click="setWatermark('DRAF')">DRAF</button>
+                            <button type="button" class="ns-btn @if(($pageSetup['watermark'] ?? '') === 'RAHASIA') ns-btn--active @endif" wire:click="setWatermark('RAHASIA')">RAHASIA</button>
+                            <button type="button" class="ns-btn @if(($pageSetup['watermark'] ?? '') === 'CONFIDENTIAL') ns-btn--active @endif" wire:click="setWatermark('CONFIDENTIAL')">CONFIDENTIAL</button>
+                            <button type="button" class="ns-btn" wire:click="setWatermark('')">Hapus Tanda Air</button>
                         </div>
                     </div>
 

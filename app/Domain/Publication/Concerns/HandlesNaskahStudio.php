@@ -833,6 +833,64 @@ trait HandlesNaskahStudio
         $this->notify('Orientasi Kertas', 'Orientasi diubah ke '.ucfirst($clean).'.', 'info');
     }
 
+    /**
+     * Terapkan atau hapus tanda air (watermark) pada naskah (DRAFT, RAHASIA, dll).
+     */
+    public function setWatermark(?string $watermark): void
+    {
+        $clean = trim((string) $watermark);
+        $this->pageSetup['watermark'] = $clean;
+        $this->dirty = true;
+        $this->editorRevision++;
+
+        if ($clean !== '') {
+            $this->notify('Tanda Air (Watermark)', "Tanda air '{$clean}' berhasil diterapkan pada naskah.", 'info');
+        } else {
+            $this->notify('Tanda Air Dihapus', 'Tanda air pada naskah telah dihapus.', 'info');
+        }
+    }
+
+    /**
+     * Sisipkan halaman sampul akademik (Cover Page) standar di awal dokumen (Skripsi, Tesis, Disertasi, Artikel, Laporan).
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public function insertCoverPage(string $genre = 'skripsi', array $meta = []): void
+    {
+        $this->pushUndo();
+        $this->model ??= app(NaskahRichModel::class);
+
+        $title = ! empty($meta['title']) ? (string) $meta['title'] : ($this->docTitle ?: 'JUDUL PENELITIAN');
+        $author = ! empty($meta['author']) ? (string) $meta['author'] : (Auth::user()?->name ?: 'Nama Peneliti');
+        $institution = ! empty($meta['institution']) ? (string) $meta['institution'] : 'Universitas Riset Indonesia';
+        $year = ! empty($meta['year']) ? (string) $meta['year'] : date('Y');
+
+        $genreLabel = match (strtolower($genre)) {
+            'artikel' => 'ARTIKEL ILMIAH PUBLIKASI',
+            'laporan' => 'LAPORAN AKHIR PENELITIAN HIBAH',
+            'tesis' => 'TESIS PASCASARJANA',
+            'disertasi' => 'DISERTASI DOKTOR',
+            default => 'PROPOSAL PENELITIAN SKRIPSI',
+        };
+
+        $coverBlocks = [
+            $this->model->newBlock('heading', mb_strtoupper($title, 'UTF-8'), 1),
+            $this->model->newBlock('paragraph', $genreLabel),
+            $this->model->newBlock('paragraph', "Disusun Oleh:\n{$author}"),
+            $this->model->newBlock('paragraph', "{$institution}\n{$year}"),
+            $this->model->newBlock('pagebreak', ''),
+        ];
+
+        // Sisipkan di awal dokumen
+        array_splice($this->blocks, 0, 0, $coverBlocks);
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->activeBlock = 0;
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+
+        $this->notify('Halaman Sampul Disisipkan', "Halaman sampul format {$genreLabel} berhasil ditambahkan di awal naskah.", 'success');
+    }
+
     // ===== Bantuan AI Blok (Wordcraft Co-Writing) =====
 
     public function aiElaborateBlock(int $index): void
