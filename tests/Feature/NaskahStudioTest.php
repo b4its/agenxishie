@@ -3097,3 +3097,66 @@ it('supports footnote and endnote editing, sequential renumbering, and assistant
         ->and($insertedBlock['image']['src'])->toBe($svgDataUri)
         ->and($insertedBlock['image']['caption'])->toBe('Gambar 1: Alur Metodologi Riset Komputasi');
 });
+
+it('supports table sorting, table transpose, and Vancouver citation style in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id]);
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Uji Tabel dan Sitasi',
+        'source_type' => NaskahDocument::SOURCE_PROJECT,
+        'project_id' => $project->id,
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Tabel Hasil Evaluasi'],
+            [
+                'type' => 'table',
+                'level' => 0,
+                'table' => [
+                    'header' => true,
+                    'rows' => [
+                        [['text' => 'Model', 'runs' => []], ['text' => 'Akurasi', 'runs' => []]],
+                        [['text' => 'Model C', 'runs' => []], ['text' => '78.5%', 'runs' => []]],
+                        [['text' => 'Model A', 'runs' => []], ['text' => '94.2%', 'runs' => []]],
+                        [['text' => 'Model B', 'runs' => []], ['text' => '82.0%', 'runs' => []]],
+                    ],
+                ],
+            ],
+        ],
+        'word_count' => 30,
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    // 1. Test tableSortColumn Ascending on Column 0 (Model Name)
+    $component->call('tableSortColumn', 1, 0, 'asc');
+    $rows = $component->get('blocks')[1]['table']['rows'];
+    expect($rows[0][0]['text'])->toBe('Model')
+        ->and($rows[1][0]['text'])->toBe('Model A')
+        ->and($rows[2][0]['text'])->toBe('Model B')
+        ->and($rows[3][0]['text'])->toBe('Model C');
+
+    // 2. Test tableSortColumn Descending on Column 1 (Numeric Akurasi)
+    $component->call('tableSortColumn', 1, 1, 'desc');
+    $rowsDesc = $component->get('blocks')[1]['table']['rows'];
+    expect($rowsDesc[0][0]['text'])->toBe('Model')
+        ->and($rowsDesc[1][0]['text'])->toBe('Model A')
+        ->and($rowsDesc[2][0]['text'])->toBe('Model B')
+        ->and($rowsDesc[3][0]['text'])->toBe('Model C');
+
+    // 3. Test tableTranspose
+    $component->call('tableTranspose', 1);
+    $transposedRows = $component->get('blocks')[1]['table']['rows'];
+    expect(count($transposedRows))->toBe(2)
+        ->and(count($transposedRows[0]))->toBe(4)
+        ->and($transposedRows[0][0]['text'])->toBe('Model')
+        ->and($transposedRows[1][0]['text'])->toBe('Akurasi');
+
+    // 4. Test Vancouver citation style
+    $component->call('setCitationStyle', 'Vancouver');
+    expect($component->get('citationStyle'))->toBe('VANCOUVER');
+
+    $activeIdx = $component->get('activeBlock');
+    $component->call('insertCitation');
+    $blocks = $component->get('blocks');
+    expect($blocks[$activeIdx]['text'])->toContain('(1)');
+});

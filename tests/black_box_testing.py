@@ -402,10 +402,12 @@ status, studio_table_html, _ = http_get("/studio?tab=table")
 test("Standalone Studio: Table Calculation Formulas (?tab=table)", "Min" in studio_table_html and "Max" in studio_table_html and "Median" in studio_table_html)
 test("Standalone Studio: Table StdDev Formula (?tab=table)", "stddev" in studio_table_html or "StdDev" in studio_table_html)
 test("Standalone Studio: Table Styles (?tab=table)", "APA" in studio_table_html and "Grid" in studio_table_html and "Zebra" in studio_table_html)
+test("Standalone Studio: Table Sort & Transpose Actions (?tab=table)", "tableSortColumn" in studio_table_html and "tableTranspose" in studio_table_html)
 
 status, studio_table_auth_html, _ = http_get("/admin/naskah-studio?tab=table", headers=auth_headers)
 test("Filament Studio: Table Calculation Formulas (?tab=table)", "tableCalculateColumn" in studio_table_auth_html and ("median" in studio_table_auth_html or "Median" in studio_table_auth_html))
 test("Filament Studio: Table StdDev Formula (?tab=table)", "tableCalculateColumn" in studio_table_auth_html and ("stddev" in studio_table_auth_html or "StdDev" in studio_table_auth_html))
+test("Filament Studio: Table Sort & Transpose Actions (?tab=table)", "tableSortColumn" in studio_table_auth_html and "tableTranspose" in studio_table_auth_html)
 
 test("Filament Studio: References Navigator Search Field", "referenceSearchQuery" in studio_table_auth_html or "referenceSearchQuery" in studio_html)
 
@@ -433,6 +435,8 @@ test("Standalone Studio: References Ribbon Renumber Footnotes Action",
      "renumberFootnotes" in standalone_ref_html)
 test("Standalone Studio: References Ribbon Renumber Endnotes Action",
      "renumberEndnotes" in standalone_ref_html)
+test("Standalone Studio: References Ribbon Vancouver Style Option",
+     "Vancouver" in standalone_ref_html)
 
 status, studio_merge_html, _ = http_get("/studio?dialog=merge")
 test("Standalone Studio: Mail Merge Dialog Supported (?dialog=merge)", status == 200 and "Mail Merge" in studio_merge_html)
@@ -467,6 +471,7 @@ test("Standalone Studio: References Ribbon Insert SOTA Matrix Present (?tab=refe
 
 status, filament_references_html, _ = http_get("/admin/naskah-studio?tab=references", headers=auth_headers)
 test("Filament Studio: References Ribbon Matriks SOTA Present (?tab=references)", "insertLiteratureMatrixTable" in filament_references_html or "Matriks SOTA" in filament_references_html)
+test("Filament Studio: References Ribbon Vancouver Style Option (?tab=references)", "Vancouver" in filament_references_html)
 
 status, studio_review_html, _ = http_get("/studio?tab=review")
 test("Standalone Studio: Review Ribbon Tab (?tab=review)", "Cek Pedoman" in studio_review_html and "Cek Gap" in studio_review_html and "Keterbacaan" in studio_review_html)

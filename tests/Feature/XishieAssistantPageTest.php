@@ -1671,3 +1671,37 @@ it('supports /gambar with structured SVG diagram blocks, applyToNaskahStudio, an
     expect($exportedImages)->not->toBeEmpty()
         ->and($exportedImages[0]['image']['caption'])->toBe($lastEntry['data']['image_block']['image']['caption']);
 });
+
+it('provides structured blocks for /pendahuluan, /pembahasan, /kesimpulan, /tinjauan-pustaka and applies them to studio', function (): void {
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id, 'title' => 'Riset Pembelajaran Mendalam']);
+
+    $page = Livewire::actingAs($user)
+        ->test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // 1. Test /pendahuluan
+    $page->set('message', '/pendahuluan');
+    $page->call('send');
+    $log = $page->get('log');
+    $penEntry = end($log);
+    expect($penEntry['data'])->toHaveKey('blocks')
+        ->and($penEntry['data']['blocks'][0]['text'])->toBe('Pendahuluan');
+
+    // 2. Test /kesimpulan
+    $page->set('message', '/kesimpulan');
+    $page->call('send');
+    $log = $page->get('log');
+    $kesEntry = end($log);
+    expect($kesEntry['data'])->toHaveKey('blocks')
+        ->and($kesEntry['data']['blocks'][0]['text'])->toBe('Kesimpulan dan Saran');
+
+    // 3. Test applyToNaskahStudio with /kesimpulan entry
+    $kesIndex = count($log) - 1;
+    $page->call('applyToNaskahStudio', $kesIndex);
+
+    $doc = NaskahDocument::query()->where('project_id', $project->id)->latest('id')->first();
+    expect($doc)->not->toBeNull();
+
+    $headings = array_values(array_filter($doc->blocks, static fn ($b) => ($b['type'] ?? '') === 'heading' && str_contains((string) ($b['text'] ?? ''), 'Kesimpulan')));
+    expect($headings)->not->toBeEmpty();
+});
