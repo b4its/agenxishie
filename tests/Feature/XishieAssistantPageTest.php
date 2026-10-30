@@ -980,3 +980,25 @@ it('tracks executed prompts into prompt history and links to studio from transcr
     expect($doc)->not->toBeNull()
         ->and($doc->title)->toBe('Dokumen Hasil Sintesis');
 });
+
+it('supports search-filtered transcript export and metadata annotation', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', [
+            ['role' => 'user', 'content' => 'Bagaimana metodologi penelitian kuantitatif?'],
+            ['role' => 'assistant', 'content' => 'Metodologi kuantitatif menggunakan kuesioner skala Likert.'],
+            ['role' => 'user', 'content' => 'Apa simpulan dari data temuan?'],
+            ['role' => 'assistant', 'content' => 'Simpulan menunjukkan korelasi positif yang signifikan.'],
+        ])
+        ->set('transcriptSearch', 'metodologi');
+
+    $doc = $page->instance()->exportTranscriptToDocument('Naskah Fokus Metodologi');
+    expect($doc)->not->toBeNull()
+        ->and($doc->title)->toBe('Naskah Fokus Metodologi');
+
+    $blocks = $doc->blocks;
+    expect($blocks[1]['text'])->toContain('Filter Pencarian: "metodologi"')
+        ->and($blocks[2]['text'])->toContain('metodologi penelitian kuantitatif');
+});

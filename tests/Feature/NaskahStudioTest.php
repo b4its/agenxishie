@@ -1645,3 +1645,35 @@ it('supports custom dictionary management, scratchpad persistence, and vancouver
     $activeBlock = $newPage->get('activeBlock');
     expect($newPage->get('blocks')[$activeBlock]['text'])->toContain('(1)');
 });
+
+it('supports table count calculation and column formula undo', function (): void {
+    $this->actingAs(User::factory()->create());
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    $page->set('blocks', [
+        [
+            'type' => 'table',
+            'table' => [
+                'header' => true,
+                'rows' => [
+                    [['text' => 'Model'], ['text' => 'Akurasi']],
+                    [['text' => 'ResNet-50'], ['text' => '85.5']],
+                    [['text' => 'Transformer'], ['text' => '92.3']],
+                    [['text' => 'Agnes-3.0'], ['text' => '96.8']],
+                ],
+            ],
+        ],
+    ]);
+
+    // Test tableCalculateColumn with count
+    $page->call('tableCalculateColumn', 0, 1, 'count');
+    $rows = $page->get('blocks')[0]['table']['rows'];
+    $lastRow = end($rows);
+
+    expect($lastRow[0]['text'])->toBe('COUNT')
+        ->and($lastRow[1]['text'])->toBe('3');
+
+    // Test undo
+    $page->call('undo');
+    expect(count($page->get('blocks')[0]['table']['rows']))->toBe(4);
+});
