@@ -1490,3 +1490,44 @@ it('supports sketch callouts, safe mail merge with undo, and heading change dete
         ->and($diff['new_headings'])->toContain('Bab II Kajian Pustaka')
         ->and($diff['removed_headings'])->toContain('Bab I Pendahuluan');
 });
+
+it('supports undo reversibility for citations, bibliography, footnotes, and symbols in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    $page->set('blocks', [
+        ['type' => 'paragraph', 'text' => 'Klaim utama naskah ini.'],
+    ]);
+    $page->set('activeBlock', 0);
+
+    // 1. Citation undo
+    $page->call('insertCitation', '(Gauntlett, 2018)');
+    expect($page->get('blocks')[0]['text'])->toContain('(Gauntlett, 2018)');
+
+    $page->call('undo');
+    expect($page->get('blocks')[0]['text'])->toBe('Klaim utama naskah ini.');
+
+    // 2. Footnote undo
+    $page->set('footnoteText', 'Keterangan tambahan rujukan metodologis.');
+    $page->call('insertFootnote');
+    expect(count($page->get('blocks')))->toBe(2);
+
+    $page->call('undo');
+    expect(count($page->get('blocks')))->toBe(1);
+
+    // 3. Symbol undo
+    $page->call('insertSymbol', '±');
+    expect($page->get('blocks')[0]['text'])->toContain('±');
+
+    $page->call('undo');
+    expect($page->get('blocks')[0]['text'])->toBe('Klaim utama naskah ini.');
+
+    // 4. Bibliography insertion undo
+    $page->call('insertBibliography');
+    expect(count($page->get('blocks')))->toBeGreaterThan(3);
+
+    $page->call('undo');
+    expect(count($page->get('blocks')))->toBe(1);
+});

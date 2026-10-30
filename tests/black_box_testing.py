@@ -165,6 +165,7 @@ test("Assistant Context Document Selector Present", "KONTEKS NASKAH" in assistan
 test("Assistant Academic Prompt Templates Bar Present", "KATALOG TEMPLAT PROMPT RISET" in assistant_html or "togglePromptTemplates" in assistant_html)
 test("Assistant Academic Prompt Templates Actions Supported", "applyPromptTemplate" in assistant_html or "togglePromptTemplates" in assistant_html)
 test("Assistant Reference Search Drawer Present", "PUSTAKA REFERENSI PROYEK" in assistant_html or "toggleReferenceDrawer" in assistant_html)
+test("Assistant Reference Drawer Citation Insertion Action Present", "insertCitationKey" in assistant_html)
 test("Assistant Session Summary Action Present", "generateSessionSummary" in assistant_html or "Rangkum Sesi" in assistant_html)
 test("Assistant Prompt History Support Present", "selectPromptFromHistory" in assistant_html or "Riwayat Prompt" in assistant_html or "promptHistory" in assistant_html)
 test("Assistant Message Copy-to-Clipboard Action Present", "clipboard.writeText" in assistant_html or "Salin" in assistant_html)
@@ -218,6 +219,7 @@ test("Filament Studio: Review Ribbon Citation Audit Present",
 status, studio_view_auth_html, _ = http_get("/admin/naskah-studio?tab=view", headers=auth_headers)
 test("Filament Studio: View Ribbon Line Numbers and Zen Mode Present",
      ("toggleLineNumbers" in studio_view_auth_html or "No. Baris" in studio_view_auth_html) and ("toggleZenMode" in studio_view_auth_html or "Mode Fokus" in studio_view_auth_html))
+test("Filament Studio: Insert Citation Action Present in References Navigator", "insertReferenceCitation" in studio_html or "insertCitation" in studio_html)
 
 # Test Studio with Copilot Drawer Opened via ?assistant=1
 status, studio_drawer_html, _ = http_get("/admin/naskah-studio?assistant=1", headers=auth_headers)

@@ -941,3 +941,22 @@ it('supports thesaurus slash command and direct execution chip in assistant', fu
         ->and($catalogReply)->toContain('penelitian')
         ->and($catalogReply)->toContain('metode');
 });
+
+it('provides project references on open drawer and filters dynamically on search', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+    seedReferences($project);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // Initial drawer open with empty query returns latest project references
+    $initialRefs = $page->instance()->searchProjectReferences('');
+    expect(count($initialRefs))->toBeGreaterThan(0)
+        ->and($initialRefs[0])->toHaveKeys(['id', 'citation_key', 'title', 'authors']);
+
+    // Filter with specific query
+    $firstKey = $initialRefs[0]['citation_key'];
+    $filteredRefs = $page->instance()->searchProjectReferences($firstKey);
+    expect(count($filteredRefs))->toBeGreaterThan(0)
+        ->and(array_column($filteredRefs, 'citation_key'))->toContain($firstKey);
+});
