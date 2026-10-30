@@ -1240,6 +1240,10 @@
                         <span style="font-size:18px;">📖</span>
                         <span>Endnote</span>
                     </button>
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="renumberFootnotes" title="Urutkan &amp; nomori ulang seluruh catatan kaki secara sekuensial">🔄 Renumber Footnotes</button>
+                        <button type="button" class="word-tool-btn" wire:click="renumberEndnotes" title="Urutkan &amp; nomori ulang seluruh catatan akhir secara sekuensial">🔄 Renumber Endnotes</button>
+                    </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Footnotes &amp; Endnotes</span></div>
             </div>
@@ -2409,6 +2413,7 @@
                                                 style="margin: 14px 0 6px 0; padding-top: 6px; border-top: 1px solid #cbd5e1; font-size: 9.5pt; color: #475569; display: flex; align-items: baseline; gap: 8px;">
                                                 <span style="font-size: 9pt; font-weight: 700; color: #0f6cbd;">⚓ Catatan Kaki:</span>
                                                 <span style="flex: 1; font-style: italic;">{!! e($text) !!}</span>
+                                                <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; color: #0f6cbd;" wire:click="editFootnote({{ $index }})" title="Edit Catatan Kaki">✏️</button>
                                                 <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Catatan Kaki">🗑️</button>
                                             </div>
                                         @elseif ($type === 'endnote-ref')
@@ -2419,6 +2424,7 @@
                                                 style="margin: 8px 0; padding: 6px 10px; background: #f8fafc; border-left: 3px solid #64748b; border-radius: 3px; font-size: 9.5pt; color: #334155; display: flex; align-items: baseline; gap: 8px;">
                                                 <span style="font-size: 9pt; font-weight: 700; color: #475569;">📑 Catatan Akhir:</span>
                                                 <span style="flex: 1;">{!! e($text) !!}</span>
+                                                <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; color: #0f6cbd;" wire:click="editEndnote({{ $index }})" title="Edit Catatan Akhir">✏️</button>
                                                 <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Catatan Akhir">🗑️</button>
                                             </div>
                                         @else
@@ -3837,7 +3843,7 @@
                 {{-- FOOTNOTE --}}
                 @elseif ($dialog === 'footnote')
                     <div class="word-dialog__header">
-                        <span>Insert Footnote</span>
+                        <span>{{ $editingFootnoteIndex !== null ? 'Edit Footnote' : 'Insert Footnote' }}</span>
                         <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="word-dialog__body">
@@ -3848,13 +3854,13 @@
                     </div>
                     <div class="word-dialog__footer">
                         <button type="button" class="word-btn-pill" wire:click="closeDialog">Cancel</button>
-                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertFootnote">Insert</button>
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertFootnote">{{ $editingFootnoteIndex !== null ? 'Save Changes' : 'Insert' }}</button>
                     </div>
 
                 {{-- ENDNOTE --}}
                 @elseif ($dialog === 'endnote')
                     <div class="word-dialog__header">
-                        <span>Insert Endnote</span>
+                        <span>{{ $editingEndnoteIndex !== null ? 'Edit Endnote' : 'Insert Endnote' }}</span>
                         <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="word-dialog__body">
@@ -3865,7 +3871,7 @@
                     </div>
                     <div class="word-dialog__footer">
                         <button type="button" class="word-btn-pill" wire:click="closeDialog">Cancel</button>
-                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertEndnote">Insert</button>
+                        <button type="button" class="word-btn-pill word-btn-share" wire:click="insertEndnote">{{ $editingEndnoteIndex !== null ? 'Save Changes' : 'Insert' }}</button>
                     </div>
 
                 {{-- SOURCES MANAGER (CITATION MANAGER) --}}

@@ -687,6 +687,8 @@ class XishieAssistantPage extends Page
             $formula = (string) $entry['data']['latex'];
             $caption = (string) ($entry['data']['caption'] ?? '');
             $newBlocks = [$richModel->newEquationBlock($formula, $caption)];
+        } elseif (! empty($entry['data']['image_block']) && is_array($entry['data']['image_block'])) {
+            $newBlocks = [$richModel->normalizeBlock($entry['data']['image_block'])];
         } elseif (! empty($entry['data']['callout_block']) && is_array($entry['data']['callout_block'])) {
             $newBlocks = [$richModel->normalizeBlock($entry['data']['callout_block'])];
         } elseif (! empty($entry['data']['footnote_block']) && is_array($entry['data']['footnote_block'])) {
@@ -1518,6 +1520,8 @@ class XishieAssistantPage extends Page
                     $formula = (string) $entry['data']['latex'];
                     $caption = (string) ($entry['data']['caption'] ?? '');
                     $respBlocks = [$richModel->newEquationBlock($formula, $caption)];
+                } elseif (! empty($entry['data']['image_block']) && is_array($entry['data']['image_block'])) {
+                    $respBlocks = [$richModel->normalizeBlock($entry['data']['image_block'])];
                 } elseif (! empty($entry['data']['callout_block']) && is_array($entry['data']['callout_block'])) {
                     $respBlocks = [$richModel->normalizeBlock($entry['data']['callout_block'])];
                 } elseif (! empty($entry['data']['footnote_block']) && is_array($entry['data']['footnote_block'])) {

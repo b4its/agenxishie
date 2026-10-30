@@ -795,15 +795,135 @@ final class XishieAssistantService
      */
     private function gambar(XishieProject $project, string $argument): array
     {
-        $reply = "### Panduan & Penyisipan Gambar/Diagram Ilmiah\n"
-            ."- Klik menu **Insert > Pictures** untuk mengunggah berkas gambar atau tautan URL.\n"
-            ."- Anda juga dapat menyisipkan diagram cepat: **📊 Flowchart** (Alur Riset) atau **📈 Chart** (Statistik).\n"
-            .'- Setiap gambar otomatis dilengkapi dengan keterangan (*caption*) dan perataan dokumen baku.';
+        $normalizedArg = mb_strtolower(trim($argument));
+        $diagramType = match (true) {
+            str_contains($normalizedArg, 'flow') || str_contains($normalizedArg, 'alur') => 'flowchart',
+            str_contains($normalizedArg, 'bar') || str_contains($normalizedArg, 'grafik') => 'barchart',
+            str_contains($normalizedArg, 'time') || str_contains($normalizedArg, 'jadwal') || str_contains($normalizedArg, 'milestone') => 'timeline',
+            str_contains($normalizedArg, 'arsitektur') || str_contains($normalizedArg, 'arch') || str_contains($normalizedArg, 'pipeline') => 'architecture',
+            str_contains($normalizedArg, 'venn') || str_contains($normalizedArg, 'irisan') => 'venn',
+            str_contains($normalizedArg, 'pie') || str_contains($normalizedArg, 'lingkaran') || str_contains($normalizedArg, 'proporsi') => 'piechart',
+            str_contains($normalizedArg, 'chart') => 'barchart',
+            default => 'flowchart',
+        };
+
+        $svg = match ($diagramType) {
+            'barchart' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 200" width="540" height="200">'
+                .'<rect width="540" height="200" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<line x1="60" y1="30" x2="60" y2="160" stroke="#64748b" stroke-width="2"/>'
+                .'<line x1="60" y1="160" x2="500" y2="160" stroke="#64748b" stroke-width="2"/>'
+                .'<rect x="90" y="90" width="60" height="70" fill="#94a3b8" rx="3"/>'
+                .'<text x="120" y="80" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="600" fill="#475569">68%</text>'
+                .'<text x="120" y="180" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#334155">Baseline</text>'
+                .'<rect x="190" y="60" width="60" height="100" fill="#38bdf8" rx="3"/>'
+                .'<text x="220" y="50" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="600" fill="#0284c7">82%</text>'
+                .'<text x="220" y="180" font-family="sans-serif" font-size="11" text-anchor="middle" fill="#334155">Model A</text>'
+                .'<rect x="290" y="40" width="60" height="120" fill="#0f6cbd" rx="3"/>'
+                .'<text x="320" y="30" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="600" fill="#0f6cbd">94.5%</text>'
+                .'<text x="320" y="180" font-family="sans-serif" font-size="11" text-anchor="middle" font-weight="700" fill="#0f6cbd">Xishie Model</text>'
+                .'</svg>',
+            'timeline' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 140" width="560" height="140">'
+                .'<rect width="560" height="140" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<line x1="50" y1="70" x2="510" y2="70" stroke="#0f6cbd" stroke-width="3"/>'
+                .'<circle cx="80" cy="70" r="9" fill="#0f6cbd"/>'
+                .'<text x="80" y="45" font-family="sans-serif" font-size="11" font-weight="700" fill="#0f6cbd" text-anchor="middle">Bulan 1-2</text>'
+                .'<text x="80" y="105" font-family="sans-serif" font-size="10" fill="#475569" text-anchor="middle">Studi Literatur</text>'
+                .'<circle cx="220" cy="70" r="9" fill="#0f6cbd"/>'
+                .'<text x="220" y="45" font-family="sans-serif" font-size="11" font-weight="700" fill="#0f6cbd" text-anchor="middle">Bulan 3-4</text>'
+                .'<text x="220" y="105" font-family="sans-serif" font-size="10" fill="#475569" text-anchor="middle">Eksperimen</text>'
+                .'<circle cx="360" cy="70" r="9" fill="#0f6cbd"/>'
+                .'<text x="360" y="45" font-family="sans-serif" font-size="11" font-weight="700" fill="#0f6cbd" text-anchor="middle">Bulan 5</text>'
+                .'<text x="360" y="105" font-family="sans-serif" font-size="10" fill="#475569" text-anchor="middle">Evaluasi &amp; Uji</text>'
+                .'<circle cx="480" cy="70" r="9" fill="#107c41"/>'
+                .'<text x="480" y="45" font-family="sans-serif" font-size="11" font-weight="700" fill="#107c41" text-anchor="middle">Bulan 6</text>'
+                .'<text x="480" y="105" font-family="sans-serif" font-size="10" fill="#107c41" font-weight="600" text-anchor="middle">Publikasi</text>'
+                .'</svg>',
+            'venn' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 180" width="540" height="180">'
+                .'<rect width="540" height="180" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<circle cx="210" cy="90" r="65" fill="#0f6cbd" fill-opacity="0.35" stroke="#0f6cbd" stroke-width="2"/>'
+                .'<circle cx="330" cy="90" r="65" fill="#107c41" fill-opacity="0.35" stroke="#107c41" stroke-width="2"/>'
+                .'<text x="180" y="95" fill="#0f6cbd" font-family="sans-serif" font-size="12" font-weight="700" text-anchor="middle">Teori A</text>'
+                .'<text x="360" y="95" fill="#107c41" font-family="sans-serif" font-size="12" font-weight="700" text-anchor="middle">Metode B</text>'
+                .'<text x="270" y="95" fill="#1e293b" font-family="sans-serif" font-size="12" font-weight="800" text-anchor="middle">Sintesis</text>'
+                .'</svg>',
+            'piechart' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 180" width="540" height="180">'
+                .'<rect width="540" height="180" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<circle cx="160" cy="90" r="60" fill="#0f6cbd"/>'
+                .'<path d="M160 90 L160 30 A60 60 0 0 1 218 108 Z" fill="#107c41"/>'
+                .'<path d="M160 90 L218 108 A60 60 0 0 1 125 139 Z" fill="#f59e0b"/>'
+                .'<circle cx="160" cy="90" r="28" fill="#f8fafc"/>'
+                .'<text x="160" y="94" font-family="sans-serif" font-size="10" font-weight="700" fill="#334155" text-anchor="middle">100%</text>'
+                .'<rect x="280" y="45" width="14" height="14" fill="#0f6cbd" rx="2"/><text x="305" y="57" font-family="sans-serif" font-size="12" fill="#334155">Kelompok Kontrol (48%)</text>'
+                .'<rect x="280" y="75" width="14" height="14" fill="#107c41" rx="2"/><text x="305" y="87" font-family="sans-serif" font-size="12" fill="#334155">Kelompok Eksperimen (32%)</text>'
+                .'<rect x="280" y="105" width="14" height="14" fill="#f59e0b" rx="2"/><text x="305" y="117" font-family="sans-serif" font-size="12" fill="#334155">Kelompok Validasi (20%)</text>'
+                .'</svg>',
+            'architecture' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 160" width="580" height="160">'
+                .'<rect width="580" height="160" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<rect x="20" y="45" width="110" height="70" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>'
+                .'<text x="75" y="75" font-family="sans-serif" font-size="11" font-weight="700" fill="#0369a1" text-anchor="middle">Input Layer</text>'
+                .'<text x="75" y="95" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Data Token</text>'
+                .'<path d="M130 80 L165 80" stroke="#0284c7" stroke-width="2"/>'
+                .'<rect x="165" y="35" width="160" height="90" rx="6" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>'
+                .'<text x="245" y="65" font-family="sans-serif" font-size="11" font-weight="700" fill="#6d28d9" text-anchor="middle">Deep Model</text>'
+                .'<text x="245" y="85" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Multi-Head Attn</text>'
+                .'<text x="245" y="105" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Feed-Forward</text>'
+                .'<path d="M325 80 L360 80" stroke="#7c3aed" stroke-width="2"/>'
+                .'<rect x="360" y="45" width="110" height="70" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>'
+                .'<text x="415" y="75" font-family="sans-serif" font-size="11" font-weight="700" fill="#15803d" text-anchor="middle">Output Layer</text>'
+                .'<text x="415" y="95" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Hasil Prediksi</text>'
+                .'</svg>',
+            default => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 160" width="600" height="160">'
+                .'<rect width="600" height="160" fill="#f8fafc" rx="8" stroke="#cbd5e1"/>'
+                .'<rect x="30" y="50" width="140" height="60" rx="6" fill="#0f6cbd" stroke="#004e8c" stroke-width="1.5"/>'
+                .'<text x="100" y="85" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">1. Pengumpulan Data</text>'
+                .'<polygon points="220,80 212,75 212,85" fill="#0f6cbd"/>'
+                .'<path d="M170 80 L220 80" stroke="#0f6cbd" stroke-width="2"/>'
+                .'<rect x="230" y="50" width="140" height="60" rx="6" fill="#107c41" stroke="#0b552c" stroke-width="1.5"/>'
+                .'<text x="300" y="85" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">2. Pra-pemrosesan</text>'
+                .'<polygon points="420,80 412,75 412,85" fill="#107c41"/>'
+                .'<path d="M370 80 L420 80" stroke="#107c41" stroke-width="2"/>'
+                .'<rect x="430" y="50" width="140" height="60" rx="6" fill="#8764b8" stroke="#5c3b89" stroke-width="1.5"/>'
+                .'<text x="500" y="85" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">3. Evaluasi &amp; Validasi</text>'
+                .'</svg>',
+        };
+
+        $caption = match ($diagramType) {
+            'barchart' => 'Gambar: Grafik Evaluasi Akurasi dan Performa Model Riset',
+            'timeline' => 'Gambar: Timeline & Jadwal Tahapan Penelitian',
+            'venn' => 'Gambar: Kerangka Irisan Konseptual Sintesis Teori',
+            'piechart' => 'Gambar: Proporsi Distribusi Sampel dan Populasi',
+            'architecture' => 'Gambar: Arsitektur Pipeline Pemodelan Ilmiah',
+            default => 'Gambar: Bagan Alur Metodologi Penelitian',
+        };
+
+        $dataUri = 'data:image/svg+xml;base64,'.base64_encode($svg);
+
+        $reply = "### Rekomendasi Diagram Ilmiah: {$caption}\n"
+            ."- **Tipe Diagram**: `{$diagramType}`\n"
+            ."- **Keterangan**: {$caption}\n"
+            ."- **Format**: Diagram Vektor SVG Standar (Data URI)\n\n"
+            .'*Klik **⚡ Terapkan ke Halaman Ini** atau **Sisipkan ke Naskah** untuk menambahkan visual diagram ini langsung ke lembar Naskah Studio.*';
 
         return [
             'command' => SlashCommand::GAMBAR->value,
             'reply' => $reply,
-            'data' => ['argument' => $argument],
+            'data' => [
+                'argument' => $argument,
+                'diagram_type' => $diagramType,
+                'caption' => $caption,
+                'image_block' => [
+                    'type' => 'image',
+                    'level' => 0,
+                    'text' => $caption,
+                    'align' => 'center',
+                    'image' => [
+                        'src' => $dataUri,
+                        'alt' => $caption,
+                        'caption' => $caption,
+                        'width' => 560,
+                    ],
+                ],
+            ],
         ];
     }
 

@@ -1755,6 +1755,8 @@
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="insertTableOfContents">&#9776; Buat/Perbarui Daftar Isi</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('footnote')">&#128278; Catatan Kaki</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('endnote')">&#128214; Catatan Akhir</button>
+                            <button type="button" class="ns-btn" wire:click="renumberFootnotes" title="Urutkan &amp; nomori ulang seluruh catatan kaki secara sekuensial">&#128260; Nomori Ulang Footnote</button>
+                            <button type="button" class="ns-btn" wire:click="renumberEndnotes" title="Urutkan &amp; nomori ulang seluruh catatan akhir secara sekuensial">&#128260; Nomori Ulang Endnote</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -2580,6 +2582,7 @@
                                                     style="margin:14px 0 6px 0; padding-top:6px; border-top:1px solid #cbd5e1; font-size:.78rem; color:#475569; display:flex; align-items:baseline; gap:8px;">
                                                     <span style="font-size:.75rem; font-weight:700; color:#0f6cbd;">⚓ Catatan Kaki:</span>
                                                     <span style="flex:1; font-style:italic;">{!! e($text) !!}</span>
+                                                    <button type="button" class="ns-btn" style="padding:1px 6px; font-size:10px; color:#0f6cbd;" wire:click="editFootnote({{ $index }})" title="Edit Catatan Kaki">✏️</button>
                                                     <button type="button" class="ns-btn" style="padding:1px 6px; font-size:10px; color:#d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Catatan Kaki">🗑️</button>
                                                 </div>
                                             @elseif ($type === 'endnote-ref')
@@ -2590,6 +2593,7 @@
                                                     style="margin:8px 0; padding:6px 10px; background:#f8fafc; border-left:3px solid #64748b; border-radius:3px; font-size:.78rem; color:#334155; display:flex; align-items:baseline; gap:8px;">
                                                     <span style="font-size:.75rem; font-weight:700; color:#475569;">📑 Catatan Akhir:</span>
                                                     <span style="flex:1;">{!! e($text) !!}</span>
+                                                    <button type="button" class="ns-btn" style="padding:1px 6px; font-size:10px; color:#0f6cbd;" wire:click="editEndnote({{ $index }})" title="Edit Catatan Akhir">✏️</button>
                                                     <button type="button" class="ns-btn" style="padding:1px 6px; font-size:10px; color:#d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Catatan Akhir">🗑️</button>
                                                 </div>
                                             @else
@@ -3710,7 +3714,7 @@
                     {{-- Dialog Catatan Kaki --}}
                     @elseif ($dialog === 'footnote')
                         <div class="ns-dialog__header">
-                            <span>&#128278; Sisipkan Catatan Kaki (Footnote)</span>
+                            <span>&#128278; {{ $editingFootnoteIndex !== null ? 'Sunting Catatan Kaki (Footnote)' : 'Sisipkan Catatan Kaki (Footnote)' }}</span>
                             <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
                         </div>
                         <div class="ns-dialog__body">
@@ -3721,13 +3725,13 @@
                         </div>
                         <div class="ns-dialog__footer">
                             <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertFootnote">Sisipkan</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertFootnote">{{ $editingFootnoteIndex !== null ? 'Simpan Perubahan' : 'Sisipkan' }}</button>
                         </div>
 
                     {{-- Dialog Catatan Akhir (Endnote) --}}
                     @elseif ($dialog === 'endnote')
                         <div class="ns-dialog__header">
-                            <span>&#128214; Sisipkan Catatan Akhir (Endnote)</span>
+                            <span>&#128214; {{ $editingEndnoteIndex !== null ? 'Sunting Catatan Akhir (Endnote)' : 'Sisipkan Catatan Akhir (Endnote)' }}</span>
                             <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
                         </div>
                         <div class="ns-dialog__body">
@@ -3738,7 +3742,7 @@
                         </div>
                         <div class="ns-dialog__footer">
                             <button type="button" class="ns-btn" wire:click="closeDialog">Batal</button>
-                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertEndnote">Sisipkan Catatan Akhir</button>
+                            <button type="button" class="ns-btn ns-btn--primary" wire:click="insertEndnote">{{ $editingEndnoteIndex !== null ? 'Simpan Perubahan' : 'Sisipkan Catatan Akhir' }}</button>
                         </div>
 
                     {{-- Dialog Kelola Sumber Pustaka & Sitasi --}}

@@ -252,6 +252,10 @@ trait HandlesNaskahStudio
 
     public ?int $editingImageIndex = null;
 
+    public ?int $editingFootnoteIndex = null;
+
+    public ?int $editingEndnoteIndex = null;
+
     public string $footnoteText = '';
 
     public string $endnoteText = '';
@@ -3230,6 +3234,8 @@ trait HandlesNaskahStudio
         $this->imageUrl = '';
         $this->imageCaption = '';
         $this->imageAlt = '';
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function editImage(int $blockIndex): void
@@ -3276,6 +3282,8 @@ trait HandlesNaskahStudio
         $this->editorRevision++;
         $this->editingImageIndex = null;
         $this->dialog = '';
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Pengaturan gambar berhasil disimpan', '', 'success');
     }
 
@@ -3394,6 +3402,8 @@ trait HandlesNaskahStudio
         $this->editorRevision++;
         $this->dirty = true;
         $this->dialog = '';
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Diagram disisipkan ke naskah', '', 'success');
     }
 
@@ -3658,6 +3668,23 @@ trait HandlesNaskahStudio
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
+    public function editFootnote(int $blockIndex): void
+    {
+        if (! isset($this->blocks[$blockIndex])) {
+            return;
+        }
+
+        $b = $this->blocks[$blockIndex];
+        if (($b['type'] ?? '') !== 'footnote-ref') {
+            return;
+        }
+
+        $this->editingFootnoteIndex = $blockIndex;
+        $this->activeBlock = $blockIndex;
+        $this->footnoteText = (string) ($b['text'] ?? '');
+        $this->dialog = 'footnote';
+    }
+
     public function insertFootnote(?string $text = null): void
     {
         $cleanText = trim((string) ($text ?: $this->footnoteText));
@@ -3666,19 +3693,51 @@ trait HandlesNaskahStudio
         }
 
         $this->pushUndo();
-        $newBlock = $this->model->newBlock('footnote-ref', $cleanText);
-        $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
-            ? $this->activeBlock + 1
-            : count($this->blocks);
-        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
 
-        $this->activeBlock = $insertAt;
+        if ($this->editingFootnoteIndex !== null && isset($this->blocks[$this->editingFootnoteIndex])) {
+            $existingText = (string) ($this->blocks[$this->editingFootnoteIndex]['text'] ?? '');
+            if (preg_match('/^(\[\^?\d+\]\s*)/', $existingText, $m) && ! preg_match('/^\[\^?\d+\]/', $cleanText)) {
+                $cleanText = $m[1].$cleanText;
+            }
+            $newBlock = $this->model->newBlock('footnote-ref', $cleanText);
+            $this->blocks[$this->editingFootnoteIndex] = $newBlock;
+            $this->activeBlock = $this->editingFootnoteIndex;
+            $this->editingFootnoteIndex = null;
+            $this->notify('Catatan kaki berhasil diperbarui', '', 'success');
+        } else {
+            $newBlock = $this->model->newBlock('footnote-ref', $cleanText);
+            $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
+                ? $this->activeBlock + 1
+                : count($this->blocks);
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->activeBlock = $insertAt;
+            $this->notify('Catatan kaki disisipkan', '', 'success');
+        }
+
         $this->footnoteText = '';
         $this->dialog = '';
         $this->editorRevision++;
         $this->dirty = true;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
-        $this->notify('Catatan kaki disisipkan', '', 'success');
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+    }
+
+    public function editEndnote(int $blockIndex): void
+    {
+        if (! isset($this->blocks[$blockIndex])) {
+            return;
+        }
+
+        $b = $this->blocks[$blockIndex];
+        if (($b['type'] ?? '') !== 'endnote-ref') {
+            return;
+        }
+
+        $this->editingEndnoteIndex = $blockIndex;
+        $this->activeBlock = $blockIndex;
+        $text = (string) ($b['text'] ?? '');
+        $this->endnoteText = preg_replace('/^\[#\d+\]\s*/', '', $text) ?? $text;
+        $this->dialog = 'endnote';
     }
 
     public function insertEndnote(?string $text = null): void
@@ -3689,26 +3748,151 @@ trait HandlesNaskahStudio
         }
 
         $this->pushUndo();
-        $existing = count(array_filter($this->blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'endnote-ref'));
-        $enNumber = $existing + 1;
 
-        $insertAt = count($this->blocks);
-        foreach ($this->blocks as $i => $block) {
-            if (($block['type'] ?? '') === 'heading' && mb_stripos((string) ($block['text'] ?? ''), 'Daftar Pustaka') !== false) {
-                $insertAt = $i;
-                break;
+        if ($this->editingEndnoteIndex !== null && isset($this->blocks[$this->editingEndnoteIndex])) {
+            $existingText = (string) ($this->blocks[$this->editingEndnoteIndex]['text'] ?? '');
+            if (preg_match('/^(\[#\d+\]\s*)/', $existingText, $m)) {
+                $cleanNote = $m[1].$cleanNote;
             }
-        }
+            $newBlock = $this->model->newBlock('endnote-ref', $cleanNote);
+            $this->blocks[$this->editingEndnoteIndex] = $newBlock;
+            $this->activeBlock = $this->editingEndnoteIndex;
+            $this->editingEndnoteIndex = null;
+            $this->notify('Catatan akhir berhasil diperbarui', '', 'success');
+        } else {
+            $existing = count(array_filter($this->blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'endnote-ref'));
+            $enNumber = $existing + 1;
 
-        $newBlock = $this->model->newBlock('endnote-ref', "[#{$enNumber}] {$cleanNote}");
-        array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $insertAt = count($this->blocks);
+            foreach ($this->blocks as $i => $block) {
+                if (($block['type'] ?? '') === 'heading' && mb_stripos((string) ($block['text'] ?? ''), 'Daftar Pustaka') !== false) {
+                    $insertAt = $i;
+                    break;
+                }
+            }
+
+            $prefix = preg_match('/^\[#\d+\]/', $cleanNote) ? '' : "[#{$enNumber}] ";
+            $newBlock = $this->model->newBlock('endnote-ref', "{$prefix}{$cleanNote}");
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->notify('Catatan akhir disisipkan', "{$prefix}{$cleanNote}", 'success');
+        }
 
         $this->endnoteText = '';
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->dialog = '';
-        $this->notify('Catatan akhir disisipkan', "[#{$enNumber}] {$cleanNote}", 'success');
+    }
+
+    public function renumberFootnotes(): void
+    {
+        $this->pushUndo();
+        $oldToNew = [];
+        $seq = 0;
+
+        foreach ($this->blocks as $i => $b) {
+            if (($b['type'] ?? '') === 'footnote-ref') {
+                $seq++;
+                $text = (string) ($b['text'] ?? '');
+                if (preg_match('/^\[\^?(\d+)\]\s*(.*)$/s', $text, $m)) {
+                    $oldNum = (int) $m[1];
+                    $content = $m[2];
+                    $oldToNew[$oldNum] = $seq;
+                    $newText = "[^{$seq}] {$content}";
+                } else {
+                    $newText = "[^{$seq}] {$text}";
+                }
+                $this->blocks[$i]['text'] = $newText;
+                $this->blocks[$i]['runs'] = $this->model->normalizeRuns([], $newText);
+            }
+        }
+
+        if (! empty($oldToNew)) {
+            foreach ($this->blocks as $i => $b) {
+                if (($b['type'] ?? '') === 'footnote-ref') {
+                    continue;
+                }
+                $text = (string) ($b['text'] ?? '');
+                if ($text === '') {
+                    continue;
+                }
+                $updated = preg_replace_callback('/\[\^?(\d+)\]/', function ($matches) use ($oldToNew) {
+                    $num = (int) $matches[1];
+                    if (isset($oldToNew[$num])) {
+                        return "[^{$oldToNew[$num]}]";
+                    }
+
+                    return $matches[0];
+                }, $text);
+
+                if ($updated !== $text) {
+                    $this->blocks[$i]['text'] = $updated;
+                    $this->blocks[$i]['runs'] = $this->model->normalizeRuns([], $updated);
+                }
+            }
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+        $this->notify('Catatan Kaki Diurutkan', "Berhasil menomori ulang {$seq} catatan kaki secara berurutan.", 'success');
+    }
+
+    public function renumberEndnotes(): void
+    {
+        $this->pushUndo();
+        $oldToNew = [];
+        $seq = 0;
+
+        foreach ($this->blocks as $i => $b) {
+            if (($b['type'] ?? '') === 'endnote-ref') {
+                $seq++;
+                $text = (string) ($b['text'] ?? '');
+                if (preg_match('/^\[#(\d+)\]\s*(.*)$/s', $text, $m)) {
+                    $oldNum = (int) $m[1];
+                    $content = $m[2];
+                    $oldToNew[$oldNum] = $seq;
+                    $newText = "[#{$seq}] {$content}";
+                } else {
+                    $newText = "[#{$seq}] {$text}";
+                }
+                $this->blocks[$i]['text'] = $newText;
+                $this->blocks[$i]['runs'] = $this->model->normalizeRuns([], $newText);
+            }
+        }
+
+        if (! empty($oldToNew)) {
+            foreach ($this->blocks as $i => $b) {
+                if (($b['type'] ?? '') === 'endnote-ref') {
+                    continue;
+                }
+                $text = (string) ($b['text'] ?? '');
+                if ($text === '') {
+                    continue;
+                }
+                $updated = preg_replace_callback('/\[#(\d+)\]/', function ($matches) use ($oldToNew) {
+                    $num = (int) $matches[1];
+                    if (isset($oldToNew[$num])) {
+                        return "[#{$oldToNew[$num]}]";
+                    }
+
+                    return $matches[0];
+                }, $text);
+
+                if ($updated !== $text) {
+                    $this->blocks[$i]['text'] = $updated;
+                    $this->blocks[$i]['runs'] = $this->model->normalizeRuns([], $updated);
+                }
+            }
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+        $this->notify('Catatan Akhir Diurutkan', "Berhasil menomori ulang {$seq} catatan akhir secara berurutan.", 'success');
     }
 
     public function insertPageBreak(): void
@@ -6394,6 +6578,12 @@ trait HandlesNaskahStudio
         if ($dialog !== 'image') {
             $this->editingImageIndex = null;
         }
+        if ($dialog !== 'footnote') {
+            $this->editingFootnoteIndex = null;
+        }
+        if ($dialog !== 'endnote') {
+            $this->editingEndnoteIndex = null;
+        }
         $this->dialog = $dialog;
     }
 
@@ -6402,6 +6592,8 @@ trait HandlesNaskahStudio
         $this->dialog = '';
         $this->editingEquationIndex = null;
         $this->editingImageIndex = null;
+        $this->editingFootnoteIndex = null;
+        $this->editingEndnoteIndex = null;
     }
 
     public function applyTheme(string $theme): void
@@ -6831,15 +7023,19 @@ trait HandlesNaskahStudio
             $caption = (string) ($data['caption'] ?? '(1)');
             $blocksToInsert[] = $this->model->newEquationBlock($formula, $caption);
         }
-        // 3. Jika model menghasilkan blok callout khusus
+        // 3. Jika model menghasilkan blok gambar / diagram terstruktur
+        elseif (! empty($data['image_block']) && is_array($data['image_block'])) {
+            $blocksToInsert[] = $this->model->normalizeBlock($data['image_block']);
+        }
+        // 4. Jika model menghasilkan blok callout khusus
         elseif (! empty($data['callout_block']) && is_array($data['callout_block'])) {
             $blocksToInsert[] = $this->model->normalizeBlock($data['callout_block']);
         }
-        // 4. Jika model menghasilkan catatan kaki terstruktur
+        // 5. Jika model menghasilkan catatan kaki terstruktur
         elseif (! empty($data['footnote_block']) && is_array($data['footnote_block'])) {
             $blocksToInsert[] = $this->model->normalizeBlock($data['footnote_block']);
         }
-        // 5. Jika model menghasilkan array kumpulan blok terstruktur
+        // 6. Jika model menghasilkan array kumpulan blok terstruktur
         elseif (! empty($data['blocks']) && is_array($data['blocks'])) {
             foreach ($data['blocks'] as $b) {
                 if (is_array($b)) {
