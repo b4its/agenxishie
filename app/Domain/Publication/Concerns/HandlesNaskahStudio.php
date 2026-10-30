@@ -110,6 +110,11 @@ trait HandlesNaskahStudio
     public int $activeBlock = 0;
 
     /**
+     * @var array{verified: array<int, string>, unmatched: array<int, string>, uncited: array<int, string>, total_citations: int, density_per_1k: float}|null
+     */
+    public ?array $lastCitationAudit = null;
+
+    /**
      * Stack undo/redo.
      *
      * @var array<int, array<int, array<string, mixed>>>
@@ -3840,6 +3845,118 @@ trait HandlesNaskahStudio
         };
 
         $this->insertCitation($citationText);
+    }
+
+    /**
+     * Audit integritas sitasi naskah: mencocokkan sitasi pada draf dengan pustaka referensi proyek,
+     * mendeteksi potensi sitasi halusinasi, dan menghitung densitas sitasi akademik.
+     *
+     * @return array{verified: array<int, string>, unmatched: array<int, string>, uncited: array<int, string>, total_citations: int, density_per_1k: float}
+     */
+    public function auditCitations(?int $projectId = null): array
+    {
+        $project = $projectId !== null
+            ? XishieProject::find($projectId)
+            : ($this->sourceProjectId !== null ? XishieProject::find($this->sourceProjectId) : XishieProject::first());
+
+        $refKeys = [];
+        if ($project !== null) {
+            $refKeys = $project->references()->pluck('citation_key')->filter()->all();
+        }
+
+        // Pindai teks dokumen lengkap
+        $plainText = $this->documentText();
+
+        // Ekstrak pola [@key], [key], atau (Author, Year)
+        preg_match_all('/\[@?([a-zA-Z0-9_\-]+)\]/u', $plainText, $bracketMatches);
+        preg_match_all('/\(([A-Z][a-zA-Z\s]+(?:et\sal\.)?,\s?\d{4}[a-z]?)\)/u', $plainText, $parenMatches);
+
+        $foundKeys = [];
+        if (! empty($bracketMatches[1])) {
+            foreach ($bracketMatches[1] as $k) {
+                $trimmed = trim((string) $k);
+                if (! is_numeric($trimmed) && mb_strlen($trimmed) >= 3) {
+                    $foundKeys[] = $trimmed;
+                }
+            }
+        }
+        if (! empty($parenMatches[1])) {
+            foreach ($parenMatches[1] as $p) {
+                $trimmed = trim((string) $p);
+                if ($trimmed !== '') {
+                    $foundKeys[] = $trimmed;
+                }
+            }
+        }
+
+        $foundKeys = array_values(array_unique($foundKeys));
+        $normalizedRefKeys = array_map('mb_strtolower', $refKeys);
+
+        $verified = [];
+        $unmatched = [];
+
+        foreach ($foundKeys as $key) {
+            $matched = false;
+            $lowerKey = mb_strtolower($key);
+
+            // Cek kecocokan langsung dengan citation_key
+            if (in_array($lowerKey, $normalizedRefKeys, true)) {
+                $matched = true;
+            } else {
+                // Cek apakah key cocok dengan substring pada daftar pustaka
+                foreach ($refKeys as $rKey) {
+                    if (str_contains(mb_strtolower($rKey), $lowerKey) || str_contains($lowerKey, mb_strtolower($rKey))) {
+                        $matched = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($matched) {
+                $verified[] = $key;
+            } else {
+                $unmatched[] = $key;
+            }
+        }
+
+        $uncited = [];
+        foreach ($refKeys as $rKey) {
+            $cited = false;
+            foreach ($foundKeys as $fKey) {
+                if (mb_strtolower($rKey) === mb_strtolower($fKey) || str_contains(mb_strtolower($fKey), mb_strtolower($rKey))) {
+                    $cited = true;
+                    break;
+                }
+            }
+            if (! $cited) {
+                $uncited[] = $rKey;
+            }
+        }
+
+        $totalWords = $this->model->countWords($this->model->normalize($this->blocks));
+        $density = $totalWords > 0 ? round((count($verified) / $totalWords) * 1000, 2) : 0.0;
+
+        $audit = [
+            'verified' => $verified,
+            'unmatched' => $unmatched,
+            'uncited' => $uncited,
+            'total_citations' => count($foundKeys),
+            'density_per_1k' => $density,
+        ];
+
+        $this->lastCitationAudit = $audit;
+
+        $statusMsg = count($unmatched) === 0
+            ? 'Semua '.count($verified).' sitasi terverifikasi cocok dengan pustaka proyek (Densitas: '.$density.'/1k kata).'
+            : count($verified).' sitasi valid, '.count($unmatched).' sitasi tidak cocok/potensi halusinasi.';
+
+        $this->notify(
+            'Audit Sitasi Selesai',
+            $statusMsg,
+            count($unmatched) === 0 ? 'success' : 'warning'
+        );
+
+        return $audit;
     }
 
     public function setNavSidebarTab(string $tab): void

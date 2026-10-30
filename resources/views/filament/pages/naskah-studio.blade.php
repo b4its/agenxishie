@@ -1757,6 +1757,7 @@
                             <button type="button" class="ns-btn" wire:click="openDialog('crossref')" title="Sisipkan Rujukan Silang ke Persamaan, Gambar, atau Tabel">&#128279; Rujukan Silang</button>
                             <button type="button" class="ns-btn" wire:click="insertBibliography" title="Sisipkan daftar pustaka lengkap">&#128218; Sisipkan Daftar Pustaka</button>
                             <button type="button" class="ns-btn" wire:click="updateBibliography" title="Perbarui dan format ulang seluruh daftar pustaka dengan gaya terpilih">&#128260; Perbarui Pustaka</button>
+                            <button type="button" class="ns-btn" wire:click="auditCitations" style="background:rgba(16,185,129,0.12); color:#047857; font-weight:700; border-color:#a7f3d0;" title="Audit integritas sitasi naskah dan deteksi potensi halusinasi">🔍 Audit Sitasi</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/daftar-pustaka')" title="Format daftar pustaka via asisten">📚 Format Pustaka</button>
                             <button type="button" class="ns-btn" wire:click="setNavSidebarTab('pustaka')" title="Buka Sidebar Pustaka Riset Proyek">&#128214; Pustaka Riset</button>
                         </div>
@@ -2067,10 +2068,22 @@
                                 <div style="padding:.5rem; font-size:.62rem; color:#64748b;">Belum ada snapshot tersimpan. Klik "+ Buat Versi" untuk menyimpan versi baru.</div>
                             @endforelse
                         @elseif (($navSidebarTab ?? '') === 'references')
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; padding:.2rem 0;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; padding:.2rem 0; gap:4px;">
                                 <strong style="font-size:.65rem; color:#1e40af;">📚 Pustaka Proyek ({{ count($projectReferences) }})</strong>
-                                <button type="button" class="ns-block__btn" wire:click="insertBibliography" title="Sisipkan semua ke daftar pustaka">&#128218; Semua</button>
+                                <div style="display:flex; gap:2px;">
+                                    <button type="button" class="ns-block__btn" wire:click="auditCitations" title="Audit kepatuhan sitasi naskah">🔍 Audit</button>
+                                    <button type="button" class="ns-block__btn" wire:click="insertBibliography" title="Sisipkan semua ke daftar pustaka">&#128218; Semua</button>
+                                </div>
                             </div>
+                            @if (!empty($lastCitationAudit))
+                                <div style="margin-bottom:.4rem; padding:.3rem .45rem; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:3px; font-size:.58rem; color:#166534; line-height:1.4;">
+                                    <div style="font-weight:700;">📊 Hasil Audit Sitasi:</div>
+                                    <div>✓ Valid: {{ count($lastCitationAudit['verified']) }} sitasi &middot; Densitas: {{ $lastCitationAudit['density_per_1k'] }}/1k kata</div>
+                                    @if (!empty($lastCitationAudit['unmatched']))
+                                        <div style="color:#dc2626; font-weight:700; margin-top:2px;">⚠️ Tidak cocok ({{ count($lastCitationAudit['unmatched']) }}): {{ implode(', ', array_slice($lastCitationAudit['unmatched'], 0, 3)) }}</div>
+                                    @endif
+                                </div>
+                            @endif
                             @forelse ($projectReferences as $pRef)
                                 <div style="margin-bottom:.35rem; padding:.35rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:3px;">
                                     <div style="font-weight:700; font-size:.62rem; color:#1e293b; line-height:1.3; margin-bottom:2px;">
