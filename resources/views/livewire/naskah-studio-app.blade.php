@@ -2550,7 +2550,7 @@
                     </div>
 
                     <!-- Conversation Stream -->
-                    <div class="word-assistant-chat" x-init="$watch('$el.children.length', () => $nextTick(() => $el.scrollTop = $el.scrollHeight)); $nextTick(() => $el.scrollTop = $el.scrollHeight);">
+                    <div class="word-assistant-chat" data-delete-action="deleteAssistantMessage" x-init="$watch('$el.children.length', () => $nextTick(() => $el.scrollTop = $el.scrollHeight)); $nextTick(() => $el.scrollTop = $el.scrollHeight);">
                         @if (empty($assistantLog))
                             <!-- Empty State with Interactive Prompts (Word 365 Copilot Style Grid) -->
                             <div class="word-assistant-empty">
@@ -2658,9 +2658,12 @@
                                     <div class="word-assistant-bubble-user">
                                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:3px; gap:8px;">
                                             <strong style="font-size:10.5px; color:#0f6cbd;">Anda</strong>
-                                            @if (!empty($log['command']) && $log['command'] !== 'freeform' && $log['command'] !== 'chat')
-                                                <span style="font-size:9.5px; background:#cfe4fa; color:#0f6cbd; padding:1px 5px; border-radius:4px; font-weight:700;">{{ $log['command'] }}</span>
-                                            @endif
+                                            <div style="display:flex; align-items:center; gap:4px;">
+                                                @if (!empty($log['command']) && $log['command'] !== 'freeform' && $log['command'] !== 'chat')
+                                                    <span style="font-size:9.5px; background:#cfe4fa; color:#0f6cbd; padding:1px 5px; border-radius:4px; font-weight:700;">{{ $log['command'] }}</span>
+                                                @endif
+                                                <button type="button" wire:click="deleteAssistantMessage({{ $logIndex }})" style="border:none; background:none; color:#ef4444; cursor:pointer; font-size:11px; padding:0 2px;" title="Hapus pesan ini">🗑️</button>
+                                            </div>
                                         </div>
                                         <div>{{ $log['content'] ?? '' }}</div>
                                     </div>
@@ -2674,8 +2677,21 @@
                                                 @if (!empty($log['model']))
                                                     <span style="font-size:9.5px; background:#ede9fe; color:#6d28d9; padding:1px 5px; border-radius:3px; font-family:monospace; font-weight:600;">{{ $log['model'] }}</span>
                                                 @endif
+                                                @if (!empty($log['data']['verified']))
+                                                    <span style="font-size:9.5px; padding:1px 5px; background:#dcfce7; border-radius:3px; color:#15803d; font-weight:700;" title="{{ count($log['data']['verified']) }} sitasi valid di pustaka">
+                                                        ✓ {{ count($log['data']['verified']) }} Valid
+                                                    </span>
+                                                @endif
+                                                @if (!empty($log['data']['unmatched']))
+                                                    <span style="font-size:9.5px; padding:1px 5px; background:#fee2e2; border-radius:3px; color:#dc2626; font-weight:700;" title="{{ count($log['data']['unmatched']) }} sitasi belum terdaftar">
+                                                        ⚠️ {{ count($log['data']['unmatched']) }} Cek
+                                                    </span>
+                                                @endif
                                             </div>
-                                            <span style="font-size:9.5px; color:var(--ms-text-muted); background:#f1f5f9; padding:1px 5px; border-radius:3px;">AI Copilot</span>
+                                            <div style="display:flex; align-items:center; gap:4px;">
+                                                <span style="font-size:9.5px; color:var(--ms-text-muted); background:#f1f5f9; padding:1px 5px; border-radius:3px;">AI Copilot</span>
+                                                <button type="button" wire:click="deleteAssistantMessage({{ $logIndex }})" style="border:none; background:none; color:#ef4444; cursor:pointer; font-size:11px; padding:0 2px;" title="Hapus pesan ini">🗑️</button>
+                                            </div>
                                         </div>
                                         <div class="word-assistant-rendered-markdown" style="line-height:1.55; margin-bottom:10px; font-size:12px;">
                                             {!! \Illuminate\Support\Str::markdown($log['content'] ?? '') !!}
@@ -2718,6 +2734,9 @@
                                                 <button type="button" x-data="{ copied: false }" @click="navigator.clipboard.writeText(@js($log['content'])); copied = true; setTimeout(() => copied = false, 2000);" class="word-assistant-act-btn" title="Salin teks ke clipboard">
                                                     <span x-show="!copied">📋 Salin</span>
                                                     <span x-show="copied" style="color:#107c41;">✓ Tersalin!</span>
+                                                </button>
+                                                <button type="button" wire:click="deleteAssistantMessage({{ $logIndex }})" class="word-assistant-act-btn" style="color:#dc2626;" title="Hapus respon ini dari riwayat">
+                                                    <span>🗑️ Hapus</span>
                                                 </button>
                                             </div>
                                         @endif

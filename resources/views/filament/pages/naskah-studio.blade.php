@@ -2689,6 +2689,7 @@
 
                         {{-- Assistant Body / Chat Stream --}}
                         <div class="ns-drawer__body" style="flex:1; overflow-y:auto; padding:.6rem; display:flex; flex-direction:column; gap:.5rem;"
+                             data-delete-action="deleteAssistantMessage"
                              x-init="$watch('$el.children.length', () => $nextTick(() => $el.scrollTop = $el.scrollHeight)); $nextTick(() => $el.scrollTop = $el.scrollHeight);">
                             @if (empty($assistantLog))
                                 <div style="text-align:center; padding:1.2rem .5rem; display:flex; flex-direction:column; align-items:center; gap:.5rem;">
@@ -2741,10 +2742,23 @@
                                                 @if(!empty($msg['model']))
                                                     <span style="font-size:.52rem; background:#ede9fe; color:#6d28d9; padding:0 4px; border-radius:3px; font-family:var(--rb-font-mono); font-weight:600;">{{ $msg['model'] }}</span>
                                                 @endif
+                                                @if (!empty($msg['data']['verified']))
+                                                    <span style="font-size:.52rem; padding:1px 5px; background:rgba(34,197,94,0.15); border-radius:3px; color:#15803d; font-weight:700;" title="{{ count($msg['data']['verified']) }} sitasi valid di pustaka">
+                                                        ✓ {{ count($msg['data']['verified']) }} Valid
+                                                    </span>
+                                                @endif
+                                                @if (!empty($msg['data']['unmatched']))
+                                                    <span style="font-size:.52rem; padding:1px 5px; background:rgba(239,68,68,0.15); border-radius:3px; color:#dc2626; font-weight:700;" title="{{ count($msg['data']['unmatched']) }} sitasi belum terdaftar">
+                                                        ⚠️ {{ count($msg['data']['unmatched']) }} Cek
+                                                    </span>
+                                                @endif
                                             </div>
-                                            @if(!empty($msg['command']))
-                                                <span style="background:#ede9fe; color:#5b21b6; padding:1px 5px; border-radius:4px; font-family:var(--rb-font-mono);">{{ $msg['command'] }}</span>
-                                            @endif
+                                            <div style="display:flex; align-items:center; gap:.25rem;">
+                                                @if(!empty($msg['command']))
+                                                    <span style="background:#ede9fe; color:#5b21b6; padding:1px 5px; border-radius:4px; font-family:var(--rb-font-mono);">{{ $msg['command'] }}</span>
+                                                @endif
+                                                <button type="button" wire:click="deleteAssistantMessage({{ $logIndex }})" style="border:0; background:none; color:#ef4444; cursor:pointer; font-size:.65rem; padding:0 2px;" title="Hapus pesan ini dari riwayat">🗑️</button>
+                                            </div>
                                         </div>
                                         <div style="line-height:1.55; color:#1e293b;" class="word-markdown-content">
                                             {!! \Illuminate\Support\Str::markdown($msg['content'] ?? '') !!}
@@ -2785,6 +2799,9 @@
                                                     </button>
                                                     <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .4rem;" x-data="{ copied: false }" @click="navigator.clipboard?.writeText(@js($msg['content'])); copied = true; setTimeout(() => copied = false, 2000)" title="Salin Jawaban">
                                                         📋 <span x-text="copied ? 'Tersalin' : 'Salin'"></span>
+                                                    </button>
+                                                    <button type="button" class="ns-btn" style="font-size:.58rem; padding:.15rem .4rem; color:#dc2626;" wire:click="deleteAssistantMessage({{ $logIndex }})" title="Hapus respon ini dari riwayat">
+                                                        🗑️ Hapus
                                                     </button>
                                                 </div>
                                             @endif
