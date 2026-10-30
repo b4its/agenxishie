@@ -60,6 +60,68 @@ final class NaskahBlockParser
                 continue;
             }
 
+            if (preg_match('/^>\s*(?:\[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION)\]|\*\*\[(.*?)\]\*\*)\s*(.*)$/ui', $line, $cm) === 1) {
+                $flush();
+                $cType = strtolower(($cm[1] ?? '') !== '' ? $cm[1] : ($cm[2] ?? 'catatan'));
+                $blocks[] = [
+                    'type' => 'callout',
+                    'calloutType' => $cType,
+                    'level' => 0,
+                    'text' => $this->normalizeSpaces(trim($cm[3] ?? '')),
+                ];
+
+                continue;
+            }
+
+            if (preg_match('/^\[\^([^\]]+)\]:\s*(.+)$/u', $line, $fm) === 1) {
+                $flush();
+                $blocks[] = [
+                    'type' => 'footnote-ref',
+                    'level' => 0,
+                    'text' => $this->normalizeSpaces(trim($fm[2])),
+                ];
+
+                continue;
+            }
+
+            if (preg_match('/^\$\$\s*(.+?)\s*\$\$$/u', $line, $em) === 1) {
+                $flush();
+                $blocks[] = [
+                    'type' => 'equation',
+                    'level' => 0,
+                    'text' => trim($em[1]),
+                    'latex' => trim($em[1]),
+                    'caption' => '',
+                ];
+
+                continue;
+            }
+
+            if (preg_match('/^\|(.+)\|$/u', $line, $tm) === 1) {
+                if (preg_match('/^\|[\s\-:|]+\|$/', $line) === 1) {
+                    continue;
+                }
+                $flush();
+                $cells = array_map(static fn (string $c): array => ['text' => trim($c)], explode('|', $tm[1]));
+                $lastIdx = count($blocks) - 1;
+                if ($lastIdx >= 0 && ($blocks[$lastIdx]['type'] ?? '') === 'table') {
+                    $blocks[$lastIdx]['table']['rows'][] = $cells;
+                } else {
+                    $blocks[] = [
+                        'type' => 'table',
+                        'level' => 0,
+                        'text' => '',
+                        'table' => [
+                            'rows' => [$cells],
+                            'header' => true,
+                            'caption' => '',
+                        ],
+                    ];
+                }
+
+                continue;
+            }
+
             if (preg_match('/^>\s?(.+)$/u', $line, $m) === 1) {
                 $flush();
                 $blocks[] = ['type' => 'quote', 'level' => 0, 'text' => $this->normalizeSpaces(trim($m[1]))];
@@ -153,7 +215,17 @@ final class NaskahBlockParser
         $total = 0;
 
         foreach ($blocks as $block) {
-            $total += str_word_count(strip_tags((string) ($block['text'] ?? '')));
+            $text = strip_tags((string) ($block['text'] ?? ''));
+
+            if (($block['type'] ?? '') === 'table') {
+                foreach ((array) ($block['table']['rows'] ?? []) as $row) {
+                    foreach ((array) $row as $cell) {
+                        $text .= ' '.strip_tags((string) (is_array($cell) ? ($cell['text'] ?? '') : $cell));
+                    }
+                }
+            }
+
+            $total += str_word_count($text);
         }
 
         return $total;
@@ -163,7 +235,7 @@ final class NaskahBlockParser
      * Normalisasi blok dari input pengguna agar aman & konsisten.
      *
      * @param  array<int|string, mixed>  $blocks
-     * @return array<int, array{type: string, level: int, text: string}>
+     * @return array<int, array<string, mixed>>
      */
     public function normalize(array $blocks): array
     {
@@ -182,11 +254,19 @@ final class NaskahBlockParser
 
             $level = $type === 'heading' ? max(1, min(3, (int) ($block['level'] ?? 1))) : 0;
 
-            $normalized[] = [
+            $item = [
                 'type' => $type,
                 'level' => $level,
                 'text' => trim((string) ($block['text'] ?? '')),
             ];
+
+            foreach (['table', 'calloutType', 'equation', 'latex', 'caption', 'image', 'runs', 'align'] as $extraKey) {
+                if (isset($block[$extraKey])) {
+                    $item[$extraKey] = $block[$extraKey];
+                }
+            }
+
+            $normalized[] = $item;
         }
 
         return $normalized;

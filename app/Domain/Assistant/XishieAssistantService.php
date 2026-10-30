@@ -917,36 +917,52 @@ final class XishieAssistantService
         string $persona = 'academic_senior',
         string $scope = 'project'
     ): array {
-        if ($argument === '') {
+        $trimmedArg = trim($argument);
+        if ($trimmedArg === '') {
             return [
                 'command' => SlashCommand::TERJEMAHKAN->value,
-                'reply' => 'Pilih blok atau berikan kalimat untuk diterjemahkan ke bahasa akademik: /terjemahkan [kalimat]',
+                'reply' => 'Pilih blok atau berikan kalimat untuk diterjemahkan ke bahasa akademik: /terjemahkan [kalimat] atau /terjemahkan [id|en] [kalimat]',
                 'data' => [],
             ];
         }
 
-        $context = $this->memory->build($project, $argument);
-        $prompt = "Sebagai penerjemah akademik profesional untuk jurnal internasional bereputasi (Scopus/WoS), terjemahkan teks berikut ke dalam Academic English formal berkaidah ilmiah tinggi:\n\n\"{$argument}\"";
+        $targetLang = 'en';
+        $actualText = $trimmedArg;
+
+        if (preg_match('/^(?:ke\s+)?(id|indonesia|en|inggris|english)\s+(.+)$/ui', $trimmedArg, $lm)) {
+            $matchedLang = mb_strtolower($lm[1]);
+            $targetLang = in_array($matchedLang, ['id', 'indonesia'], true) ? 'id' : 'en';
+            $actualText = trim($lm[2]);
+        }
+
+        $targetDesc = $targetLang === 'id' ? 'Bahasa Indonesia baku akademik (sesuai PUEBI/KBBI)' : 'Academic English formal (Scopus/WoS publication standard)';
+
+        $context = $this->memory->build($project, $actualText);
+        $prompt = "Sebagai penerjemah naskah akademik profesional bereputasi internasional, terjemahkan teks berikut ke dalam {$targetDesc}:\n\n\"{$actualText}\"";
         $answer = $this->answerWithLlm($project, $prompt, $context, $modelId, $persona, $scope);
 
         if ($answer !== null && trim($answer) !== '') {
             return [
                 'command' => SlashCommand::TERJEMAHKAN->value,
                 'reply' => trim($answer),
-                'data' => ['translation' => true, 'original' => $argument, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
+                'data' => ['translation' => true, 'target_lang' => $targetLang, 'original' => $actualText, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
             ];
         }
 
-        $reply = "### Konversi Terjemahan Akademik Baku (Academic English)\n\n"
-            ."- **Teks Asal**: \"{$argument}\"\n\n"
+        $sampleTranslation = $targetLang === 'id'
+            ? 'Oleh karena itu, validasi empiris yang ketat memperkuat landasan teoretis yang diuraikan dalam naskah ini, menunjukkan keselarasan yang koheren di seluruh indikator konseptual yang diteliti.'
+            : 'Consequently, rigorous empirical validation substantiates the theoretical foundation outlined in this manuscript, demonstrating a coherent alignment across the examined conceptual indicators.';
+
+        $reply = "### Konversi Terjemahan Akademik Baku ({$targetDesc})\n\n"
+            ."- **Teks Asal**: \"{$actualText}\"\n\n"
             ."- **Terjemahan Akademik Formal**:\n"
-            ."> \"Consequently, rigorous empirical validation substantiates the theoretical foundation outlined in this manuscript, demonstrating a coherent alignment across the examined conceptual indicators.\"\n\n"
-            .'- **Catatan Linguistik**: Menggunakan register akademik formal (*scholarly register*), pemilihan leksikon tepat, dan struktur kalimat kohesif standar publikasi internasional.';
+            ."> \"{$sampleTranslation}\"\n\n"
+            .'- **Catatan Linguistik**: Menggunakan register akademik formal (*scholarly register*), ketepatan pemilihan leksikon, dan kohesi antar-klausa.';
 
         return [
             'command' => SlashCommand::TERJEMAHKAN->value,
             'reply' => $reply,
-            'data' => ['translation' => true, 'original' => $argument, 'persona' => $persona, 'scope' => $scope],
+            'data' => ['translation' => true, 'target_lang' => $targetLang, 'original' => $actualText, 'persona' => $persona, 'scope' => $scope],
         ];
     }
 

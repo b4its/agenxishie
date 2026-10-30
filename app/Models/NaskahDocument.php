@@ -28,7 +28,23 @@ class NaskahDocument extends Model
     public const SOURCE_PROJECT = 'project';
 
     /** @var array<int, string> */
-    public const BLOCK_TYPES = ['heading', 'paragraph', 'quote', 'bullet', 'numbered'];
+    public const BLOCK_TYPES = [
+        'title',
+        'subtitle',
+        'heading',
+        'paragraph',
+        'quote',
+        'bullet',
+        'numbered',
+        'table',
+        'image',
+        'pagebreak',
+        'footnote-ref',
+        'endnote-ref',
+        'callout',
+        'toc',
+        'equation',
+    ];
 
     protected $table = 'naskah_documents';
 

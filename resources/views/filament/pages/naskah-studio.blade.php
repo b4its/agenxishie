@@ -1576,6 +1576,16 @@
                         </div>
                     </div>
                     <div class="ns-group">
+                        <span class="ns-group__label">Wordcraft AI Blok</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="aiElaborateBlock({{ $activeBlock }})" title="Kembangkan gagasan paragraf aktif (AI)">⚡ Elaborasi</button>
+                            <button type="button" class="ns-btn" wire:click="aiShortenBlock({{ $activeBlock }})" title="Persingkat dan padatkan paragraf aktif (AI)">✂ Ringkas</button>
+                            <button type="button" class="ns-btn" wire:click="aiParaphraseBlock({{ $activeBlock }})" title="Parafrase kalimat agar orisinal & bernas (AI)">🔄 Parafrase</button>
+                            <button type="button" class="ns-btn" wire:click="aiTranslateBlock({{ $activeBlock }}, 'en')" title="Terjemahkan paragraf aktif ke Bahasa Inggris (AI)">🌐 Translate</button>
+                            <button type="button" class="ns-btn" wire:click="aiFixTone({{ $activeBlock }}, 'akademik')" title="Sesuaikan ke nada formal akademik (AI)">🎓 Nada Akademik</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
                         <span class="ns-group__label">Copilot</span>
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn ns-btn--primary" wire:click="openAssistant" style="background: linear-gradient(135deg, #eef2ff 0%, #f3e8ff 100%); border: 1px solid #c7d2fe; color: #4338ca; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Buka Xishie Assistant (AI Copilot Penulisan Ilmiah)">&#10024; Copilot</button>
@@ -1836,6 +1846,16 @@
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('literature')" title="Sintesis tinjauan pustaka & teori">📚 Pustaka</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('readability')" title="Audit keterbacaan naskah">📈 Keterbacaan</button>
                             <button type="button" class="ns-btn" wire:click="executeModelPreset('conclusion')" title="Formulasi kesimpulan & saran">🏁 Kesimpulan</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Wordcraft AI Blok</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="aiElaborateBlock({{ $activeBlock }})" title="Kembangkan gagasan paragraf aktif (AI)">⚡ Elaborasi</button>
+                            <button type="button" class="ns-btn" wire:click="aiShortenBlock({{ $activeBlock }})" title="Persingkat dan padatkan paragraf aktif (AI)">✂ Ringkas</button>
+                            <button type="button" class="ns-btn" wire:click="aiParaphraseBlock({{ $activeBlock }})" title="Parafrase kalimat agar orisinal & bernas (AI)">🔄 Parafrase</button>
+                            <button type="button" class="ns-btn" wire:click="aiTranslateBlock({{ $activeBlock }}, 'en')" title="Terjemahkan paragraf aktif ke Bahasa Inggris (AI)">🌐 Translate</button>
+                            <button type="button" class="ns-btn" wire:click="aiFixTone({{ $activeBlock }}, 'akademik')" title="Sesuaikan ke nada formal akademik (AI)">🎓 Nada Akademik</button>
                         </div>
                     </div>
                     <div class="ns-group">

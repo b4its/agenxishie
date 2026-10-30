@@ -966,6 +966,30 @@
                 </div>
             </div>
 
+            <!-- GROUP: WORDCRAFT AI BLOK (PARAFRASE & TRANSLATE) -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <button type="button" class="word-btn-large word-btn-assistant-highlight" wire:click="openAssistant" title="Buka Xishie Assistant Copilot">
+                        <div class="word-copilot-icon-badge">✨</div>
+                        <span style="font-weight:700; color:#4338ca;">Copilot</span>
+                    </button>
+                    <div class="word-group__col">
+                        <div class="word-group__row">
+                            <button type="button" class="word-tool-btn" wire:click="aiElaborateBlock({{ $activeBlock }})" title="Kembangkan gagasan blok aktif">⚡ Elaborasi</button>
+                            <button type="button" class="word-tool-btn" wire:click="aiShortenBlock({{ $activeBlock }})" title="Padatkan paragraf aktif">✂ Ringkas</button>
+                            <button type="button" class="word-tool-btn" wire:click="aiParaphraseBlock({{ $activeBlock }})" title="Parafrase akademik blok aktif">🔄 AI Paraphrase</button>
+                        </div>
+                        <div class="word-group__row">
+                            <button type="button" class="word-tool-btn" wire:click="aiTranslateBlock({{ $activeBlock }}, 'en')" title="Terjemahkan ke Academic English">🌐 AI Translate</button>
+                            <button type="button" class="word-tool-btn" wire:click="aiFixTone({{ $activeBlock }}, 'akademik')" title="Nada bahasa formal akademik">🎓 Nada Akademik</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="word-group__footer">
+                    <span class="word-group__label">Wordcraft AI</span>
+                </div>
+            </div>
+
         <!-- TAB: INSERT -->
         @elseif ($activeTab === 'insert')
             <div class="word-group">
@@ -1380,6 +1404,8 @@
                     <div class="word-group__col">
                         <button type="button" class="word-tool-btn" wire:click="aiElaborateBlock({{ $activeBlock }})">✨ AI Elaborate</button>
                         <button type="button" class="word-tool-btn" wire:click="aiShortenBlock({{ $activeBlock }})">✂️ AI Shorten</button>
+                        <button type="button" class="word-tool-btn" wire:click="aiParaphraseBlock({{ $activeBlock }})">🔄 AI Paraphrase</button>
+                        <button type="button" class="word-tool-btn" wire:click="aiTranslateBlock({{ $activeBlock }}, 'en')">🌐 AI Translate</button>
                         <button type="button" class="word-tool-btn" wire:click="aiFixTone({{ $activeBlock }}, 'akademik')">🎓 Academic Tone</button>
                     </div>
                 </div>

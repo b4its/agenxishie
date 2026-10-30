@@ -87,20 +87,41 @@ enum SlashCommand: string
         if (in_array($firstToken, ['/audit-sitasi', '/cek-sitasi', '/verifikasi-sitasi', '/sitasi-audit'], true)) {
             return self::SITASI;
         }
-        if ($firstToken === '/perbaiki-ejaan') {
+        if (in_array($firstToken, ['/perbaiki-ejaan', '/ejaan', '/spelling'], true)) {
             return self::PUEBI;
         }
-        if ($firstToken === '/metode') {
+        if (in_array($firstToken, ['/metode', '/methodology', '/method'], true)) {
             return self::METODOLOGI;
         }
-        if ($firstToken === '/ringkaskan') {
+        if (in_array($firstToken, ['/ringkaskan', '/summary', '/summarize', '/ringkasan'], true)) {
             return self::RINGKAS;
         }
-        if (in_array($firstToken, ['/latex', '/equation'], true)) {
+        if (in_array($firstToken, ['/latex', '/equation', '/formula'], true)) {
             return self::RUMUS;
         }
-        if ($firstToken === '/diagram') {
+        if (in_array($firstToken, ['/diagram', '/chart', '/figure'], true)) {
             return self::GAMBAR;
+        }
+        if (in_array($firstToken, ['/abstract'], true)) {
+            return self::ABSTRAK;
+        }
+        if (in_array($firstToken, ['/translate', '/terjemah', '/trans'], true)) {
+            return self::TERJEMAHKAN;
+        }
+        if (in_array($firstToken, ['/paraphrase', '/parafrasa'], true)) {
+            return self::PARAFRASE;
+        }
+        if (in_array($firstToken, ['/matrix', '/matriks', '/lit-matrix'], true)) {
+            return self::MATRIKS;
+        }
+        if (in_array($firstToken, ['/footnotes', '/footnote', '/catatan_kaki', '/catatan-kaki'], true)) {
+            return self::CATATAN_KAKI;
+        }
+        if (in_array($firstToken, ['/guideline', '/pedoman', '/cek_pedoman'], true)) {
+            return self::CEK_PEDOMAN;
+        }
+        if (in_array($firstToken, ['/gap', '/cek_gap'], true)) {
+            return self::CEK_GAP;
         }
         if (in_array($firstToken, ['/latar-belakang', '/intro', '/introduction'], true)) {
             return self::PENDAHULUAN;
