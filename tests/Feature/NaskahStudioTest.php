@@ -2462,3 +2462,56 @@ it('supports findNext, replaceCurrent, and replaceAll on table cells, captions, 
         ->call('replaceAll');
     expect($page->get('blocks')[1]['latex'])->toBe('E = h \cdot f');
 });
+
+it('supports applyAssistantToCurrentPage with structured table_block and includes amsmath and amssymb in latex exports', function (): void {
+    // 1. Test applyAssistantToCurrentPage with table_block
+    $tableBlock = [
+        'type' => 'table',
+        'table' => [
+            'caption' => 'Tabel Matriks Fitur Evaluasi',
+            'rows' => [
+                [['text' => 'Fitur'], ['text' => 'Status']],
+                [['text' => 'Tabel Terstruktur'], ['text' => 'Didukung']],
+            ],
+        ],
+    ];
+
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Paragraf awal naskah pengujian.'],
+        ])
+        ->set('assistantLog', [
+            [
+                'role' => 'assistant',
+                'content' => 'Berikut tabel matriks fitur:',
+                'data' => [
+                    'table_block' => $tableBlock,
+                ],
+            ],
+        ]);
+
+    $result = $page->instance()->applyAssistantToCurrentPage(0, 1);
+    expect($result)->toBeTrue();
+
+    $blocks = $page->get('blocks');
+    $hasTable = false;
+    foreach ($blocks as $b) {
+        if (($b['type'] ?? '') === 'table' && ($b['table']['caption'] ?? '') === 'Tabel Matriks Fitur Evaluasi') {
+            $hasTable = true;
+            break;
+        }
+    }
+    expect($hasTable)->toBeTrue();
+
+    // 2. Test amsmath, amssymb in NaskahRichModel::toLatex()
+    $richModel = app(\App\Domain\Publication\NaskahRichModel::class);
+    $latexStr = $richModel->toLatex($blocks, 'Naskah Pengujian Formula');
+    expect($latexStr)->toContain('\usepackage{amsmath,amssymb}')
+        ->and($latexStr)->toContain('\begin{table}');
+
+    // 3. Test amsmath, amssymb in ManuscriptExporter
+    $project = makeProject();
+    $exporter = app(\App\Domain\Publication\ManuscriptExporter::class);
+    $manuscriptLatex = $exporter->render($project, 'latex');
+    expect($manuscriptLatex)->toContain('\usepackage{amsmath,amssymb}');
+});

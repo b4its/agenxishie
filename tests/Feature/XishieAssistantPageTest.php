@@ -1448,3 +1448,68 @@ it('exports markdown transcript with model, persona, command, and timestamp audi
         ->and($mdContent)->toContain('### [Xishie Assistant] (Model: `hv/agnes-3.0-flash` · Persona: *akademisi* · Perintah: `rumus` · Waktu: 14:30:02)')
         ->and($mdContent)->toContain('Berikut rumus kuadrat:');
 });
+
+it('supports /referensi and /cari-ref command aliases and preserves structured table and equation blocks in exportTranscriptToDocument', function (): void {
+    // 1. Verify aliases
+    expect(\App\Domain\Assistant\SlashCommand::tryParse('/cari-ref machine learning'))->toBe(\App\Domain\Assistant\SlashCommand::CARI_REFERENSI)
+        ->and(\App\Domain\Assistant\SlashCommand::tryParse('/referensi'))->toBe(\App\Domain\Assistant\SlashCommand::CARI_REFERENSI)
+        ->and(\App\Domain\Assistant\SlashCommand::tryParse('/search-ref'))->toBe(\App\Domain\Assistant\SlashCommand::CARI_REFERENSI);
+
+    // 2. Verify exportTranscriptToDocument with structured data
+    $this->actingAs(User::factory()->create());
+    $project = makeProject(['title' => 'Riset Evaluasi Model Terstruktur']);
+
+    $tableBlock = [
+        'type' => 'table',
+        'table' => [
+            'caption' => 'Tabel Hasil Uji F1-Score',
+            'rows' => [
+                [['text' => 'Model'], ['text' => 'F1-Score']],
+                [['text' => 'Agnes-3.0'], ['text' => '96.4%']],
+            ],
+        ],
+    ];
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', [
+            [
+                'role' => 'user',
+                'content' => '/tabel-analisis',
+            ],
+            [
+                'role' => 'assistant',
+                'content' => 'Berikut tabel matriks pengujian:',
+                'data' => [
+                    'table_block' => $tableBlock,
+                ],
+            ],
+            [
+                'role' => 'assistant',
+                'content' => 'Berikut rumus loss function:',
+                'data' => [
+                    'latex' => '\mathcal{L}_{CE} = -\sum y_i \log(\hat{y}_i)',
+                    'caption' => 'Persamaan Cross-Entropy Loss',
+                ],
+            ],
+        ]);
+
+    $doc = $page->instance()->exportTranscriptToDocument('Dokumen Hasil Sintesis Terstruktur');
+    expect($doc)->not->toBeNull()
+        ->and($doc->title)->toBe('Dokumen Hasil Sintesis Terstruktur');
+
+    $docBlocks = $doc->blocks;
+    $hasTable = false;
+    $hasEquation = false;
+
+    foreach ($docBlocks as $b) {
+        if (($b['type'] ?? '') === 'table' && ($b['table']['caption'] ?? '') === 'Tabel Hasil Uji F1-Score') {
+            $hasTable = true;
+        }
+        if (($b['type'] ?? '') === 'equation' && str_contains((string) ($b['latex'] ?? $b['equation']['latex'] ?? ''), '\mathcal{L}_{CE}')) {
+            $hasEquation = true;
+        }
+    }
+
+    expect($hasTable)->toBeTrue()
+        ->and($hasEquation)->toBeTrue();
+});
