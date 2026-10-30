@@ -1513,3 +1513,84 @@ it('supports /referensi and /cari-ref command aliases and preserves structured t
     expect($hasTable)->toBeTrue()
         ->and($hasEquation)->toBeTrue();
 });
+
+it('preserves structured callout, footnote, and methodology blocks in applyToNaskahStudio and exportTranscriptToDocument', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $project = makeProject(['title' => 'Riset Dampak AI Komprehensif']);
+
+    $calloutBlock = [
+        'type' => 'callout',
+        'calloutType' => 'theorem',
+        'text' => 'Pernyataan Kebaruan Ilmiah: Model ini membuktikan efisiensi komputasi.',
+    ];
+
+    $footnoteBlock = [
+        'type' => 'footnote-ref',
+        'text' => 'Rujukan primer Brown et al. (2025)',
+    ];
+
+    $methodBlocks = [
+        ['type' => 'heading', 'level' => 2, 'text' => 'Metodologi Penelitian'],
+        ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Desain Eksperimental Terukur'],
+        ['type' => 'numbered', 'listLevel' => 1, 'text' => 'Prosedur Uji Sampel'],
+    ];
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', [
+            [
+                'role' => 'user',
+                'content' => '/kebaruan',
+                'created_at' => '11:00:00',
+            ],
+            [
+                'role' => 'assistant',
+                'content' => 'Berikut rumusan kebaruan:',
+                'data' => [
+                    'callout_block' => $calloutBlock,
+                ],
+            ],
+            [
+                'role' => 'assistant',
+                'content' => 'Berikut catatan kaki:',
+                'data' => [
+                    'footnote_block' => $footnoteBlock,
+                ],
+            ],
+            [
+                'role' => 'assistant',
+                'content' => 'Berikut metodologi:',
+                'data' => [
+                    'blocks' => $methodBlocks,
+                ],
+            ],
+        ]);
+
+    // 1. Test exportTranscriptToDocument preserves structured blocks
+    $doc = $page->instance()->exportTranscriptToDocument('Dokumen Hasil Sintesis Lengkap');
+    expect($doc)->not->toBeNull();
+
+    $docBlocks = $doc->blocks;
+    $types = array_column($docBlocks, 'type');
+    expect($types)->toContain('callout')
+        ->and($types)->toContain('footnote-ref')
+        ->and($types)->toContain('heading')
+        ->and($types)->toContain('numbered');
+
+    $callouts = array_values(array_filter($docBlocks, static fn ($b) => ($b['type'] ?? '') === 'callout'));
+    expect($callouts)->toHaveCount(2)
+        ->and($callouts[0]['calloutType'])->toBe('info')
+        ->and($callouts[1]['calloutType'])->toBe('theorem')
+        ->and($callouts[1]['text'])->toContain('Pernyataan Kebaruan Ilmiah');
+
+    $footnotes = array_values(array_filter($docBlocks, static fn ($b) => ($b['type'] ?? '') === 'footnote-ref'));
+    expect($footnotes)->not->toBeEmpty()
+        ->and($footnotes[0]['text'])->toContain('Rujukan primer Brown et al. (2025)');
+
+    // 2. Test applyToNaskahStudio with log index 1 (callout_block)
+    $page->call('applyToNaskahStudio', 1);
+    $freshDoc = NaskahDocument::query()->where('project_id', $project->id)->latest('id')->first();
+    expect($freshDoc)->not->toBeNull();
+    $freshTypes = array_column($freshDoc->blocks, 'type');
+    expect($freshTypes)->toContain('callout');
+});

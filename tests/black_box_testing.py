@@ -26,16 +26,18 @@ def test(name, condition, detail=""):
         print(f"[FAIL] {name}" + (f" -> {detail}" if detail else ""))
         failed += 1
 
-def http_get(path, headers=None):
+def http_get(path, headers=None, timeout=20):
     url = f"{BASE_URL}{path}" if path.startswith("/") else path
     req = urllib.request.Request(url, headers=headers or {"User-Agent": "Mozilla/5.0"})
     try:
-        with urllib.request.urlopen(req, timeout=10) as res:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
             return res.status, res.read().decode("utf-8", errors="replace"), res.headers
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode("utf-8", errors="replace"), e.headers
+    except Exception as e:
+        return 500, str(e), {}
 
-def http_post(path, data, headers=None):
+def http_post(path, data, headers=None, timeout=60):
     url = f"{BASE_URL}{path}" if path.startswith("/") else path
     default_headers = {"User-Agent": "Mozilla/5.0"}
     if isinstance(data, dict):
@@ -49,10 +51,12 @@ def http_post(path, data, headers=None):
         default_headers.update(headers)
     req = urllib.request.Request(url, data=post_data, headers=default_headers)
     try:
-        with urllib.request.urlopen(req, timeout=30) as res:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
             return res.status, res.read().decode("utf-8", errors="replace"), res.headers
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode("utf-8", errors="replace"), e.headers
+    except Exception as e:
+        return 500, str(e), {}
 
 print("=====================================================================")
 print("          XISHIE BLACK-BOX END-TO-END VERIFICATION SUITE             ")
@@ -424,6 +428,24 @@ test("Filament Studio: References Ribbon Matriks SOTA Present (?tab=references)"
 status, studio_review_html, _ = http_get("/studio?tab=review")
 test("Standalone Studio: Review Ribbon Tab (?tab=review)", "Cek Pedoman" in studio_review_html and "Cek Gap" in studio_review_html and "Keterbacaan" in studio_review_html)
 test("Standalone Studio: Review Ribbon Citation Audit (?tab=review)", "auditCitations" in studio_review_html or "Audit Sitasi" in studio_review_html)
+test("Standalone Studio: Review Ribbon Comment Navigation & Resolve All (?tab=review)",
+     "previousComment" in studio_review_html and "nextComment" in studio_review_html and "resolveAllComments" in studio_review_html)
+test("Standalone Studio: Review Ribbon Revision Navigation (?tab=review)",
+     "previousRevision" in studio_review_html and "nextRevision" in studio_review_html)
+
+status, studio_comments_html, _ = http_get("/studio?tab=review&comments=1")
+test("Standalone Studio: Review Comments Task Pane & Filter (?comments=1)",
+     "setCommentFilter" in studio_comments_html)
+
+status, filament_review_html, _ = http_get("/admin/naskah-studio?tab=review", headers=auth_headers)
+test("Filament Studio: Review Ribbon Comment Navigation & Resolve All (?tab=review)",
+     "previousComment" in filament_review_html and "nextComment" in filament_review_html and "resolveAllComments" in filament_review_html)
+test("Filament Studio: Review Ribbon Revision Navigation (?tab=review)",
+     "previousRevision" in filament_review_html and "nextRevision" in filament_review_html)
+
+status, filament_comments_html, _ = http_get("/admin/naskah-studio?tab=review&comments=1", headers=auth_headers)
+test("Filament Studio: Review Comments Task Pane & Filter (?comments=1)",
+     "setCommentFilter" in filament_comments_html)
 
 status, studio_view_html, _ = http_get("/studio?tab=view")
 test("Standalone Studio: View Ribbon Tab Line Numbers & Zen Mode (?tab=view)", ("toggleLineNumbers" in studio_view_html or "Line Numbers" in studio_view_html) and ("toggleZenMode" in studio_view_html or "Zen" in studio_view_html))

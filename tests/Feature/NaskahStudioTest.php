@@ -2838,3 +2838,96 @@ it('supports advanced docx and odt multi-level list exports, styled runs, and st
         ->and($component->get('docWordCount'))->toBeGreaterThan(0)
         ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
 });
+
+it('supports comment filtering, resolve all, comment and revision navigation, and telemetry synchronization', function () {
+    $user = User::factory()->create();
+    $doc = NaskahDocument::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Dokumen Pengujian Komentar & Revisi',
+        'blocks' => [
+            ['type' => 'paragraph', 'text' => 'Paragraf pertama untuk dikomentari.'],
+            ['type' => 'paragraph', 'text' => 'Paragraf kedua untuk revisi teks.'],
+            ['type' => 'paragraph', 'text' => 'Paragraf ketiga catatan penutup.'],
+        ],
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    // 1. Add comments on different blocks
+    $component->set('activeBlock', 0);
+    $component->set('commentDraft', 'Perbaiki diksi kalimat pembuka');
+    $component->call('addComment');
+
+    $component->set('activeBlock', 2);
+    $component->set('commentDraft', 'Tambahkan implikasi penelitian di sini');
+    $component->call('addComment');
+
+    expect($component->get('comments'))->toHaveCount(2)
+        ->and($component->get('comments')[0]['body'])->toBe('Perbaiki diksi kalimat pembuka')
+        ->and($component->get('comments')[1]['body'])->toBe('Tambahkan implikasi penelitian di sini');
+
+    // 2. Test comment filter (all, active, resolved)
+    $component->call('setCommentFilter', 'active');
+    expect($component->get('commentFilter'))->toBe('active');
+    $component->call('setCommentFilter', 'resolved');
+    expect($component->get('commentFilter'))->toBe('resolved');
+    $component->call('setCommentFilter', 'all');
+    expect($component->get('commentFilter'))->toBe('all');
+
+    // 3. Test comment navigation (previousComment, nextComment)
+    $component->set('activeBlock', 0);
+    $component->call('nextComment');
+    expect($component->get('activeBlock'))->toBe(2);
+
+    $component->call('previousComment');
+    expect($component->get('activeBlock'))->toBe(0);
+
+    // 4. Test resolveComment and resolveAllComments
+    $component->call('resolveComment', 0);
+    expect($component->get('comments')[0]['resolved'])->toBeTrue()
+        ->and($component->get('comments')[1]['resolved'])->toBeFalse();
+
+    $component->call('resolveAllComments');
+    expect($component->get('comments')[0]['resolved'])->toBeTrue()
+        ->and($component->get('comments')[1]['resolved'])->toBeTrue();
+
+    // 5. Test revisions: recordRevision, nextRevision, previousRevision
+    $component->call('recordRevision', 1, 'Paragraf kedua untuk revisi teks.', 'Paragraf kedua yang telah disempurnakan.');
+    expect($component->get('revisions'))->toHaveCount(1)
+        ->and($component->get('revisions')[0]['status'])->toBe('pending');
+
+    $component->set('activeBlock', 0);
+    $component->call('nextRevision');
+    expect($component->get('activeBlock'))->toBe(1);
+
+    // 6. Test acceptRevision and telemetry synchronization
+    $component->call('acceptRevision', 0);
+    expect($component->get('revisions')[0]['status'])->toBe('accepted')
+        ->and($component->get('blocks')[1]['text'])->toBe('Paragraf kedua yang telah disempurnakan.')
+        ->and($component->get('docWordCount'))->toBeGreaterThan(0)
+        ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
+
+    // 7. Test rejectRevision and telemetry synchronization
+    $component->call('recordRevision', 1, 'Paragraf kedua yang telah disempurnakan.', 'Perubahan tidak diinginkan.');
+    $component->call('rejectRevision', 1);
+    expect($component->get('revisions')[1]['status'])->toBe('rejected')
+        ->and($component->get('blocks')[1]['text'])->toBe('Paragraf kedua yang telah disempurnakan.')
+        ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
+
+    // 8. Test insertCrossReference telemetry synchronization
+    $component->set('activeBlock', 0);
+    $wordsBeforeRef = $component->get('docWordCount');
+    $component->call('insertCrossReference', 'table', '1');
+    expect($component->get('blocks')[0]['text'])->toContain('Tabel 1')
+        ->and($component->get('docWordCount'))->toBeGreaterThan($wordsBeforeRef)
+        ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
+
+    // 9. Test insertEquation telemetry synchronization
+    $wordsBeforeEq = $component->get('docWordCount');
+    $component->set('equationLatex', 'E = mc^2');
+    $component->set('equationCaption', '(1)');
+    $component->call('insertEquation');
+    expect($component->get('docWordCount'))->toBeGreaterThanOrEqual($wordsBeforeEq)
+        ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
+});
