@@ -696,6 +696,12 @@ final class NaskahRichModel
                 continue;
             }
 
+            if ($type === 'toc') {
+                $body .= $this->tocToHtml($block);
+
+                continue;
+            }
+
             if ($type === 'equation') {
                 $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
                 $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
@@ -752,6 +758,10 @@ final class NaskahRichModel
         if (! empty($options['pageBorder'])) {
             $pageStyle .= 'border:1px solid #94a3b8;';
         }
+        if (! empty($options['columns']) && (int) $options['columns'] > 1) {
+            $cols = (int) $options['columns'];
+            $pageStyle .= 'column-count:'.$cols.';column-gap:2rem;';
+        }
 
         $titleHtml = $title !== '' ? '<h1 class="doc-title">'.$escape($title).'</h1>' : '';
 
@@ -759,6 +769,36 @@ final class NaskahRichModel
             .$escape($title !== '' ? $title : 'Naskah').'</title><style>'
             .$this->printCss()
             .'</style></head><body><div class="page" style="'.$pageStyle.'">'.$watermarkHtml.$titleHtml.$body.'</div></body></html>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $block
+     */
+    private function tocToHtml(array $block): string
+    {
+        $escape = static fn (string $t): string => htmlspecialchars($t, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $rows = (array) ($block['table']['rows'] ?? []);
+        $out = '<div class="table-of-contents word-toc-block" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:1.25rem 1.5rem; margin:1.5rem 0;">';
+        $out .= '<div style="font-weight:700; font-size:1.1rem; color:#1e40af; margin-bottom:0.75rem; border-bottom:2px solid #e2e8f0; padding-bottom:0.4rem;">Daftar Isi</div>';
+        $out .= '<div style="display:flex; flex-direction:column; gap:0.4rem;">';
+
+        foreach ($rows as $idx => $row) {
+            if ($idx === 0 && ($block['table']['header'] ?? true)) {
+                continue;
+            }
+            $title = $escape(is_array($row[0] ?? null) ? ($row[0]['text'] ?? '') : (string) ($row[0] ?? ''));
+            $page = $escape(is_array($row[1] ?? null) ? ($row[1]['text'] ?? '1') : (string) ($row[1] ?? '1'));
+            $pageDisplay = $page === '…' ? (string) (1 + (int) floor($idx / 4)) : $page;
+            $out .= '<div style="display:flex; align-items:baseline; font-size:0.92rem; color:#334155;">';
+            $out .= '<span>'.$title.'</span>';
+            $out .= '<span style="flex:1; border-bottom:1px dotted #94a3b8; margin:0 0.5rem; transform:translateY(-2px);"></span>';
+            $out .= '<span style="font-size:0.85rem; color:#64748b; font-weight:600;">'.$pageDisplay.'</span>';
+            $out .= '</div>';
+        }
+
+        $out .= '</div></div>';
+
+        return $out;
     }
 
     /**
@@ -947,6 +987,25 @@ final class NaskahRichModel
 
             if ($type === 'table') {
                 $out[] = $this->tableToMarkdown($block);
+
+                continue;
+            }
+
+            if ($type === 'toc') {
+                $rows = (array) ($block['table']['rows'] ?? []);
+                if ($rows !== []) {
+                    $tocLines = ["### Daftar Isi\n"];
+                    foreach ($rows as $idx => $row) {
+                        if ($idx === 0 && ($block['table']['header'] ?? true)) {
+                            continue;
+                        }
+                        $title = trim(is_array($row[0] ?? null) ? ($row[0]['text'] ?? '') : (string) ($row[0] ?? ''));
+                        $page = trim(is_array($row[1] ?? null) ? ($row[1]['text'] ?? '1') : (string) ($row[1] ?? '1'));
+                        $pageDisplay = $page === '…' ? (string) (1 + (int) floor($idx / 4)) : $page;
+                        $tocLines[] = "- {$title} .................... {$pageDisplay}";
+                    }
+                    $out[] = implode("\n", $tocLines);
+                }
 
                 continue;
             }
@@ -1285,8 +1344,9 @@ final class NaskahRichModel
      * Ekspor blok naskah menjadi dokumen LaTeX standar.
      *
      * @param  array<int, array<string, mixed>>  $blocks
+     * @param  array<string, mixed>  $options
      */
-    public function toLatex(array $blocks, string $title = ''): string
+    public function toLatex(array $blocks, string $title = '', array $options = []): string
     {
         $esc = static function (string $str): string {
             $map = [
@@ -1305,9 +1365,13 @@ final class NaskahRichModel
             return strtr($str, $map);
         };
 
-        $out = "\\documentclass[12pt,a4paper]{article}\n"
+        $isTwoColumn = (! empty($options['columns']) && (int) $options['columns'] === 2);
+        $docClassOpt = $isTwoColumn ? '12pt,a4paper,twocolumn' : '12pt,a4paper';
+
+        $out = "\\documentclass[{$docClassOpt}]{article}\n"
             ."\\usepackage[utf8]{inputenc}\n"
             ."\\usepackage[margin=2.5cm]{geometry}\n"
+            ."\\usepackage{graphicx}\n"
             ."\\usepackage{hyperref}\n"
             ."\\usepackage{booktabs}\n\n";
 
@@ -1332,6 +1396,8 @@ final class NaskahRichModel
                     default => '\\subsubsection',
                 };
                 $out .= $cmd.'{'.$esc($text)."}\n\n";
+            } elseif ($type === 'toc') {
+                $out .= "\\tableofcontents\n\\newpage\n\n";
             } elseif ($type === 'quote') {
                 $out .= "\\begin{quote}\n".$esc($text)."\n\\end{quote}\n\n";
             } elseif ($type === 'callout') {
@@ -1353,7 +1419,7 @@ final class NaskahRichModel
             } elseif ($type === 'image') {
                 $src = (string) ($block['image']['src'] ?? '');
                 $caption = (string) ($block['image']['caption'] ?? $block['image']['alt'] ?? 'Gambar Naskah');
-                $out .= "\\begin{figure}[h]\n\\centering\n% \\includegraphics[width=0.8\\textwidth]{".$esc($src)."}\n\\caption{".$esc($caption)."}\n\\end{figure}\n\n";
+                $out .= "\\begin{figure}[h]\n\\centering\n\\includegraphics[width=0.8\\textwidth]{".$esc($src)."}\n\\caption{".$esc($caption)."}\n\\end{figure}\n\n";
             } elseif ($type === 'table') {
                 $caption = (string) ($block['table']['caption'] ?? $block['caption'] ?? '');
                 $rows = (array) ($block['table']['rows'] ?? []);
@@ -1448,6 +1514,19 @@ final class NaskahRichModel
                 $out .= '\\pard\\li360\\fs20\\cf2 {\\super [Catatan Kaki]} '.$rtfEsc($text)."\\fs24\\cf0\\par\n";
             } elseif ($type === 'endnote-ref') {
                 $out .= '\\pard\\li360\\fs20\\cf2 {\\super [Catatan Akhir]} '.$rtfEsc($text)."\\fs24\\cf0\\par\n";
+            } elseif ($type === 'toc') {
+                $out .= "\\pard\\ql\\b\\fs26\\cf1 DAFTAR ISI\\b0\\fs24\\cf0\\par\n";
+                $rows = (array) ($block['table']['rows'] ?? []);
+                foreach ($rows as $idx => $row) {
+                    if ($idx === 0 && ($block['table']['header'] ?? true)) {
+                        continue;
+                    }
+                    $titleCell = $rtfEsc(is_array($row[0] ?? null) ? ($row[0]['text'] ?? '') : (string) ($row[0] ?? ''));
+                    $pageCell = $rtfEsc(is_array($row[1] ?? null) ? ($row[1]['text'] ?? '1') : (string) ($row[1] ?? '1'));
+                    $pageDisplay = $pageCell === '…' ? (string) (1 + (int) floor($idx / 4)) : $pageCell;
+                    $out .= "\\pard\\ql\\fs22 {$titleCell} \\tab {$pageDisplay}\\par\n";
+                }
+                $out .= "\\par\n";
             } elseif ($type === 'table') {
                 $caption = (string) ($block['table']['caption'] ?? $block['caption'] ?? '');
                 if ($caption !== '') {

@@ -72,7 +72,7 @@ final class XishieAssistantService
             SlashCommand::PEMBAHASAN => $this->pembahasan($project, $argument, $modelId, $persona, $scope),
             SlashCommand::KESIMPULAN => $this->kesimpulan($project, $argument, $modelId, $persona, $scope),
             SlashCommand::TINJAUAN_PUSTAKA => $this->tinjauanPustaka($project, $argument, $modelId, $persona, $scope),
-            SlashCommand::DAFTAR_ISI => $this->daftarIsi($project, $argument),
+            SlashCommand::DAFTAR_ISI => $this->daftarIsi($project, $argument, $contextDocument),
             SlashCommand::DAFTAR_PUSTAKA => $this->daftarPustaka($project, $argument),
             SlashCommand::FORMAT_PARAGRAF => $this->formatParagraf($project, $argument),
             SlashCommand::CATATAN_KAKI => $this->catatanKaki($project, $argument),
@@ -1184,12 +1184,16 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function daftarIsi(XishieProject $project, string $argument): array
+    private function daftarIsi(XishieProject $project, string $argument, ?NaskahDocument $contextDocument = null): array
     {
         /** @var GuidelineDefinition $guideline */
         $guideline = $this->memory->guideline($project);
         $sections = $guideline->sections;
         $docType = $project->document_type->label();
+
+        $richModel = app(NaskahRichModel::class);
+        $docBlocks = (array) ($contextDocument?->blocks ?? $contextDocument?->content_blocks ?? []);
+        $docOutline = ! empty($docBlocks) ? $richModel->outline($docBlocks) : [];
 
         $lines = [
             "### Bagan Struktur & Daftar Isi Naskah ({$docType})",
@@ -1198,10 +1202,29 @@ final class XishieAssistantService
             "- **Jenis Dokumen**: {$docType}",
             "- **Target Total Kata**: {$guideline->minTotalWords} – {$guideline->maxTotalWords} kata",
             '- **Gaya Sitasi**: '.strtoupper($guideline->citationStyle),
-            '',
-            '| No | Bagian / Sub-Bab | Target Kata | Status |',
-            '| --- | --- | --- | --- |',
         ];
+
+        if ($contextDocument !== null) {
+            $lines[] = "- **Dokumen Konteks**: {$contextDocument->title} (".count($docBlocks).' blok)';
+        }
+
+        // Tampilkan outline riil dokumen naskah jika dokumen naskah terdeteksi memiliki heading
+        if (! empty($docOutline)) {
+            $lines[] = '';
+            $lines[] = '#### Struktur Bab Teridentifikasi pada Dokumen Naskah';
+            $lines[] = '| No | Judul / Heading | Level | Kata Terakumulasi |';
+            $lines[] = '| --- | --- | --- | --- |';
+            foreach ($docOutline as $hIdx => $hNode) {
+                $indent = str_repeat('— ', max(0, (int) ($hNode['level'] ?? 1) - 1));
+                $hText = $indent.($hNode['text'] ?? 'Bab');
+                $lines[] = sprintf('| %d | %s | H%d | %d kata |', $hIdx + 1, $hText, (int) ($hNode['level'] ?? 1), (int) ($hNode['word_count'] ?? 0));
+            }
+        }
+
+        $lines[] = '';
+        $lines[] = '#### Panduan Sistematika & Alokasi Bobot Kata';
+        $lines[] = '| No | Bagian / Sub-Bab | Target Kata | Status |';
+        $lines[] = '| --- | --- | --- | --- |';
 
         foreach ($sections as $index => $sec) {
             $heading = (string) ($sec['heading'] ?? $sec['key'] ?? 'Bagian');
@@ -1223,6 +1246,7 @@ final class XishieAssistantService
             'data' => [
                 'document_type' => $project->document_type->value,
                 'sections' => $sections,
+                'document_outline' => $docOutline,
                 'min_total_words' => $guideline->minTotalWords,
                 'max_total_words' => $guideline->maxTotalWords,
             ],
@@ -1237,6 +1261,21 @@ final class XishieAssistantService
         /** @var GuidelineDefinition $guideline */
         $guideline = $this->memory->guideline($project);
         $style = CitationStyle::tryFrom((string) $guideline->citationStyle) ?? CitationStyle::IEEE;
+
+        $lowerArg = mb_strtolower(trim($argument));
+        $explicitStyle = match ($lowerArg) {
+            'apa', 'apa7', 'apa 7', 'apa 7th' => CitationStyle::APA7,
+            'ieee' => CitationStyle::IEEE,
+            'vancouver' => CitationStyle::VANCOUVER,
+            'chicago' => CitationStyle::CHICAGO,
+            'harvard' => CitationStyle::HARVARD,
+            default => null,
+        };
+
+        if ($explicitStyle !== null) {
+            $style = $explicitStyle;
+            $argument = '';
+        }
 
         $query = $project->references()->orderBy('citation_key');
         if ($argument !== '') {

@@ -83,7 +83,15 @@ final class CitationFormatter
 
     private function authors(ProjectReference $reference, CitationStyle $style): string
     {
-        $authors = array_map(static fn ($author): string => (string) $author, (array) ($reference->authors ?? []));
+        $authors = array_map(static function ($author): string {
+            if (is_array($author)) {
+                return (string) ($author['name'] ?? $author['full_name'] ?? '');
+            }
+
+            return (string) $author;
+        }, (array) ($reference->authors ?? []));
+
+        $authors = array_values(array_filter($authors, static fn ($a) => trim($a) !== ''));
 
         if ($authors === []) {
             return 'Anonim';

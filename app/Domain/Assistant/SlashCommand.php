@@ -114,10 +114,10 @@ enum SlashCommand: string
         if (in_array($firstToken, ['/literatur', '/teori', '/kerangka-teori', '/tinjauan', '/literature'], true)) {
             return self::TINJAUAN_PUSTAKA;
         }
-        if (in_array($firstToken, ['/toc', '/outline', '/struktur'], true)) {
+        if (in_array($firstToken, ['/toc', '/outline', '/struktur', '/daftar_isi'], true)) {
             return self::DAFTAR_ISI;
         }
-        if (in_array($firstToken, ['/bibliografi', '/pustaka', '/references', '/bibliography'], true)) {
+        if (in_array($firstToken, ['/bibliografi', '/pustaka', '/references', '/bibliography', '/daftar_pustaka'], true)) {
             return self::DAFTAR_PUSTAKA;
         }
         if (in_array($firstToken, ['/paragraf', '/aturan-paragraf', '/format-paragraf', '/paragraph-rules', '/paragraph'], true)) {

@@ -3697,7 +3697,20 @@ trait HandlesNaskahStudio
 
     public function insertTableOfContents(): void
     {
-        $outline = $this->model->outline($this->blocks);
+        // Pastikan kita mengevaluasi outline dokumen tanpa menghitung TOC lama atau judul "Daftar Isi" yang sudah ada
+        $cleanBlocks = array_values(array_filter($this->blocks, static function (array $b): bool {
+            $type = $b['type'] ?? '';
+            if ($type === 'toc') {
+                return false;
+            }
+            if ($type === 'heading' && trim((string) ($b['text'] ?? '')) === 'Daftar Isi') {
+                return false;
+            }
+
+            return true;
+        }));
+
+        $outline = $this->model->outline($cleanBlocks);
 
         if ($outline === []) {
             $this->notify('Belum ada judul', 'Tambahkan blok Heading untuk membuat daftar isi.', 'warning');
@@ -3708,11 +3721,14 @@ trait HandlesNaskahStudio
         $this->pushUndo();
         // Hapus TOC lama lalu sisipkan di awal.
         $this->blocks = array_values(array_filter($this->blocks, static fn (array $b): bool => ($b['type'] ?? '') !== 'toc'));
-        array_unshift($this->blocks, $this->model->normalizeBlock(['type' => 'heading', 'level' => 1, 'text' => 'Daftar Isi']));
 
-        foreach (array_reverse($outline) as $node) {
-            $indent = str_repeat('— ', max(0, $node['level'] - 1));
-            array_splice($this->blocks, 1, 0, [$this->model->newBlock('paragraph', $indent.$node['text'])]);
+        // Cek apakah heading 'Daftar Isi' sudah ada di awal
+        $hasLeadingTocHeading = isset($this->blocks[0])
+            && ($this->blocks[0]['type'] ?? '') === 'heading'
+            && trim((string) ($this->blocks[0]['text'] ?? '')) === 'Daftar Isi';
+
+        if (! $hasLeadingTocHeading) {
+            array_unshift($this->blocks, $this->model->normalizeBlock(['type' => 'heading', 'level' => 1, 'text' => 'Daftar Isi']));
         }
 
         $this->buildTocBlock();
@@ -3722,16 +3738,43 @@ trait HandlesNaskahStudio
         $this->notify('Daftar isi dibuat', count($outline).' judul.', 'success');
     }
 
+    public function updateTableOfContents(): void
+    {
+        $this->insertTableOfContents();
+    }
+
     private function buildTocBlock(): void
     {
-        $outline = $this->model->outline($this->blocks);
-        $rows = [];
-        foreach ($outline as $node) {
-            $rows[] = [['text' => str_repeat('  ', max(0, $node['level'] - 1)).$node['text'], 'runs' => []], ['text' => '…', 'runs' => []]];
+        // Outline di luar heading "Daftar Isi"
+        $outline = array_values(array_filter(
+            $this->model->outline($this->blocks),
+            static fn (array $node): bool => trim(mb_strtolower((string) ($node['text'] ?? ''))) !== 'daftar isi' && trim(mb_strtolower((string) ($node['text'] ?? ''))) !== 'table of contents'
+        ));
+
+        if ($outline === []) {
+            return;
         }
 
-        if ($rows === []) {
-            return;
+        $paginated = $this->getPaginatedBlocks();
+        $blockPageMap = [];
+        foreach ($paginated as $p) {
+            $pNo = (int) ($p['pageNumber'] ?? 1);
+            foreach ($p['blocks'] as $pBlock) {
+                if (isset($pBlock['index'])) {
+                    $blockPageMap[(int) $pBlock['index']] = $pNo;
+                }
+            }
+        }
+
+        $rows = [];
+        foreach ($outline as $node) {
+            $indent = str_repeat('  ', max(0, $node['level'] - 1));
+            $headingText = $indent.$node['text'];
+            $targetPage = (string) ($blockPageMap[$node['index']] ?? 1);
+            $rows[] = [
+                ['text' => $headingText, 'runs' => []],
+                ['text' => $targetPage, 'runs' => []],
+            ];
         }
 
         array_unshift($rows, [['text' => 'Judul', 'runs' => []], ['text' => 'Halaman', 'runs' => []]]);
@@ -3739,7 +3782,7 @@ trait HandlesNaskahStudio
         $toc = $this->model->normalizeBlock(['type' => 'table', 'table' => ['rows' => $rows, 'header' => true]]);
         $toc['type'] = 'toc';
 
-        // Sisipkan tabel TOC setelah judul "Daftar Isi".
+        // Sisipkan tabel TOC setelah judul "Daftar Isi" pada index 1
         $insertAt = 1;
         array_splice($this->blocks, $insertAt, 0, [$toc]);
     }
@@ -5731,7 +5774,7 @@ trait HandlesNaskahStudio
             'html' => [$this->model->toHtml($blocks, $this->docTitle, $this->htmlOptions()), 'html', 'text/html; charset=UTF-8'],
             'txt' => [$this->model->toPlainText($blocks), 'txt', 'text/plain; charset=UTF-8'],
             'rtf' => [$this->model->toRtf($blocks, $this->docTitle), 'rtf', 'application/rtf; charset=UTF-8'],
-            'latex', 'tex' => [$this->model->toLatex($blocks, $this->docTitle), 'tex', 'application/x-tex; charset=UTF-8'],
+            'latex', 'tex' => [$this->model->toLatex($blocks, $this->docTitle, $this->htmlOptions()), 'tex', 'application/x-tex; charset=UTF-8'],
             default => [$this->model->toMarkdown($blocks, $this->docTitle), 'md', 'text/markdown; charset=UTF-8'],
         };
 
@@ -8301,6 +8344,7 @@ trait HandlesNaskahStudio
             'insert.callout' => $this->insertCallout((string) ($args['type'] ?? 'info')),
             'insert.sketch' => $this->insertCallout('sketch'),
             'insert.toc' => $this->insertTableOfContents(),
+            'update.toc' => $this->updateTableOfContents(),
             'insert.bibliography' => $this->insertBibliography(),
             'references.audit' => $this->auditCitations(),
             'review.spellcheck' => $this->runSpellCheck(),
