@@ -8376,6 +8376,19 @@ trait HandlesNaskahStudio
     }
 
     /**
+     * Alihkan penomoran baris naskah (untuk telaah sejawat / Peer Review).
+     */
+    public function toggleLineNumbers(): void
+    {
+        $current = (bool) ($this->pageSetup['lineNumbers'] ?? false);
+        $this->pageSetup['lineNumbers'] = ! $current;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $status = ! $current ? 'diaktifkan' : 'dinonaktifkan';
+        $this->notify('Nomor Baris Dokumen', "Nomor baris naskah {$status} untuk telaah sejawat (Peer Review).", 'info');
+    }
+
+    /**
      * Tingkatkan hierarki heading (e.g. H2 -> H1).
      */
     public function promoteHeading(int $index): void

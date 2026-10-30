@@ -1176,6 +1176,7 @@
                         <button type="button" class="word-tool-btn" wire:click="formatParagraph('indent-')">⇤ Decrease Indent</button>
                         <button type="button" class="word-tool-btn" wire:click="formatParagraph('indent+')">⇥ Increase Indent</button>
                         <button type="button" class="word-tool-btn" @mousedown.prevent="insertPageBreak()" title="Pemisah Halaman (Ctrl+Enter)">✂️ Insert Break</button>
+                        <button type="button" class="word-tool-btn {{ !empty($pageSetup['lineNumbers']) ? 'active' : '' }}" wire:click="toggleLineNumbers" title="Toggle Document Line Numbers for Peer Review">#️⃣ Line Numbers: {{ !empty($pageSetup['lineNumbers']) ? 'On' : 'Off' }}</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Paragraph</span></div>
@@ -2330,6 +2331,9 @@
                                                     }
                                                 @endphp
                                                 <div class="word-para-item-wrapper" style="position:relative;" x-data="{ hovered: false }" @mouseenter="hovered = true" @mouseleave="hovered = false">
+                                                    @if (!empty($pageOverrides[$pageNumber]['lineNumbers']) || !empty($pageSetup['lineNumbers']))
+                                                        <span class="ns-line-number" contenteditable="false" style="position:absolute; left:-28px; width:22px; text-align:right; font-family:var(--rb-font-mono, monospace); font-size:10px; color:#94a3b8; user-select:none; pointer-events:none;">{{ $index + 1 }}</span>
+                                                    @endif
                                                     <p class="word-paragraph-text {{ !empty($block['dropCap']) ? 'word-drop-cap' : '' }}" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="{{ $this->blockInlineStyle($block) }}">
                                                         {!! $text !!}
                                                     </p>

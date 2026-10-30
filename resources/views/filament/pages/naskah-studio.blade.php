@@ -1726,8 +1726,8 @@
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn @if(($pageSetup['columns'] ?? 1) == 1) ns-btn--active @endif" wire:click="updatePageSetup('columns', 1)">1 Kolom</button>
                             <button type="button" class="ns-btn @if(($pageSetup['columns'] ?? 1) == 2) ns-btn--active @endif" wire:click="updatePageSetup('columns', 2)">2 Kolom</button>
-                            <button type="button" class="ns-btn" wire:click="updatePageSetup('lineNumbers', {{ !($pageSetup['lineNumbers'] ?? false) ? 'true' : 'false' }})">
-                                Nomor Baris: {{ !empty($pageSetup['lineNumbers']) ? 'Aktif' : 'Nonaktif' }}
+                            <button type="button" class="ns-btn @if(!empty($pageSetup['lineNumbers'])) ns-btn--active @endif" wire:click="toggleLineNumbers" title="Tampilkan/sembunyikan nomor baris naskah untuk telaah sejawat (Peer Review)">
+                                #️⃣ Nomor Baris: {{ !empty($pageSetup['lineNumbers']) ? 'Aktif' : 'Nonaktif' }}
                             </button>
                         </div>
                     </div>
@@ -2484,6 +2484,9 @@
                                                         }
                                                     @endphp
                                                     <div class="word-para-item-wrapper" style="position:relative;" x-data="{ hovered: false }" @mouseenter="hovered = true" @mouseleave="hovered = false">
+                                                        @if (!empty($pageOverrides[$pageNumber]['lineNumbers']) || !empty($pageSetup['lineNumbers']))
+                                                            <span class="ns-line-number" contenteditable="false" style="position:absolute; left:-28px; width:22px; text-align:right; font-family:var(--rb-font-mono, monospace); font-size:10px; color:#94a3b8; user-select:none; pointer-events:none;">{{ $index + 1 }}</span>
+                                                        @endif
                                                         <p class="word-paragraph-text {{ !empty($block['dropCap']) ? 'word-drop-cap' : '' }}" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="{{ $this->blockInlineStyle($block) }}">
                                                             {!! $text ?: '<br>' !!}
                                                         </p>
