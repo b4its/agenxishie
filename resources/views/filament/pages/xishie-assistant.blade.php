@@ -313,7 +313,10 @@
                                     <div style="margin-bottom:1rem; padding-bottom:.5rem; border-bottom:1px dashed rgba(255,255,255,0.1);">
                                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
                                             <div class="rb-terminal__agent" style="font-weight:700; color:#93c5fd;">&#128100; PENELITI</div>
-                                            <span class="rb-terminal__time">[{{ $msg['created_at'] ?? now()->format('H:i:s') }}]</span>
+                                            <div style="display:flex; gap:4px; align-items:center;">
+                                                <span class="rb-terminal__time">[{{ $msg['created_at'] ?? now()->format('H:i:s') }}]</span>
+                                                <button type="button" wire:click="deleteMessage({{ $loop->index }})" style="border:0; background:none; color:#fca5a5; cursor:pointer; font-size:.65rem; padding:0 3px;" title="Hapus pertanyaan ini">🗑️</button>
+                                            </div>
                                         </div>
                                         <div style="white-space:pre-wrap; color:#f8fafc;">{{ $msg['content'] }}</div>
                                     </div>
@@ -334,6 +337,16 @@
                                                 <span style="font-size:.58rem; padding:1px 5px; background:rgba(255,255,255,0.08); border-radius:3px; color:#cbd5e1;">
                                                     {{ str_word_count((string) $msg['content']) }} kata
                                                 </span>
+                                                @if (!empty($msg['data']['verified']))
+                                                    <span style="font-size:.58rem; padding:1px 5px; background:rgba(34,197,94,0.2); border-radius:3px; color:#86efac; font-weight:700;" title="{{ count($msg['data']['verified']) }} sitasi valid di pustaka">
+                                                        ✓ {{ count($msg['data']['verified']) }} Valid
+                                                    </span>
+                                                @endif
+                                                @if (!empty($msg['data']['unmatched']))
+                                                    <span style="font-size:.58rem; padding:1px 5px; background:rgba(239,68,68,0.2); border-radius:3px; color:#fca5a5; font-weight:700;" title="{{ count($msg['data']['unmatched']) }} sitasi belum terdaftar">
+                                                        ⚠️ {{ count($msg['data']['unmatched']) }} Cek
+                                                    </span>
+                                                @endif
                                             </div>
                                             <div style="display:flex; gap:4px; align-items:center;">
                                                 <span class="rb-terminal__time" style="font-size:.6rem;">[{{ $msg['created_at'] ?? now()->format('H:i:s') }}]</span>
@@ -345,13 +358,10 @@
                                                 >{{ $isStarred ? '★' : '☆' }}</button>
                                                 <button
                                                     type="button"
-                                                    @click="copyContent()"
-                                                    style="border:0; background:rgba(255,255,255,0.1); color:#cbd5e1; cursor:pointer; font-size:.6rem; padding:2px 6px; border-radius:3px;"
-                                                    title="Salin teks ke papan klip"
-                                                >
-                                                    <span x-show="!copied">&#128203; Salin</span>
-                                                    <span x-show="copied" style="color:#4ade80;">&#10003; Tersalin</span>
-                                                </button>
+                                                    wire:click="deleteMessage({{ $loop->index }})"
+                                                    style="border:0; background:rgba(239,68,68,0.15); color:#fca5a5; cursor:pointer; font-size:.62rem; padding:2px 6px; border-radius:3px;"
+                                                    title="Hapus jawaban ini dari transkrip"
+                                                >🗑️</button>
                                                 @unless (str_starts_with($msg['content'], '[Gagal]'))
                                                     <button
                                                         type="button"

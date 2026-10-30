@@ -811,6 +811,29 @@ class XishieAssistantPage extends Page
     }
 
     /**
+     * Hapus satu pesan tertentu dari transkrip percakapan.
+     */
+    public function deleteMessage(int $logIndex): void
+    {
+        if (isset($this->log[$logIndex])) {
+            array_splice($this->log, $logIndex, 1);
+
+            // Perbarui dan geser indeks pesan berbintang
+            $newStarred = [];
+            foreach ($this->starredMessages as $sIdx) {
+                if ($sIdx < $logIndex) {
+                    $newStarred[] = $sIdx;
+                } elseif ($sIdx > $logIndex) {
+                    $newStarred[] = $sIdx - 1;
+                }
+            }
+            $this->starredMessages = $newStarred;
+            $this->dispatch('assistant-updated');
+            Notification::make()->title('Pesan dihapus dari transkrip')->info()->send();
+        }
+    }
+
+    /**
      * Tandai atau hapus tanda penting (bintang) pada pesan tertentu.
      */
     public function toggleStarMessage(int $logIndex): void
