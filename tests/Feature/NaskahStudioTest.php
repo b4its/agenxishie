@@ -1834,3 +1834,85 @@ it('supports copilot drawer message deletion and restoration, and equation model
         ->and($blocks[1]['type'])->toBe('paragraph')
         ->and($blocks[1]['text'])->toContain('Persamaan (1.1)');
 });
+
+it('supports bibtex export with project resolution, latex table caption and footnote exports, and flesch readability grade', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'vaswani2017attention',
+        'title' => 'Attention Is All You Need',
+        'authors' => [['name' => 'Ashish Vaswani']],
+        'year' => 2017,
+        'journal_name' => 'NeurIPS',
+        'is_verified' => true,
+    ]);
+
+    $doc = NaskahDocument::create([
+        'title' => 'Dokumen Naskah Riset AI',
+        'project_id' => $project->id,
+        'source_type' => NaskahDocument::SOURCE_PROJECT,
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Pendahuluan'],
+            ['type' => 'paragraph', 'text' => 'Ini adalah teks paragraf pengantar riset translasi bahasa alami yang komprehensif.'],
+            ['type' => 'footnote-ref', 'text' => 'Lihat catatan teknis arsitektur transformer.'],
+            ['type' => 'endnote-ref', 'text' => 'Data observasi tambahan tersedia pada repositori publik.'],
+            [
+                'type' => 'table',
+                'caption' => 'Tabel 1: Ringkasan Metrik Akurasi BLEU',
+                'table' => [
+                    'caption' => 'Tabel 1: Ringkasan Metrik Akurasi BLEU',
+                    'rows' => [
+                        [['text' => 'Model'], ['text' => 'BLEU Score']],
+                        [['text' => 'Transformer-Base'], ['text' => '27.3']],
+                    ],
+                ],
+            ],
+        ],
+        'word_count' => 30,
+        'last_saved_at' => now(),
+    ]);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+    $page->call('openDocument', $doc->id);
+
+    // 1. BibTeX Export resolves project references even if sourceProjectId was not preset
+    $response = $page->instance()->export('bibtex');
+    expect($response)->toBeInstanceOf(\Symfony\Component\HttpFoundation\StreamedResponse::class);
+
+    ob_start();
+    $response->sendContent();
+    $bibOutput = ob_get_clean();
+
+    expect($bibOutput)->toContain('@article{vaswani2017attention')
+        ->and($bibOutput)->toContain('Attention Is All You Need')
+        ->and($bibOutput)->toContain('Ashish Vaswani');
+
+    // 2. LaTeX Export handles footnotes, endnotes, and table caption
+    $model = app(NaskahRichModel::class);
+    $latex = $model->toLatex($page->get('blocks'), 'Dokumen Naskah Riset AI');
+
+    expect($latex)->toContain('\\footnote{Lihat catatan teknis arsitektur transformer.}')
+        ->and($latex)->toContain('\\footnote{Data observasi tambahan tersedia pada repositori publik.}')
+        ->and($latex)->toContain('\\caption{Tabel 1: Ringkasan Metrik Akurasi BLEU}');
+
+    // 3. Markdown and HTML exports format footnotes
+    $md = $model->toMarkdown($page->get('blocks'));
+    expect($md)->toContain('[^nota]: Lihat catatan teknis arsitektur transformer.')
+        ->and($md)->toContain('[^akhir]: Data observasi tambahan tersedia pada repositori publik.');
+
+    $html = $model->toHtml($page->get('blocks'));
+    expect($html)->toContain('Catatan Kaki')
+        ->and($html)->toContain('Catatan Akhir');
+
+    // 4. computeStatistics returns fleschGrade
+    $stats = $model->computeStatistics($page->get('blocks'));
+    expect($stats)->toHaveKey('fleschGrade')
+        ->and($stats['fleschGrade'])->toBeString();
+
+    // 5. /keterbacaan assistant slash command outputs flesch grade
+    $reply = $page->instance()->answerResponse($project, '/keterbacaan');
+    expect($reply['reply'])->toContain('Skor Flesch Reading Ease')
+        ->and($reply['reply'])->toContain($stats['fleschGrade']);
+});

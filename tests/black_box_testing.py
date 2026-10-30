@@ -100,6 +100,10 @@ test(f"POST /api/v1/naskah/documents/{doc_id}/format-paragraph", status == 200 a
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/readability-page?page=1")
 test(f"GET /api/v1/naskah/documents/{doc_id}/readability-page", status == 200 and "reading_time_seconds" in body)
 
+cli_stats = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'stats', str(doc_id)], capture_output=True, text=True)
+test("CLI naskah:manage stats Execution", cli_stats.returncode == 0 and "Kategori Keterbacaan" in cli_stats.stdout)
+test("CLI naskah:manage Flesch Reading Ease Present", "Flesch Reading Ease" in cli_stats.stdout)
+
 # 3. Filament Admin Authentication & Xishie Assistant Page
 print("\n--- 3. Filament Admin Authentication & Xishie Assistant Page ---")
 # Authenticate session in Laravel database
@@ -245,6 +249,9 @@ status, studio_file_html, _ = http_get("/studio?tab=file")
 test("Standalone Studio: File Ribbon HTML & JSON Export Formats (?tab=file)", "HTML Web" in studio_file_html and "JSON Data" in studio_file_html)
 test("Standalone Studio: File Ribbon BibTeX Export Format (?tab=file)", "BibTeX (.bib)" in studio_file_html)
 test("Standalone Studio: File Ribbon Duplicate Action (?tab=file)", "duplicateDocument" in studio_file_html or "Duplicate" in studio_file_html)
+
+status, studio_file_auth_html, _ = http_get("/admin/naskah-studio?tab=file", headers=auth_headers)
+test("Filament Studio: File Ribbon BibTeX Export Format (?tab=file)", "BibTeX" in studio_file_auth_html)
 
 test("Standalone Studio: Ribbon Layout DIKTI Preset Present", "DIKTI 4-4-3-3" in studio_standalone_html)
 test("Standalone Studio: Target Word Count Indicator in Statusbar", "Target Word Count" in studio_standalone_html)

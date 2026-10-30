@@ -1093,3 +1093,53 @@ it('supports message deletion and restoration, and prioritizes context document 
     expect($templates)->toHaveKey('thesaurus_academic_enhancement')
         ->and($templates)->toHaveKey('discussion_synthesis');
 });
+
+it('supports simultaneous search-filtered and starred transcript export without index corruption', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', [
+            ['role' => 'user', 'content' => 'Pertanyaan awal tentang metodologi riset empiris'],
+            ['role' => 'assistant', 'content' => 'Gunakan metode kuantitatif dengan kuesioner skala Likert'],
+            ['role' => 'user', 'content' => 'Bagaimana teknik sampling yang relevan?'],
+            ['role' => 'assistant', 'content' => 'Gunakan stratified random sampling untuk representasi populasi'],
+            ['role' => 'user', 'content' => 'Bagaimana pengujian validitas instrumen?'],
+            ['role' => 'assistant', 'content' => 'Gunakan korelasi Pearson bivariate dan cronbach alpha'],
+        ]);
+
+    // Star message at index 3 ('stratified random sampling') and message at index 5 ('validitas instrumen')
+    $page->call('toggleStarMessage', 3);
+    $page->call('toggleStarMessage', 5);
+
+    // Filter by transcriptSearch 'sampling' AND onlyStarred=true
+    $page->set('transcriptSearch', 'sampling');
+    $page->set('onlyStarred', true);
+
+    // Export transcript to document
+    $doc = $page->instance()->exportTranscriptToDocument('Dokumen Fokus Sampling Berbintang');
+    expect($doc)->not->toBeNull();
+
+    $blocks = $doc->blocks;
+    // Should contain message 3 ('stratified random sampling')
+    $hasSampling = false;
+    foreach ($blocks as $block) {
+        if (str_contains($block['text'] ?? '', 'stratified random sampling')) {
+            $hasSampling = true;
+            break;
+        }
+    }
+    expect($hasSampling)->toBeTrue();
+
+    // Export transcript as JSON
+    $response = $page->instance()->exportTranscript('json');
+    expect($response)->toBeInstanceOf(\Symfony\Component\HttpFoundation\StreamedResponse::class);
+
+    ob_start();
+    $response->sendContent();
+    $jsonOutput = ob_get_clean();
+
+    $data = json_decode($jsonOutput, true);
+    expect($data['total_messages'])->toBe(1)
+        ->and($data['messages'][0]['content'])->toContain('stratified random sampling');
+});
