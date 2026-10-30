@@ -1265,3 +1265,24 @@ it('supports citation auditing, hallucination detection, and density scoring in 
         ->and($audit['total_citations'])->toBe(2)
         ->and($audit['density_per_1k'])->toBeGreaterThan(0.0);
 });
+
+it('supports document line numbers toggle and gutter indicators for peer review in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Initial state: lineNumbers false
+    $pageSetup = $page->get('pageSetup');
+    expect($pageSetup['lineNumbers'])->toBeFalse();
+
+    // Toggle on
+    $page->call('toggleLineNumbers');
+    $pageSetup = $page->get('pageSetup');
+    expect($pageSetup['lineNumbers'])->toBeTrue();
+
+    // Toggle off
+    $page->call('toggleLineNumbers');
+    $pageSetup = $page->get('pageSetup');
+    expect($pageSetup['lineNumbers'])->toBeFalse();
+});

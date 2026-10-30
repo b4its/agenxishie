@@ -784,3 +784,41 @@ it('supports prompt history tracking, reuse, and session summary compilation in 
     $page->call('clearPromptHistory');
     expect($page->get('promptHistory'))->toBe([]);
 });
+
+it('supports citation audit command and direct execution chip in assistant page', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject(['title' => 'Riset Neuroinformatika']);
+
+    $project->references()->create([
+        'citation_key' => 'lecun2015',
+        'title' => 'Deep Learning',
+        'authors' => ['Yann LeCun'],
+        'year' => 2015,
+    ]);
+
+    $doc = NaskahDocument::factory()->create([
+        'project_id' => $project->id,
+        'title' => 'Draf Manuskrip Neuro',
+        'blocks' => [
+            ['id' => 'b1', 'type' => 'paragraph', 'text' => 'Pendekatan deep learning telah diuraikan oleh [@lecun2015].'],
+            ['id' => 'b2', 'type' => 'paragraph', 'text' => 'Namun model kuantum [@unregistered2025] belum tervalidasi.'],
+        ],
+    ]);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+    $page->set('activeDocumentId', $doc->id);
+
+    // Direct execution of citation audit
+    $page->call('executeCommandDirectly', '/sitasi audit');
+
+    $log = $page->get('log');
+    $lastMsg = end($log);
+
+    expect($lastMsg['role'])->toBe('assistant')
+        ->and($lastMsg['content'])->toContain('Laporan Audit Integritas Sitasi Akademik')
+        ->and($lastMsg['content'])->toContain('lecun2015')
+        ->and($lastMsg['content'])->toContain('unregistered2025')
+        ->and($lastMsg['content'])->toContain('Densitas Sitasi Akademik')
+        ->and($lastMsg['data']['verified'])->toContain('lecun2015')
+        ->and($lastMsg['data']['unmatched'])->toContain('unregistered2025');
+});

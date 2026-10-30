@@ -168,6 +168,7 @@ test("Assistant Reference Search Drawer Present", "PUSTAKA REFERENSI PROYEK" in 
 test("Assistant Session Summary Action Present", "generateSessionSummary" in assistant_html or "Rangkum Sesi" in assistant_html)
 test("Assistant Prompt History Support Present", "selectPromptFromHistory" in assistant_html or "Riwayat Prompt" in assistant_html or "promptHistory" in assistant_html)
 test("Assistant Message Copy-to-Clipboard Action Present", "clipboard.writeText" in assistant_html or "Salin" in assistant_html)
+test("Assistant Direct Execution Audit Sitasi Chip Present", "⚡ Audit Sitasi" in assistant_html)
 test("Assistant Context Document Studio Quick Link Present", "Buka Studio" in assistant_html or "selectContextDocument" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
@@ -203,6 +204,10 @@ test("Filament Studio: Zen Focus Mode Toggle & Statusbar Action",
 status, studio_ref_html, _ = http_get("/admin/naskah-studio?tab=references", headers=auth_headers)
 test("Filament Studio: References Ribbon Citation Audit Present",
      "auditCitations" in studio_ref_html)
+
+status, studio_layout_auth_html, _ = http_get("/admin/naskah-studio?tab=layout", headers=auth_headers)
+test("Filament Studio: Layout Ribbon Line Numbers Toggle Present",
+     "toggleLineNumbers" in studio_layout_auth_html or "Nomor Baris" in studio_layout_auth_html)
 
 # Test Studio with Copilot Drawer Opened via ?assistant=1
 status, studio_drawer_html, _ = http_get("/admin/naskah-studio?assistant=1", headers=auth_headers)
@@ -247,6 +252,7 @@ test("Standalone Studio: Ribbon Insert Cover Page Present (?tab=insert)", "inser
 
 status, studio_layout_html, _ = http_get("/studio?tab=layout")
 test("Standalone Studio: Ribbon Layout Watermark Present (?tab=layout)", "setWatermark" in studio_layout_html or "Watermark" in studio_layout_html)
+test("Standalone Studio: Ribbon Layout Line Numbers Toggle Present (?tab=layout)", "toggleLineNumbers" in studio_layout_html or "Line Numbers" in studio_layout_html)
 
 status, studio_table_html, _ = http_get("/studio?tab=table")
 test("Standalone Studio: Table Calculation Formulas (?tab=table)", "Min" in studio_table_html and "Max" in studio_table_html)
