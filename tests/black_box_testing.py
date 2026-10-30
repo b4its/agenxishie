@@ -210,6 +210,14 @@ status, studio_layout_auth_html, _ = http_get("/admin/naskah-studio?tab=layout",
 test("Filament Studio: Layout Ribbon Line Numbers Toggle Present",
      "toggleLineNumbers" in studio_layout_auth_html or "Nomor Baris" in studio_layout_auth_html)
 
+status, studio_review_auth_html, _ = http_get("/admin/naskah-studio?tab=review", headers=auth_headers)
+test("Filament Studio: Review Ribbon Citation Audit Present",
+     "auditCitations" in studio_review_auth_html)
+
+status, studio_view_auth_html, _ = http_get("/admin/naskah-studio?tab=view", headers=auth_headers)
+test("Filament Studio: View Ribbon Line Numbers and Zen Mode Present",
+     ("toggleLineNumbers" in studio_view_auth_html or "No. Baris" in studio_view_auth_html) and ("toggleZenMode" in studio_view_auth_html or "Mode Fokus" in studio_view_auth_html))
+
 # Test Studio with Copilot Drawer Opened via ?assistant=1
 status, studio_drawer_html, _ = http_get("/admin/naskah-studio?assistant=1", headers=auth_headers)
 test("Visit /admin/naskah-studio?assistant=1 (Copilot Drawer Open)", status == 200)
@@ -273,6 +281,10 @@ test("Standalone Studio: References Ribbon Citation Audit Present (?tab=referenc
 
 status, studio_review_html, _ = http_get("/studio?tab=review")
 test("Standalone Studio: Review Ribbon Tab (?tab=review)", "Cek Pedoman" in studio_review_html and "Cek Gap" in studio_review_html and "Keterbacaan" in studio_review_html)
+test("Standalone Studio: Review Ribbon Citation Audit (?tab=review)", "auditCitations" in studio_review_html or "Audit Sitasi" in studio_review_html)
+
+status, studio_view_html, _ = http_get("/studio?tab=view")
+test("Standalone Studio: View Ribbon Tab Line Numbers & Zen Mode (?tab=view)", ("toggleLineNumbers" in studio_view_html or "Line Numbers" in studio_view_html) and ("toggleZenMode" in studio_view_html or "Zen" in studio_view_html))
 
 status, studio_draw_html, _ = http_get("/studio?tab=draw")
 test("Standalone Studio: Draw Ribbon Tab (?tab=draw)", status == 200 and ("Pena Biru" in studio_draw_html or "Eraser" in studio_draw_html or "Drawing Tools" in studio_draw_html or "Blue Pen" in studio_draw_html))

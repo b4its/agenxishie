@@ -864,3 +864,34 @@ it('supports equation and quote parsing when applying assistant response to nask
         ->and($types)->toContain('quote')
         ->and($types)->toContain('equation');
 });
+
+it('supports deleting individual message from assistant transcript and shifting starred indices', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    $log = [
+        ['role' => 'user', 'content' => 'Pertanyaan 1', 'created_at' => '10:00:00'],
+        ['role' => 'assistant', 'content' => 'Jawaban 1', 'created_at' => '10:00:02'],
+        ['role' => 'user', 'content' => 'Pertanyaan 2', 'created_at' => '10:01:00'],
+        ['role' => 'assistant', 'content' => 'Jawaban 2', 'created_at' => '10:01:02'],
+    ];
+
+    $page->set('log', $log);
+    // Star index 1 (Jawaban 1) and index 3 (Jawaban 2)
+    $page->set('starredMessages', [1, 3]);
+
+    // Delete index 1 (Jawaban 1)
+    $page->call('deleteMessage', 1);
+
+    $remaining = $page->get('log');
+    expect(count($remaining))->toBe(3)
+        ->and($remaining[0]['content'])->toBe('Pertanyaan 1')
+        ->and($remaining[1]['content'])->toBe('Pertanyaan 2')
+        ->and($remaining[2]['content'])->toBe('Jawaban 2');
+
+    // Index 3 should have shifted to index 2
+    $starred = $page->get('starredMessages');
+    expect($starred)->toBe([2]);
+});

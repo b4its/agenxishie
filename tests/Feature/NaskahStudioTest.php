@@ -1320,3 +1320,27 @@ it('supports academic scratchpad notes management and insertion to manuscript in
     $page->call('clearScratchpadNotes');
     expect($page->get('scratchpadNotes'))->toBe('');
 });
+
+it('supports review ribbon audit citations and view ribbon line numbers and zen mode actions', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Call audit citations from review ribbon context
+    $page->call('setRibbonTab', 'review');
+    expect($page->get('activeTab'))->toBe('review');
+    $page->call('auditCitations');
+    expect($page->get('lastCitationAudit'))->not->toBeNull();
+
+    // Call view ribbon toggles
+    $page->call('setRibbonTab', 'view');
+    expect($page->get('activeTab'))->toBe('view');
+
+    $page->call('toggleLineNumbers');
+    $pageSetup = $page->get('pageSetup');
+    expect($pageSetup['lineNumbers'])->toBeTrue();
+
+    $page->call('toggleZenMode');
+    expect($page->get('zenMode'))->toBeTrue();
+});
