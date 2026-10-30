@@ -168,6 +168,7 @@ test("Assistant Reference Search Drawer Present", "PUSTAKA REFERENSI PROYEK" in 
 test("Assistant Session Summary Action Present", "generateSessionSummary" in assistant_html or "Rangkum Sesi" in assistant_html)
 test("Assistant Prompt History Support Present", "selectPromptFromHistory" in assistant_html or "Riwayat Prompt" in assistant_html or "promptHistory" in assistant_html)
 test("Assistant Message Copy-to-Clipboard Action Present", "clipboard.writeText" in assistant_html or "Salin" in assistant_html)
+test("Assistant Context Document Studio Quick Link Present", "Buka Studio" in assistant_html or "selectContextDocument" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
 test("Studio Execute Button (⚡ Eksekusi ke Studio)", "Eksekusi ke Studio" in assistant_html)
@@ -198,6 +199,10 @@ test("Filament Studio: Outline Heading Section Reordering & Hierarchy Controls",
      "moveSection" in studio_html and "promoteHeading" in studio_html)
 test("Filament Studio: Zen Focus Mode Toggle & Statusbar Action",
      "toggleZenMode" in studio_html and "Mode Fokus" in studio_html)
+
+status, studio_ref_html, _ = http_get("/admin/naskah-studio?tab=references", headers=auth_headers)
+test("Filament Studio: References Ribbon Citation Audit Present",
+     "auditCitations" in studio_ref_html)
 
 # Test Studio with Copilot Drawer Opened via ?assistant=1
 status, studio_drawer_html, _ = http_get("/admin/naskah-studio?assistant=1", headers=auth_headers)
@@ -256,6 +261,7 @@ test("Standalone Studio: Mail Merge Dialog Supported (?dialog=merge)", status ==
 status, studio_references_html, _ = http_get("/studio?tab=references")
 test("Standalone Studio: References Ribbon Tab (?tab=references)", "Pustaka Riset" in studio_references_html and "Insert Citation" in studio_references_html)
 test("Standalone Studio: References Ribbon Update Bibliography Present (?tab=references)", "updateBibliography" in studio_references_html or "Update Bib" in studio_references_html)
+test("Standalone Studio: References Ribbon Citation Audit Present (?tab=references)", "auditCitations" in studio_references_html or "Audit Citations" in studio_references_html)
 
 status, studio_review_html, _ = http_get("/studio?tab=review")
 test("Standalone Studio: Review Ribbon Tab (?tab=review)", "Cek Pedoman" in studio_review_html and "Cek Gap" in studio_review_html and "Keterbacaan" in studio_review_html)

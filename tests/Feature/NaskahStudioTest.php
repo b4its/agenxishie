@@ -8,6 +8,7 @@ use App\Domain\Workspace\Enums\ProjectStage;
 use App\Filament\Pages\NaskahStudioPage;
 use App\Models\NaskahDocument;
 use App\Models\User;
+use App\Models\XishieProject;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
@@ -1215,4 +1216,52 @@ it('supports zen focus mode toggling and section word counts in outline', functi
         ->and($outline[1]['word_count'])->toBeGreaterThan(5)
         ->and($outline[2]['text'])->toBe('Bab II: Metode')
         ->and($outline[2]['word_count'])->toBeGreaterThan(8);
+});
+
+it('supports citation auditing, hallucination detection, and density scoring in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $project = XishieProject::factory()->create(['title' => 'Riset Komputasi Biomedis']);
+
+    // Create 2 valid references in the project
+    $project->references()->create([
+        'citation_key' => 'vaswani2017',
+        'title' => 'Attention Is All You Need',
+        'authors' => ['Ashish Vaswani'],
+        'year' => 2017,
+    ]);
+
+    $project->references()->create([
+        'citation_key' => 'goodfellow2014',
+        'title' => 'Generative Adversarial Nets',
+        'authors' => ['Ian Goodfellow'],
+        'year' => 2014,
+    ]);
+
+    $page = Livewire::test(NaskahStudioPage::class, ['project' => $project->id]);
+
+    // Set manuscript blocks containing:
+    // - vaswani2017 (valid)
+    // - fakecitation2099 (hallucinated / unmatched)
+    // - goodfellow2014 is uncited
+    $manuscriptBlocks = [
+        ['id' => 'b0', 'type' => 'heading', 'level' => 1, 'text' => 'Bab I: Pendahuluan'],
+        ['id' => 'b1', 'type' => 'paragraph', 'text' => 'Transformer arsitektur diperkenalkan oleh [@vaswani2017] secara revolusioner.'],
+        ['id' => 'b2', 'type' => 'paragraph', 'text' => 'Namun model kuantum spekulatif oleh [@fakecitation2099] masih belum terbukti di lapangan.'],
+    ];
+
+    $page->set('blocks', $manuscriptBlocks);
+
+    // Run citation audit
+    $page->call('auditCitations', $project->id);
+
+    $audit = $page->get('lastCitationAudit');
+
+    expect($audit)->not->toBeNull()
+        ->and($audit['verified'])->toContain('vaswani2017')
+        ->and($audit['unmatched'])->toContain('fakecitation2099')
+        ->and($audit['uncited'])->toContain('goodfellow2014')
+        ->and($audit['total_citations'])->toBe(2)
+        ->and($audit['density_per_1k'])->toBeGreaterThan(0.0);
 });
