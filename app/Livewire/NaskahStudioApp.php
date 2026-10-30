@@ -124,6 +124,8 @@ class NaskahStudioApp extends Component
         $this->activeBlock = 0;
         $this->dirty = false;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     /**
@@ -137,6 +139,9 @@ class NaskahStudioApp extends Component
                 $this->blocks[$index]['runs'][0]['text'] = $text;
             }
             $this->markDirty();
+            $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
         }
     }
 
@@ -148,6 +153,9 @@ class NaskahStudioApp extends Component
         if (isset($this->blocks[$blockIndex]['table']['rows'][$rowIndex][$colIndex])) {
             $this->blocks[$blockIndex]['table']['rows'][$rowIndex][$colIndex]['text'] = $text;
             $this->markDirty();
+            $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
         }
     }
 

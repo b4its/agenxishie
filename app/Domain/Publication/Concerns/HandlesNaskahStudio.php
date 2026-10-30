@@ -59,6 +59,8 @@ trait HandlesNaskahStudio
 
     public array $statistics = [];
 
+    public int $docWordCount = 0;
+
     public int $targetWordCount = 1500;
 
     public ?string $lastSavedAt = null;
@@ -444,6 +446,7 @@ trait HandlesNaskahStudio
             $this->loadFromProject();
 
             if (! empty($this->blocks)) {
+                $this->docWordCount = $this->model->countWords($this->blocks);
                 $this->statistics = $this->model->computeStatistics($this->blocks);
 
                 return;
@@ -454,6 +457,7 @@ trait HandlesNaskahStudio
             $this->loadSampleHandbook();
         }
 
+        $this->docWordCount = $this->model->countWords($this->blocks);
         $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
@@ -490,6 +494,7 @@ trait HandlesNaskahStudio
         $this->activeBlock = 0;
         $this->dirty = false;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->blocks);
         $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
@@ -621,6 +626,7 @@ trait HandlesNaskahStudio
         $this->lastSavedAt = $document->last_saved_at?->diffForHumans();
         $this->dirty = false;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->blocks);
         $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
@@ -656,6 +662,7 @@ trait HandlesNaskahStudio
         $this->dirty = false;
         $this->activeBlock = 0;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->blocks);
         $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
@@ -951,6 +958,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index]['runs'] = [];
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Teks dielaborasi', 'Gagasan diperluas oleh Xishie AI.', 'success');
         }
     }
@@ -976,6 +985,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index]['runs'] = [];
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Teks diringkas', 'Paragraf diperpendek.', 'success');
         }
     }
@@ -1001,6 +1012,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index]['runs'] = [];
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Gaya diperbaiki', 'Diksi dan tata bahasa ditingkatkan.', 'success');
         }
     }
@@ -1017,6 +1030,8 @@ trait HandlesNaskahStudio
             $this->activeBlock = $index + 1;
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Kelanjutan naskah dibuat', 'Blok baru disisipkan.', 'success');
         }
     }
@@ -1042,6 +1057,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index]['runs'] = [];
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Nada diubah', 'Nada bahasa disesuaikan ke '.$tone.'.', 'success');
         }
     }
@@ -1083,6 +1100,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index]['runs'] = [];
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Parafrase Akademik', 'Gagasan diparafrase ke ragam baku.', 'success');
         }
     }
@@ -1116,6 +1135,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index]['runs'] = [];
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Terjemahan Selesai', 'Teks berhasil diterjemahkan ke '.$targetName.'.', 'success');
         }
     }
@@ -1135,6 +1156,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function removeBlock(int $index): void
@@ -1150,6 +1172,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function deleteBlock(int $index): void
@@ -1183,6 +1206,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function updateBlockText(int $index, string $text): void
@@ -1193,6 +1217,9 @@ trait HandlesNaskahStudio
                 $this->blocks[$index]['runs'][0]['text'] = $text;
             }
             $this->markDirty();
+            $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
         }
     }
 
@@ -1201,6 +1228,9 @@ trait HandlesNaskahStudio
         if (isset($this->blocks[$blockIndex]['table']['rows'][$rowIndex][$colIndex])) {
             $this->blocks[$blockIndex]['table']['rows'][$rowIndex][$colIndex]['text'] = $text;
             $this->markDirty();
+            $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
         }
     }
 
