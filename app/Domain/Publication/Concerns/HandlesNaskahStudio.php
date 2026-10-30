@@ -5283,6 +5283,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         foreach ($rows as $row) {
             $text = $this->renderMergeTemplate($row);
             if (trim($text) !== '') {
@@ -5291,6 +5292,8 @@ trait HandlesNaskahStudio
         }
 
         $this->dirty = true;
+        $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->dialog = '';
         $this->notify('Mail merge disisipkan', count($rows).' dokumen.', 'success');
     }
@@ -5302,6 +5305,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $tag = '{{'.$cleanField.'}}';
         $index = $this->activeBlock;
         if (isset($this->blocks[$index]) && in_array($this->blocks[$index]['type'] ?? '', ['paragraph', 'heading', 'title', 'subtitle', 'quote', 'bullet', 'numbered'], true)) {
@@ -5321,6 +5325,7 @@ trait HandlesNaskahStudio
 
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->notify('Field Merge Disisipkan', $tag, 'success');
     }
 
@@ -8194,6 +8199,11 @@ trait HandlesNaskahStudio
         $this->notify('Snapshot dibuat', "Versi '{$label}' disimpan dalam riwayat naskah.", 'success');
     }
 
+    public function saveSnapshot(?string $label = null): void
+    {
+        $this->createSnapshot($label);
+    }
+
     public function restoreSnapshot(int $snapshotIndex): void
     {
         if (! isset($this->snapshots[$snapshotIndex])) {
@@ -8240,6 +8250,21 @@ trait HandlesNaskahStudio
         $wordSummary = $deltaWords >= 0 ? "+{$deltaWords} kata" : "{$deltaWords} kata";
         $blockSummary = $deltaBlocks >= 0 ? "+{$deltaBlocks} blok" : "{$deltaBlocks} blok";
 
+        $snapHeadings = [];
+        foreach ($snapBlocks as $b) {
+            if (in_array($b['type'] ?? '', ['heading', 'title'], true) && trim((string) ($b['text'] ?? '')) !== '') {
+                $snapHeadings[] = trim((string) ($b['text'] ?? ''));
+            }
+        }
+        $currentHeadings = [];
+        foreach ($currentBlocks as $b) {
+            if (in_array($b['type'] ?? '', ['heading', 'title'], true) && trim((string) ($b['text'] ?? '')) !== '') {
+                $currentHeadings[] = trim((string) ($b['text'] ?? ''));
+            }
+        }
+        $newHeadings = array_values(array_diff($currentHeadings, $snapHeadings));
+        $removedHeadings = array_values(array_diff($snapHeadings, $currentHeadings));
+
         $diff = [
             'snapshot_index' => $snapshotIndex,
             'snapshot_label' => (string) ($snapshot['label'] ?? 'Snapshot'),
@@ -8250,6 +8275,8 @@ trait HandlesNaskahStudio
             'current_blocks' => count($currentBlocks),
             'delta_words' => $deltaWords,
             'delta_blocks' => $deltaBlocks,
+            'new_headings' => $newHeadings,
+            'removed_headings' => $removedHeadings,
             'summary' => "Perubahan sejak versi '{$snapshot['label']}': {$wordSummary}, {$blockSummary}.",
         ];
 
@@ -8310,11 +8337,12 @@ trait HandlesNaskahStudio
             'tip' => 'Tips: gunakan metode ini untuk mempercepat komputasi...',
             'note' => 'Catatan: penjelasan tambahan untuk memperjelas konteks pembahasan...',
             'theorem' => 'Teorema / Definisi: untuk setiap x dalam ruang domain...',
+            'sketch' => 'Catatan Sketsa & Diagram: gambaran visual alur riset atau konsep model...',
             default => 'Catatan Penting: sorotan utama hasil analisis atau temuan riset...',
         };
 
         $block = $this->model->newBlock('callout', $text ?? $sampleText);
-        $block['calloutType'] = in_array($type, ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true) ? $type : 'info';
+        $block['calloutType'] = in_array($type, ['info', 'warning', 'tip', 'note', 'success', 'theorem', 'sketch'], true) ? $type : 'info';
 
         if ($this->activeBlock > 0 && $this->activeBlock < count($this->blocks) - 1) {
             $insertAt = $this->activeBlock + 1;

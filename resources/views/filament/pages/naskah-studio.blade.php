@@ -2493,9 +2493,41 @@
                                                     @endif
                                                 </div>
                                             @elseif ($type === 'callout')
-                                                @php $cType = (string) ($block['calloutType'] ?? 'info'); @endphp
-                                                <div class="ns-callout ns-callout--{{ $cType }}" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="margin:12px 0; padding:10px 14px; border-left:4px solid #3b82f6; background:#eff6ff; border-radius:4px;">
-                                                    <p class="word-paragraph-text" style="margin:0;">{!! $text ?: '<br>' !!}</p>
+                                                @php
+                                                    $cType = (string) ($block['calloutType'] ?? 'info');
+                                                    $cIcon = match ($cType) {
+                                                        'warning' => '⚠️',
+                                                        'tip' => '💡',
+                                                        'theorem' => '📐',
+                                                        'note' => 'ℹ️',
+                                                        'sketch' => '🎨',
+                                                        'success' => '✅',
+                                                        default => '📌',
+                                                    };
+                                                    $cBorder = match ($cType) {
+                                                        'warning' => '#d97706',
+                                                        'tip' => '#16a34a',
+                                                        'theorem' => '#9333ea',
+                                                        'note' => '#0284c7',
+                                                        'sketch' => '#ec4899',
+                                                        'success' => '#16a34a',
+                                                        default => '#3b82f6',
+                                                    };
+                                                    $cBg = match ($cType) {
+                                                        'warning' => '#fffbeb',
+                                                        'tip' => '#ecfdf5',
+                                                        'theorem' => '#f5f3ff',
+                                                        'note' => '#f0f9ff',
+                                                        'sketch' => '#fdf2f8',
+                                                        'success' => '#ecfdf5',
+                                                        default => '#eff6ff',
+                                                    };
+                                                @endphp
+                                                <div class="ns-callout ns-callout--{{ $cType }}" id="word-block-{{ $index }}" data-block-index="{{ $index }}" style="margin:12px 0; padding:10px 14px; border-left:4px solid {{ $cBorder }}; background:{{ $cBg }}; border-radius:4px;">
+                                                    <div style="display:flex; align-items:flex-start; gap:8px;">
+                                                        <span style="font-size:1.1rem; line-height:1; user-select:none;">{{ $cIcon }}</span>
+                                                        <p class="word-paragraph-text" style="margin:0; flex:1;">{!! $text ?: '<br>' !!}</p>
+                                                    </div>
                                                 </div>
                                             @else
                                                 @if ($inBibliographySection)
@@ -3878,6 +3910,16 @@
                             <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:.6rem; border-radius:4px; margin-bottom:.6rem; font-size:.72rem; color:#1e40af;">
                                 <strong>{{ $snapshotDiffResult['summary'] }}</strong>
                             </div>
+                            @if (!empty($snapshotDiffResult['new_headings']))
+                                <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:.45rem .6rem; border-radius:4px; margin-bottom:.5rem; font-size:.68rem; color:#166534;">
+                                    <strong>+ Bagian Baru Ditambahkan:</strong> {{ implode(', ', $snapshotDiffResult['new_headings']) }}
+                                </div>
+                            @endif
+                            @if (!empty($snapshotDiffResult['removed_headings']))
+                                <div style="background:#fef2f2; border:1px solid #fecaca; padding:.45rem .6rem; border-radius:4px; margin-bottom:.5rem; font-size:.68rem; color:#991b1b;">
+                                    <strong>- Bagian Dihapus:</strong> {{ implode(', ', $snapshotDiffResult['removed_headings']) }}
+                                </div>
+                            @endif
                             <div style="display:grid; grid-template-columns:1fr 1fr; gap:.6rem;">
                                 <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:.6rem; border-radius:4px;">
                                     <div style="font-weight:700; font-size:.7rem; color:#475569; margin-bottom:4px;">📌 Versi Snapshot ({{ $snapshotDiffResult['snapshot_label'] }})</div>

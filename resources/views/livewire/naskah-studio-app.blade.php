@@ -2196,6 +2196,8 @@
                                                     'tip' => '💡',
                                                     'theorem' => '📐',
                                                     'note' => 'ℹ️',
+                                                    'sketch' => '🎨',
+                                                    'success' => '✅',
                                                     default => '📌',
                                                 };
                                                 $cBorder = match ($cType) {
@@ -2203,6 +2205,8 @@
                                                     'tip' => '#16a34a',
                                                     'theorem' => '#9333ea',
                                                     'note' => '#0284c7',
+                                                    'sketch' => '#ec4899',
+                                                    'success' => '#16a34a',
                                                     default => '#0f6cbd',
                                                 };
                                                 $cBg = match ($cType) {
@@ -2210,6 +2214,8 @@
                                                     'tip' => 'rgba(22, 163, 74, 0.05)',
                                                     'theorem' => 'rgba(147, 51, 234, 0.05)',
                                                     'note' => 'rgba(2, 132, 199, 0.05)',
+                                                    'sketch' => 'rgba(236, 72, 153, 0.05)',
+                                                    'success' => 'rgba(22, 163, 74, 0.05)',
                                                     default => 'rgba(15, 108, 189, 0.05)',
                                                 };
                                             @endphp
@@ -4064,6 +4070,16 @@
                         <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:8px 12px; border-radius:4px; margin-bottom:10px; font-size:12px; color:#1e40af;">
                             <strong>{{ $snapshotDiffResult['summary'] }}</strong>
                         </div>
+                        @if (!empty($snapshotDiffResult['new_headings']))
+                            <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 10px; border-radius:4px; margin-bottom:8px; font-size:11.5px; color:#166534;">
+                                <strong>+ New Headings Added:</strong> {{ implode(', ', $snapshotDiffResult['new_headings']) }}
+                            </div>
+                        @endif
+                        @if (!empty($snapshotDiffResult['removed_headings']))
+                            <div style="background:#fef2f2; border:1px solid #fecaca; padding:6px 10px; border-radius:4px; margin-bottom:8px; font-size:11.5px; color:#991b1b;">
+                                <strong>- Headings Removed:</strong> {{ implode(', ', $snapshotDiffResult['removed_headings']) }}
+                            </div>
+                        @endif
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                             <div style="background:#f9f9fb; border:1px solid #e1dfdd; padding:10px; border-radius:4px;">
                                 <div style="font-weight:700; font-size:12px; color:#475569; margin-bottom:4px;">Snapshot ({{ $snapshotDiffResult['snapshot_label'] }})</div>
