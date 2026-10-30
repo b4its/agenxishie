@@ -3976,21 +3976,16 @@ trait HandlesNaskahStudio
             return;
         }
 
-        $authors = (array) ($ref->authors ?? []);
-        $authorName = ! empty($authors[0]['name'])
-            ? (string) $authors[0]['name']
-            : (! empty($authors[0]) && is_string($authors[0]) ? $authors[0] : (string) ($ref->citation_key ?? 'Penulis'));
+        $style = CitationStyle::tryFrom(strtolower($this->citationStyle))
+            ?? match (strtoupper($this->citationStyle)) {
+                'IEEE' => CitationStyle::IEEE,
+                'VANCOUVER' => CitationStyle::VANCOUVER,
+                'CHICAGO' => CitationStyle::CHICAGO,
+                'HARVARD' => CitationStyle::HARVARD,
+                default => CitationStyle::APA7,
+            };
 
-        $year = $ref->year ?: date('Y');
-
-        $citationText = match (strtoupper($this->citationStyle)) {
-            'IEEE' => "[{$ref->id}]",
-            'VANCOUVER' => "({$ref->id})",
-            'HARVARD' => "({$authorName} {$year})",
-            'CHICAGO' => "({$authorName} {$year})",
-            'MLA' => "({$authorName})",
-            default => "({$authorName}, {$year})",
-        };
+        $citationText = app(CitationFormatter::class)->inText($ref, $style, $ref->id);
 
         $this->insertCitation($citationText);
     }

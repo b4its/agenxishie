@@ -99,6 +99,14 @@ final class XishieAssistantService
                 ? 'Belum ada referensi terdaftar. Tambahkan referensi terlebih dahulu agar sitasi terikat pada sumber nyata.'
                 : 'Sitasi valid yang dapat dipakai: '.implode('; ', array_slice($keys, 0, 8)).'.';
 
+            if (! empty($context->citations)) {
+                $guideline = $this->memory->guideline($project);
+                $style = CitationStyle::tryFrom((string) $guideline->citationStyle) ?? CitationStyle::IEEE;
+                $sampleRef = $context->citations[0];
+                $inTextSample = app(CitationFormatter::class)->inText($sampleRef, $style);
+                $reply .= "\n\n**Format Sitasi Dalam Teks ({$style->label()})**: `{$inTextSample}`";
+            }
+
             return ['command' => SlashCommand::SITASI->value, 'reply' => $reply, 'data' => ['citations' => $context->citations]];
         }
 

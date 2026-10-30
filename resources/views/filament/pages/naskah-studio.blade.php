@@ -3610,6 +3610,23 @@
                                     </div>
                                 @endif
                             </div>
+
+                            {{-- Bagian / Bab Dokumen (Headings) --}}
+                            <div style="margin-top:.75rem;">
+                                <label style="display:block; font-weight:700; font-size:.7rem; color:#2563eb; margin-bottom:.25rem;">Bagian &amp; Bab Dokumen (Headings):</label>
+                                @if (empty($caps['headings']))
+                                    <div style="font-size:.68rem; color:#94a3b8; font-style:italic; padding:.35rem; background:#f8fafc; border-radius:3px;">Belum ada judul/bab dalam naskah.</div>
+                                @else
+                                    <div style="display:flex; flex-direction:column; gap:.25rem;">
+                                        @foreach ($caps['headings'] as $hd)
+                                            <div style="display:flex; align-items:center; justify-content:space-between; padding:.35rem .5rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
+                                                <span style="font-size:.68rem;">H{{ $hd['level'] }}: {{ \Illuminate\Support\Str::limit($hd['caption'], 45) }}</span>
+                                                <button type="button" class="ns-btn ns-btn--primary" style="padding:2px 8px; font-size:.65rem;" wire:click="insertCrossReference('heading', '{{ $hd['caption'] }}')">Sisipkan</button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                         <div class="ns-dialog__footer">
                             <button type="button" class="ns-btn" wire:click="closeDialog">Tutup</button>

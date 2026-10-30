@@ -141,13 +141,29 @@ final class NaskahOdtExporter
                 $body .= '<text:h text:outline-level="'.$level.'" text:style-name="Heading_'.$level.'">'.$escText.'</text:h>';
             } elseif ($type === 'quote') {
                 $body .= '<text:p text:style-name="Quotations">'.$escText.'</text:p>';
+            } elseif ($type === 'callout') {
+                $cType = strtoupper((string) ($block['calloutType'] ?? 'CATATAN'));
+                $body .= '<text:p text:style-name="Quotations">['.$cType.'] '.$escText.'</text:p>';
             } elseif ($type === 'bullet') {
                 $body .= '<text:list><text:list-item><text:p>'.$escText.'</text:p></text:list-item></text:list>';
             } elseif ($type === 'numbered') {
                 $body .= '<text:list><text:list-item><text:p>'.$escText.'</text:p></text:list-item></text:list>';
             } elseif ($type === 'pagebreak') {
                 $body .= '<text:p><text:page-break/></text:p>';
-            } elseif ($type === 'table') {
+            } elseif ($type === 'footnote-ref' || $type === 'endnote-ref') {
+                $badge = ($type === 'endnote-ref') ? '[Catatan Akhir]' : '[Catatan Kaki]';
+                $body .= '<text:p text:style-name="Footnote">'.$badge.' '.$escText.'</text:p>';
+            } elseif ($type === 'equation') {
+                $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
+                $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
+                $escLatex = htmlspecialchars($latex, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                $escCap = htmlspecialchars($caption, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                $body .= '<text:p text:style-name="Formula">'.$escLatex.($escCap !== '' ? ' ('.$escCap.')' : '').'</text:p>';
+            } elseif ($type === 'table' || $type === 'toc') {
+                $caption = (string) ($block['table']['caption'] ?? $block['caption'] ?? '');
+                if ($caption !== '') {
+                    $body .= '<text:p text:style-name="TableCaption">'.htmlspecialchars($caption, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</text:p>';
+                }
                 $rows = (array) ($block['table']['rows'] ?? []);
                 $cols = count((array) ($rows[0] ?? []));
                 if ($cols > 0) {

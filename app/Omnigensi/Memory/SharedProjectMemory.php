@@ -73,9 +73,34 @@ final class SharedProjectMemory
             filters: ['project_id' => $project->id],
         );
 
+        if ($matches === []) {
+            $fallback = $project->references()
+                ->when($focusQuery !== '', function ($q) use ($focusQuery): void {
+                    $q->where(function ($sub) use ($focusQuery): void {
+                        $sub->where('title', 'like', "%{$focusQuery}%")
+                            ->orWhere('citation_key', 'like', "%{$focusQuery}%");
+                    });
+                })
+                ->limit($limit)
+                ->get();
+
+            if ($fallback->isEmpty() && $focusQuery !== '') {
+                $fallback = $project->references()->limit($limit)->get();
+            }
+
+            return $fallback->map(static fn (ProjectReference $ref): array => [
+                'citation_key' => (string) $ref->citation_key,
+                'title' => (string) $ref->title,
+                'authors' => $ref->authors,
+                'year' => $ref->year,
+                'score' => 1.0,
+            ])->all();
+        }
+
         return array_map(static fn (array $match): array => [
             'citation_key' => (string) $match['model']->citation_key,
             'title' => (string) $match['model']->title,
+            'authors' => $match['model']->authors,
             'year' => $match['model']->year,
             'score' => round($match['score'], 4),
         ], $matches);

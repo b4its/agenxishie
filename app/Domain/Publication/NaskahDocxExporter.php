@@ -99,7 +99,7 @@ final class NaskahDocxExporter
                 continue;
             }
 
-            if ($type === 'table') {
+            if ($type === 'table' || $type === 'toc') {
                 $body .= $this->tableXml($block);
 
                 continue;
@@ -113,11 +113,13 @@ final class NaskahDocxExporter
                 continue;
             }
 
-            if ($type === 'footnote-ref') {
+            if ($type === 'footnote-ref' || $type === 'endnote-ref') {
+                $isEndnote = $type === 'endnote-ref';
+                $label = $isEndnote ? '[Catatan Akhir] ' : '[Catatan Kaki] ';
                 $text = (string) ($block['text'] ?? '');
                 $body .= '<w:p><w:pPr><w:spacing w:before="120" w:after="120"/></w:pPr>'
                     .'<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="18"/><w:i/><w:color w:val="475569"/></w:rPr>'
-                    .'<w:t xml:space="preserve">[Catatan Kaki] '.$this->esc($text).'</w:t></w:r></w:p>';
+                    .'<w:t xml:space="preserve">'.$label.$this->esc($text).'</w:t></w:r></w:p>';
 
                 continue;
             }
@@ -315,6 +317,14 @@ final class NaskahDocxExporter
             return '';
         }
 
+        $caption = (string) ($block['table']['caption'] ?? $block['caption'] ?? '');
+        $captionXml = '';
+        if ($caption !== '') {
+            $captionXml = '<w:p><w:pPr><w:spacing w:before="120" w:after="60"/></w:pPr>'
+                .'<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:i/><w:color w:val="334155"/><w:sz w:val="20"/></w:rPr>'
+                .'<w:t xml:space="preserve">'.$this->esc($caption).'</w:t></w:r></w:p>';
+        }
+
         $xml = '<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="0" w:type="auto"/><w:tblBorders>'
             .'<w:top w:val="single" w:sz="4" w:space="0" w:color="94A3B8"/>'
             .'<w:left w:val="single" w:sz="4" w:space="0" w:color="94A3B8"/>'
@@ -345,7 +355,7 @@ final class NaskahDocxExporter
             $xml .= '</w:tr>';
         }
 
-        return $xml.'</w:tbl><w:p/>';
+        return $captionXml.$xml.'</w:tbl><w:p/>';
     }
 
     private function imageParagraphXml(string $relId, int $width): string

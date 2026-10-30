@@ -3721,6 +3721,23 @@
                                 </div>
                             @endif
                         </div>
+
+                        <!-- Headings / Sections -->
+                        <div>
+                            <label style="display:block; font-weight:700; font-size:12px; color:#0f6cbd; margin-bottom:4px;">Bagian &amp; Bab Dokumen (Headings):</label>
+                            @if (empty($caps['headings']))
+                                <div style="font-size:11px; color:#8a8886; font-style:italic; padding:6px; background:#f9f9fb; border-radius:3px;">Belum ada judul/bab dalam naskah.</div>
+                            @else
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    @foreach ($caps['headings'] as $hd)
+                                        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
+                                            <span style="font-size:12px;">H{{ $hd['level'] }}: {{ \Illuminate\Support\Str::limit($hd['caption'], 45) }}</span>
+                                            <button type="button" class="word-btn-pill word-btn-share" style="padding:2px 8px; font-size:11px; height:24px;" wire:click="insertCrossReference('heading', '{{ $hd['caption'] }}')">Sisipkan</button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
                     </div>
                     <div class="word-dialog__footer">
                         <button type="button" class="word-btn-pill" wire:click="closeDialog">Tutup</button>
