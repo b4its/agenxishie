@@ -1442,3 +1442,51 @@ it('supports bidirectional find navigation, reversible replace undo, and interac
     $updatedBlock = $page->get('blocks')[0];
     expect($updatedBlock['text'])->toContain('investigasi ini berfokus');
 });
+
+it('supports sketch callouts, safe mail merge with undo, and heading change detection in snapshot comparison', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // 1. Test sketch callout insertion
+    $page->call('insertCallout', 'sketch');
+    $blocks = $page->get('blocks');
+    $lastBlock = end($blocks);
+    expect($lastBlock['type'])->toBe('callout')
+        ->and($lastBlock['calloutType'])->toBe('sketch')
+        ->and($lastBlock['text'])->toContain('Catatan Sketsa & Diagram');
+
+    // 2. Test mail merge field insertion and safe undo
+    $initialCount = count($blocks);
+    $page->set('mergeCsv', "nama,kampus\nBudi,UI\nDewi,ITB");
+    $page->set('mergeTemplate', "Mahasiswa {{nama}} dari {{kampus}}.");
+    $page->call('insertMerge');
+
+    $mergedBlocks = $page->get('blocks');
+    expect(count($mergedBlocks))->toBe($initialCount + 2)
+        ->and($mergedBlocks[count($mergedBlocks) - 2]['text'])->toBe('Mahasiswa Budi dari UI.')
+        ->and($mergedBlocks[count($mergedBlocks) - 1]['text'])->toBe('Mahasiswa Dewi dari ITB.');
+
+    // Undo should restore prior blocks
+    $page->call('undo');
+    expect(count($page->get('blocks')))->toBe($initialCount);
+
+    // 3. Test snapshot diff with heading change detection
+    $page->set('blocks', [
+        ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+        ['type' => 'paragraph', 'text' => 'Teks awal pendahuluan.'],
+    ]);
+    $page->call('saveSnapshot', 'Versi Awal');
+
+    // Add a new heading and remove prior heading
+    $page->set('blocks', [
+        ['type' => 'heading', 'level' => 1, 'text' => 'Bab II Kajian Pustaka'],
+        ['type' => 'paragraph', 'text' => 'Teks kajian pustaka baru.'],
+    ]);
+
+    $diff = $page->call('compareSnapshot', 0)->get('snapshotDiffResult');
+    expect($diff)->not->toBeNull()
+        ->and($diff['new_headings'])->toContain('Bab II Kajian Pustaka')
+        ->and($diff['removed_headings'])->toContain('Bab I Pendahuluan');
+});

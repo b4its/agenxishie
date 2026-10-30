@@ -169,6 +169,7 @@ test("Assistant Session Summary Action Present", "generateSessionSummary" in ass
 test("Assistant Prompt History Support Present", "selectPromptFromHistory" in assistant_html or "Riwayat Prompt" in assistant_html or "promptHistory" in assistant_html)
 test("Assistant Message Copy-to-Clipboard Action Present", "clipboard.writeText" in assistant_html or "Salin" in assistant_html)
 test("Assistant Direct Execution Audit Sitasi Chip Present", "⚡ Audit Sitasi" in assistant_html)
+test("Assistant Direct Execution Tesaurus Chip Present", "⚡ Tesaurus" in assistant_html)
 test("Assistant Context Document Studio Quick Link Present", "Buka Studio" in assistant_html or "selectContextDocument" in assistant_html)
 test("Direct Execution Quick Chips (⚡ Cek Kebaruan)", "⚡ Cek Kebaruan" in assistant_html)
 test("Quick Prompt Suggestion Chips Present (PROMPT CEPAT)", "PROMPT CEPAT:" in assistant_html)
@@ -262,6 +263,12 @@ test("Standalone Studio: Thesaurus Dialog Supported (?dialog=thesaurus)", "runTh
 
 status, studio_find_auth_html, _ = http_get("/admin/naskah-studio?dialog=find", headers=auth_headers)
 test("Filament Studio: Find Dialog with Bidirectional Navigation (?dialog=find)", "findPrevious" in studio_find_auth_html and "findNext" in studio_find_auth_html)
+
+status, studio_merge_html, _ = http_get("/studio?dialog=merge")
+test("Standalone Studio: Mail Merge Dialog Supported (?dialog=merge)", "insertMerge" in studio_merge_html or "Mail Merge" in studio_merge_html)
+
+status, studio_draw_html, _ = http_get("/studio?tab=draw")
+test("Standalone Studio: Draw Tab Sketch Callout Supported (?tab=draw)", "insertCallout('sketch')" in studio_draw_html or "sketch" in studio_draw_html or "Sketsa" in studio_draw_html)
 test("Standalone Studio: Ribbon Table APA Format Present", "Format APA" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon Generasi AI Group", "Generasi AI" in studio_standalone_html and "Model AI" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon AI Presets (Poles, Kembangkan, Kebaruan, Abstrak)",

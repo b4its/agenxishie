@@ -4270,7 +4270,7 @@ it('performs white box verification on navigation sidebar, reference insertion, 
 
     // 4. Drawer command category filtering
     expect($component->get('drawerCommandCategory'))->toBe('all');
-    expect(count($component->instance()->getDrawerFilteredCommands()))->toBe(26);
+    expect(count($component->instance()->getDrawerFilteredCommands()))->toBe(count(\App\Domain\Assistant\SlashCommand::cases()));
 
     $component->call('setDrawerCommandCategory', 'literature');
     $litCmds = $component->instance()->getDrawerFilteredCommands();

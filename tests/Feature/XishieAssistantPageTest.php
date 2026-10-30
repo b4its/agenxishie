@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domain\Assistant\SlashCommand;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Filament\Pages\XishieAssistantPage;
 use App\Models\NaskahDocument;
@@ -113,7 +114,7 @@ it('categorizes and filters the 26 slash commands in assistant page', function (
 
     // Default 'all'
     $allCommands = $page->instance()->filteredCommands();
-    expect(count($allCommands))->toBe(26);
+    expect(count($allCommands))->toBe(count(SlashCommand::cases()));
 
     // Structure category
     $page->call('setCommandCategory', 'structure');
@@ -181,8 +182,8 @@ it('executes current model to naskah studio directly from assistant page', funct
 it('filters slash commands dynamically using commandSearch query', function (): void {
     $page = Livewire::test(XishieAssistantPage::class);
 
-    // Initial all 26
-    expect(count($page->instance()->filteredCommands()))->toBe(26);
+    // Initial all commands
+    expect(count($page->instance()->filteredCommands()))->toBe(count(SlashCommand::cases()));
 
     // Search query 'abstrak'
     $page->set('commandSearch', 'abstrak');
@@ -913,4 +914,30 @@ it('supports deleting individual message from assistant transcript and shifting 
     // Index 3 should have shifted to index 2
     $starred = $page->get('starredMessages');
     expect($starred)->toBe([2]);
+});
+
+it('supports thesaurus slash command and direct execution chip in assistant', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // Test indexed thesaurus word query
+    $page->call('executeCommandDirectly', '/tesaurus penelitian');
+    $log = $page->get('log');
+    $lastReply = end($log)['content'] ?? '';
+
+    expect($lastReply)->toContain('Tesaurus Akademik')
+        ->and($lastReply)->toContain('kajian')
+        ->and($lastReply)->toContain('riset')
+        ->and($lastReply)->toContain('investigasi');
+
+    // Test index catalog without argument
+    $page->call('executeCommandDirectly', '/sinonim');
+    $logAfter = $page->get('log');
+    $catalogReply = end($logAfter)['content'] ?? '';
+
+    expect($catalogReply)->toContain('Sertakan kata akademik')
+        ->and($catalogReply)->toContain('penelitian')
+        ->and($catalogReply)->toContain('metode');
 });
