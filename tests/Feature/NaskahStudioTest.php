@@ -2515,3 +2515,61 @@ it('supports applyAssistantToCurrentPage with structured table_block and include
     $manuscriptLatex = $exporter->render($project, 'latex');
     expect($manuscriptLatex)->toContain('\usepackage{amsmath,amssymb}');
 });
+
+it('supports multiline callout parsing, rich rtf equations, and styled html and odt callout exports', function (): void {
+    $parser = app(\App\Domain\Publication\NaskahBlockParser::class);
+    $richModel = app(\App\Domain\Publication\NaskahRichModel::class);
+    $odtExporter = app(\App\Domain\Publication\NaskahOdtExporter::class);
+
+    // 1. Multiline callout parsing
+    $markdown = "> [!WARNING]\n> Baris pertama peringatan metodologi.\n> Baris kedua penjelasan keterbatasan studi.";
+    $parsedBlocks = $parser->parse($markdown);
+
+    expect($parsedBlocks)->toHaveCount(1)
+        ->and($parsedBlocks[0]['type'])->toBe('callout')
+        ->and($parsedBlocks[0]['calloutType'])->toBe('warning')
+        ->and($parsedBlocks[0]['text'])->toContain('Baris pertama peringatan metodologi.')
+        ->and($parsedBlocks[0]['text'])->toContain('Baris kedua penjelasan keterbatasan studi.');
+
+    // 2. HTML styled callout export
+    $testBlocks = [
+        ['type' => 'callout', 'calloutType' => 'warning', 'text' => 'Peringatan bias sampel.'],
+        ['type' => 'callout', 'calloutType' => 'caution', 'text' => 'Perhatian risiko kebocoran data.'],
+        ['type' => 'callout', 'calloutType' => 'important', 'text' => 'Penting untuk replikasi.'],
+        ['type' => 'table', 'table' => ['caption' => 'Tabel Parameter Model', 'rows' => [[['text' => 'Epoch'], ['text' => '100']]]]],
+        ['type' => 'equation', 'latex' => 'f(x) = \sigma(Wx + b)', 'caption' => 'Persamaan Aktivasi Sigmoid'],
+    ];
+
+    $html = $richModel->toHtml($testBlocks, 'Uji Dokumen Ekspor Kaya');
+    expect($html)->toContain('[Peringatan]')
+        ->and($html)->toContain('border-left:4px solid #d97706')
+        ->and($html)->toContain('[Perhatian]')
+        ->and($html)->toContain('border-left:4px solid #dc2626')
+        ->and($html)->toContain('[Penting]')
+        ->and($html)->toContain('border-left:4px solid #7c3aed');
+
+    // 3. Plain text includes table caption and equation
+    $plain = $richModel->toPlainText($testBlocks);
+    expect($plain)->toContain('Tabel Parameter Model')
+        ->and($plain)->toContain('f(x) = \sigma(Wx + b) (Persamaan Aktivasi Sigmoid)');
+
+    // 4. RTF includes equation block and standardized callout labels
+    $rtf = $richModel->toRtf($testBlocks, 'Uji RTF Formula');
+    expect($rtf)->toContain('[Peringatan]')
+        ->and($rtf)->toContain('sigma(Wx + b)')
+        ->and($rtf)->toContain('Persamaan Aktivasi Sigmoid');
+
+    // 5. ODT includes standardized callout label
+    $odtBinary = $odtExporter->build($testBlocks, 'Uji ODT');
+    $zipOdt = new \ZipArchive;
+    $tempOdt = tempnam(sys_get_temp_dir(), 'odt_test');
+    file_put_contents($tempOdt, $odtBinary);
+    $zipOdt->open($tempOdt);
+    $odtXml = $zipOdt->getFromName('content.xml');
+    $zipOdt->close();
+    @unlink($tempOdt);
+
+    expect($odtXml)->toContain('[Peringatan]')
+        ->and($odtXml)->toContain('[Perhatian]')
+        ->and($odtXml)->toContain('[Penting]');
+});

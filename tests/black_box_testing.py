@@ -116,6 +116,12 @@ test("CLI naskah:manage export csv Execution", cli_csv.returncode == 0 and "nask
 tex_content = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'cat', f'/var/www/html/storage/app/naskah-export-{doc_id}.latex'], capture_output=True, text=True)
 test("CLI naskah:manage LaTeX includes amsmath and amssymb", "amsmath,amssymb" in tex_content.stdout)
 
+cli_rtf = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'export', str(doc_id), '--format=rtf'], capture_output=True, text=True)
+test("CLI naskah:manage export rtf Execution", cli_rtf.returncode == 0 and "naskah-export-" in cli_rtf.stdout)
+
+cli_odt = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'export', str(doc_id), '--format=odt'], capture_output=True, text=True)
+test("CLI naskah:manage export odt Execution", cli_odt.returncode == 0 and "naskah-export-" in cli_odt.stdout)
+
 # 3. Filament Admin Authentication & Xishie Assistant Page
 print("\n--- 3. Filament Admin Authentication & Xishie Assistant Page ---")
 # Authenticate session in Laravel database
