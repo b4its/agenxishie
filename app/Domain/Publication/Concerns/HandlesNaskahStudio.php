@@ -5691,8 +5691,9 @@ trait HandlesNaskahStudio
 
         if ($format === 'bibtex' || $format === 'bib') {
             $bibEntries = [];
-            $refs = $this->sourceProjectId
-                ? ProjectReference::query()->where('project_id', $this->sourceProjectId)->get()
+            $projectId = $this->sourceProjectId ?: $this->resolveAssistantProject()?->id;
+            $refs = $projectId
+                ? ProjectReference::query()->where('project_id', $projectId)->get()
                 : collect();
 
             if ($refs->isNotEmpty()) {
@@ -7713,7 +7714,7 @@ trait HandlesNaskahStudio
                 "### Ringkasan Eksekutif Naskah: {$this->docTitle}",
                 '- **Total Blok**: '.count($this->blocks).' blok ('.($stats['words'] ?? 0).' kata)',
                 '- **Struktur Bagian**: '.(! empty($headings) ? implode(', ', array_slice($headings, 0, 5)) : 'Belum ada subjudul'),
-                '- **Skor Keterbacaan (Flesch)**: '.($stats['readingEase'] ?? 0).'/100',
+                '- **Skor Keterbacaan (Flesch)**: '.($stats['readingEase'] ?? 0).'/100 ('.($stats['fleschGrade'] ?? 'Optimal').')',
                 '- **Estimasi Waktu Baca**: ~'.($stats['readingTimeMinutes'] ?? 1).' menit',
             ];
 

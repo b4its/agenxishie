@@ -1232,13 +1232,16 @@ class XishieAssistantPage extends Page
         $timestamp = now()->format('Y-m-d_H-i-s');
         $format = mb_strtolower($format);
 
-        $exportLog = $this->log;
-        if ($this->transcriptSearch !== '') {
-            $query = mb_strtolower(trim($this->transcriptSearch));
-            $exportLog = array_values(array_filter($exportLog, fn (array $e): bool => str_contains(mb_strtolower((string) ($e['content'] ?? '')), $query)));
-        }
-        if ($this->onlyStarred) {
-            $exportLog = array_values(array_filter($exportLog, fn (array $e, int $idx): bool => in_array($idx, $this->starredMessages, true), ARRAY_FILTER_USE_BOTH));
+        $exportLog = [];
+        $query = mb_strtolower(trim($this->transcriptSearch));
+        foreach ($this->log as $idx => $entry) {
+            if ($this->onlyStarred && ! in_array($idx, $this->starredMessages, true)) {
+                continue;
+            }
+            if ($query !== '' && ! str_contains(mb_strtolower((string) ($entry['content'] ?? '')), $query)) {
+                continue;
+            }
+            $exportLog[] = $entry;
         }
 
         if (empty($exportLog)) {
@@ -1395,13 +1398,16 @@ class XishieAssistantPage extends Page
             return null;
         }
 
-        $sourceLog = $this->log;
-        if ($this->transcriptSearch !== '') {
-            $query = mb_strtolower(trim($this->transcriptSearch));
-            $sourceLog = array_values(array_filter($sourceLog, fn (array $e): bool => str_contains(mb_strtolower((string) ($e['content'] ?? '')), $query)));
-        }
-        if ($this->onlyStarred) {
-            $sourceLog = array_values(array_filter($sourceLog, fn (array $e, int $idx): bool => in_array($idx, $this->starredMessages, true), ARRAY_FILTER_USE_BOTH));
+        $sourceLog = [];
+        $query = mb_strtolower(trim($this->transcriptSearch));
+        foreach ($this->log as $idx => $entry) {
+            if ($this->onlyStarred && ! in_array($idx, $this->starredMessages, true)) {
+                continue;
+            }
+            if ($query !== '' && ! str_contains(mb_strtolower((string) ($entry['content'] ?? '')), $query)) {
+                continue;
+            }
+            $sourceLog[] = $entry;
         }
 
         if (empty($sourceLog)) {

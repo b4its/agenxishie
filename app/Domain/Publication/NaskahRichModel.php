@@ -709,6 +709,14 @@ final class NaskahRichModel
                 continue;
             }
 
+            if ($type === 'footnote-ref' || $type === 'endnote-ref') {
+                $isEndnote = $type === 'endnote-ref';
+                $badge = $isEndnote ? 'Catatan Akhir' : 'Catatan Kaki';
+                $body .= '<div class="note-box" style="border-left:3px solid #64748b; background:#f8fafc; padding:6px 12px; margin:10px 0; font-size:0.9em; color:#334155;"><sup>['.$badge.']</sup> '.$escape((string) ($block['text'] ?? '')).'</div>';
+
+                continue;
+            }
+
             $lineNo++;
             $attrs = $this->blockAttributes($block, $lineNo, $options);
             $inner = $this->runsToHtml($block, $escape);
@@ -952,6 +960,8 @@ final class NaskahRichModel
                 'callout' => '> **['.strtoupper((string) ($block['calloutType'] ?? 'catatan')).']** '.$text,
                 'bullet' => '- '.$text,
                 'numbered' => '1. '.$text,
+                'footnote-ref' => '[^nota]: '.$text,
+                'endnote-ref' => '[^akhir]: '.$text,
                 default => $text,
             };
         }
@@ -1235,6 +1245,14 @@ final class NaskahRichModel
         $readingTimeMinutes = max(1, (int) ceil($words / 200));
         $speakingTimeMinutes = max(1, (int) ceil($words / 130));
 
+        $fleschGrade = match (true) {
+            $readingEase >= 90 => 'Sangat Mudah',
+            $readingEase >= 70 => 'Standar Populer',
+            $readingEase >= 50 => 'Standar Optimal Akademik',
+            $readingEase >= 30 => 'Akademik Kompleks',
+            default => 'Padat Teori',
+        };
+
         return [
             'words' => $words,
             'characters' => $charCount,
@@ -1244,6 +1262,7 @@ final class NaskahRichModel
             'syllables' => $syllables,
             'readingEase' => $readingEase,
             'gradeLevel' => $gradeLevel,
+            'fleschGrade' => $fleschGrade,
             'readingTimeMinutes' => $readingTimeMinutes,
             'speakingTimeMinutes' => $speakingTimeMinutes,
         ];
@@ -1310,6 +1329,8 @@ final class NaskahRichModel
                 $out .= "\\begin{enumerate}\n\\item ".$esc($text)."\n\\end{enumerate}\n\n";
             } elseif ($type === 'pagebreak') {
                 $out .= "\\newpage\n\n";
+            } elseif ($type === 'footnote-ref' || $type === 'endnote-ref') {
+                $out .= "\\footnote{".$esc($text)."}\n\n";
             } elseif ($type === 'equation') {
                 $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
                 $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
@@ -1321,11 +1342,16 @@ final class NaskahRichModel
                 $caption = (string) ($block['image']['caption'] ?? $block['image']['alt'] ?? 'Gambar Naskah');
                 $out .= "\\begin{figure}[h]\n\\centering\n% \\includegraphics[width=0.8\\textwidth]{".$esc($src)."}\n\\caption{".$esc($caption)."}\n\\end{figure}\n\n";
             } elseif ($type === 'table') {
+                $caption = (string) ($block['table']['caption'] ?? $block['caption'] ?? '');
                 $rows = (array) ($block['table']['rows'] ?? []);
                 $cols = count((array) ($rows[0] ?? []));
                 if ($cols > 0) {
                     $colSpec = str_repeat('l', $cols);
-                    $out .= "\\begin{table}[h]\n\\centering\n\\begin{tabular}{".$colSpec."}\n\\toprule\n";
+                    $out .= "\\begin{table}[h]\n\\centering\n";
+                    if ($caption !== '') {
+                        $out .= "\\caption{".$esc($caption)."}\n";
+                    }
+                    $out .= "\\begin{tabular}{".$colSpec."}\n\\toprule\n";
                     foreach ($rows as $r => $row) {
                         $cells = array_map(static fn ($c): string => $esc(is_array($c) ? ($c['text'] ?? '') : (string) $c), (array) $row);
                         $out .= implode(' & ', $cells)." \\\\\n";
@@ -1397,12 +1423,18 @@ final class NaskahRichModel
                 $out .= '\\pard\\ql\\b\\fs'.$size.'\\cf1 '.$rtfEsc($text)."\\b0\\fs24\\cf0\\par\n";
             } elseif ($type === 'quote') {
                 $out .= '\\pard\\li720\\i\\cf2 '.$rtfEsc($text)."\\i0\\cf0\\par\n";
+            } elseif ($type === 'callout') {
+                $out .= '\\pard\\li720\\b ['.strtoupper((string) ($block['calloutType'] ?? 'Catatan')).']\\b0 '.$rtfEsc($text)."\\par\n";
             } elseif ($type === 'bullet') {
                 $out .= '\\pard\\li360 {\\pntext\\bullet\\tab}'.$rtfEsc($text)."\\par\n";
             } elseif ($type === 'numbered') {
                 $out .= '\\pard\\li360 '.$rtfEsc($text)."\\par\n";
             } elseif ($type === 'pagebreak') {
                 $out .= "\\page\n";
+            } elseif ($type === 'footnote-ref') {
+                $out .= '\\pard\\li360\\fs20\\cf2 {\\super [Catatan Kaki]} '.$rtfEsc($text)."\\fs24\\cf0\\par\n";
+            } elseif ($type === 'endnote-ref') {
+                $out .= '\\pard\\li360\\fs20\\cf2 {\\super [Catatan Akhir]} '.$rtfEsc($text)."\\fs24\\cf0\\par\n";
             } else {
                 if (trim($text) !== '') {
                     $out .= '\\pard\\ql\\fs24 '.$rtfEsc($text)."\\par\n";

@@ -180,6 +180,7 @@ class NaskahStudioCommand extends Command
                 ['Paragraf', $stats['paragraphs']],
                 ['Suku Kata', $stats['syllables']],
                 ['Flesch Reading Ease (0-100)', $stats['readingEase']],
+                ['Kategori Keterbacaan', $stats['fleschGrade'] ?? 'Optimal'],
                 ['Flesch-Kincaid Grade Level', 'Kelas '.$stats['gradeLevel']],
                 ['Estimasi Waktu Membaca', '~'.$stats['readingTimeMinutes'].' menit'],
                 ['Estimasi Waktu Presentasi', '~'.$stats['speakingTimeMinutes'].' menit'],
