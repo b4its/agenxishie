@@ -1344,3 +1344,43 @@ it('supports review ribbon audit citations and view ribbon line numbers and zen 
     $page->call('toggleZenMode');
     expect($page->get('zenMode'))->toBeTrue();
 });
+
+it('supports deleting message from studio copilot drawer and parsing markdown notes into manuscript', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Test deleteAssistantMessage
+    $page->set('assistantLog', [
+        ['role' => 'user', 'content' => 'Pertanyaan 1'],
+        ['role' => 'assistant', 'content' => 'Jawaban 1'],
+        ['role' => 'user', 'content' => 'Pertanyaan 2'],
+    ]);
+
+    $page->call('deleteAssistantMessage', 1);
+    $log = $page->get('assistantLog');
+    expect(count($log))->toBe(2)
+        ->and($log[0]['content'])->toBe('Pertanyaan 1')
+        ->and($log[1]['content'])->toBe('Pertanyaan 2');
+
+    // Test rich markdown parsing in scratchpad notes
+    $initialCount = count($page->get('blocks'));
+    $markdownNotes = <<<'EOT'
+## Catatan Telaah Model
+> Pertimbangkan variansi kovariat pada analisis regresi.
+- Poin evaluasi pertama
+- Poin evaluasi kedua
+EOT;
+
+    $page->set('scratchpadNotes', $markdownNotes);
+    $page->call('insertNotesToManuscript');
+
+    $blocks = $page->get('blocks');
+    expect(count($blocks))->toBeGreaterThan($initialCount);
+
+    $types = array_column($blocks, 'type');
+    expect($types)->toContain('heading')
+        ->and($types)->toContain('quote')
+        ->and($types)->toContain('bullet');
+});

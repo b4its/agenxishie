@@ -223,6 +223,11 @@ status, studio_drawer_html, _ = http_get("/admin/naskah-studio?assistant=1", hea
 test("Visit /admin/naskah-studio?assistant=1 (Copilot Drawer Open)", status == 200)
 test("Docked Copilot Drawer: Category Pills (drawerCategories)", "setDrawerCommandCategory" in studio_drawer_html)
 test("Docked Copilot Drawer: Search Input (drawerCommandSearch)", "drawerCommandSearch" in studio_drawer_html)
+test("Docked Copilot Drawer: Message Deletion Action (deleteAssistantMessage)", "deleteAssistantMessage" in studio_drawer_html)
+
+status, standalone_drawer_html, _ = http_get("/studio?assistant=1")
+test("Standalone Studio: Copilot Drawer Opened (?assistant=1)", status == 200)
+test("Standalone Studio: Copilot Drawer Message Deletion (deleteAssistantMessage)", "deleteAssistantMessage" in standalone_drawer_html)
 
 # Test Standalone Studio Route (/studio)
 status, studio_standalone_html, _ = http_get("/studio")

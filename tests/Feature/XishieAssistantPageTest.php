@@ -838,8 +838,24 @@ it('supports equation and quote parsing when applying assistant response to nask
     $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
     $page->set('activeDocumentId', $doc->id);
 
-    // Mock an assistant response with equation and quote
-    $content = "# Teorema Utama\n\n> Definisi formal ruang vektor Hilbert.\n\n$$\\mathcal{H} = \\int |\\psi\\rangle d\\mu$$";
+    // Mock an assistant response with equation, quote, callout, table, and list
+    $content = <<<'EOT'
+# Teorema Utama
+
+> Definisi formal ruang vektor Hilbert.
+
+$$\mathcal{H} = \int |\psi\rangle d\mu$$
+
+> [!NOTE] Perhatikan kondisi batas ortogonalitas fungsi gelombang.
+
+| Parameter | Nilai |
+| --- | --- |
+| alpha | 0.05 |
+
+- Asumsi normalitas residu
+- Homoskedastisitas
+EOT;
+
     $page->set('log', [
         [
             'role' => 'assistant',
@@ -862,7 +878,10 @@ it('supports equation and quote parsing when applying assistant response to nask
 
     expect($types)->toContain('heading')
         ->and($types)->toContain('quote')
-        ->and($types)->toContain('equation');
+        ->and($types)->toContain('equation')
+        ->and($types)->toContain('callout')
+        ->and($types)->toContain('table')
+        ->and($types)->toContain('bullet');
 });
 
 it('supports deleting individual message from assistant transcript and shifting starred indices', function (): void {
