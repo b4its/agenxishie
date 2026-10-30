@@ -727,7 +727,34 @@ final class NaskahRichModel
 
             if ($type === 'callout') {
                 $cType = (string) ($block['calloutType'] ?? 'info');
-                $body .= '<div class="callout-box" style="border-left:4px solid #0f6cbd; background:#f0f9ff; padding:10px 14px; margin:14px 0; border-radius:0 4px 4px 0;"><strong>['.strtoupper($cType).']</strong> '.$escape((string) ($block['text'] ?? '')).'</div>';
+                $border = match ($cType) {
+                    'warning' => '#d97706',
+                    'caution' => '#dc2626',
+                    'important' => '#7c3aed',
+                    'tip' => '#16a34a',
+                    'sketch' => '#0284c7',
+                    'theorem' => '#475569',
+                    default => '#2563eb',
+                };
+                $bg = match ($cType) {
+                    'warning' => '#fffbeb',
+                    'caution' => '#fef2f2',
+                    'important' => '#faf5ff',
+                    'tip' => '#f0fdf4',
+                    'sketch' => '#f0f9ff',
+                    'theorem' => '#f8fafc',
+                    default => '#eff6ff',
+                };
+                $label = match ($cType) {
+                    'warning' => '[Peringatan]',
+                    'caution' => '[Perhatian]',
+                    'important' => '[Penting]',
+                    'tip' => '[Tips]',
+                    'sketch' => '[Sketsa & Diagram]',
+                    'theorem' => '[Teorema]',
+                    default => '[Catatan]',
+                };
+                $body .= '<div class="callout-box" style="border-left:4px solid '.$border.'; background:'.$bg.'; padding:10px 14px; margin:14px 0; border-radius:0 4px 4px 0;"><strong>'.$label.'</strong> '.$escape((string) ($block['text'] ?? '')).'</div>';
 
                 continue;
             }
@@ -1129,8 +1156,26 @@ final class NaskahRichModel
             }
 
             if ($type === 'table') {
+                $caption = (string) ($block['table']['caption'] ?? $block['caption'] ?? '');
+                if ($caption !== '') {
+                    $parts[] = $caption;
+                }
                 foreach ((array) ($block['table']['rows'] ?? []) as $row) {
                     $parts[] = implode("\t", array_map(static fn ($c): string => (string) ($c['text'] ?? ''), (array) $row));
+                }
+
+                continue;
+            }
+
+            if ($type === 'equation') {
+                $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
+                $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
+                $eqText = $latex;
+                if ($caption !== '') {
+                    $eqText .= ' ('.$caption.')';
+                }
+                if ($eqText !== '') {
+                    $parts[] = $eqText;
                 }
 
                 continue;
@@ -1567,7 +1612,17 @@ final class NaskahRichModel
             } elseif ($type === 'quote') {
                 $out .= '\\pard\\li720\\i\\cf2 '.$rtfEsc($text)."\\i0\\cf0\\par\n";
             } elseif ($type === 'callout') {
-                $out .= '\\pard\\li720\\b ['.strtoupper((string) ($block['calloutType'] ?? 'Catatan')).']\\b0 '.$rtfEsc($text)."\\par\n";
+                $cType = (string) ($block['calloutType'] ?? 'info');
+                $label = match ($cType) {
+                    'warning' => '[Peringatan]',
+                    'caution' => '[Perhatian]',
+                    'important' => '[Penting]',
+                    'tip' => '[Tips]',
+                    'sketch' => '[Sketsa & Diagram]',
+                    'theorem' => '[Teorema]',
+                    default => '[Catatan]',
+                };
+                $out .= '\\pard\\li720\\b '.$label.'\\b0 '.$rtfEsc($text)."\\par\n";
             } elseif ($type === 'bullet') {
                 $out .= '\\pard\\li360 {\\pntext\\bullet\\tab}'.$rtfEsc($text)."\\par\n";
             } elseif ($type === 'numbered') {
@@ -1602,6 +1657,11 @@ final class NaskahRichModel
                     $out .= '\\pard\\ql\\fs22 '.implode(" \\tab ", $cells)."\\par\n";
                 }
                 $out .= "\\par\n";
+            } elseif ($type === 'equation') {
+                $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
+                $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
+                $captionPart = $caption !== '' ? ' \\tab ('.$rtfEsc($caption).')' : '';
+                $out .= '\\pard\\qc\\i\\fs22 '.$rtfEsc($latex).$captionPart."\\i0\\fs24\\par\n";
             } else {
                 if (trim($text) !== '') {
                     $out .= '\\pard\\ql\\fs24 '.$rtfEsc($text)."\\par\n";

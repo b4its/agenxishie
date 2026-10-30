@@ -142,8 +142,17 @@ final class NaskahOdtExporter
             } elseif ($type === 'quote') {
                 $body .= '<text:p text:style-name="Quotations">'.$escText.'</text:p>';
             } elseif ($type === 'callout') {
-                $cType = strtoupper((string) ($block['calloutType'] ?? 'CATATAN'));
-                $body .= '<text:p text:style-name="Quotations">['.$cType.'] '.$escText.'</text:p>';
+                $cType = (string) ($block['calloutType'] ?? 'info');
+                $label = match ($cType) {
+                    'warning' => '[Peringatan]',
+                    'caution' => '[Perhatian]',
+                    'important' => '[Penting]',
+                    'tip' => '[Tips]',
+                    'sketch' => '[Sketsa & Diagram]',
+                    'theorem' => '[Teorema]',
+                    default => '[Catatan]',
+                };
+                $body .= '<text:p text:style-name="Quotations">'.$label.' '.$escText.'</text:p>';
             } elseif ($type === 'bullet') {
                 $body .= '<text:list><text:list-item><text:p>'.$escText.'</text:p></text:list-item></text:list>';
             } elseif ($type === 'numbered') {

@@ -143,6 +143,14 @@ final class NaskahBlockParser
 
             if (preg_match('/^>\s?(.+)$/u', $line, $m) === 1) {
                 $flush();
+                $lastIdx = count($blocks) - 1;
+                if ($lastIdx >= 0 && ($blocks[$lastIdx]['type'] ?? '') === 'callout') {
+                    $prevText = trim((string) ($blocks[$lastIdx]['text'] ?? ''));
+                    $newText = $this->normalizeSpaces(trim($m[1]));
+                    $blocks[$lastIdx]['text'] = $prevText !== '' ? $prevText."\n".$newText : $newText;
+
+                    continue;
+                }
                 $blocks[] = ['type' => 'quote', 'level' => 0, 'text' => $this->normalizeSpaces(trim($m[1]))];
 
                 continue;
