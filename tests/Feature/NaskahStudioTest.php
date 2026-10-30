@@ -2573,3 +2573,56 @@ it('supports multiline callout parsing, rich rtf equations, and styled html and 
         ->and($odtXml)->toContain('[Perhatian]')
         ->and($odtXml)->toContain('[Penting]');
 });
+
+it('synchronizes document word count and statistics across wordcraft ai block actions and block modifications', function () {
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id]);
+    $doc = NaskahDocument::factory()->create([
+        'user_id' => $user->id,
+        'project_id' => $project->id,
+        'title' => 'Dokumen Pengujian AI Telemetri',
+        'blocks' => [
+            ['type' => 'paragraph', 'text' => 'Banyak sekali data yang dikarenakan oleh situasi ini dimana hasilnya sangat bagus.'],
+        ],
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    $initialWords = $component->get('docWordCount');
+    expect($initialWords)->toBeGreaterThan(0);
+    expect($component->get('statistics')['words'])->toBe($initialWords);
+
+    // 1. aiParaphraseBlock replaces colloquial words with formal academic phrasing and updates docWordCount & statistics
+    $component->call('aiParaphraseBlock', 0);
+    $paraWords = $component->get('docWordCount');
+    expect($component->get('blocks')[0]['text'])->toContain('sejumlah besar')
+        ->and($component->get('blocks')[0]['text'])->toContain('optimal dan signifikan')
+        ->and($component->get('statistics')['words'])->toBe($paraWords);
+
+    // 2. aiTranslateBlock translates text and updates word count and statistics
+    $component->call('aiTranslateBlock', 0, 'en');
+    $enWords = $component->get('docWordCount');
+    expect($component->get('blocks')[0]['text'])->toContain('rigorous empirical validation')
+        ->and($component->get('statistics')['words'])->toBe($enWords);
+
+    // 3. updateBlockText updates docWordCount and statistics
+    $component->call('updateBlockText', 0, 'Satu dua tiga empat lima enam.');
+    expect($component->get('docWordCount'))->toBe(6)
+        ->and($component->get('statistics')['words'])->toBe(6);
+
+    // 4. addBlock updates docWordCount and statistics
+    $component->call('addBlock', 'paragraph');
+    expect($component->get('docWordCount'))->toBe(6)
+        ->and($component->get('statistics')['paragraphs'])->toBeGreaterThanOrEqual(2);
+
+    // 5. duplicateBlock updates docWordCount and statistics
+    $component->call('duplicateBlock', 0);
+    expect($component->get('docWordCount'))->toBe(12)
+        ->and($component->get('statistics')['words'])->toBe(12);
+
+    // 6. removeBlock updates docWordCount and statistics
+    $component->call('removeBlock', 1);
+    expect($component->get('docWordCount'))->toBe(6)
+        ->and($component->get('statistics')['words'])->toBe(6);
+});

@@ -100,6 +100,21 @@ test(f"POST /api/v1/naskah/documents/{doc_id}/format-paragraph", status == 200 a
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/readability-page?page=1")
 test(f"GET /api/v1/naskah/documents/{doc_id}/readability-page", status == 200 and "reading_time_seconds" in body)
 
+status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/audit-page", {"page": 1})
+test(f"POST /api/v1/naskah/documents/{doc_id}/audit-page", status == 200 and "score" in body)
+
+status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/clean-page", {"page": 1})
+test(f"POST /api/v1/naskah/documents/{doc_id}/clean-page", status == 200 and "cleaned_count" in body)
+
+status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/align-page", {"page": 1, "align": "justify"})
+test(f"POST /api/v1/naskah/documents/{doc_id}/align-page", status == 200 and "aligned_count" in body)
+
+status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export?format=json")
+test(f"GET /api/v1/naskah/documents/{doc_id}/export?format=json", status == 200 and "word_count" in body)
+
+status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export-page?page=1&format=md")
+test(f"GET /api/v1/naskah/documents/{doc_id}/export-page?page=1", status == 200 and len(body) > 0)
+
 cli_stats = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'stats', str(doc_id)], capture_output=True, text=True)
 test("CLI naskah:manage stats Execution", cli_stats.returncode == 0 and "Kategori Keterbacaan" in cli_stats.stdout)
 test("CLI naskah:manage Flesch Reading Ease Present", "Flesch Reading Ease" in cli_stats.stdout)
