@@ -3867,6 +3867,20 @@ trait HandlesNaskahStudio
 
     public function insertBibliography(?int $projectId = null): void
     {
+        $existingBibHeading = null;
+        foreach ($this->blocks as $idx => $block) {
+            if (($block['type'] ?? '') === 'heading' && preg_match('/^(daftar pustaka|bibliography|references)/iu', trim((string) ($block['text'] ?? '')))) {
+                $existingBibHeading = $idx;
+                break;
+            }
+        }
+
+        if ($existingBibHeading !== null) {
+            $this->updateBibliography($projectId);
+
+            return;
+        }
+
         $this->pushUndo();
         $project = $projectId !== null ? XishieProject::find($projectId) : ($this->sourceProjectId !== null ? XishieProject::find($this->sourceProjectId) : null);
 
@@ -4009,6 +4023,67 @@ trait HandlesNaskahStudio
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Daftar Pustaka Diperbarui', count($newBlocks).' referensi diformat ulang ke gaya '.$this->citationStyle.'.', 'success');
+    }
+
+    public function insertLiteratureMatrixTable(?int $projectId = null): void
+    {
+        $this->pushUndo();
+        $project = $projectId !== null
+            ? XishieProject::find($projectId)
+            : ($this->sourceProjectId !== null ? XishieProject::find($this->sourceProjectId) : null);
+
+        if ($project !== null && $project->references()->exists()) {
+            $builder = app(\App\Domain\Research\LiteratureMatrixBuilder::class);
+            $tableBlock = $builder->toTableBlock($project);
+        } else {
+            $tableBlock = [
+                'type' => 'table',
+                'level' => 0,
+                'text' => '',
+                'table' => [
+                    'header' => true,
+                    'caption' => 'Tabel: Matriks Sintesis Literatur (State of the Art)',
+                    'rows' => [
+                        [
+                            ['text' => 'No'],
+                            ['text' => 'Peneliti & Tahun'],
+                            ['text' => 'Metode'],
+                            ['text' => 'Temuan Kunci'],
+                            ['text' => 'Research Gap'],
+                        ],
+                        [
+                            ['text' => '1'],
+                            ['text' => 'Anderson (2020)'],
+                            ['text' => 'Studi Kasus'],
+                            ['text' => 'Kolaborasi teknologi komunitas mempercepat difusi inovasi'],
+                            ['text' => 'Belum mengeksplorasi skalabilitas pada institusi formal'],
+                        ],
+                        [
+                            ['text' => '2'],
+                            ['text' => 'Gauntlett (2018)'],
+                            ['text' => 'Kualitatif Deskriptif'],
+                            ['text' => 'Praktek kreatif bersama meningkatkan resiliensi sosial'],
+                            ['text' => 'Keterbatasan metrik evaluasi kuantitatif efisiensi'],
+                        ],
+                        [
+                            ['text' => '3'],
+                            ['text' => 'Kafai & Peppler (2021)'],
+                            ['text' => 'Eksperimen Lapangan'],
+                            ['text' => 'Authoring tool berbasis visual meningkatkan pemahaman konseptual'],
+                            ['text' => 'Fokus terbatas pada kelompok usia pelajar muda'],
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        $this->blocks[] = $tableBlock;
+        $this->activeBlock = count($this->blocks) - 1;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+        $this->notify('Matriks Literatur Disisipkan', 'Tabel matriks komparasi SOTA berhasil ditambahkan ke naskah.', 'success');
     }
 
     public function setCitationStyle(string $style): void
@@ -6174,7 +6249,19 @@ trait HandlesNaskahStudio
             return;
         }
 
-        // 2. Check if assistant response contains structured table rows
+        // 2. Check if assistant response contains structured table block or table rows
+        if (! empty($log['data']['table_block']) && is_array($log['data']['table_block'])) {
+            $insertAt = $this->activeBlock + 1;
+            array_splice($this->blocks, $insertAt, 0, [$log['data']['table_block']]);
+            $this->activeBlock = $insertAt;
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Berhasil Disisipkan', 'Tabel matriks literatur berhasil disisipkan ke naskah.', 'success');
+
+            return;
+        }
+
         if (! empty($log['data']['table_rows']) && is_array($log['data']['table_rows'])) {
             $newBlock = $this->model->newTableBlock($log['data']['table_rows'], true);
             $insertAt = $this->activeBlock + 1;
@@ -6231,7 +6318,17 @@ trait HandlesNaskahStudio
             return;
         }
 
-        // 2. If assistant has structured table rows, replace active block with table block
+        // 2. If assistant has structured table block or rows, replace active block with table block
+        if (! empty($log['data']['table_block']) && is_array($log['data']['table_block'])) {
+            $this->blocks[$this->activeBlock] = $log['data']['table_block'];
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Blok Diganti dengan Tabel Matriks', '', 'success');
+
+            return;
+        }
+
         if (! empty($log['data']['table_rows']) && is_array($log['data']['table_rows'])) {
             $this->blocks[$this->activeBlock] = $this->model->newTableBlock($log['data']['table_rows'], true);
             $this->dirty = true;
@@ -8020,6 +8117,46 @@ trait HandlesNaskahStudio
                     'latex' => 'f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} e^{-\\frac{1}{2}\\left(\\frac{x-\\mu}{\\sigma}\\right)^2}',
                     'caption' => '5',
                 ],
+                'bayes', 'probabilitas' => [
+                    'title' => 'Teorema Bayes',
+                    'latex' => 'P(A|B) = \\frac{P(B|A) P(A)}{P(B)}',
+                    'caption' => '6',
+                ],
+                'sigmoid', 'aktivasi' => [
+                    'title' => 'Fungsi Aktivasi Sigmoid',
+                    'latex' => '\\sigma(z) = \\frac{1}{1 + e^{-z}}',
+                    'caption' => '7',
+                ],
+                'loss', 'cross-entropy' => [
+                    'title' => 'Fungsi Kerugian Cross-Entropy',
+                    'latex' => '\\mathcal{L}_{CE} = -\\sum_{i=1}^{C} y_i \\log(\\hat{y}_i)',
+                    'caption' => '8',
+                ],
+                'f1', 'f1-score', 'f1score' => [
+                    'title' => 'Ukuran F1-Score (Harmonic Mean)',
+                    'latex' => 'F_1 = 2 \\cdot \\frac{\\text{Precision} \\cdot \\text{Recall}}{\\text{Precision} + \\text{Recall}}',
+                    'caption' => '9',
+                ],
+                'rmse', 'mse', 'error' => [
+                    'title' => 'Root Mean Square Error (RMSE)',
+                    'latex' => '\\text{RMSE} = \\sqrt{\\frac{1}{n} \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2}',
+                    'caption' => '10',
+                ],
+                'korelasi', 'pearson' => [
+                    'title' => 'Koefisien Korelasi Pearson (r)',
+                    'latex' => 'r = \\frac{\\sum (x_i - \\bar{x})(y_i - \\bar{y})}{\\sqrt{\\sum (x_i - \\bar{x})^2 \\sum (y_i - \\bar{y})^2}}',
+                    'caption' => '11',
+                ],
+                'anova', 'f-stat', 'f-hitung' => [
+                    'title' => 'Uji Statistik ANOVA (F-Statistik)',
+                    'latex' => 'F = \\frac{\\text{MS}_{\\text{between}}}{\\text{MS}_{\\text{within}}}',
+                    'caption' => '12',
+                ],
+                't-test', 'uji-t' => [
+                    'title' => 'Uji Komparasi Dua Sampel (t-Test)',
+                    'latex' => 't = \\frac{\\bar{x}_1 - \\bar{x}_2}{\\sqrt{\\frac{s_1^2}{n_1} + \\frac{s_2^2}{n_2}}}',
+                    'caption' => '13',
+                ],
                 default => [
                     'title' => 'Model Regresi Linear Empiris',
                     'latex' => 'y = \\beta_0 + \\beta_1 x_1 + \\beta_2 x_2 + \\varepsilon',
@@ -8347,6 +8484,7 @@ trait HandlesNaskahStudio
             ['id' => 'insert.pagebreak', 'label' => 'Sisipkan Pemisah Halaman', 'category' => 'Sisipkan', 'icon' => '✂️', 'shortcut' => 'Ctrl+Enter'],
             ['id' => 'insert.callout', 'label' => 'Sisipkan Kotak Sorotan (Callout)', 'category' => 'Sisipkan', 'icon' => '💡'],
             ['id' => 'insert.sketch', 'label' => 'Sisipkan Kotak Catatan Sketsa', 'category' => 'Sisipkan', 'icon' => '🎨'],
+            ['id' => 'insert.matrix', 'label' => 'Sisipkan Tabel Matriks Literatur (SOTA)', 'category' => 'Referensi', 'icon' => '📊'],
             ['id' => 'insert.toc', 'label' => 'Buat / Perbarui Daftar Isi', 'category' => 'Referensi', 'icon' => '☰'],
             ['id' => 'insert.bibliography', 'label' => 'Sisipkan Daftar Pustaka Proyek', 'category' => 'Referensi', 'icon' => '📚'],
             ['id' => 'references.audit', 'label' => 'Audit Keselarasan Sitasi & Pustaka', 'category' => 'Referensi', 'icon' => '🔍'],
@@ -8419,6 +8557,7 @@ trait HandlesNaskahStudio
             'insert.pagebreak' => $this->insertPageBreak(),
             'insert.callout' => $this->insertCallout((string) ($args['type'] ?? 'info')),
             'insert.sketch' => $this->insertCallout('sketch'),
+            'insert.matrix' => $this->insertLiteratureMatrixTable(),
             'insert.toc' => $this->insertTableOfContents(),
             'update.toc' => $this->updateTableOfContents(),
             'insert.bibliography' => $this->insertBibliography(),

@@ -1249,6 +1249,9 @@
                             <button type="button" class="word-tool-btn" wire:click="openDialog('sources')" title="Manage Sources">
                                 🗂️ Manage Sources
                             </button>
+                            <button type="button" class="word-tool-btn" wire:click="insertLiteratureMatrixTable" title="Sisipkan Tabel Matriks Sintesis Literatur (SOTA) ke Naskah">
+                                📊 Insert SOTA Matrix
+                            </button>
                         </div>
                         <div class="word-group__row" style="align-items: center; gap: 6px;">
                             <span style="font-size: 11px; color: var(--ms-text-secondary);">Style:</span>

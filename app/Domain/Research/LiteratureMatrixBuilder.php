@@ -32,10 +32,19 @@ final class LiteratureMatrixBuilder
             ->map(static function (ProjectReference $reference): array {
                 $matrix = (array) ($reference->matrix_extraction ?? []);
 
+                $authorList = array_map(static function ($author): string {
+                    if (is_array($author)) {
+                        return (string) ($author['name'] ?? $author['full_name'] ?? '');
+                    }
+
+                    return (string) $author;
+                }, (array) ($reference->authors ?? []));
+                $authorList = array_values(array_filter($authorList, static fn (string $a): bool => trim($a) !== ''));
+
                 return [
                     'id' => $reference->id,
                     'citation_key' => (string) $reference->citation_key,
-                    'authors' => implode(', ', (array) ($reference->authors ?? [])),
+                    'authors' => implode(', ', $authorList),
                     'year' => $reference->year,
                     'is_verified' => (bool) $reference->is_verified,
                     'method' => $matrix['method'] ?? null,
@@ -71,6 +80,48 @@ final class LiteratureMatrixBuilder
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Render matriks sebagai blok tabel Naskah Studio.
+     *
+     * @return array{type: string, level: int, text: string, table: array{header: bool, caption: string, rows: array<int, array<int, array{text: string}>>}}
+     */
+    public function toTableBlock(XishieProject $project): array
+    {
+        $rows = $this->build($project);
+        $tableRows = [
+            [
+                ['text' => 'No'],
+                ['text' => 'Penulis'],
+                ['text' => 'Tahun'],
+                ['text' => 'Metode'],
+                ['text' => 'Hasil Temuan'],
+                ['text' => 'Gap/Keterbatasan'],
+            ],
+        ];
+
+        foreach ($rows as $index => $row) {
+            $tableRows[] = [
+                ['text' => (string) ($index + 1)],
+                ['text' => (string) ($row['authors'] !== '' ? $row['authors'] : $row['citation_key'])],
+                ['text' => (string) ($row['year'] ?? '-')],
+                ['text' => (string) ($row['method'] ?? '-')],
+                ['text' => (string) ($row['result'] ?? '-')],
+                ['text' => (string) ($row['gap'] ?? '-')],
+            ];
+        }
+
+        return [
+            'type' => 'table',
+            'level' => 0,
+            'text' => '',
+            'table' => [
+                'header' => true,
+                'caption' => 'Tabel: Matriks Sintesis Literatur (State of the Art)',
+                'rows' => $tableRows,
+            ],
+        ];
     }
 
     /**

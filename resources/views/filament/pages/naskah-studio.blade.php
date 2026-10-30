@@ -1767,6 +1767,7 @@
                             <button type="button" class="ns-btn" wire:click="insertCitation()" title="Sisipkan sitasi in-text ke naskah">+ Sitasi In-text</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('sources')" title="Buka Pengelola Sumber Pustaka &amp; Sitasi">&#128218; Kelola Sumber</button>
                             <button type="button" class="ns-btn" wire:click="openDialog('crossref')" title="Sisipkan Rujukan Silang ke Persamaan, Gambar, atau Tabel">&#128279; Rujukan Silang</button>
+                            <button type="button" class="ns-btn" wire:click="insertLiteratureMatrixTable" title="Sisipkan Tabel Matriks Sintesis Literatur (SOTA) ke Naskah">&#128202; Matriks SOTA</button>
                             <button type="button" class="ns-btn" wire:click="insertBibliography" title="Sisipkan daftar pustaka lengkap">&#128218; Sisipkan Daftar Pustaka</button>
                             <button type="button" class="ns-btn" wire:click="updateBibliography" title="Perbarui dan format ulang seluruh daftar pustaka dengan gaya terpilih">&#128260; Perbarui Pustaka</button>
                             <button type="button" class="ns-btn" wire:click="auditCitations" style="background:rgba(16,185,129,0.12); color:#047857; font-weight:700; border-color:#a7f3d0;" title="Audit integritas sitasi naskah dan deteksi potensi halusinasi">🔍 Audit Sitasi</button>

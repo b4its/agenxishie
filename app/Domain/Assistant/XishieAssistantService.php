@@ -402,10 +402,16 @@ final class XishieAssistantService
      */
     private function matriks(XishieProject $project): array
     {
+        $rows = $this->matrixBuilder->build($project);
+        $markdown = $this->matrixBuilder->toMarkdown($project);
+
         return [
             'command' => SlashCommand::MATRIKS->value,
-            'reply' => $this->matrixBuilder->toMarkdown($project),
-            'data' => ['rows' => $this->matrixBuilder->build($project)],
+            'reply' => $markdown,
+            'data' => [
+                'rows' => $rows,
+                'table_block' => $this->matrixBuilder->toTableBlock($project),
+            ],
         ];
     }
 
@@ -728,6 +734,31 @@ final class XishieAssistantService
                 'name' => 'Fungsi Kerugian Cross-Entropy',
                 'latex' => '\mathcal{L}_{CE} = -\sum_{i=1}^{C} y_i \log(\hat{y}_i)',
                 'caption' => '9',
+            ],
+            'f1', 'f1-score', 'f1score' => [
+                'name' => 'Ukuran F1-Score (Harmonic Mean)',
+                'latex' => 'F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}',
+                'caption' => '10',
+            ],
+            'rmse', 'mse', 'error' => [
+                'name' => 'Root Mean Square Error (RMSE)',
+                'latex' => '\text{RMSE} = \sqrt{\frac{1}{n} \sum_{i=1}^{n} (y_i - \hat{y}_i)^2}',
+                'caption' => '11',
+            ],
+            'korelasi', 'pearson' => [
+                'name' => 'Koefisien Korelasi Pearson (r)',
+                'latex' => 'r = \frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum (x_i - \bar{x})^2 \sum (y_i - \bar{y})^2}}',
+                'caption' => '12',
+            ],
+            'anova', 'f-stat', 'f-hitung' => [
+                'name' => 'Uji Statistik ANOVA (F-Statistik)',
+                'latex' => 'F = \frac{\text{MS}_{\text{between}}}{\text{MS}_{\text{within}}}',
+                'caption' => '13',
+            ],
+            't-test', 'uji-t' => [
+                'name' => 'Uji Komparasi Dua Sampel (t-Test)',
+                'latex' => 't = \frac{\bar{x}_1 - \bar{x}_2}{\sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}}}',
+                'caption' => '14',
             ],
             default => [
                 'name' => 'Model Regresi Linear Empiris',
