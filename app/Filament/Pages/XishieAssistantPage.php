@@ -1383,60 +1383,13 @@ class XishieAssistantPage extends Page
                     ],
                 ];
             } else {
-                $paragraphs = preg_split('/\n{2,}/u', $content, -1, PREG_SPLIT_NO_EMPTY) ?: [$content];
-                foreach ($paragraphs as $p) {
-                    $p = trim($p);
-                    if ($p === '') {
-                        continue;
-                    }
-
-                    // Deteksi tabel markdown (| kol | kol |)
-                    if (str_starts_with($p, '|') && str_contains($p, "\n|")) {
-                        $lines = array_filter(explode("\n", $p), fn (string $l): bool => trim($l) !== '');
-                        $rows = [];
-                        foreach ($lines as $line) {
-                            if (preg_match('/^\|?\s*[-:]+[-| :]*$/', trim($line))) {
-                                continue;
-                            }
-                            $cells = array_map(fn (string $c): array => ['text' => trim($c), 'runs' => []], array_filter(explode('|', trim($line, "|\r\n\t ")), fn (string $c): bool => trim($c) !== ''));
-                            if (! empty($cells)) {
-                                $rows[] = $cells;
-                            }
-                        }
-                        if (count($rows) >= 2) {
-                            $blocks[] = [
-                                'type' => 'table',
-                                'table' => [
-                                    'format' => 'apa',
-                                    'header' => true,
-                                    'rows' => $rows,
-                                ],
-                            ];
-                            continue;
-                        }
-                    }
-
-                    // Deteksi kutipan markdown (> ...)
-                    if (str_starts_with($p, '>')) {
-                        $quoteText = trim(preg_replace('/^>\s*/m', '', $p));
-                        $blocks[] = [
-                            'type' => 'quote',
-                            'text' => $quoteText,
-                            'runs' => [
-                                ['text' => $quoteText, 'italic' => true],
-                            ],
-                        ];
-                        continue;
-                    }
-
-                    // Paragraf biasa
-                    $blocks[] = [
-                        'type' => 'paragraph',
-                        'text' => $p,
-                        'runs' => [
-                            ['text' => $p],
-                        ],
-                    ];
+                $richModel = app(NaskahRichModel::class);
+                $respBlocks = $richModel->parseMarkdownToBlocks($content);
+                if (empty($respBlocks)) {
+                    $respBlocks[] = $richModel->newBlock('paragraph', $content);
+                }
+                foreach ($respBlocks as $rb) {
+                    $blocks[] = $rb;
                 }
             }
         }

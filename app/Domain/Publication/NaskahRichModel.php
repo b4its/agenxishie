@@ -1732,10 +1732,11 @@ final class NaskahRichModel
                     $tableLines[] = trim((string) $lines[$i]);
                     $i++;
                 }
-                if (count($tableLines) >= 2 && str_contains($tableLines[1], '---')) {
+                if (count($tableLines) >= 2) {
+                    $hasSeparator = str_contains($tableLines[1], '---') || str_contains($tableLines[1], '-|-');
                     $tableRows = [];
                     foreach ($tableLines as $idx => $tRow) {
-                        if ($idx === 1) {
+                        if ($hasSeparator && $idx === 1) {
                             continue; // lewati garis pemisah header tabel
                         }
                         $rawCells = explode('|', $tRow);
