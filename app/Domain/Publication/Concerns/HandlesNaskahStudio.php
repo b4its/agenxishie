@@ -8257,6 +8257,7 @@ trait HandlesNaskahStudio
         $this->pushUndo();
         $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'sum');
         $this->dirty = true;
+        $this->editorRevision++;
         $this->notify('Kalkulasi Tabel', "Kolom #{$colIndex} dijumlahkan.", 'success');
     }
 
@@ -8269,6 +8270,7 @@ trait HandlesNaskahStudio
         $this->pushUndo();
         $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'average');
         $this->dirty = true;
+        $this->editorRevision++;
         $this->notify('Kalkulasi Tabel', "Rata-rata kolom #{$colIndex} dihitung.", 'success');
     }
 
@@ -8286,6 +8288,7 @@ trait HandlesNaskahStudio
             $this->pushUndo();
             $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'min');
             $this->dirty = true;
+            $this->editorRevision++;
             $this->notify('Kalkulasi Tabel', "Nilai minimum kolom #{$colIndex} dihitung.", 'success');
         } elseif ($op === 'max') {
             if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
@@ -8295,7 +8298,18 @@ trait HandlesNaskahStudio
             $this->pushUndo();
             $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'max');
             $this->dirty = true;
+            $this->editorRevision++;
             $this->notify('Kalkulasi Tabel', "Nilai maksimum kolom #{$colIndex} dihitung.", 'success');
+        } elseif ($op === 'count') {
+            if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+                return;
+            }
+
+            $this->pushUndo();
+            $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'count');
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Kalkulasi Tabel', "Jumlah entri numerik kolom #{$colIndex} dihitung.", 'success');
         } else {
             $this->tableSumColumn($index, $colIndex);
         }

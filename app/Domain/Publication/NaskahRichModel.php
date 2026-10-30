@@ -550,6 +550,7 @@ final class NaskahRichModel
             'avg', 'average' => count($values) > 0 ? (array_sum($values) / count($values)) : 0,
             'min' => min($values),
             'max' => max($values),
+            'count' => count($values),
             default => array_sum($values),
         };
 

@@ -1186,9 +1186,14 @@ class XishieAssistantPage extends Page
         $timestamp = now()->format('Y-m-d_H-i-s');
         $format = mb_strtolower($format);
 
-        $exportLog = $this->onlyStarred
-            ? array_values(array_filter($this->log, fn (array $e, int $idx): bool => in_array($idx, $this->starredMessages, true), ARRAY_FILTER_USE_BOTH))
-            : $this->log;
+        $exportLog = $this->log;
+        if ($this->transcriptSearch !== '') {
+            $query = mb_strtolower(trim($this->transcriptSearch));
+            $exportLog = array_values(array_filter($exportLog, fn (array $e): bool => str_contains(mb_strtolower((string) ($e['content'] ?? '')), $query)));
+        }
+        if ($this->onlyStarred) {
+            $exportLog = array_values(array_filter($exportLog, fn (array $e, int $idx): bool => in_array($idx, $this->starredMessages, true), ARRAY_FILTER_USE_BOTH));
+        }
 
         if (empty($exportLog)) {
             $exportLog = $this->log;
@@ -1344,9 +1349,14 @@ class XishieAssistantPage extends Page
             return null;
         }
 
-        $sourceLog = $this->onlyStarred
-            ? array_values(array_filter($this->log, fn (array $e, int $idx): bool => in_array($idx, $this->starredMessages, true), ARRAY_FILTER_USE_BOTH))
-            : $this->log;
+        $sourceLog = $this->log;
+        if ($this->transcriptSearch !== '') {
+            $query = mb_strtolower(trim($this->transcriptSearch));
+            $sourceLog = array_values(array_filter($sourceLog, fn (array $e): bool => str_contains(mb_strtolower((string) ($e['content'] ?? '')), $query)));
+        }
+        if ($this->onlyStarred) {
+            $sourceLog = array_values(array_filter($sourceLog, fn (array $e, int $idx): bool => in_array($idx, $this->starredMessages, true), ARRAY_FILTER_USE_BOTH));
+        }
 
         if (empty($sourceLog)) {
             $sourceLog = $this->log;
@@ -1372,6 +1382,8 @@ class XishieAssistantPage extends Page
         $metaText = "Dokumen ini dikompilasi secara otomatis dari sesi Xishie Assistant.\n"
             ."• Proyek: {$projectTitle}\n"
             ."• Waktu Kompilasi: ".now()->translatedFormat('d F Y H:i:s')."\n"
+            .($this->transcriptSearch !== '' ? "• Filter Pencarian: \"{$this->transcriptSearch}\"\n" : '')
+            .($this->onlyStarred ? "• Status: Khusus Pesan Berbintang (Starred)\n" : '')
             ."• Total Pesan: ".count($sourceLog)." pesan\n"
             ."• Model Aktif: {$this->getCurrentAssistantModel()}\n"
             ."• Persona: {$this->currentPersona} | Lingkup: {$this->assistantScope}";
