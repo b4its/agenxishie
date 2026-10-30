@@ -2341,3 +2341,60 @@ it('supports table sample standard deviation calculation and callout alert prese
         ->and($xml)->toContain('8E44AD')
         ->and($xml)->toContain('A80000');
 });
+
+it('supports table and equation caption promotion, csv manuscript export, and manuscript exporter csv format', function (): void {
+    $this->actingAs(User::factory()->create());
+
+    // 1. Caption promotion in NaskahBlockParser
+    $parser = app(\App\Domain\Publication\NaskahBlockParser::class);
+    $markdown = <<<MD
+# Pengujian Caption Otomatis
+
+Tabel 1: Hasil Akurasi Model
+| Model | Akurasi | F1-Score |
+| SVM | 88.5% | 87.2% |
+| CNN | 94.1% | 93.8% |
+
+Persamaan 1: Model Regresi Linear
+$$ y = \beta_0 + \beta_1 x + \varepsilon $$
+MD;
+
+    $blocks = $parser->parse($markdown);
+
+    $tableBlock = null;
+    $equationBlock = null;
+    foreach ($blocks as $b) {
+        if ($b['type'] === 'table') {
+            $tableBlock = $b;
+        } elseif ($b['type'] === 'equation') {
+            $equationBlock = $b;
+        }
+    }
+
+    expect($tableBlock)->not->toBeNull()
+        ->and($tableBlock['table']['caption'])->toBe('Tabel 1: Hasil Akurasi Model')
+        ->and($equationBlock)->not->toBeNull()
+        ->and($equationBlock['caption'])->toBe('Persamaan 1: Model Regresi Linear');
+
+    // 2. CSV export via NaskahRichModel and HandlesNaskahStudio
+    $richModel = app(\App\Domain\Publication\NaskahRichModel::class);
+    $csvString = $richModel->toCsv($blocks, 'Pengujian Caption Otomatis');
+    expect($csvString)->toContain('Tabel 1: Hasil Akurasi Model')
+        ->and($csvString)->toContain('SVM,88.5%,87.2%')
+        ->and($csvString)->toContain('CNN,94.1%,93.8%');
+
+    $page = Livewire::test(NaskahStudioPage::class);
+    $page->set('blocks', $blocks);
+    $page->call('export', 'csv')
+        ->assertFileDownloaded();
+
+    // 3. ManuscriptExporter CSV export
+    $project = makeProject();
+    $exporter = app(\App\Domain\Publication\ManuscriptExporter::class);
+    expect($exporter->isSupported('csv'))->toBeTrue();
+
+    $csvRender = $exporter->render($project, 'csv');
+    expect($csvRender)->toContain('# Metadata Naskah')
+        ->and($csvRender)->toContain('# Bagian Naskah')
+        ->and($csvRender)->toContain('Bab / Bagian');
+});

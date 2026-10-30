@@ -262,10 +262,12 @@ test("Standalone Studio: Zen Focus Mode Toggle Present", "toggleZenMode" in stud
 status, studio_file_html, _ = http_get("/studio?tab=file")
 test("Standalone Studio: File Ribbon HTML & JSON Export Formats (?tab=file)", "HTML Web" in studio_file_html and "JSON Data" in studio_file_html)
 test("Standalone Studio: File Ribbon BibTeX Export Format (?tab=file)", "BibTeX (.bib)" in studio_file_html)
+test("Standalone Studio: File Ribbon CSV Export Format (?tab=file)", "CSV Data" in studio_file_html or "export('csv')" in studio_file_html)
 test("Standalone Studio: File Ribbon Duplicate Action (?tab=file)", "duplicateDocument" in studio_file_html or "Duplicate" in studio_file_html)
 
 status, studio_file_auth_html, _ = http_get("/admin/naskah-studio?tab=file", headers=auth_headers)
 test("Filament Studio: File Ribbon BibTeX Export Format (?tab=file)", "BibTeX" in studio_file_auth_html)
+test("Filament Studio: File Ribbon CSV Export Format (?tab=file)", "CSV" in studio_file_auth_html and "export('csv')" in studio_file_auth_html)
 
 test("Standalone Studio: Ribbon Layout DIKTI Preset Present", "DIKTI 4-4-3-3" in studio_standalone_html)
 test("Standalone Studio: Target Word Count Indicator in Statusbar", "Target Word Count" in studio_standalone_html)

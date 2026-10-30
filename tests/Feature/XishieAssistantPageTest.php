@@ -1390,3 +1390,24 @@ it('supports natural academic aliases and structured studio application for tabl
     }
     expect($hasEquation)->toBeTrue();
 });
+
+it('provides structured table_block in /tabel-analisis and equation_block in /rumus', function (): void {
+    $project = makeProject();
+    $service = app(\App\Domain\Assistant\XishieAssistantService::class);
+
+    // 1. /tabel-analisis returns table_block
+    $resTable = $service->handle($project, '/tabel-analisis');
+    expect($resTable['command'])->toBe(\App\Domain\Assistant\SlashCommand::TABEL_ANALISIS->value)
+        ->and($resTable['data'])->toHaveKey('table_block')
+        ->and($resTable['data']['table_block']['type'])->toBe('table')
+        ->and($resTable['data']['table_block']['table']['caption'])->toContain('Matriks Evaluasi & Analisis Komparasi Kinerja')
+        ->and($resTable['data']['table_block']['table']['rows'])->not->toBeEmpty();
+
+    // 2. /rumus returns equation_block
+    $resRumus = $service->handle($project, '/rumus kuadrat');
+    expect($resRumus['command'])->toBe(\App\Domain\Assistant\SlashCommand::RUMUS->value)
+        ->and($resRumus['data'])->toHaveKey('equation_block')
+        ->and($resRumus['data']['equation_block']['type'])->toBe('equation')
+        ->and($resRumus['data']['equation_block']['latex'])->toBe('x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}')
+        ->and($resRumus['data']['equation_block']['equation']['caption'])->toContain('Persamaan: Rumus Kuadrat (ABC)');
+});
