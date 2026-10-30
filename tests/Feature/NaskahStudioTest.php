@@ -2398,3 +2398,67 @@ MD;
         ->and($csvRender)->toContain('# Bagian Naskah')
         ->and($csvRender)->toContain('Bab / Bagian');
 });
+
+it('supports findNext, replaceCurrent, and replaceAll on table cells, captions, and equation blocks in naskah studio', function (): void {
+    $tableBlock = [
+        'type' => 'table',
+        'table' => [
+            'caption' => 'Tabel Hasil Optimasi Baseline',
+            'rows' => [
+                [
+                    ['text' => 'Model'],
+                    ['text' => 'Akurasi Baseline'],
+                ],
+                [
+                    ['text' => 'ResNet-50'],
+                    ['text' => '89.5% Baseline'],
+                ],
+            ],
+        ],
+    ];
+
+    $equationBlock = [
+        'type' => 'equation',
+        'latex' => 'E = m \cdot c^2',
+        'caption' => 'Persamaan Energi Einstein',
+    ];
+
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            $tableBlock,
+            $equationBlock,
+        ])
+        ->set('findQuery', 'Baseline')
+        ->set('replaceQuery', 'Benchmark');
+
+    // First findNext should focus table block (index 0)
+    $page->call('findNext');
+    expect($page->get('activeBlock'))->toBe(0)
+        ->and($page->get('findResult'))->toContain('Ditemukan 3 kemunculan');
+
+    // replaceCurrent on table block: replaces in caption first
+    $page->call('replaceCurrent');
+    expect($page->get('blocks')[0]['table']['caption'])->toBe('Tabel Hasil Optimasi Benchmark')
+        ->and($page->get('findResult'))->toContain('Ditemukan 2 kemunculan');
+
+    // Second replaceCurrent: replaces in the first matching cell ("Akurasi Baseline" -> "Akurasi Benchmark")
+    $page->call('replaceCurrent');
+    $rows = $page->get('blocks')[0]['table']['rows'];
+    expect($rows[0][1]['text'])->toBe('Akurasi Benchmark')
+        ->and($rows[1][1]['text'])->toBe('89.5% Baseline');
+
+    // Test equation search and replace
+    $page->set('findQuery', 'm \cdot c^2')
+        ->set('replaceQuery', 'h \cdot \nu')
+        ->set('activeBlock', 1);
+
+    $page->call('replaceCurrent');
+    expect($page->get('blocks')[1]['latex'])->toBe('E = h \cdot \nu')
+        ->and($page->get('blocks')[1]['text'])->toBe('E = h \cdot \nu');
+
+    // Test replaceAll across equation
+    $page->set('findQuery', '\nu')
+        ->set('replaceQuery', 'f')
+        ->call('replaceAll');
+    expect($page->get('blocks')[1]['latex'])->toBe('E = h \cdot f');
+});

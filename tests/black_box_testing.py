@@ -163,6 +163,7 @@ test("Command Search Input Field Present", "commandSearch" in assistant_html or 
 test("HTML Transcript Export Option Present", "HTML" in assistant_html)
 test("LaTeX Transcript Export Option Present", "LaTeX" in assistant_html)
 test("CSV Transcript Export Option Present", "CSV" in assistant_html)
+test("Markdown Transcript Export Option Present", "Markdown" in assistant_html or "exportTranscript('markdown')" in assistant_html or "MD" in assistant_html)
 test("Assistant Focus Scope Selector Present", "FOKUS:" in assistant_html)
 test("Assistant Focus Scope Options (project, manuscript, literature)",
      "setScope('project')" in assistant_html and "setScope('manuscript')" in assistant_html and "setScope('literature')" in assistant_html)
@@ -282,12 +283,14 @@ test("Standalone Studio: Snapshot Dialog Supported (?dialog=snapshots)", status 
 
 status, studio_find_html, _ = http_get("/studio?dialog=find")
 test("Standalone Studio: Find Dialog with Bidirectional Navigation (?dialog=find)", "findPrevious" in studio_find_html and "findNext" in studio_find_html)
+test("Standalone Studio: Find Dialog Replace and Replace All Actions (?dialog=find)", "replaceCurrent" in studio_find_html and "replaceAll" in studio_find_html)
 
 status, studio_thesaurus_html, _ = http_get("/studio?dialog=thesaurus")
 test("Standalone Studio: Thesaurus Dialog Supported (?dialog=thesaurus)", "runThesaurus" in studio_thesaurus_html)
 
 status, studio_find_auth_html, _ = http_get("/admin/naskah-studio?dialog=find", headers=auth_headers)
 test("Filament Studio: Find Dialog with Bidirectional Navigation (?dialog=find)", "findPrevious" in studio_find_auth_html and "findNext" in studio_find_auth_html)
+test("Filament Studio: Find Dialog Replace and Replace All Actions (?dialog=find)", "replaceCurrent" in studio_find_auth_html and "replaceAll" in studio_find_auth_html)
 
 status, studio_merge_auth_html, _ = http_get("/admin/naskah-studio?dialog=merge", headers=auth_headers)
 test("Filament Studio: Mail Merge Dialog Supported (?dialog=merge)", status == 200 and "Mail Merge" in studio_merge_auth_html)

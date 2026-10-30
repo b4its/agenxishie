@@ -1411,3 +1411,40 @@ it('provides structured table_block in /tabel-analisis and equation_block in /ru
         ->and($resRumus['data']['equation_block']['latex'])->toBe('x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}')
         ->and($resRumus['data']['equation_block']['equation']['caption'])->toContain('Persamaan: Rumus Kuadrat (ABC)');
 });
+
+it('exports markdown transcript with model, persona, command, and timestamp audit metadata', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject(['title' => 'Riset Evaluasi Model Deep Learning']);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', [
+            [
+                'role' => 'user',
+                'content' => '/rumus kuadrat',
+                'command' => 'rumus',
+                'created_at' => '14:30:00',
+            ],
+            [
+                'role' => 'assistant',
+                'content' => 'Berikut rumus kuadrat: $$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$',
+                'model' => 'hv/agnes-3.0-flash',
+                'persona' => 'akademisi',
+                'command' => 'rumus',
+                'created_at' => '14:30:02',
+            ],
+        ]);
+
+    $response = $page->instance()->exportTranscript('markdown');
+    expect($response)->not->toBeNull()
+        ->and($response->headers->get('content-type'))->toBe('text/markdown; charset=UTF-8');
+
+    ob_start();
+    $response->sendContent();
+    $mdContent = ob_get_clean();
+
+    expect($mdContent)->toContain('# Transkrip Sesi Xishie Assistant')
+        ->and($mdContent)->toContain('Riset Evaluasi Model Deep Learning')
+        ->and($mdContent)->toContain('### [Peneliti] (Perintah: `rumus` · Waktu: 14:30:00)')
+        ->and($mdContent)->toContain('### [Xishie Assistant] (Model: `hv/agnes-3.0-flash` · Persona: *akademisi* · Perintah: `rumus` · Waktu: 14:30:02)')
+        ->and($mdContent)->toContain('Berikut rumus kuadrat:');
+});
