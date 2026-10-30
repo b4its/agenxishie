@@ -898,8 +898,10 @@ final class NaskahRichModel
         $escape = static fn (string $t): string => htmlspecialchars($t, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $rows = (array) ($block['table']['rows'] ?? []);
         $header = (bool) ($block['table']['header'] ?? true);
+        $caption = (string) ($block['table']['caption'] ?? $block['caption'] ?? '');
+        $captionHtml = $caption !== '' ? '<caption style="caption-side:top; text-align:left; font-weight:600; font-style:italic; padding-bottom:6px; color:#334155;">'.$escape($caption).'</caption>' : '';
 
-        $html = '<table>';
+        $html = '<table>'.$captionHtml;
         foreach ($rows as $rIndex => $row) {
             $html .= '<tr>';
             foreach ((array) $row as $cell) {
@@ -1020,7 +1022,12 @@ final class NaskahRichModel
             return '';
         }
 
+        $caption = (string) ($block['table']['caption'] ?? $block['caption'] ?? '');
         $lines = [];
+        if ($caption !== '') {
+            $lines[] = '*'.$caption.'*';
+        }
+
         foreach ($rows as $rIndex => $row) {
             $cells = array_map(static fn ($c): string => trim((string) ($c['text'] ?? '')), (array) $row);
             $lines[] = '| '.implode(' | ', $cells).' |';
@@ -1441,6 +1448,17 @@ final class NaskahRichModel
                 $out .= '\\pard\\li360\\fs20\\cf2 {\\super [Catatan Kaki]} '.$rtfEsc($text)."\\fs24\\cf0\\par\n";
             } elseif ($type === 'endnote-ref') {
                 $out .= '\\pard\\li360\\fs20\\cf2 {\\super [Catatan Akhir]} '.$rtfEsc($text)."\\fs24\\cf0\\par\n";
+            } elseif ($type === 'table') {
+                $caption = (string) ($block['table']['caption'] ?? $block['caption'] ?? '');
+                if ($caption !== '') {
+                    $out .= '\\pard\\ql\\b\\i\\fs20 '.$rtfEsc($caption)."\\b0\\i0\\fs24\\par\n";
+                }
+                $rows = (array) ($block['table']['rows'] ?? []);
+                foreach ($rows as $row) {
+                    $cells = array_map(static fn ($c): string => $rtfEsc(is_array($c) ? ($c['text'] ?? '') : (string) $c), (array) $row);
+                    $out .= '\\pard\\ql\\fs22 '.implode(" \\tab ", $cells)."\\par\n";
+                }
+                $out .= "\\par\n";
             } else {
                 if (trim($text) !== '') {
                     $out .= '\\pard\\ql\\fs24 '.$rtfEsc($text)."\\par\n";
@@ -1851,7 +1869,24 @@ final class NaskahRichModel
                 continue;
             }
 
-            // 8. Regular paragraph
+            // 8. Footnote / Endnote Definition ([^...]: ...)
+            if (preg_match('/^\[\^([^\]]+)\]:\s*(.+)$/u', $line, $fnMatch)) {
+                $marker = strtolower($fnMatch[1]);
+                $noteText = trim($fnMatch[2]);
+                $isEndnote = str_contains($marker, 'akhir') || str_contains($marker, 'end');
+                $type = $isEndnote ? 'endnote-ref' : 'footnote-ref';
+                $blocks[] = $this->normalizeBlock([
+                    'type' => $type,
+                    'text' => $noteText,
+                    'runs' => [
+                        ['text' => $noteText],
+                    ],
+                ]);
+                $i++;
+                continue;
+            }
+
+            // 9. Regular paragraph
             $paraLines = [$line];
             $i++;
             while ($i < $count) {
@@ -1866,6 +1901,7 @@ final class NaskahRichModel
                     str_starts_with($nextLine, '\\[') ||
                     str_starts_with($nextLine, '```') ||
                     preg_match('/^\d+[.)]\s+/u', $nextLine) ||
+                    preg_match('/^\[\^[^\]]+\]:/u', $nextLine) ||
                     str_starts_with($nextLine, '>')) {
                     break;
                 }

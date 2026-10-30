@@ -4035,6 +4035,7 @@ trait HandlesNaskahStudio
 
         $verified = [];
         $unmatched = [];
+        $citedRefKeys = [];
 
         foreach ($foundKeys as $key) {
             $matched = false;
@@ -4043,11 +4044,17 @@ trait HandlesNaskahStudio
             // Cek kecocokan langsung dengan citation_key
             if (in_array($lowerKey, $normalizedRefKeys, true)) {
                 $matched = true;
+                foreach ($refKeys as $origKey) {
+                    if (mb_strtolower($origKey) === $lowerKey) {
+                        $citedRefKeys[] = $origKey;
+                    }
+                }
             } else {
                 // Cek apakah key cocok dengan substring pada daftar pustaka
                 foreach ($refKeys as $rKey) {
                     if (str_contains(mb_strtolower($rKey), $lowerKey) || str_contains($lowerKey, mb_strtolower($rKey))) {
                         $matched = true;
+                        $citedRefKeys[] = $rKey;
                         break;
                     }
                 }
@@ -4057,15 +4064,18 @@ trait HandlesNaskahStudio
                         $seq = (string) ($idx + 1);
                         if ($key === "[{$rData['id']}]" || $key === "[{$seq}]" || $key === "({$rData['id']})" || $key === "({$seq})") {
                             $matched = true;
+                            if ($rData['key'] !== '') {
+                                $citedRefKeys[] = $rData['key'];
+                            }
                             break;
                         }
                         if ($rData['year'] !== '' && str_contains($lowerKey, $rData['year'])) {
-                            if ($rData['surname'] !== '' && str_contains($lowerKey, mb_strtolower($rData['surname']))) {
+                            if (($rData['surname'] !== '' && str_contains($lowerKey, mb_strtolower($rData['surname'])))
+                                || ($rData['first_author'] !== '' && str_contains($lowerKey, mb_strtolower($rData['first_author'])))) {
                                 $matched = true;
-                                break;
-                            }
-                            if ($rData['first_author'] !== '' && str_contains($lowerKey, mb_strtolower($rData['first_author']))) {
-                                $matched = true;
+                                if ($rData['key'] !== '') {
+                                    $citedRefKeys[] = $rData['key'];
+                                }
                                 break;
                             }
                         }
@@ -4082,14 +4092,7 @@ trait HandlesNaskahStudio
 
         $uncited = [];
         foreach ($refKeys as $rKey) {
-            $cited = false;
-            foreach ($foundKeys as $fKey) {
-                if (mb_strtolower($rKey) === mb_strtolower($fKey) || str_contains(mb_strtolower($fKey), mb_strtolower($rKey))) {
-                    $cited = true;
-                    break;
-                }
-            }
-            if (! $cited) {
+            if (! in_array($rKey, $citedRefKeys, true)) {
                 $uncited[] = $rKey;
             }
         }

@@ -102,7 +102,33 @@ final class XishieAssistantService
             return ['command' => SlashCommand::SITASI->value, 'reply' => $reply, 'data' => ['citations' => $context->citations]];
         }
 
-        $refKeys = $project->references()->pluck('citation_key')->filter()->all();
+        $references = $project->references()->get();
+        $refKeys = [];
+        $refMap = [];
+        foreach ($references as $r) {
+            $key = (string) ($r->citation_key ?? '');
+            if ($key !== '') {
+                $refKeys[] = $key;
+            }
+            $authors = (array) ($r->authors ?? []);
+            $firstAuthor = ! empty($authors[0]['name'])
+                ? (string) $authors[0]['name']
+                : (! empty($authors[0]) && is_string($authors[0]) ? $authors[0] : '');
+            $surname = '';
+            if ($firstAuthor !== '') {
+                $parts = preg_split('/\s+/', trim($firstAuthor));
+                $surname = $parts ? (string) end($parts) : $firstAuthor;
+            }
+
+            $refMap[] = [
+                'id' => (string) $r->id,
+                'key' => $key,
+                'authors' => $authors,
+                'surname' => $surname,
+                'first_author' => $firstAuthor,
+                'year' => (string) ($r->year ?? ''),
+            ];
+        }
 
         $plainText = '';
         $sourceLabel = '';
@@ -122,9 +148,10 @@ final class XishieAssistantService
             $sourceLabel = 'Draf Naskah Tahap '.strtoupper($project->current_stage->value);
         }
 
-        // Ekstrak pola [@key], [key], atau (Author, Year)
+        // Ekstrak pola [@key], [key], (Author, Year), atau Vancouver numeric (1)
         preg_match_all('/\[@?([a-zA-Z0-9_\-]+)\]/u', $plainText, $bracketMatches);
-        preg_match_all('/\(([A-Z][a-zA-Z\s]+(?:et\sal\.)?,\s?\d{4}[a-z]?)\)/u', $plainText, $parenMatches);
+        preg_match_all('/\(([A-Z][a-zA-Z\s]+(?:et\sal\.)?,?\s?\d{4}[a-z]?)\)/u', $plainText, $parenMatches);
+        preg_match_all('/\((\d{1,4})\)/u', $plainText, $vancouverMatches);
 
         $foundKeys = [];
         if (! empty($bracketMatches[1])) {
@@ -132,6 +159,8 @@ final class XishieAssistantService
                 $trimmed = trim((string) $k);
                 if (! is_numeric($trimmed) && mb_strlen($trimmed) >= 3) {
                     $foundKeys[] = $trimmed;
+                } elseif (is_numeric($trimmed)) {
+                    $foundKeys[] = "[{$trimmed}]";
                 }
             }
         }
@@ -143,12 +172,21 @@ final class XishieAssistantService
                 }
             }
         }
+        if (! empty($vancouverMatches[1])) {
+            foreach ($vancouverMatches[1] as $v) {
+                $trimmed = trim((string) $v);
+                if (is_numeric($trimmed)) {
+                    $foundKeys[] = "({$trimmed})";
+                }
+            }
+        }
 
         $foundKeys = array_values(array_unique($foundKeys));
         $normalizedRefKeys = array_map('mb_strtolower', $refKeys);
 
         $verified = [];
         $unmatched = [];
+        $citedRefKeys = [];
 
         foreach ($foundKeys as $key) {
             $matched = false;
@@ -156,11 +194,40 @@ final class XishieAssistantService
 
             if (in_array($lowerKey, $normalizedRefKeys, true)) {
                 $matched = true;
+                foreach ($refKeys as $origKey) {
+                    if (mb_strtolower($origKey) === $lowerKey) {
+                        $citedRefKeys[] = $origKey;
+                    }
+                }
             } else {
                 foreach ($refKeys as $rKey) {
                     if (str_contains(mb_strtolower($rKey), $lowerKey) || str_contains($lowerKey, mb_strtolower($rKey))) {
                         $matched = true;
+                        $citedRefKeys[] = $rKey;
                         break;
+                    }
+                }
+
+                if (! $matched && ! empty($refMap)) {
+                    foreach ($refMap as $idx => $rData) {
+                        $seq = (string) ($idx + 1);
+                        if ($key === "[{$rData['id']}]" || $key === "[{$seq}]" || $key === "({$rData['id']})" || $key === "({$seq})") {
+                            $matched = true;
+                            if ($rData['key'] !== '') {
+                                $citedRefKeys[] = $rData['key'];
+                            }
+                            break;
+                        }
+                        if ($rData['year'] !== '' && str_contains($lowerKey, $rData['year'])) {
+                            if (($rData['surname'] !== '' && str_contains($lowerKey, mb_strtolower($rData['surname'])))
+                                || ($rData['first_author'] !== '' && str_contains($lowerKey, mb_strtolower($rData['first_author'])))) {
+                                $matched = true;
+                                if ($rData['key'] !== '') {
+                                    $citedRefKeys[] = $rData['key'];
+                                }
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -174,14 +241,7 @@ final class XishieAssistantService
 
         $uncited = [];
         foreach ($refKeys as $rKey) {
-            $cited = false;
-            foreach ($foundKeys as $fKey) {
-                if (mb_strtolower($rKey) === mb_strtolower($fKey) || str_contains(mb_strtolower($fKey), mb_strtolower($rKey))) {
-                    $cited = true;
-                    break;
-                }
-            }
-            if (! $cited) {
+            if (! in_array($rKey, $citedRefKeys, true)) {
                 $uncited[] = $rKey;
             }
         }
