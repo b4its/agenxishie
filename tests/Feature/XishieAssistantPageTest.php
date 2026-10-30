@@ -1318,3 +1318,75 @@ it('supports literature matrix table block generation and empirical statistical 
     $ttest = $service->handle($project, '/rumus t-test');
     expect($ttest['reply'])->toContain('t = \frac{\bar{x}_1 - \bar{x}_2}{\sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}}}');
 });
+
+it('supports natural academic aliases and structured studio application for table and equation data', function (): void {
+    $project = makeProject();
+
+    // 1. Extended aliases verification
+    expect(SlashCommand::tryParse('/math formula'))->toBe(SlashCommand::RUMUS)
+        ->and(SlashCommand::tryParse('/persamaan kuadrat'))->toBe(SlashCommand::RUMUS)
+        ->and(SlashCommand::tryParse('/image diagram'))->toBe(SlashCommand::GAMBAR)
+        ->and(SlashCommand::tryParse('/grafik alur'))->toBe(SlashCommand::GAMBAR)
+        ->and(SlashCommand::tryParse('/tabel komparasi'))->toBe(SlashCommand::TABEL_ANALISIS)
+        ->and(SlashCommand::tryParse('/table metrics'))->toBe(SlashCommand::TABEL_ANALISIS)
+        ->and(SlashCommand::tryParse('/matrix-table data'))->toBe(SlashCommand::TABEL_ANALISIS)
+        ->and(SlashCommand::tryParse('/grammar check'))->toBe(SlashCommand::PUEBI)
+        ->and(SlashCommand::tryParse('/tata-bahasa paragraf'))->toBe(SlashCommand::PUEBI)
+        ->and(SlashCommand::tryParse('/typo kalimat'))->toBe(SlashCommand::PUEBI)
+        ->and(SlashCommand::tryParse('/elaborasi gagasan'))->toBe(SlashCommand::KEMBANGKAN)
+        ->and(SlashCommand::tryParse('/elaborate idea'))->toBe(SlashCommand::KEMBANGKAN)
+        ->and(SlashCommand::tryParse('/expand section'))->toBe(SlashCommand::KEMBANGKAN)
+        ->and(SlashCommand::tryParse('/polish sentence'))->toBe(SlashCommand::POLES)
+        ->and(SlashCommand::tryParse('/refine paragraph'))->toBe(SlashCommand::POLES);
+
+    // 2. applyToNaskahStudio with table_block
+    $builder = app(\App\Domain\Research\LiteratureMatrixBuilder::class);
+    $tableBlock = $builder->toTableBlock($project);
+
+    $page = Livewire::test(\App\Filament\Pages\XishieAssistantPage::class);
+    $page->set('log', [
+        [
+            'role' => 'assistant',
+            'content' => 'Tabel komparasi literatur SOTA:',
+            'data' => [
+                'table_block' => $tableBlock,
+            ],
+        ],
+    ]);
+
+    $page->call('applyToNaskahStudio', 0);
+
+    $doc = NaskahDocument::query()->where('project_id', $project->id)->latest('id')->first();
+    expect($doc)->not->toBeNull();
+    $blocks = $doc->blocks;
+    $hasTableBlock = false;
+    foreach ($blocks as $b) {
+        if (($b['type'] ?? '') === 'table' && str_contains((string) ($b['table']['caption'] ?? ''), 'Matriks Sintesis Literatur')) {
+            $hasTableBlock = true;
+            break;
+        }
+    }
+    expect($hasTableBlock)->toBeTrue();
+
+    // 3. applyToNaskahStudio with latex equation
+    $page->set('log', [
+        [
+            'role' => 'assistant',
+            'content' => 'Rumus kuadrat ABC:',
+            'data' => [
+                'latex' => 'x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}',
+                'caption' => 'Persamaan Kuadrat',
+            ],
+        ],
+    ]);
+    $page->call('applyToNaskahStudio', 0);
+    $doc->refresh();
+    $hasEquation = false;
+    foreach ($doc->blocks as $b) {
+        if (($b['type'] ?? '') === 'equation' && str_contains((string) ($b['equation']['latex'] ?? ''), 'b^2 - 4ac')) {
+            $hasEquation = true;
+            break;
+        }
+    }
+    expect($hasEquation)->toBeTrue();
+});

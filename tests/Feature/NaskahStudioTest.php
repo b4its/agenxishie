@@ -2280,3 +2280,64 @@ it('supports literature matrix table block insertion, idempotent bibliography, a
     expect($insertedBlock['type'])->toBe('table')
         ->and($insertedBlock['table']['caption'])->toContain('Matriks Sintesis Literatur');
 });
+
+it('supports table sample standard deviation calculation and callout alert preservation', function (): void {
+    $this->actingAs(User::factory()->create());
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // 1. Table sample standard deviation calculation
+    $page->set('blocks', [
+        [
+            'type' => 'table',
+            'level' => 0,
+            'text' => '',
+            'table' => [
+                'header' => true,
+                'rows' => [
+                    [['text' => 'Item'], ['text' => 'Nilai']],
+                    [['text' => 'A'], ['text' => '10']],
+                    [['text' => 'B'], ['text' => '20']],
+                    [['text' => 'C'], ['text' => '30']],
+                ],
+            ],
+        ],
+    ]);
+
+    $page->call('tableCalculateColumn', 0, 1, 'stddev');
+    $rows = $page->get('blocks')[0]['table']['rows'];
+    $lastRow = end($rows);
+
+    expect($lastRow[0]['text'])->toBe('STDDEV')
+        ->and($lastRow[1]['text'])->toBe('10');
+
+    // 2. Callout preservation for sketch, important, caution
+    $richModel = app(NaskahRichModel::class);
+    $callouts = [
+        ['type' => 'callout', 'text' => 'Catatan alur sketsa', 'calloutType' => 'sketch'],
+        ['type' => 'callout', 'text' => 'Peringatan penting', 'calloutType' => 'important'],
+        ['type' => 'callout', 'text' => 'Perhatian batas riset', 'calloutType' => 'caution'],
+    ];
+
+    $normalized = $richModel->normalize($callouts);
+    expect($normalized[0]['calloutType'])->toBe('sketch')
+        ->and($normalized[1]['calloutType'])->toBe('important')
+        ->and($normalized[2]['calloutType'])->toBe('caution');
+
+    // 3. Docx export preserves callout styling prefixes and colors
+    $docxBinary = app(\App\Domain\Publication\NaskahDocxExporter::class)->build($normalized, 'Naskah Uji Callout');
+    $zip = new \ZipArchive();
+    $tempDocx = tempnam(sys_get_temp_dir(), 'docx_callout_');
+    file_put_contents($tempDocx, $docxBinary);
+    $opened = $zip->open($tempDocx);
+    expect($opened)->toBeTrue();
+    $xml = $zip->getFromName('word/document.xml');
+    $zip->close();
+    unlink($tempDocx);
+
+    expect($xml)->toContain('[Sketsa &amp; Diagram]')
+        ->and($xml)->toContain('[Penting]')
+        ->and($xml)->toContain('[Perhatian]')
+        ->and($xml)->toContain('8E44AD')
+        ->and($xml)->toContain('A80000');
+});
