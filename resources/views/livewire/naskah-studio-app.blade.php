@@ -593,6 +593,7 @@
                         <button type="button" class="word-tool-btn" wire:click="export('rtf')">📑 Rich Text</button>
                         <button type="button" class="word-tool-btn" wire:click="export('html')">🌐 HTML Web</button>
                         <button type="button" class="word-tool-btn" wire:click="export('json')">📦 JSON Data</button>
+                        <button type="button" class="word-tool-btn" wire:click="export('csv')">📊 CSV Data</button>
                         <button type="button" class="word-tool-btn" wire:click="export('bibtex')">📚 BibTeX (.bib)</button>
                         <button type="button" class="word-tool-btn" wire:click="export('txt')">📝 Plain Text</button>
                     </div>

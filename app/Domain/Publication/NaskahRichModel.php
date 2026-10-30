@@ -1143,6 +1143,56 @@ final class NaskahRichModel
     }
 
     /**
+     * Ekspor tabel naskah atau ringkasan struktur ke format CSV.
+     *
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    public function toCsv(array $blocks, string $title = ''): string
+    {
+        $tables = [];
+        foreach ($blocks as $block) {
+            if (($block['type'] ?? '') === 'table') {
+                $tables[] = $block;
+            }
+        }
+
+        $lines = [];
+        if ($tables !== []) {
+            foreach ($tables as $index => $tbl) {
+                $caption = (string) ($tbl['table']['caption'] ?? ('Tabel '.($index + 1)));
+                $lines[] = '# '.str_replace(["\r", "\n"], ' ', $caption);
+                $rows = (array) ($tbl['table']['rows'] ?? []);
+                foreach ($rows as $row) {
+                    $escapedCells = [];
+                    foreach ((array) $row as $cell) {
+                        $text = is_array($cell) ? (string) ($cell['text'] ?? '') : (string) $cell;
+                        $text = str_replace(["\r\n", "\r"], "\n", $text);
+                        if (str_contains($text, ',') || str_contains($text, '"') || str_contains($text, "\n")) {
+                            $escapedCells[] = '"'.str_replace('"', '""', $text).'"';
+                        } else {
+                            $escapedCells[] = $text;
+                        }
+                    }
+                    $lines[] = implode(',', $escapedCells);
+                }
+                $lines[] = '';
+            }
+        } else {
+            $lines[] = 'No,Tipe,Level,Karakter,Kata,Teks';
+            foreach ($blocks as $i => $b) {
+                $bType = (string) ($b['type'] ?? 'paragraph');
+                $level = (int) ($b['level'] ?? 0);
+                $text = (string) ($b['text'] ?? '');
+                $cleanText = str_replace(["\r\n", "\r", "\n"], ' ', mb_substr($text, 0, 100));
+                $escapedText = '"'.str_replace('"', '""', $cleanText).'"';
+                $lines[] = sprintf('%d,%s,%d,%d,%d,%s', $i + 1, $bType, $level, mb_strlen($text), str_word_count($text), $escapedText);
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
      * Hitung kata dari blok teks dan sel tabel.
      *
      * @param  array<int, array<string, mixed>>  $blocks

@@ -86,12 +86,22 @@ final class NaskahBlockParser
 
             if (preg_match('/^\$\$\s*(.+?)\s*\$\$$/u', $line, $em) === 1) {
                 $flush();
+                $eqCaption = '';
+                $lastIdx = count($blocks) - 1;
+                if ($lastIdx >= 0 && in_array($blocks[$lastIdx]['type'] ?? '', ['paragraph', 'heading'], true)) {
+                    $prevText = trim((string) ($blocks[$lastIdx]['text'] ?? ''));
+                    if (preg_match('/^(?:persamaan|equation|rumus)\s*\d*[:.-]\s*(.+)$/ui', $prevText)) {
+                        $eqCaption = $prevText;
+                        array_pop($blocks);
+                    }
+                }
+
                 $blocks[] = [
                     'type' => 'equation',
                     'level' => 0,
                     'text' => trim($em[1]),
                     'latex' => trim($em[1]),
-                    'caption' => '',
+                    'caption' => $eqCaption,
                 ];
 
                 continue;
@@ -107,6 +117,15 @@ final class NaskahBlockParser
                 if ($lastIdx >= 0 && ($blocks[$lastIdx]['type'] ?? '') === 'table') {
                     $blocks[$lastIdx]['table']['rows'][] = $cells;
                 } else {
+                    $caption = '';
+                    if ($lastIdx >= 0 && in_array($blocks[$lastIdx]['type'] ?? '', ['paragraph', 'heading'], true)) {
+                        $prevText = trim((string) ($blocks[$lastIdx]['text'] ?? ''));
+                        if (preg_match('/^(?:tabel|table)\s*\d*[:.-]\s*(.+)$/ui', $prevText)) {
+                            $caption = $prevText;
+                            array_pop($blocks);
+                        }
+                    }
+
                     $blocks[] = [
                         'type' => 'table',
                         'level' => 0,
@@ -114,7 +133,7 @@ final class NaskahBlockParser
                         'table' => [
                             'rows' => [$cells],
                             'header' => true,
-                            'caption' => '',
+                            'caption' => $caption,
                         ],
                     ];
                 }

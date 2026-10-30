@@ -1442,6 +1442,7 @@
                             <button type="button" class="ns-btn" wire:click="export('odt')" title="Ekspor ke LibreOffice Writer (.odt)">&#128214; ODT</button>
                             <button type="button" class="ns-btn" wire:click="export('html')" title="Ekspor HTML / Print Web">&#127760; HTML</button>
                             <button type="button" class="ns-btn" wire:click="export('json')" title="Ekspor JSON Struktur Data">&#128230; JSON</button>
+                            <button type="button" class="ns-btn" wire:click="export('csv')" title="Ekspor CSV Tabel Data / Spreadsheet">&#128202; CSV</button>
                             <button type="button" class="ns-btn" wire:click="export('bibtex')" title="Ekspor BibTeX Pustaka (.bib)">&#128218; BibTeX</button>
                             <button type="button" class="ns-btn" wire:click="export('md')" title="Ekspor Markdown">&#9888; MD</button>
                             <button type="button" class="ns-btn" wire:click="export('rtf')" title="Ekspor Rich Text Format">&#128221; RTF</button>

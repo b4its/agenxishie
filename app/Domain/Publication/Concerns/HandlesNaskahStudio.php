@@ -5918,6 +5918,23 @@ trait HandlesNaskahStudio
             }, $base.'.bib', ['Content-Type' => 'application/x-bibtex; charset=UTF-8']);
         }
 
+        if ($format === 'csv') {
+            $csvContent = $this->model->toCsv($blocks, $this->docTitle);
+
+            return response()->streamDownload(static function () use ($csvContent): void {
+                echo $csvContent;
+            }, $base.'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }
+
+        if ($format === 'pdf') {
+            $options = array_merge($this->htmlOptions(), ['print' => true]);
+            $printHtml = $this->model->toHtml($blocks, $this->docTitle, $options);
+
+            return response()->streamDownload(static function () use ($printHtml): void {
+                echo $printHtml;
+            }, $base.'_print.html', ['Content-Type' => 'text/html; charset=UTF-8']);
+        }
+
         [$content, $extension, $mime] = match ($format) {
             'html' => [$this->model->toHtml($blocks, $this->docTitle, $this->htmlOptions()), 'html', 'text/html; charset=UTF-8'],
             'txt' => [$this->model->toPlainText($blocks), 'txt', 'text/plain; charset=UTF-8'],

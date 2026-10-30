@@ -43,6 +43,8 @@ final class ManuscriptExporter
 
     public const FORMAT_JSON = 'json';
 
+    public const FORMAT_CSV = 'csv';
+
     public function __construct(
         private readonly CitationFormatter $citationFormatter,
     ) {}
@@ -62,6 +64,7 @@ final class ManuscriptExporter
             self::FORMAT_LATEX => ['label' => 'LaTeX', 'extension' => 'tex', 'mime' => 'application/x-tex'],
             self::FORMAT_HTML => ['label' => 'HTML (Web/Cetak)', 'extension' => 'html', 'mime' => 'text/html'],
             self::FORMAT_JSON => ['label' => 'JSON (Struktur Data)', 'extension' => 'json', 'mime' => 'application/json'],
+            self::FORMAT_CSV => ['label' => 'CSV (Tabel Data / Spreadsheet)', 'extension' => 'csv', 'mime' => 'text/csv'],
             self::FORMAT_BIBTEX => ['label' => 'BibTeX', 'extension' => 'bib', 'mime' => 'application/x-bibtex'],
             self::FORMAT_TEXT => ['label' => 'Teks Polos', 'extension' => 'txt', 'mime' => 'text/plain'],
         ];
@@ -101,6 +104,7 @@ final class ManuscriptExporter
             self::FORMAT_LATEX => $this->toLatex($manuscript),
             self::FORMAT_HTML => $this->toHtml($manuscript),
             self::FORMAT_JSON => $this->toJson($manuscript),
+            self::FORMAT_CSV => $this->toCsv($manuscript, $project),
             self::FORMAT_BIBTEX => $this->toBibtex($project),
             self::FORMAT_TEXT => $this->toText($manuscript),
             self::FORMAT_DOCX => $this->toDocx($manuscript),
@@ -350,6 +354,52 @@ final class ManuscriptExporter
         ];
 
         return (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * @param  array{title: string, abstract: string, keywords: array<int, string>, sections: array<int, array{heading: string, content: string}>, bibliography: array<int, string>, citation_style: string}  $m
+     */
+    private function toCsv(array $m, ?XishieProject $project = null): string
+    {
+        $lines = [
+            '# Metadata Naskah',
+            'Judul,"'.str_replace('"', '""', $m['title']).'"',
+            'Gaya Sitasi,"'.$m['citation_style'].'"',
+            '',
+            '# Bagian Naskah',
+            'No,Bab / Bagian,Jumlah Kata,Cuplikan Konten',
+        ];
+
+        foreach ($m['sections'] as $i => $sec) {
+            $words = str_word_count(strip_tags((string) $sec['content']));
+            $snippet = mb_substr(str_replace(["\r", "\n"], ' ', strip_tags((string) $sec['content'])), 0, 100);
+            $lines[] = sprintf('%d,"%s",%d,"%s"', $i + 1, str_replace('"', '""', (string) $sec['heading']), $words, str_replace('"', '""', $snippet));
+        }
+
+        if ($project !== null) {
+            $refs = \App\Models\ProjectReference::query()->where('project_id', $project->id)->get();
+            if ($refs->isNotEmpty()) {
+                $lines[] = '';
+                $lines[] = '# Daftar Referensi Riset';
+                $lines[] = 'Citation Key,Penulis,Tahun,Judul,Jurnal / Publikasi,Status Verifikasi';
+                foreach ($refs as $ref) {
+                    $authors = implode('; ', array_map(function ($a) {
+                        return is_array($a) ? (string) ($a['name'] ?? '') : (string) $a;
+                    }, (array) ($ref->authors ?? [])));
+                    $lines[] = sprintf(
+                        '"%s","%s",%s,"%s","%s","%s"',
+                        str_replace('"', '""', (string) $ref->citation_key),
+                        str_replace('"', '""', $authors),
+                        (string) ($ref->year ?? '-'),
+                        str_replace('"', '""', (string) $ref->title),
+                        str_replace('"', '""', (string) ($ref->journal_name ?? $ref->publication ?? '')),
+                        $ref->is_verified ? 'Terverifikasi' : 'Draf'
+                    );
+                }
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**

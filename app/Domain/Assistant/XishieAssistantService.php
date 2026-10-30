@@ -774,7 +774,19 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::RUMUS->value,
             'reply' => $reply,
-            'data' => $recommendation,
+            'data' => array_merge($recommendation, [
+                'equation_block' => [
+                    'type' => 'equation',
+                    'level' => 0,
+                    'text' => $recommendation['latex'],
+                    'latex' => $recommendation['latex'],
+                    'caption' => 'Persamaan: '.$recommendation['name'],
+                    'equation' => [
+                        'latex' => $recommendation['latex'],
+                        'caption' => 'Persamaan: '.$recommendation['name'],
+                    ],
+                ],
+            ]),
         ];
     }
 
@@ -934,6 +946,16 @@ final class XishieAssistantService
                 'action' => 'insert_table',
                 'table' => true,
                 'table_rows' => $allRows,
+                'table_block' => [
+                    'type' => 'table',
+                    'level' => 0,
+                    'text' => '',
+                    'table' => [
+                        'header' => true,
+                        'caption' => 'Tabel: Matriks Evaluasi & Analisis Komparasi Kinerja',
+                        'rows' => $allRows,
+                    ],
+                ],
             ],
         ];
     }
