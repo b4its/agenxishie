@@ -30,3 +30,5 @@ Homestead.yaml
 Thumbs.db
 /flow
 /.playwright-mcp
+__pycache__/
+*.pyc
