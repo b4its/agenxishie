@@ -8238,11 +8238,24 @@ trait HandlesNaskahStudio
     // =====================================================================
 
     /**
-     * @return array<int, array{index: int, level: int, text: string}>
+     * @return array<int, array{index: int, level: int, text: string, word_count?: int}>
      */
     public function outline(): array
     {
         return $this->model->outline($this->model->normalize($this->blocks));
+    }
+
+    /**
+     * Alihkan Mode Fokus Zen (Bebas Distraksi).
+     */
+    public function toggleZenMode(): void
+    {
+        $this->zenMode = ! $this->zenMode;
+        if ($this->zenMode) {
+            $this->notify('Mode Fokus Diaktifkan', 'Fokus menulis bebas distraksi aktif. Klik tombol keluar untuk memulihkan tampilan penuh.', 'info');
+        } else {
+            $this->notify('Mode Fokus Dinonaktifkan', 'Tampilan standar editor dipulihkan.', 'info');
+        }
     }
 
     /**

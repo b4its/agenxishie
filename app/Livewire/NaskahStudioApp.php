@@ -248,14 +248,6 @@ class NaskahStudioApp extends Component
     }
 
     /**
-     * Toggle Mode Fokus Zen (Distraction-Free Writing).
-     */
-    public function toggleZenMode(): void
-    {
-        $this->zenMode = ! $this->zenMode;
-    }
-
-    /**
      * Ganti mode kontrol (Manual, HITL, Automation).
      */
     public function setControlMode(string $mode): void

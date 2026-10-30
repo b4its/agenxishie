@@ -1069,11 +1069,12 @@ final class NaskahRichModel
      * Daftar judul untuk panel navigasi & daftar isi.
      *
      * @param  array<int, array<string, mixed>>  $blocks
-     * @return array<int, array{index: int, level: int, text: string}>
+     * @return array<int, array{index: int, level: int, text: string, word_count: int}>
      */
     public function outline(array $blocks): array
     {
         $items = [];
+        $total = count($blocks);
 
         foreach ($blocks as $index => $block) {
             if (($block['type'] ?? '') !== 'heading') {
@@ -1085,7 +1086,32 @@ final class NaskahRichModel
                 continue;
             }
 
-            $items[] = ['index' => (int) $index, 'level' => (int) ($block['level'] ?? 1), 'text' => $text];
+            $level = (int) ($block['level'] ?? 1);
+            $words = str_word_count(strip_tags($text));
+
+            // Hitung kata pada seluruh blok subordinat hingga heading berikutnya dengan level <= level saat ini
+            for ($j = $index + 1; $j < $total; $j++) {
+                $sub = $blocks[$j];
+                if (($sub['type'] ?? '') === 'heading' && (int) ($sub['level'] ?? 1) <= $level) {
+                    break;
+                }
+                $subText = trim((string) ($sub['text'] ?? ''));
+                if ($subText !== '') {
+                    $words += str_word_count(strip_tags($subText));
+                }
+                if (isset($sub['table']['rows']) && is_array($sub['table']['rows'])) {
+                    foreach ($sub['table']['rows'] as $row) {
+                        if (is_array($row)) {
+                            foreach ($row as $cell) {
+                                $cText = is_array($cell) ? ($cell['text'] ?? '') : (string) $cell;
+                                $words += str_word_count(strip_tags((string) $cText));
+                            }
+                        }
+                    }
+                }
+            }
+
+            $items[] = ['index' => (int) $index, 'level' => $level, 'text' => $text, 'word_count' => $words];
         }
 
         return $items;

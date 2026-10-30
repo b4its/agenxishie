@@ -1056,6 +1056,14 @@
              activeBlock: @entangle('activeBlock')
          })">
 
+        {{-- FLOATING BUTTON KELUAR MODE FOKUS ZEN --}}
+        <div x-cloak x-show="zenMode" style="position:fixed; top:12px; right:20px; z-index:99999;">
+            <button type="button" class="ns-btn ns-btn--primary" wire:click="toggleZenMode" style="box-shadow:0 4px 16px rgba(15,23,42,0.35); padding:6px 14px; font-weight:700; font-size:.72rem; display:inline-flex; align-items:center; gap:6px;">
+                <span>🧘 Mode Fokus (Zen) Aktif</span>
+                <span style="opacity:.8; margin-left:4px;">✕ Keluar</span>
+            </button>
+        </div>
+
         <!-- ===================================================================== -->
         <!-- FLOATING SELECTION MINI-TOOLBAR (MICROSOFT WORD 365 BUBBLE MENU)      -->
         <!-- ===================================================================== -->
@@ -1368,7 +1376,7 @@
         </div>
 
         {{-- ================= BILAH AKSES CEPAT (TOPBAR) ================= --}}
-        <header class="ns-topbar">
+        <header class="ns-topbar" x-show="!zenMode">
             <div class="ns-topbar__left">
                 <button type="button" class="ns-btn ns-btn--primary" @click="saveDocument()" wire:loading.attr="disabled" wire:target="save" title="Simpan Dokumen (Ctrl+S)">
                     <span wire:loading.remove wire:target="save">&#128190; Simpan</span>
@@ -1409,7 +1417,7 @@
         </header>
 
         {{-- ================= RIBBON UTAMA ================= --}}
-        <nav class="ns-ribbon" aria-label="Ribbon Naskah Studio">
+        <nav class="ns-ribbon" x-show="!zenMode" aria-label="Ribbon Naskah Studio">
             <div class="ns-ribbon__tabs">
                 @foreach ($ribbonTabs as $key => $label)
                     <button type="button" class="ns-ribbon__tab @if($activeTab === $key) ns-ribbon__tab--active @endif" wire:click="$set('activeTab', '{{ $key }}')">{{ $label }}</button>
@@ -2004,11 +2012,11 @@
         @endif
 
         {{-- ================= WORKSPACE ================= --}}
-        <div class="ns-workspace" style="@if(!$showNavigation) grid-template-columns: minmax(0,1fr) @if($showComments || $showRevisions || $assistantOpen) auto @endif; @endif">
+        <div class="ns-workspace" :style="zenMode ? 'grid-template-columns: minmax(0,1fr) !important;' : ''" style="@if(!$showNavigation) grid-template-columns: minmax(0,1fr) @if($showComments || $showRevisions || $assistantOpen) auto @endif; @endif">
 
             {{-- 1. LEFT SIDEBAR: NAVIGATOR --}}
             @if ($showNavigation)
-                <aside class="ns-nav" aria-label="Navigator Dokumen">
+                <aside class="ns-nav" x-show="!zenMode" aria-label="Navigator Dokumen">
                     <div class="ns-nav__header" style="display:flex; border-bottom:1px solid #e2e8f0; background:#f8fafc; padding:2px;">
                         <button type="button" class="ns-nav__tab @if(($navSidebarTab ?? 'outline') === 'outline') ns-nav__tab--active @endif" style="flex:1; padding:.35rem .15rem; font-size:.62rem; text-align:center; font-weight:700;" wire:click="setNavSidebarTab('outline')">
                             &#9776; Judul ({{ $elements['headings'] ?? 0 }})
@@ -2028,7 +2036,7 @@
                                             style="flex:1; text-align:left; display:flex; justify-content:space-between; align-items:center; padding-right:4px;"
                                             x-on:click="(document.getElementById('heading-{{ $node['index'] }}') || document.getElementById('word-block-{{ $node['index'] }}'))?.scrollIntoView({behavior:'smooth', block:'center'})">
                                         <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $node['text'] }}</span>
-                                        <span style="font-size:.55rem; color:var(--rb-ink-muted); margin-left:4px;">H{{ $node['level'] }}</span>
+                                        <span style="font-size:.55rem; color:var(--rb-ink-muted); margin-left:4px; white-space:nowrap;">H{{ $node['level'] }}@if(!empty($node['word_count'])) &middot; {{ number_format($node['word_count']) }}k @endif</span>
                                     </button>
                                     <div style="display:inline-flex; align-items:center; gap:1px; flex-shrink:0;">
                                         <button type="button" wire:click="moveSection({{ $node['index'] }}, 'up')" title="Pindahkan Bagian ke Atas" style="background:transparent; border:none; padding:1px 3px; font-size:9px; cursor:pointer; color:#64748b;" onmouseover="this.style.color='#1e40af'" onmouseout="this.style.color='#64748b'">&#9650;</button>
@@ -2508,7 +2516,7 @@
 
             {{-- 3. RIGHT SIDEBAR: XISHIE ASSISTANT, KOMENTAR & LACAK REVISI --}}
             @if ($assistantOpen || $showComments || $showRevisions)
-                <aside class="ns-drawer" aria-label="Panel Samping Tugas dan Asisten">
+                <aside class="ns-drawer" x-show="!zenMode" aria-label="Panel Samping Tugas dan Asisten">
                     {{-- 1. XISHIE ASSISTANT DOCKED TASK PANE --}}
                     @if ($assistantOpen)
                         <div class="ns-drawer__header" style="background: linear-gradient(135deg, #1e40af 0%, #312e81 100%); color:#ffffff;">
@@ -2852,8 +2860,11 @@
                 <span x-show="savingState === 'saved'" style="color:#15803d;">✓ Tersimpan</span>
             </span>
             @if (!empty($statistics['readingTimeMinutes']))
-                <span>&#9201; ~{{ $statistics['readingTimeMinutes'] }} menit baca</span>
+                <span>&#9201; ~{{ $statistics['readingTimeMinutes'] }} mnt baca &middot; ~{{ $statistics['speakingTimeMinutes'] ?? 1 }} mnt presentasi</span>
             @endif
+            <button type="button" class="ns-btn" wire:click="toggleZenMode" style="padding:1px 6px; font-size:.58rem; background:rgba(30,64,175,0.08); color:#1e40af; border:1px solid rgba(30,64,175,0.2); font-weight:600;" title="Mode Fokus Menulis (Zen Writing)">
+                🧘 Mode Fokus
+            </button>
             @if ($targetWordCount > 0)
                 @php
                     $prog = $this->getTargetWordProgress();

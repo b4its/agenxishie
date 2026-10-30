@@ -1647,7 +1647,12 @@
                                     "
                                     class="word-nav-item {{ $activeBlock === $item['index'] ? 'active' : '' }}"
                                     style="flex: 1; text-align: left; padding-left: {{ $item['level'] === 1 ? '12px' : '26px' }}; font-weight: {{ $item['level'] === 1 ? '600' : '400' }}; font-size: 12px; display: flex; align-items: center; justify-content: space-between;">
-                                    <span>{{ $item['text'] ?: '(Untitled Heading)' }}</span>
+                                    <span>
+                                        {{ $item['text'] ?: '(Untitled Heading)' }}
+                                        @if (!empty($item['word_count']))
+                                            <span style="font-size: 10px; color: #64748b; font-weight: normal; margin-left: 4px;">({{ number_format($item['word_count']) }} kata)</span>
+                                        @endif
+                                    </span>
                                     @if ($isBibHeading)
                                         <span style="font-size: 10px; color: #0f6cbd; background: #ebf3fc; padding: 1px 6px; border-radius: 9999px; font-weight: 600;">Acuan</span>
                                     @endif
