@@ -52,7 +52,7 @@ final class XishieAssistantService
         }
 
         return match ($command) {
-            SlashCommand::SITASI => $this->sitasi($project, $argument),
+            SlashCommand::SITASI => $this->sitasi($project, $argument, $contextDocument),
             SlashCommand::PARAFRASE => $this->parafrase($argument),
             SlashCommand::CEK_GAP => $this->cekGap($project),
             SlashCommand::CEK_PEDOMAN => $this->cekPedoman($project),
@@ -84,17 +84,159 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function sitasi(XishieProject $project, string $argument): array
+    private function sitasi(XishieProject $project, string $argument, ?NaskahDocument $contextDocument = null): array
     {
-        $context = $this->memory->build($project, $argument);
+        $lowerArg = mb_strtolower(trim($argument));
+        $isAudit = str_contains($lowerArg, 'audit') || str_contains($lowerArg, 'cek') || str_contains($lowerArg, 'verifikasi');
 
-        $keys = $context->citationKeys();
+        if (! $isAudit) {
+            $context = $this->memory->build($project, $argument);
 
-        $reply = $keys === []
-            ? 'Belum ada referensi terdaftar. Tambahkan referensi terlebih dahulu agar sitasi terikat pada sumber nyata.'
-            : 'Sitasi valid yang dapat dipakai: '.implode('; ', array_slice($keys, 0, 8)).'.';
+            $keys = $context->citationKeys();
 
-        return ['command' => SlashCommand::SITASI->value, 'reply' => $reply, 'data' => ['citations' => $context->citations]];
+            $reply = $keys === []
+                ? 'Belum ada referensi terdaftar. Tambahkan referensi terlebih dahulu agar sitasi terikat pada sumber nyata.'
+                : 'Sitasi valid yang dapat dipakai: '.implode('; ', array_slice($keys, 0, 8)).'.';
+
+            return ['command' => SlashCommand::SITASI->value, 'reply' => $reply, 'data' => ['citations' => $context->citations]];
+        }
+
+        $refKeys = $project->references()->pluck('citation_key')->filter()->all();
+
+        $plainText = '';
+        $sourceLabel = '';
+        if ($contextDocument !== null) {
+            $plainText = app(NaskahRichModel::class)->toPlainText((array) ($contextDocument->blocks ?? []));
+            $sourceLabel = 'Dokumen Naskah: '.$contextDocument->title;
+        } else {
+            $stage = $this->stageRecord($project);
+            $sections = $stage?->sections_content ?? [];
+            $collected = [];
+            foreach ($sections as $sec) {
+                if (! empty($sec['content'])) {
+                    $collected[] = strip_tags((string) $sec['content']);
+                }
+            }
+            $plainText = implode("\n\n", $collected);
+            $sourceLabel = 'Draf Naskah Tahap '.strtoupper($project->current_stage->value);
+        }
+
+        // Ekstrak pola [@key], [key], atau (Author, Year)
+        preg_match_all('/\[@?([a-zA-Z0-9_\-]+)\]/u', $plainText, $bracketMatches);
+        preg_match_all('/\(([A-Z][a-zA-Z\s]+(?:et\sal\.)?,\s?\d{4}[a-z]?)\)/u', $plainText, $parenMatches);
+
+        $foundKeys = [];
+        if (! empty($bracketMatches[1])) {
+            foreach ($bracketMatches[1] as $k) {
+                $trimmed = trim((string) $k);
+                if (! is_numeric($trimmed) && mb_strlen($trimmed) >= 3) {
+                    $foundKeys[] = $trimmed;
+                }
+            }
+        }
+        if (! empty($parenMatches[1])) {
+            foreach ($parenMatches[1] as $p) {
+                $trimmed = trim((string) $p);
+                if ($trimmed !== '') {
+                    $foundKeys[] = $trimmed;
+                }
+            }
+        }
+
+        $foundKeys = array_values(array_unique($foundKeys));
+        $normalizedRefKeys = array_map('mb_strtolower', $refKeys);
+
+        $verified = [];
+        $unmatched = [];
+
+        foreach ($foundKeys as $key) {
+            $matched = false;
+            $lowerKey = mb_strtolower($key);
+
+            if (in_array($lowerKey, $normalizedRefKeys, true)) {
+                $matched = true;
+            } else {
+                foreach ($refKeys as $rKey) {
+                    if (str_contains(mb_strtolower($rKey), $lowerKey) || str_contains($lowerKey, mb_strtolower($rKey))) {
+                        $matched = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($matched) {
+                $verified[] = $key;
+            } else {
+                $unmatched[] = $key;
+            }
+        }
+
+        $uncited = [];
+        foreach ($refKeys as $rKey) {
+            $cited = false;
+            foreach ($foundKeys as $fKey) {
+                if (mb_strtolower($rKey) === mb_strtolower($fKey) || str_contains(mb_strtolower($fKey), mb_strtolower($rKey))) {
+                    $cited = true;
+                    break;
+                }
+            }
+            if (! $cited) {
+                $uncited[] = $rKey;
+            }
+        }
+
+        $words = str_word_count($plainText);
+        $density = $words > 0 ? round((count($verified) / $words) * 1000, 2) : 0.0;
+
+        $reply = "### 🔍 Laporan Audit Integritas Sitasi Akademik\n\n"
+            ."**Sumber Analisis**: {$sourceLabel}\n"
+            ."- **Total Sitasi Terdeteksi**: ".count($foundKeys)."\n"
+            ."- **Sitasi Tervalidasi di Pustaka**: ".count($verified)."\n"
+            ."- **Sitasi Belum Terdaftar / Berpotensi Halusinasi**: ".count($unmatched)."\n"
+            ."- **Referensi Pustaka Belum Disitasi**: ".count($uncited)."\n"
+            ."- **Densitas Sitasi Akademik**: {$density} sitasi per 1.000 kata\n\n";
+
+        if ($verified !== []) {
+            $reply .= "#### ✅ Sitasi Tervalidasi di Pustaka\n"
+                .implode(', ', array_map(static fn ($k): string => '`'.$k.'`', array_slice($verified, 0, 10)))
+                .(count($verified) > 10 ? ' (dan '.(count($verified) - 10).' lainnya)' : '')
+                ."\n\n";
+        }
+
+        if ($unmatched !== []) {
+            $reply .= "#### ⚠️ Sitasi Belum Terdaftar / Potensi Halusinasi\n"
+                ."Sitasi berikut ditemukan dalam naskah tetapi tidak tercatat dalam pustaka riset proyek:\n"
+                .implode(', ', array_map(static fn ($k): string => '`'.$k.'`', $unmatched))
+                ."\n*Saran*: Masukkan metadata referensi ini ke daftar referensi proyek atau periksa salah ketik (typo) pada citation key.\n\n";
+        } else {
+            $reply .= "#### ✅ Integritas Bebas Halusinasi\n"
+                ."Seluruh sitasi dalam naskah berhasil dicocokkan dengan pustaka referensi proyek.\n\n";
+        }
+
+        if ($uncited !== []) {
+            $reply .= "#### 📚 Referensi di Pustaka yang Belum Disitasi (Orphan References)\n"
+                .implode(', ', array_map(static fn ($k): string => '`'.$k.'`', array_slice($uncited, 0, 8)))
+                .(count($uncited) > 8 ? ' (dan '.(count($uncited) - 8).' lainnya)' : '')
+                ."\n\n";
+        }
+
+        $reply .= "#### 💡 Rekomendasi Reviewer Jurnal / Penguji\n"
+            .($density < 10.0
+                ? '- Densitas sitasi relatif rendah (< 10/1k kata). Tambahkan rujukan empiris SOTA terkini (5 tahun terakhir) untuk memperkuat justifikasi klaim.'
+                : '- Densitas sitasi baik dan proporsional untuk standar manuskrip Scopus / WoS.')
+            ."\n- Pastikan seluruh format tanda kurung atau kurung siku konsisten dengan style aktif (APA 7th, IEEE, atau Chicago).";
+
+        return [
+            'command' => SlashCommand::SITASI->value,
+            'reply' => $reply,
+            'data' => [
+                'source' => $sourceLabel,
+                'verified' => $verified,
+                'unmatched' => $unmatched,
+                'uncited' => $uncited,
+                'density_per_1k' => $density,
+            ],
+        ];
     }
 
     /**

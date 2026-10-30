@@ -433,6 +433,7 @@
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#4338ca; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/kebaruan')" title="Eksekusi analisis kebaruan sekarang">⚡ Cek Kebaruan</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#0f766e; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/keterbacaan')" title="Eksekusi audit keterbacaan sekarang">⚡ Cek Keterbacaan</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#0369a1; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/daftar-pustaka')" title="Format pustaka sekarang">⚡ Format Pustaka</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#059669; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/sitasi audit')" title="Eksekusi audit integritas sitasi & deteksi halusinasi">⚡ Audit Sitasi</button>
                     </div>
 
                     {{-- Riwayat Prompt Sesi --}}

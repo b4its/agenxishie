@@ -82,6 +82,9 @@ enum SlashCommand: string
         $trimmed = trim($input);
         $firstToken = mb_strtolower(explode(' ', $trimmed)[0] ?? '');
 
+        if (in_array($firstToken, ['/audit-sitasi', '/cek-sitasi', '/verifikasi-sitasi', '/sitasi-audit'], true)) {
+            return self::SITASI;
+        }
         if ($firstToken === '/perbaiki-ejaan') {
             return self::PUEBI;
         }

@@ -393,6 +393,7 @@ class XishieAssistantPage extends Page
                 'persona' => $this->currentPersona,
                 'scope' => $this->assistantScope,
                 'command' => $result['command'] ?? 'chat',
+                'data' => $result['data'] ?? [],
                 'created_at' => now()->format('H:i:s'),
                 'is_regenerated' => true,
             ];
@@ -602,6 +603,7 @@ class XishieAssistantPage extends Page
                 'persona' => $this->currentPersona,
                 'scope' => $this->assistantScope,
                 'command' => $result['command'] ?? 'chat',
+                'data' => $result['data'] ?? [],
                 'created_at' => now()->format('H:i:s'),
             ];
         } catch (\Throwable $exception) {
@@ -731,13 +733,15 @@ class XishieAssistantPage extends Page
             'created_at' => now()->format('H:i:s'),
         ];
 
+        $contextDoc = $this->activeDocumentId ? NaskahDocument::query()->find($this->activeDocumentId) : null;
         $service = app(XishieAssistantService::class);
         $res = $service->handle(
             $project,
             $input,
             $modelId,
             $this->currentPersona,
-            $this->assistantScope
+            $this->assistantScope,
+            $contextDoc
         );
         $reply = $res['reply'] ?? '';
 
