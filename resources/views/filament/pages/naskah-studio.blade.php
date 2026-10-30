@@ -1817,6 +1817,7 @@
                             <button type="button" class="ns-btn" wire:click="runTool('/kebaruan')" title="Audit novelty dan kebaruan riset">💡 Kebaruan</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/keterbacaan')" title="Audit skor keterbacaan naskah">📈 Keterbacaan</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/format-paragraf')" title="Audit kaidah format paragraf">📐 Format Paragraf</button>
+                            <button type="button" class="ns-btn" wire:click="auditCitations" style="color:#047857; font-weight:700;" title="Audit integritas sitasi naskah dan deteksi halusinasi">🔍 Audit Sitasi</button>
                             <button type="button" class="ns-btn" wire:click="runTool('/ringkas')">&#128221; Ringkas Naskah</button>
                         </div>
                     </div>
@@ -1861,6 +1862,8 @@
                             <button type="button" class="ns-btn @if($showGridlines) ns-btn--active @endif" wire:click="$toggle('showGridlines')">&#8862; Kisi Kertas</button>
                             <button type="button" class="ns-btn @if($showComments) ns-btn--active @endif" wire:click="$toggle('showComments')">&#128172; Komentar</button>
                             <button type="button" class="ns-btn @if($showRevisions) ns-btn--active @endif" wire:click="$toggle('showRevisions')">&#128065; Revisi</button>
+                            <button type="button" class="ns-btn @if(!empty($pageSetup['lineNumbers'])) ns-btn--active @endif" wire:click="toggleLineNumbers" title="Tampilkan atau sembunyikan nomor baris naskah">#️⃣ No. Baris</button>
+                            <button type="button" class="ns-btn @if($zenMode) ns-btn--active @endif" wire:click="toggleZenMode" title="Alihkan mode fokus bebas distraksi">🧘 Mode Fokus</button>
                         </div>
                     </div>
                     <div class="ns-group">

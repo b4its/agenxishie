@@ -1362,6 +1362,7 @@
                             <button type="button" class="word-tool-btn" wire:click="runTool('/cek-pedoman')" title="Audit kepatuhan pedoman naskah">📜 Cek Pedoman</button>
                             <button type="button" class="word-tool-btn" wire:click="runTool('/cek-gap')" title="Audit celah riset dan gap literatur">🔬 Cek Gap</button>
                             <button type="button" class="word-tool-btn" wire:click="runTool('/keterbacaan')" title="Audit indeks keterbacaan naskah">📈 Keterbacaan</button>
+                            <button type="button" class="word-tool-btn" wire:click="auditCitations" title="Audit kepatuhan dan integritas sitasi naskah">🔍 Audit Sitasi</button>
                             <button type="button" class="word-tool-btn" wire:click="runTool('/format-paragraf')" title="Audit &amp; rapikan format paragraf naskah">📐 Format Paragraf</button>
                         </div>
                     </div>
@@ -1410,6 +1411,8 @@
                         <button type="button" class="word-tool-btn {{ $showRuler ? 'active' : '' }}" wire:click="$toggle('showRuler')">📏 Ruler</button>
                         <button type="button" class="word-tool-btn {{ $showGridlines ? 'active' : '' }}" wire:click="$toggle('showGridlines')">▦ Gridlines</button>
                         <button type="button" class="word-tool-btn {{ $showNavigation ? 'active' : '' }}" wire:click="$toggle('showNavigation')">🧭 Navigation Pane</button>
+                        <button type="button" class="word-tool-btn {{ !empty($pageSetup['lineNumbers']) ? 'active' : '' }}" wire:click="toggleLineNumbers" title="Toggle Document Line Numbers">#️⃣ Line Numbers</button>
+                        <button type="button" class="word-tool-btn {{ $zenMode ? 'active' : '' }}" wire:click="toggleZenMode" title="Toggle Zen Focus Mode">🧘 Zen Mode</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Show</span></div>
