@@ -73,9 +73,9 @@ class NaskahStudioApp extends Component
         $this->sessionStartedAt = Carbon::now()->toIso8601String();
         $this->sessionSeconds = 0;
         $this->showRuler = true;
-        $this->showComments = false;
-        $this->showRevisions = false;
-        $this->assistantOpen = false;
+        $this->showComments = request()->boolean('comments') || request()->query('comments') !== null || request()->query('pane') === 'comments';
+        $this->showRevisions = request()->boolean('revisions') || request()->query('revisions') !== null || request()->query('pane') === 'revisions';
+        $this->assistantOpen = request()->boolean('assistant') || request()->query('assistant') !== null || request()->query('pane') === 'assistant';
 
         // Inisialisasi dokumen contoh handbook Microsoft Word hanya jika belum ada blok sama sekali
         if ($targetDocId === null && empty($this->blocks)) {

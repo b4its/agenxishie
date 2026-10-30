@@ -687,6 +687,17 @@ class XishieAssistantPage extends Page
             $formula = (string) $entry['data']['latex'];
             $caption = (string) ($entry['data']['caption'] ?? '');
             $newBlocks = [$richModel->newEquationBlock($formula, $caption)];
+        } elseif (! empty($entry['data']['callout_block']) && is_array($entry['data']['callout_block'])) {
+            $newBlocks = [$richModel->normalizeBlock($entry['data']['callout_block'])];
+        } elseif (! empty($entry['data']['footnote_block']) && is_array($entry['data']['footnote_block'])) {
+            $newBlocks = [$richModel->normalizeBlock($entry['data']['footnote_block'])];
+        } elseif (! empty($entry['data']['blocks']) && is_array($entry['data']['blocks'])) {
+            $newBlocks = [];
+            foreach ($entry['data']['blocks'] as $b) {
+                if (is_array($b)) {
+                    $newBlocks[] = $richModel->normalizeBlock($b);
+                }
+            }
         } else {
             $newBlocks = $richModel->parseMarkdownToBlocks($content);
             if (empty($newBlocks)) {
@@ -1499,6 +1510,17 @@ class XishieAssistantPage extends Page
                     $formula = (string) $entry['data']['latex'];
                     $caption = (string) ($entry['data']['caption'] ?? '');
                     $respBlocks = [$richModel->newEquationBlock($formula, $caption)];
+                } elseif (! empty($entry['data']['callout_block']) && is_array($entry['data']['callout_block'])) {
+                    $respBlocks = [$richModel->normalizeBlock($entry['data']['callout_block'])];
+                } elseif (! empty($entry['data']['footnote_block']) && is_array($entry['data']['footnote_block'])) {
+                    $respBlocks = [$richModel->normalizeBlock($entry['data']['footnote_block'])];
+                } elseif (! empty($entry['data']['blocks']) && is_array($entry['data']['blocks'])) {
+                    $respBlocks = [];
+                    foreach ($entry['data']['blocks'] as $b) {
+                        if (is_array($b)) {
+                            $respBlocks[] = $richModel->normalizeBlock($b);
+                        }
+                    }
                 } else {
                     $respBlocks = $richModel->parseMarkdownToBlocks($content);
                     if (empty($respBlocks)) {

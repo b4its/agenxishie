@@ -200,6 +200,8 @@ trait HandlesNaskahStudio
 
     public string $commentDraft = '';
 
+    public string $commentFilter = 'all';
+
     // ===== Dialog =====
     public string $dialog = '';
 
@@ -425,6 +427,14 @@ trait HandlesNaskahStudio
         $requestedDialog = request()->query('dialog');
         if (is_string($requestedDialog) && $requestedDialog !== '') {
             $this->openDialog($requestedDialog);
+        }
+
+        if (request()->boolean('comments') || request()->query('comments') !== null || request()->query('pane') === 'comments') {
+            $this->showComments = true;
+        }
+
+        if (request()->boolean('revisions') || request()->query('revisions') !== null || request()->query('pane') === 'revisions') {
+            $this->showRevisions = true;
         }
 
         $documentId = $documentId ?? (request()->query('document') !== null ? (int) request()->query('document') : null);
@@ -3473,6 +3483,8 @@ trait HandlesNaskahStudio
         $this->dialog = '';
         $this->equationLatex = 'E = mc^2';
         $this->equationCaption = '';
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function insertCrossReference(string $type, string $label): void
@@ -3501,6 +3513,8 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->dialog = '';
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Rujukan silang disisipkan', $refText, 'success');
     }
 
@@ -5188,6 +5202,82 @@ trait HandlesNaskahStudio
         $this->dirty = true;
     }
 
+    public function setCommentFilter(string $filter): void
+    {
+        $this->commentFilter = in_array($filter, ['all', 'active', 'resolved'], true) ? $filter : 'all';
+    }
+
+    public function resolveAllComments(): void
+    {
+        $hasPending = false;
+        foreach (array_keys($this->comments) as $i) {
+            if (! ($this->comments[$i]['resolved'] ?? false)) {
+                $this->comments[$i]['resolved'] = true;
+                $hasPending = true;
+            }
+        }
+        if ($hasPending) {
+            $this->dirty = true;
+            $this->notify('Komentar Diselesaikan', 'Seluruh komentar review telah ditandai selesai.', 'success');
+        }
+    }
+
+    public function previousComment(): void
+    {
+        if (empty($this->comments)) {
+            $this->notify('Navigasi Komentar', 'Belum ada komentar dalam dokumen naskah.', 'info');
+
+            return;
+        }
+
+        $active = $this->activeBlock;
+        $prevIndex = null;
+        for ($i = count($this->comments) - 1; $i >= 0; $i--) {
+            $bIdx = (int) ($this->comments[$i]['blockIndex'] ?? 0);
+            if ($bIdx < $active) {
+                $prevIndex = $i;
+                break;
+            }
+        }
+        if ($prevIndex === null) {
+            $prevIndex = count($this->comments) - 1;
+        }
+
+        $targetBlock = (int) ($this->comments[$prevIndex]['blockIndex'] ?? 0);
+        $this->activeBlock = max(0, min($targetBlock, count($this->blocks) - 1));
+        $this->showComments = true;
+        $author = (string) ($this->comments[$prevIndex]['author'] ?? 'Penulis');
+        $this->notify('Komentar Sebelumnya', 'Blok #'.($targetBlock + 1)." oleh {$author}", 'info');
+    }
+
+    public function nextComment(): void
+    {
+        if (empty($this->comments)) {
+            $this->notify('Navigasi Komentar', 'Belum ada komentar dalam dokumen naskah.', 'info');
+
+            return;
+        }
+
+        $active = $this->activeBlock;
+        $nextIndex = null;
+        foreach ($this->comments as $i => $c) {
+            $bIdx = (int) ($c['blockIndex'] ?? 0);
+            if ($bIdx > $active) {
+                $nextIndex = $i;
+                break;
+            }
+        }
+        if ($nextIndex === null) {
+            $nextIndex = 0;
+        }
+
+        $targetBlock = (int) ($this->comments[$nextIndex]['blockIndex'] ?? 0);
+        $this->activeBlock = max(0, min($targetBlock, count($this->blocks) - 1));
+        $this->showComments = true;
+        $author = (string) ($this->comments[$nextIndex]['author'] ?? 'Penulis');
+        $this->notify('Komentar Berikutnya', 'Blok #'.($targetBlock + 1)." oleh {$author}", 'info');
+    }
+
     public function deleteComment(int $commentIndex): void
     {
         if (! isset($this->comments[$commentIndex])) {
@@ -5239,6 +5329,74 @@ trait HandlesNaskahStudio
         $this->dirty = true;
     }
 
+    public function previousRevision(): void
+    {
+        $pending = array_filter($this->revisions, static fn (array $r): bool => ($r['status'] ?? '') === 'pending');
+        if (empty($pending)) {
+            $this->notify('Navigasi Revisi', 'Tidak ada revisi pending untuk ditinjau.', 'info');
+
+            return;
+        }
+
+        $active = $this->activeBlock;
+        $prevBlock = null;
+        $prevAuthor = 'Penulis';
+        foreach (array_reverse($this->revisions) as $r) {
+            if (($r['status'] ?? '') !== 'pending') {
+                continue;
+            }
+            $bIdx = (int) ($r['blockIndex'] ?? 0);
+            if ($bIdx < $active) {
+                $prevBlock = $bIdx;
+                $prevAuthor = (string) ($r['author'] ?? 'Penulis');
+                break;
+            }
+        }
+        if ($prevBlock === null) {
+            $last = end($pending);
+            $prevBlock = (int) ($last['blockIndex'] ?? 0);
+            $prevAuthor = (string) ($last['author'] ?? 'Penulis');
+        }
+
+        $this->activeBlock = max(0, min($prevBlock, count($this->blocks) - 1));
+        $this->showRevisions = true;
+        $this->notify('Revisi Sebelumnya', 'Blok #'.($prevBlock + 1)." oleh {$prevAuthor}", 'info');
+    }
+
+    public function nextRevision(): void
+    {
+        $pending = array_filter($this->revisions, static fn (array $r): bool => ($r['status'] ?? '') === 'pending');
+        if (empty($pending)) {
+            $this->notify('Navigasi Revisi', 'Tidak ada revisi pending untuk ditinjau.', 'info');
+
+            return;
+        }
+
+        $active = $this->activeBlock;
+        $nextBlock = null;
+        $nextAuthor = 'Penulis';
+        foreach ($this->revisions as $r) {
+            if (($r['status'] ?? '') !== 'pending') {
+                continue;
+            }
+            $bIdx = (int) ($r['blockIndex'] ?? 0);
+            if ($bIdx > $active) {
+                $nextBlock = $bIdx;
+                $nextAuthor = (string) ($r['author'] ?? 'Penulis');
+                break;
+            }
+        }
+        if ($nextBlock === null) {
+            $first = reset($pending);
+            $nextBlock = (int) ($first['blockIndex'] ?? 0);
+            $nextAuthor = (string) ($first['author'] ?? 'Penulis');
+        }
+
+        $this->activeBlock = max(0, min($nextBlock, count($this->blocks) - 1));
+        $this->showRevisions = true;
+        $this->notify('Revisi Berikutnya', 'Blok #'.($nextBlock + 1)." oleh {$nextAuthor}", 'info');
+    }
+
     public function acceptRevision(int $revisionIndex): void
     {
         if (! isset($this->revisions[$revisionIndex])) {
@@ -5256,6 +5414,8 @@ trait HandlesNaskahStudio
         $this->revisions[$revisionIndex]['status'] = 'accepted';
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function rejectRevision(int $revisionIndex): void
@@ -5275,6 +5435,8 @@ trait HandlesNaskahStudio
         $this->revisions[$revisionIndex]['status'] = 'rejected';
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function acceptAllRevisions(): void

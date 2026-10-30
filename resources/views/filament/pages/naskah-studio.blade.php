@@ -1810,6 +1810,9 @@
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="openDialog('comment')">+ Komentar</button>
                             <button type="button" class="ns-btn @if($showComments) ns-btn--active @endif" wire:click="$toggle('showComments')">&#128172; Panel Komentar ({{ count($comments) }})</button>
+                            <button type="button" class="ns-btn" wire:click="previousComment" title="Komentar sebelumnya">&#9194; Sblm</button>
+                            <button type="button" class="ns-btn" wire:click="nextComment" title="Komentar berikutnya">&#9193; Lanjut</button>
+                            <button type="button" class="ns-btn" wire:click="resolveAllComments" title="Selesaikan semua komentar">&#10004; Selesai Semua</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -1819,6 +1822,8 @@
                                 &#128065; Lacak: {{ $trackChanges ? 'AKTIF' : 'NONAKTIF' }}
                             </button>
                             <button type="button" class="ns-btn @if($showRevisions) ns-btn--active @endif" wire:click="$toggle('showRevisions')">Panel Revisi ({{ $pendingRevisionCount }})</button>
+                            <button type="button" class="ns-btn" wire:click="previousRevision" title="Revisi pending sebelumnya">&#9194; Sblm</button>
+                            <button type="button" class="ns-btn" wire:click="nextRevision" title="Revisi pending berikutnya">&#9193; Lanjut</button>
                             <button type="button" class="ns-btn" wire:click="acceptAllRevisions" title="Terima semua perubahan">&#10004; Terima Semua</button>
                             <button type="button" class="ns-btn" wire:click="rejectAllRevisions" title="Tolak semua perubahan">&#10008; Tolak Semua</button>
                         </div>
@@ -2930,12 +2935,32 @@
                         </div>
                         <div class="ns-drawer__body">
                             {{-- Tambah komentar pada blok aktif --}}
-                            <div style="display:flex; gap:.3rem;">
+                            <div style="display:flex; gap:.3rem; margin-bottom:.3rem;">
                                 <input type="text" class="ns-btn" style="flex:1;" placeholder="Komentar untuk blok #{{ $activeBlock + 1 }}..." wire:model="commentDraft" wire:keydown.enter="addComment" />
                                 <button type="button" class="ns-btn ns-btn--primary" wire:click="addComment">+</button>
                             </div>
 
-                            @forelse ($comments as $cIdx => $c)
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; font-size:.6rem;">
+                                <div style="display:flex; gap:.2rem;">
+                                    <button type="button" class="ns-btn @if(($commentFilter ?? 'all') === 'all') ns-btn--active @endif" wire:click="setCommentFilter('all')" style="padding:1px 4px; font-size:.55rem;">Semua</button>
+                                    <button type="button" class="ns-btn @if(($commentFilter ?? 'all') === 'active') ns-btn--active @endif" wire:click="setCommentFilter('active')" style="padding:1px 4px; font-size:.55rem;">Aktif</button>
+                                    <button type="button" class="ns-btn @if(($commentFilter ?? 'all') === 'resolved') ns-btn--active @endif" wire:click="setCommentFilter('resolved')" style="padding:1px 4px; font-size:.55rem;">Selesai</button>
+                                </div>
+                                <div style="display:flex; gap:.2rem;">
+                                    <button type="button" class="ns-btn" wire:click="previousComment" title="Komentar Sebelumnya" style="padding:1px 4px; font-size:.55rem;">&#9194;</button>
+                                    <button type="button" class="ns-btn" wire:click="nextComment" title="Komentar Berikutnya" style="padding:1px 4px; font-size:.55rem;">&#9193;</button>
+                                </div>
+                            </div>
+
+                            @php
+                                $filteredComments = collect($comments)->filter(function($c) use ($commentFilter) {
+                                    if (($commentFilter ?? 'all') === 'active') return empty($c['resolved']);
+                                    if (($commentFilter ?? 'all') === 'resolved') return !empty($c['resolved']);
+                                    return true;
+                                })->all();
+                            @endphp
+
+                            @forelse ($filteredComments as $cIdx => $c)
                                 <div class="ns-comment-card @if(!empty($c['resolved'])) ns-comment-card--resolved @endif">
                                     <div style="display:flex; justify-content:space-between; margin-bottom:.2rem;">
                                         <strong>{{ $c['author'] ?? 'Penulis' }}</strong>

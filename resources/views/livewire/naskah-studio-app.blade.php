@@ -1362,6 +1362,9 @@
                 <div class="word-group__content">
                     <button type="button" class="word-tool-btn {{ $showComments ? 'active' : '' }}" wire:click="toggleTaskPane('comments')">💬 Show Comments</button>
                     <button type="button" class="word-tool-btn" wire:click="openDialog('comment')">➕ New Comment</button>
+                    <button type="button" class="word-tool-btn" wire:click="previousComment" title="Previous Comment">⏮ Prev</button>
+                    <button type="button" class="word-tool-btn" wire:click="nextComment" title="Next Comment">⏭ Next</button>
+                    <button type="button" class="word-tool-btn" wire:click="resolveAllComments" title="Resolve all comments">✓ Resolve All</button>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Comments</span></div>
             </div>
@@ -1369,6 +1372,8 @@
             <div class="word-group">
                 <div class="word-group__content">
                     <button type="button" class="word-tool-btn {{ $showRevisions ? 'active' : '' }}" wire:click="toggleTaskPane('revisions')">👁️ Track Changes</button>
+                    <button type="button" class="word-tool-btn" wire:click="previousRevision" title="Previous Pending Revision">⏮ Prev</button>
+                    <button type="button" class="word-tool-btn" wire:click="nextRevision" title="Next Pending Revision">⏭ Next</button>
                     <button type="button" class="word-tool-btn" style="color:#107c41;" wire:click="acceptAllRevisions">✓ Accept All</button>
                     <button type="button" class="word-tool-btn" style="color:#c50f1f;" wire:click="rejectAllRevisions">✕ Reject All</button>
                 </div>
@@ -2851,11 +2856,31 @@
                         <button type="button" class="word-icon-btn" wire:click="closeTaskPane">&times;</button>
                     </div>
                     <div class="word-taskpane-body">
-                        <div style="display:flex; gap:6px;">
+                        <div style="display:flex; gap:6px; margin-bottom:8px;">
                             <input type="text" class="word-select" style="flex:1; height:32px;" placeholder="Comment on block #{{ $activeBlock + 1 }}..." wire:model="commentDraft" wire:keydown.enter="addComment">
                             <button type="button" class="word-btn-pill word-btn-share" wire:click="addComment">Post</button>
                         </div>
-                        @forelse ($comments as $cIdx => $c)
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <div style="display:flex; gap:4px;">
+                                <button type="button" class="word-btn-pill {{ ($commentFilter ?? 'all') === 'all' ? 'active' : '' }}" wire:click="setCommentFilter('all')" style="font-size:10px; padding:2px 6px; height:20px;">All</button>
+                                <button type="button" class="word-btn-pill {{ ($commentFilter ?? 'all') === 'active' ? 'active' : '' }}" wire:click="setCommentFilter('active')" style="font-size:10px; padding:2px 6px; height:20px;">Active</button>
+                                <button type="button" class="word-btn-pill {{ ($commentFilter ?? 'all') === 'resolved' ? 'active' : '' }}" wire:click="setCommentFilter('resolved')" style="font-size:10px; padding:2px 6px; height:20px;">Resolved</button>
+                            </div>
+                            <div style="display:flex; gap:4px;">
+                                <button type="button" class="word-btn-pill" wire:click="previousComment" title="Previous Comment" style="font-size:10px; padding:2px 6px; height:20px;">⏮</button>
+                                <button type="button" class="word-btn-pill" wire:click="nextComment" title="Next Comment" style="font-size:10px; padding:2px 6px; height:20px;">⏭</button>
+                            </div>
+                        </div>
+
+                        @php
+                            $filteredComments = collect($comments)->filter(function($c) use ($commentFilter) {
+                                if (($commentFilter ?? 'all') === 'active') return empty($c['resolved']);
+                                if (($commentFilter ?? 'all') === 'resolved') return !empty($c['resolved']);
+                                return true;
+                            })->all();
+                        @endphp
+
+                        @forelse ($filteredComments as $cIdx => $c)
                             <div style="padding:10px; border-radius:6px; border:1px solid #e1dfdd; background:#ffffff; box-shadow:var(--ms-shadow-card);">
                                 <div style="display:flex; justify-content:space-between; font-size:11px; color:#8a8886; margin-bottom:4px;">
                                     <strong>{{ $c['author'] ?? 'Reviewer' }}</strong>
