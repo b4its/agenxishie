@@ -269,6 +269,13 @@ trait HandlesNaskahStudio
 
     public string $scratchpadNotes = '';
 
+    /**
+     * Kata-kata kamus khusus pengguna (PUEBI & Istilah Ilmiah Kustom).
+     *
+     * @var array<int, string>
+     */
+    public array $customDictionary = [];
+
     public string $calloutType = 'info';
 
     /**
@@ -603,6 +610,10 @@ trait HandlesNaskahStudio
         $this->snapshots = (array) ($document->style_meta['snapshots'] ?? []);
         $this->metadata = array_merge($this->metadata, (array) ($document->style_meta['metadata'] ?? []));
         $this->targetWordCount = (int) ($document->style_meta['target_word_count'] ?? 0);
+        $this->scratchpadNotes = (string) ($document->style_meta['scratchpad_notes'] ?? '');
+        $this->customDictionary = (array) ($document->style_meta['custom_dictionary'] ?? []);
+        $this->proofingLanguage = (string) ($document->style_meta['proofing_language'] ?? 'Indonesia (PUEBI)');
+        $this->citationStyle = (string) ($document->style_meta['citation_style'] ?? 'APA');
         $this->lastSavedAt = $document->last_saved_at?->diffForHumans();
         $this->dirty = false;
         $this->editorRevision++;
@@ -660,8 +671,10 @@ trait HandlesNaskahStudio
             'snapshots' => $this->snapshots,
             'metadata' => $this->metadata,
             'target_word_count' => $this->targetWordCount,
-            'proofing_language' => $this->proofingLanguage ?? 'id',
+            'scratchpad_notes' => $this->scratchpadNotes,
+            'proofing_language' => $this->proofingLanguage ?? 'Indonesia (PUEBI)',
             'custom_dictionary' => $this->customDictionary ?? [],
+            'citation_style' => $this->citationStyle,
         ]);
 
         $document = NaskahDocument::create([
@@ -3733,10 +3746,11 @@ trait HandlesNaskahStudio
 
             if ($refs->isNotEmpty()) {
                 $formatter = app(CitationFormatter::class);
-                $style = match ($this->citationStyle) {
+                $style = match (strtoupper($this->citationStyle)) {
                     'IEEE' => CitationStyle::IEEE,
-                    'Harvard' => CitationStyle::HARVARD,
-                    'Chicago' => CitationStyle::CHICAGO,
+                    'HARVARD' => CitationStyle::HARVARD,
+                    'CHICAGO' => CitationStyle::CHICAGO,
+                    'VANCOUVER' => CitationStyle::VANCOUVER,
                     default => CitationStyle::APA7,
                 };
                 $formattedEntries = $formatter->bibliography($refs, $style);
@@ -3823,10 +3837,11 @@ trait HandlesNaskahStudio
             $refs = $project->references()->orderBy('citation_key')->limit(50)->get();
             if ($refs->isNotEmpty()) {
                 $formatter = app(CitationFormatter::class);
-                $style = match ($this->citationStyle) {
+                $style = match (strtoupper($this->citationStyle)) {
                     'IEEE' => CitationStyle::IEEE,
-                    'Harvard' => CitationStyle::HARVARD,
-                    'Chicago' => CitationStyle::CHICAGO,
+                    'HARVARD' => CitationStyle::HARVARD,
+                    'CHICAGO' => CitationStyle::CHICAGO,
+                    'VANCOUVER' => CitationStyle::VANCOUVER,
                     default => CitationStyle::APA7,
                 };
                 $formattedEntries = $formatter->bibliography($refs, $style);
@@ -3867,17 +3882,20 @@ trait HandlesNaskahStudio
 
     public function setCitationStyle(string $style): void
     {
-        $this->citationStyle = in_array($style, ['APA', 'IEEE', 'Harvard', 'Chicago', 'MLA'], true) ? $style : 'APA';
+        $this->citationStyle = in_array(strtoupper($style), ['APA', 'IEEE', 'HARVARD', 'CHICAGO', 'VANCOUVER', 'MLA'], true) ? strtoupper($style) : 'APA';
+        $this->styleMeta['citation_style'] = $this->citationStyle;
+        $this->dirty = true;
         $this->updateBibliography();
     }
 
     public function insertCitation(?string $citationText = null): void
     {
         $this->pushUndo();
-        $citation = $citationText ?? match ($this->citationStyle) {
+        $citation = $citationText ?? match (strtoupper($this->citationStyle)) {
             'IEEE' => '[1]',
-            'Harvard' => '(Gauntlett 2018)',
-            'Chicago' => '(Gauntlett 2018, 45)',
+            'VANCOUVER' => '(1)',
+            'HARVARD' => '(Gauntlett 2018)',
+            'CHICAGO' => '(Gauntlett 2018, 45)',
             'MLA' => '(Gauntlett 45)',
             default => '(Gauntlett, 2018)',
         };
@@ -3912,10 +3930,11 @@ trait HandlesNaskahStudio
 
         $year = $ref->year ?: date('Y');
 
-        $citationText = match ($this->citationStyle) {
+        $citationText = match (strtoupper($this->citationStyle)) {
             'IEEE' => "[{$ref->id}]",
-            'Harvard' => "({$authorName} {$year})",
-            'Chicago' => "({$authorName} {$year})",
+            'VANCOUVER' => "({$ref->id})",
+            'HARVARD' => "({$authorName} {$year})",
+            'CHICAGO' => "({$authorName} {$year})",
             'MLA' => "({$authorName})",
             default => "({$authorName}, {$year})",
         };
@@ -4062,6 +4081,7 @@ trait HandlesNaskahStudio
     public function saveScratchpadNotes(string $notes): void
     {
         $this->scratchpadNotes = $notes;
+        $this->styleMeta['scratchpad_notes'] = $notes;
         $this->dirty = true;
         $this->notify('Catatan Riset Tersimpan', 'Catatan kerja Anda telah diperbarui.', 'info');
     }
@@ -4100,6 +4120,7 @@ trait HandlesNaskahStudio
     public function clearScratchpadNotes(): void
     {
         $this->scratchpadNotes = '';
+        $this->styleMeta['scratchpad_notes'] = '';
         $this->dirty = true;
         $this->notify('Catatan Dibersihkan', 'Catatan kerja telah dikosongkan.', 'info');
     }
@@ -5014,12 +5035,28 @@ trait HandlesNaskahStudio
             return;
         }
 
-        $custom = (array) ($this->styleMeta['custom_dictionary'] ?? []);
+        $custom = (array) ($this->styleMeta['custom_dictionary'] ?? $this->customDictionary);
         if (! in_array($cleanWord, $custom, true)) {
             $custom[] = $cleanWord;
             $this->styleMeta['custom_dictionary'] = $custom;
+            $this->customDictionary = $custom;
             $this->dirty = true;
             $this->notify('Kata Ditambahkan ke Kamus', "'{$cleanWord}' sekarang diakui sebagai kata baku.", 'success');
+        }
+    }
+
+    public function removeCustomWordFromDictionary(string $word): void
+    {
+        $cleanWord = mb_strtolower(trim($word));
+        $custom = (array) ($this->styleMeta['custom_dictionary'] ?? $this->customDictionary);
+        $key = array_search($cleanWord, $custom, true);
+        if ($key !== false) {
+            unset($custom[$key]);
+            $custom = array_values($custom);
+            $this->styleMeta['custom_dictionary'] = $custom;
+            $this->customDictionary = $custom;
+            $this->dirty = true;
+            $this->notify('Kata Dihapus dari Kamus', "'{$cleanWord}' dihapus dari kamus pengguna.", 'info');
         }
     }
 
@@ -5028,7 +5065,7 @@ trait HandlesNaskahStudio
      */
     private function smallDictionary(): array
     {
-        $custom = (array) ($this->styleMeta['custom_dictionary'] ?? []);
+        $custom = (array) ($this->styleMeta['custom_dictionary'] ?? $this->customDictionary);
         $academicIndonesia = [
             'sota', 'puebi', 'mendeley', 'zotero', 'latex', 'scopus', 'sinta', 'omnigensi', 'xishie',
             'bibliometrik', 'tokenizer', 'lora', 'llm', 'bert', 'deep learning', 'machine learning',
@@ -5481,6 +5518,10 @@ trait HandlesNaskahStudio
             'snapshots' => $this->snapshots,
             'metadata' => $this->metadata,
             'target_word_count' => $this->targetWordCount,
+            'scratchpad_notes' => $this->scratchpadNotes,
+            'proofing_language' => $this->proofingLanguage,
+            'custom_dictionary' => $this->customDictionary,
+            'citation_style' => $this->citationStyle,
         ]);
 
         $data = [
