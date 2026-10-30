@@ -525,6 +525,9 @@ class NaskahStudioApiController extends Controller
             'table' => 'Buatkan tabel matriks sintesis data atau perbandingan indikator penelitian secara terstruktur.',
             'equation' => 'Formulasikan persamaan matematis atau ekonometris relevan menggunakan notasi LaTeX $$...$$.',
             'critique' => 'Lakukan evaluasi kritis komprehensif terhadap kelemahan argumen, ancaman validitas, dan saran mitigasi metodologis.',
+            'abstract' => 'Susun draf abstrak akademik terstruktur berformat IMRAD (Latar Belakang, Tujuan, Metode, Hasil, Implikasi) dengan kata kunci ilmiah.',
+            'methodology' => 'Rancang bagian metodologi penelitian terstruktur mencakup desain riset, populasi/sampel, instrumen, dan prosedur validasi data.',
+            'thesaurus' => 'Eksplorasi padanan kata dan variasi sinonim akademik baku untuk memperkaya naskah ilmiah.',
         ];
 
         $prompt = trim((string) $request->input('prompt', ''));
@@ -548,6 +551,7 @@ class NaskahStudioApiController extends Controller
 
         $target = (string) $request->input('target', 'current_page');
         $page = max(1, (int) $request->input('page', 1));
+        $maxTokens = max(50, min(2000, (int) $request->input('max_tokens', 1000)));
 
         $llm = app(OmnigensiChatClient::class);
         $generated = null;
@@ -558,7 +562,7 @@ class NaskahStudioApiController extends Controller
             $systemPrompt = 'Anda adalah asisten cerdas penulisan ilmiah Naskah Studio. Hasilkan konten terstruktur siap pakai (paragraf ilmiah, heading markdown, tabel |...|, rumus LaTeX $$...$$, atau poin acuan) dalam Bahasa Indonesia akademik formal. Jangan memberikan basa-basi pembuka atau penutup.';
             $userPrompt = "Konteks naskah:\nJudul: {$document->title}\nCuplikan naskah:\n{$documentText}\n\nInstruksi pembuatan konten:\n{$prompt}";
 
-            $generated = $llm->generate($userPrompt, $systemPrompt, 0.6, 1000, $modelId);
+            $generated = $llm->generate($userPrompt, $systemPrompt, 0.6, $maxTokens, $modelId);
         } catch (\Throwable) {
             $generated = null;
         }

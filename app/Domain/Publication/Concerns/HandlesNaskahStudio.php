@@ -5448,6 +5448,8 @@ trait HandlesNaskahStudio
             $this->blocks[$this->activeBlock]['runs'] = [];
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Sinonim Diterapkan', "Kata '{$targetWord}' diganti dengan '{$synonym}'.", 'success');
         } else {
             $cleanText = trim($text);
@@ -5455,6 +5457,8 @@ trait HandlesNaskahStudio
             $this->blocks[$this->activeBlock]['runs'] = [];
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Sinonim Disisipkan', "Sinonim '{$synonym}' disisipkan ke blok aktif.", 'success');
         }
     }
@@ -5575,6 +5579,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function findNext(): void
@@ -5699,6 +5704,7 @@ trait HandlesNaskahStudio
                     $this->dirty = true;
                     $this->editorRevision++;
                     $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+                    $this->statistics = $this->model->computeStatistics($this->blocks);
                     $this->findResult = "1 kemunculan pada judul tabel blok #".($index + 1)." berhasil diganti.";
                     $this->findNext();
 
@@ -5714,6 +5720,7 @@ trait HandlesNaskahStudio
                             $this->dirty = true;
                             $this->editorRevision++;
                             $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+                            $this->statistics = $this->model->computeStatistics($this->blocks);
                             $this->findResult = "1 kemunculan pada sel tabel blok #".($index + 1)." berhasil diganti.";
                             $this->findNext();
 
@@ -5732,6 +5739,8 @@ trait HandlesNaskahStudio
                     }
                     $this->dirty = true;
                     $this->editorRevision++;
+                    $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+                    $this->statistics = $this->model->computeStatistics($this->blocks);
                     $this->findResult = "1 kemunculan pada keterangan persamaan blok #".($index + 1)." berhasil diganti.";
                     $this->findNext();
 
@@ -5748,6 +5757,8 @@ trait HandlesNaskahStudio
                     }
                     $this->dirty = true;
                     $this->editorRevision++;
+                    $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+                    $this->statistics = $this->model->computeStatistics($this->blocks);
                     $this->findResult = "1 kemunculan pada rumus persamaan blok #".($index + 1)." berhasil diganti.";
                     $this->findNext();
 
@@ -5762,6 +5773,7 @@ trait HandlesNaskahStudio
                     $this->dirty = true;
                     $this->editorRevision++;
                     $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+                    $this->statistics = $this->model->computeStatistics($this->blocks);
                     $this->findResult = "1 kemunculan pada blok #".($index + 1)." berhasil diganti.";
                     $this->findNext();
 
@@ -5817,6 +5829,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->dialog = '';
         $this->notify('Mail merge disisipkan', count($rows).' dokumen.', 'success');
     }
@@ -5849,6 +5862,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Field Merge Disisipkan', $tag, 'success');
     }
 
@@ -6642,6 +6656,7 @@ trait HandlesNaskahStudio
         $this->activeBlock = max(0, min($insertedIndex ?? (count($this->blocks) - 1), count($this->blocks) - 1));
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->statistics = $this->model->computeStatistics($this->blocks);
 
         $typeLabel = count($blocksToInsert) === 1 ? ($blocksToInsert[0]['type'] ?? 'blok') : count($blocksToInsert).' blok';
@@ -7971,7 +7986,7 @@ trait HandlesNaskahStudio
         $hasArg = trim(substr($trimmed, strlen($firstToken))) !== '';
 
         $effectiveInput = $input;
-        if (! $hasArg && in_array($firstToken, ['/poles', '/parafrase', '/kembangkan', '/puebi', '/perbaiki-ejaan', '/terjemahkan', '/ringkaskan', '/keterbacaan'], true)) {
+        if (! $hasArg && in_array($firstToken, ['/poles', '/parafrase', '/kembangkan', '/puebi', '/perbaiki-ejaan', '/terjemahkan', '/ringkaskan', '/keterbacaan', '/tesaurus', '/thesaurus', '/sinonim', '/padanan-kata'], true)) {
             $fallbackArg = $activeBlockText !== '' ? $activeBlockText : Str::limit(trim($this->documentText()), 400, '');
             if ($fallbackArg !== '') {
                 $effectiveInput = $firstToken.' '.$fallbackArg;
@@ -8139,14 +8154,41 @@ trait HandlesNaskahStudio
                 '| Peneliti & Tahun | Fokus Kajian & Topik | Temuan Kunci / Metode | Relevansi Terhadap Draf |',
                 '|---|---|---|---|',
             ];
+            $matrixRows = [
+                [
+                    ['text' => 'Peneliti & Tahun'],
+                    ['text' => 'Fokus Kajian & Topik'],
+                    ['text' => 'Temuan Kunci / Metode'],
+                    ['text' => 'Relevansi Terhadap Draf'],
+                ],
+            ];
             foreach ($refs as $r) {
                 $authorYear = ($r['authors'] ?? 'Penulis').' ('.($r['year'] ?? '2022').')';
                 $title = Str::limit($r['title'] ?? 'Kajian Literatur', 32);
                 $lines[] = "| **{$authorYear}** | {$title} | Analisis empiris kualitatif | Landasan komparatif bab Pendahuluan & Pembahasan |";
+                $matrixRows[] = [
+                    ['text' => $authorYear],
+                    ['text' => $title],
+                    ['text' => 'Analisis empiris kualitatif'],
+                    ['text' => 'Landasan komparatif bab Pendahuluan & Pembahasan'],
+                ];
             }
             $lines[] = "\n*Gunakan data matriks di atas untuk memperkuat sintesis State-of-the-Art dan research gap pada paragraf aktif naskah Anda.*";
 
-            return ['reply' => implode("\n", $lines), 'data' => ['matrix' => $refs]];
+            return [
+                'reply' => implode("\n", $lines),
+                'data' => [
+                    'matrix' => $refs,
+                    'table_block' => [
+                        'type' => 'table',
+                        'caption' => 'Matriks Sintesis Literatur & State of the Art (SOTA)',
+                        'table' => [
+                            'header' => true,
+                            'rows' => $matrixRows,
+                        ],
+                    ],
+                ],
+            ];
         }
 
         if (str_starts_with($effectiveInput, '/cari-referensi') || str_starts_with($effectiveInput, '/cari-ref') || str_starts_with($effectiveInput, '/referensi') || str_starts_with($effectiveInput, '/search-ref')) {
@@ -8224,6 +8266,44 @@ trait HandlesNaskahStudio
         }
 
         if (str_starts_with($effectiveInput, '/tabel-analisis')) {
+            $tableRows = [
+                [
+                    ['text' => 'Parameter Evaluasi'],
+                    ['text' => 'Metode Konvensional'],
+                    ['text' => 'Pendekatan Yang Diusulkan'],
+                    ['text' => 'Peningkatan'],
+                    ['text' => 'Signifikansi'],
+                ],
+                [
+                    ['text' => 'Rasio Kepatuhan Pedoman'],
+                    ['text' => '62.4%'],
+                    ['text' => '89.2%'],
+                    ['text' => '+26.8%'],
+                    ['text' => 'p < 0.01'],
+                ],
+                [
+                    ['text' => 'Efisiensi Waktu Sesi Draf'],
+                    ['text' => '18.5 jam'],
+                    ['text' => '11.2 jam'],
+                    ['text' => '-39.5%'],
+                    ['text' => 'p < 0.05'],
+                ],
+                [
+                    ['text' => 'Kepadatan Sitasi Terverifikasi'],
+                    ['text' => '8.2 / 1000 kata'],
+                    ['text' => '14.6 / 1000 kata'],
+                    ['text' => '+78.0%'],
+                    ['text' => 'p < 0.01'],
+                ],
+                [
+                    ['text' => 'Indeks Keselarasan IMRAD'],
+                    ['text' => '70.1 / 100'],
+                    ['text' => '92.5 / 100'],
+                    ['text' => '+31.9%'],
+                    ['text' => 'p < 0.01'],
+                ],
+            ];
+
             $reply = "### Matriks Evaluasi & Analisis Komparasi Kinerja\n\n"
                 ."| Parameter Evaluasi | Metode Konvensional | Pendekatan Yang Diusulkan | Peningkatan | Signifikansi |\n"
                 ."|---|---|---|---|---|\n"
@@ -8233,7 +8313,20 @@ trait HandlesNaskahStudio
                 ."| Indeks Keselarasan IMRAD | 70.1 / 100 | 92.5 / 100 | +31.9% | p < 0.01 |\n\n"
                 .'*Klik **Sisipkan ke Naskah** untuk menambahkan tabel komparasi ini langsung ke lembar naskah.*';
 
-            return ['reply' => $reply, 'data' => ['table' => true]];
+            return [
+                'reply' => $reply,
+                'data' => [
+                    'table' => true,
+                    'table_block' => [
+                        'type' => 'table',
+                        'caption' => 'Matriks Evaluasi & Analisis Komparasi Kinerja',
+                        'table' => [
+                            'header' => true,
+                            'rows' => $tableRows,
+                        ],
+                    ],
+                ],
+            ];
         }
 
         if (str_starts_with($effectiveInput, '/terjemahkan')) {
@@ -8347,6 +8440,11 @@ trait HandlesNaskahStudio
                     'latex' => $recommendation['latex'],
                     'caption' => '('.$recommendation['caption'].')',
                     'title' => $recommendation['title'],
+                    'equation_block' => [
+                        'type' => 'equation',
+                        'latex' => $recommendation['latex'],
+                        'caption' => '('.$recommendation['caption'].')',
+                    ],
                 ],
             ];
         }
@@ -8555,6 +8653,75 @@ trait HandlesNaskahStudio
                 .'*Status: Rentang kata per kalimat berada dalam standar naskah ilmiah bereputasi (14–22 kata per kalimat).*';
 
             return ['reply' => $reply, 'data' => ['readability' => true, 'stats' => $stats]];
+        }
+
+        if (str_starts_with($effectiveInput, '/tesaurus') || str_starts_with($effectiveInput, '/thesaurus') || str_starts_with($effectiveInput, '/sinonim') || str_starts_with($effectiveInput, '/padanan-kata')) {
+            $word = trim((string) preg_replace('/^\/(tesaurus|thesaurus|sinonim|padanan-kata)\s*/i', '', $effectiveInput));
+            if ($word === '') {
+                $word = $activeBlockText !== '' ? (explode(' ', $activeBlockText)[0] ?? '') : '';
+            }
+            $wordLower = mb_strtolower(trim($word));
+            $map = [
+                'penelitian' => ['kajian', 'studi', 'riset', 'investigasi', 'telaah ilmiah'],
+                'metode' => ['metodologi', 'pendekatan', 'prosedur', 'teknik', 'tata cara'],
+                'hasil' => ['temuan', 'capaian', 'keluaran', 'output', 'implikasi'],
+                'masalah' => ['permasalahan', 'kendala', 'isu', 'tantangan', 'hambatan'],
+                'tujuan' => ['sasaran', 'maksud', 'target', 'arah', 'objektif'],
+                'analisis' => ['telaah', 'kajian', 'penguraian', 'pembahasan', 'evaluasi'],
+                'penting' => ['signifikan', 'krusial', 'esensial', 'vital', 'fundamental'],
+                'meningkatkan' => ['menaikkan', 'memperbaiki', 'mengembangkan', 'memperkuat', 'mengoptimalkan'],
+                'data' => ['informasi', 'keterangan', 'fakta', 'bahan', 'korpus'],
+                'kesimpulan' => ['inferensi', 'simpulan', 'konklusi', 'rangkuman', 'deduksi'],
+                'kebaruan' => ['orisinalitas', 'novelty', 'inovasi', 'keunikan', 'pembeda'],
+                'pengaruh' => ['dampak', 'efek', 'implikasi', 'konsekuensi', 'daya pengaruh'],
+                'hubungan' => ['korelasi', 'asosiasi', 'keterkaitan', 'relasi', 'interkoneksi'],
+                'faktor' => ['determinan', 'unsur', 'variabel', 'elemen', 'aspek'],
+                'model' => ['kerangka', 'paradigma', 'konstruk', 'skema', 'purwarupa'],
+                'validitas' => ['kesahihan', 'keandalan', 'akurasi', 'kredibilitas', 'otentisitas'],
+                'efektivitas' => ['keberhasilan', 'daya guna', 'efisiensi', 'produktivitas', 'kemanjuran'],
+                'strategi' => ['taktik', 'pendekatan', 'kebijakan', 'manuver', 'rancangan aksi'],
+                'konsep' => ['gagasan', 'nosional', 'ide', 'pengertian', 'postulat'],
+                'dasar' => ['fundamental', 'landasan', 'basis', 'pijakan', 'fondasi'],
+                'pendahuluan' => ['pengantar', 'prolog', 'latar belakang', 'introduksi', 'premis awal'],
+                'pembahasan' => ['diskusi', 'eksplanasi', 'uraian', 'penjabaran', 'eksplorasi'],
+                'signifikan' => ['bermakna', 'nyata', 'berbobot', 'substansial', 'meyakinkan'],
+                'hipotesis' => ['dugaan awal', 'praduga', 'asumsi sementara', 'postulat', 'premis'],
+                'limitasi' => ['batasan', 'keterbatasan', 'cakupan terbatas', 'kendala ruang lingkup'],
+                'teori' => ['landasan teoretis', 'doktrin', 'prinsip ilmiah', 'dalil'],
+            ];
+
+            if ($wordLower === '') {
+                $terms = implode(', ', array_keys($map));
+
+                return [
+                    'reply' => "Sertakan kata akademik yang ingin dicari sinonimnya setelah `/tesaurus [kata]`.\n\nContoh kata kunci terindeks: {$terms}.",
+                    'data' => ['indexed_terms' => array_keys($map)],
+                ];
+            }
+
+            if (isset($map[$wordLower])) {
+                $synonyms = $map[$wordLower];
+                $list = implode("\n", array_map(fn (string $s): string => "- **{$s}**", $synonyms));
+                $reply = "### 📚 Tesaurus Akademik: '{$wordLower}'\n\n"
+                    ."Daftar padanan kata dan sinonim ilmiah baku:\n\n{$list}\n\n"
+                    ."*Tips: Gunakan padanan kata ini untuk memperkaya variasi kalimat dan mencegah pengulangan berlebih.*";
+
+                return [
+                    'reply' => $reply,
+                    'data' => [
+                        'word' => $wordLower,
+                        'synonyms' => $synonyms,
+                    ],
+                ];
+            }
+
+            return [
+                'reply' => "Kata '{$wordLower}' belum tercatat dalam tesaurus ringkas luring. Disarankan menggunakan kata kunci terkait dalam naskah ilmiah seperti: `penelitian`, `analisis`, `signifikan`, atau `kebaruan`.",
+                'data' => [
+                    'word' => $wordLower,
+                    'synonyms' => [],
+                ],
+            ];
         }
 
         $wordCount = $this->model->countWords($this->model->normalize($this->blocks));
