@@ -1243,3 +1243,32 @@ it('supports contextual document outline in /daftar_isi and explicit citation st
     expect($sitasiResult['command'])->toBe(SlashCommand::SITASI->value)
         ->and($sitasiResult['reply'])->toContain('Format Sitasi Dalam Teks');
 });
+
+it('supports command aliases and bidirectional academic translation with language targets', function (): void {
+    $project = makeProject();
+    $service = app(XishieAssistantService::class);
+
+    // 1. Alias parsing verification
+    expect(SlashCommand::tryParse('/translate this text'))->toBe(SlashCommand::TERJEMAHKAN)
+        ->and(SlashCommand::tryParse('/paraphrase this sentence'))->toBe(SlashCommand::PARAFRASE)
+        ->and(SlashCommand::tryParse('/summary this paper'))->toBe(SlashCommand::RINGKAS)
+        ->and(SlashCommand::tryParse('/matrix literatur'))->toBe(SlashCommand::MATRIKS)
+        ->and(SlashCommand::tryParse('/footnotes catatan'))->toBe(SlashCommand::CATATAN_KAKI)
+        ->and(SlashCommand::tryParse('/methodology penelitian'))->toBe(SlashCommand::METODOLOGI)
+        ->and(SlashCommand::tryParse('/abstract ringkasan'))->toBe(SlashCommand::ABSTRAK)
+        ->and(SlashCommand::tryParse('/guideline cek'))->toBe(SlashCommand::CEK_PEDOMAN)
+        ->and(SlashCommand::tryParse('/gap riset'))->toBe(SlashCommand::CEK_GAP);
+
+    // 2. /terjemahkan to Academic English (default & explicit en)
+    $resEn = $service->handle($project, '/terjemahkan en Hasil empiris membuktikan signifikansi model.');
+    expect($resEn['command'])->toBe(SlashCommand::TERJEMAHKAN->value)
+        ->and($resEn['data']['target_lang'])->toBe('en')
+        ->and($resEn['reply'])->toContain('Academic English');
+
+    // 3. /terjemahkan to Bahasa Indonesia (explicit id)
+    $resId = $service->handle($project, '/terjemahkan id The empirical validation substantiates the theory.');
+    expect($resId['command'])->toBe(SlashCommand::TERJEMAHKAN->value)
+        ->and($resId['data']['target_lang'])->toBe('id')
+        ->and($resId['reply'])->toContain('Bahasa Indonesia baku akademik')
+        ->and($resId['reply'])->toContain('validasi empiris yang ketat');
+});

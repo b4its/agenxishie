@@ -236,6 +236,8 @@ status, studio_view_auth_html, _ = http_get("/admin/naskah-studio?tab=view", hea
 test("Filament Studio: View Ribbon Line Numbers and Zen Mode Present",
      ("toggleLineNumbers" in studio_view_auth_html or "No. Baris" in studio_view_auth_html) and ("toggleZenMode" in studio_view_auth_html or "Mode Fokus" in studio_view_auth_html))
 test("Filament Studio: Insert Citation Action Present in References Navigator", "insertReferenceCitation" in studio_html or "insertCitation" in studio_html)
+test("Filament Studio: Home Ribbon Wordcraft AI Block Toolbar",
+     "aiParaphraseBlock" in studio_html and "aiTranslateBlock" in studio_html and "aiFixTone" in studio_html)
 
 # Test Studio with Copilot Drawer Opened via ?assistant=1
 status, studio_drawer_html, _ = http_get("/admin/naskah-studio?assistant=1", headers=auth_headers)
@@ -306,6 +308,8 @@ test("Standalone Studio: Ribbon Table APA Format Present", "Format APA" in studi
 test("Standalone Studio: Home Ribbon Generasi AI Group", "Generasi AI" in studio_standalone_html and "Model AI" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon AI Presets (Poles, Kembangkan, Kebaruan, Abstrak)",
      "Poles" in studio_standalone_html and "Kembangkan" in studio_standalone_html and "Kebaruan" in studio_standalone_html and "Abstrak" in studio_standalone_html)
+test("Standalone Studio: Home Ribbon Wordcraft AI Actions (Paraphrase & Translate)",
+     "aiParaphraseBlock" in studio_standalone_html and "aiTranslateBlock" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon AI Presets (Metode, Bahas, Simpulan, Baca)",
      "Metode" in studio_standalone_html and "Bahas" in studio_standalone_html and "Simpulan" in studio_standalone_html and "Baca" in studio_standalone_html)
 

@@ -2136,3 +2136,82 @@ it('supports in-text citation formatting across styles and rich docx and odt mul
     $lastBlock = end($blocks);
     expect($lastBlock['text'])->toContain('Bab I Pendahuluan');
 });
+
+it('supports rich block parsing for callouts, tables, equations, footnotes and wordcraft paraphrase and translate', function (): void {
+    $parser = app(NaskahBlockParser::class);
+
+    // 1. Parse markdown with callout, table, equation, footnote
+    $markdown = <<<'MD'
+# Bab I Pendahuluan
+Ini pengantar penelitian.
+
+> [!NOTE] Perhatian terhadap batasan komputasi.
+
+$$ \int_0^1 x^2 dx = \frac{1}{3} $$
+
+| Parameter | Baseline | Proposed |
+| --- | --- | --- |
+| Akurasi | 0.82 | 0.94 |
+| F1-Score | 0.80 | 0.93 |
+
+[^nota]: Evaluasi dihitung pada 5-fold cross validation.
+MD;
+
+    $blocks = $parser->parse($markdown);
+    $types = array_column($blocks, 'type');
+
+    expect($types)->toContain('heading')
+        ->and($types)->toContain('paragraph')
+        ->and($types)->toContain('callout')
+        ->and($types)->toContain('equation')
+        ->and($types)->toContain('table')
+        ->and($types)->toContain('footnote-ref');
+
+    // Callout attributes
+    $callout = $blocks[2];
+    expect($callout['calloutType'])->toBe('note')
+        ->and($callout['text'])->toContain('Perhatian terhadap batasan komputasi.');
+
+    // Equation attributes
+    $equation = $blocks[3];
+    expect($equation['latex'])->toContain('\int_0^1');
+
+    // Table attributes & row count
+    $table = $blocks[4];
+    expect($table['table']['rows'])->toHaveCount(3)
+        ->and($table['table']['rows'][0][0]['text'])->toBe('Parameter');
+
+    // 2. Word count including table
+    $wordCount = $parser->countWords($blocks);
+    expect($wordCount)->toBeGreaterThan(20);
+
+    // 3. Normalization preserves attributes
+    $normalized = $parser->normalize($blocks);
+    expect($normalized[2]['calloutType'])->toBe('note')
+        ->and($normalized[4]['table']['rows'])->toHaveCount(3);
+
+    // 4. Wordcraft in-block paraphrase and translate
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'paragraph', 'text' => 'Banyak sekali data yang membuat hasil sangat bagus dikarenakan model baru.'],
+        ])
+        ->set('activeBlock', 0);
+
+    // AI Paraphrase
+    $page->call('aiParaphraseBlock', 0);
+    $paraphrasedText = $page->get('blocks')[0]['text'];
+    expect($paraphrasedText)->not->toBe('Banyak sekali data yang membuat hasil sangat bagus dikarenakan model baru.')
+        ->and($paraphrasedText)->toContain('sejumlah besar');
+
+    // AI Translate to English
+    $page->call('aiTranslateBlock', 0, 'en');
+    $translatedText = $page->get('blocks')[0]['text'];
+    expect($translatedText)->toContain('empirical');
+
+    // Command palette execution for paraphrase and translate
+    $page->call('executeCommand', 'ai.paraphrase');
+    expect($page->get('blocks')[0]['text'])->not->toBeEmpty();
+
+    $page->call('executeCommand', 'ai.translate', ['target' => 'id']);
+    expect($page->get('blocks')[0]['text'])->not->toBeEmpty();
+});
