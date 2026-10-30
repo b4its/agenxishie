@@ -328,6 +328,14 @@ test("Filament Studio: Table Calculation Formulas (?tab=table)", "tableCalculate
 
 test("Filament Studio: References Navigator Search Field", "referenceSearchQuery" in studio_table_auth_html or "referenceSearchQuery" in studio_html)
 
+status, studio_crossref_auth_html, _ = http_get("/admin/naskah-studio?dialog=crossref", headers=auth_headers)
+test("Filament Studio: Cross-Reference Dialog with Headings (?dialog=crossref)",
+     "Rujukan Silang" in studio_crossref_auth_html and "Headings" in studio_crossref_auth_html)
+
+status, standalone_crossref_html, _ = http_get("/studio?dialog=crossref")
+test("Standalone Studio: Cross-Reference Dialog with Headings (?dialog=crossref)",
+     "Cross-Reference" in standalone_crossref_html and "Headings" in standalone_crossref_html)
+
 status, studio_endnote_html, _ = http_get("/studio?dialog=endnote")
 test("Standalone Studio: Endnote Dialog Supported (?dialog=endnote)", status == 200 and ("Insert Endnote" in studio_endnote_html or "Catatan Akhir" in studio_endnote_html))
 

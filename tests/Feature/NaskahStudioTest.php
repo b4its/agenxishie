@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Domain\GuidelineEngine\Enums\CitationStyle;
+use App\Domain\Publication\CitationFormatter;
 use App\Domain\Publication\NaskahBlockParser;
+use App\Domain\Publication\NaskahDocxExporter;
+use App\Domain\Publication\NaskahOdtExporter;
 use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Filament\Pages\NaskahStudioPage;
@@ -2038,4 +2042,97 @@ it('supports dynamic table of contents generation and multi-format rendering acr
     expect($rtf)->toContain('DAFTAR ISI')
         ->and($rtf)->toContain('Bab I Pendahuluan')
         ->and($rtf)->toContain('Bab II Tinjauan Pustaka');
+});
+
+it('supports in-text citation formatting across styles and rich docx and odt multi-block exports', function (): void {
+    $formatter = app(CitationFormatter::class);
+
+    // 1. Single author APA
+    $ref1 = new ProjectReference([
+        'id' => 1,
+        'citation_key' => 'smith2024',
+        'authors' => [['name' => 'John Smith']],
+        'year' => 2024,
+    ]);
+    expect($formatter->inText($ref1, CitationStyle::APA7))->toBe('(Smith, 2024)')
+        ->and($formatter->inText($ref1, CitationStyle::IEEE))->toBe('[1]')
+        ->and($formatter->inText($ref1, CitationStyle::VANCOUVER))->toBe('(1)')
+        ->and($formatter->inText($ref1, CitationStyle::CHICAGO))->toBe('(Smith 2024)');
+
+    // 2. Two authors APA & Harvard
+    $ref2 = new ProjectReference([
+        'id' => 2,
+        'citation_key' => 'smith2024dual',
+        'authors' => [['name' => 'John Smith'], ['name' => 'Alice Jones']],
+        'year' => 2024,
+    ]);
+    expect($formatter->inText($ref2, CitationStyle::APA7))->toBe('(Smith & Jones, 2024)')
+        ->and($formatter->inText($ref2, CitationStyle::HARVARD))->toBe('(Smith and Jones, 2024)');
+
+    // 3. Three+ authors et al.
+    $ref3 = new ProjectReference([
+        'id' => 3,
+        'citation_key' => 'vaswani2017',
+        'authors' => [['name' => 'Ashish Vaswani'], ['name' => 'Noam Shazeer'], ['name' => 'Niki Parmar']],
+        'year' => 2017,
+    ]);
+    expect($formatter->inText($ref3, CitationStyle::APA7))->toBe('(Vaswani et al., 2017)');
+
+    // 4. DOCX & ODT multi-block exports with table captions, footnotes, endnotes, and toc
+    $docxExporter = app(NaskahDocxExporter::class);
+    $odtExporter = app(NaskahOdtExporter::class);
+
+    $blocks = [
+        ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+        ['type' => 'callout', 'calloutType' => 'warning', 'text' => 'Perhatian metodologis.'],
+        ['type' => 'equation', 'latex' => 'y = mx + c', 'caption' => '(1)'],
+        ['type' => 'table', 'table' => ['caption' => 'Tabel 1: Ringkasan Metrik', 'rows' => [[['text' => 'A'], ['text' => 'B']]]]],
+        ['type' => 'toc', 'table' => ['rows' => [[['text' => 'Judul'], ['text' => 'Halaman']], [['text' => 'Bab I'], ['text' => '1']]]]],
+        ['type' => 'footnote-ref', 'text' => 'Catatan kaki penjelasan.'],
+        ['type' => 'endnote-ref', 'text' => 'Catatan akhir referensi.'],
+    ];
+
+    $docxBinary = $docxExporter->build($blocks, 'Uji Naskah');
+    $zipDocx = new \ZipArchive;
+    $tempDocx = tempnam(sys_get_temp_dir(), 'docx_test');
+    file_put_contents($tempDocx, $docxBinary);
+    $zipDocx->open($tempDocx);
+    $docxXml = $zipDocx->getFromName('word/document.xml');
+    $zipDocx->close();
+    @unlink($tempDocx);
+
+    expect($docxXml)->toContain('Tabel 1: Ringkasan Metrik')
+        ->and($docxXml)->toContain('[Catatan Kaki]')
+        ->and($docxXml)->toContain('[Catatan Akhir]');
+
+    $odtBinary = $odtExporter->build($blocks, 'Uji Naskah');
+    $zipOdt = new \ZipArchive;
+    $tempOdt = tempnam(sys_get_temp_dir(), 'odt_test');
+    file_put_contents($tempOdt, $odtBinary);
+    $zipOdt->open($tempOdt);
+    $odtXml = $zipOdt->getFromName('content.xml');
+    $zipOdt->close();
+    @unlink($tempOdt);
+
+    expect($odtXml)->toContain('Tabel 1: Ringkasan Metrik')
+        ->and($odtXml)->toContain('[Catatan Kaki]')
+        ->and($odtXml)->toContain('[Catatan Akhir]')
+        ->and($odtXml)->toContain('y = mx + c');
+
+    // 5. Cross-Reference modal includes Headings
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+            ['type' => 'paragraph', 'text' => 'Teks acuan.'],
+        ])
+        ->set('activeBlock', 1)
+        ->call('openDialog', 'crossref');
+
+    $page->assertSee('Bagian &amp; Bab Dokumen (Headings)', false)
+        ->assertSee('H1: Bab I Pendahuluan', false);
+
+    $page->call('insertCrossReference', 'heading', 'Bab I Pendahuluan');
+    $blocks = $page->get('blocks');
+    $lastBlock = end($blocks);
+    expect($lastBlock['text'])->toContain('Bab I Pendahuluan');
 });

@@ -1237,4 +1237,9 @@ it('supports contextual document outline in /daftar_isi and explicit citation st
         ->and($bibResult['reply'])->toContain('APA 7th Edition')
         ->and($bibResult['data']['style'])->toBe('apa7')
         ->and($bibResult['data']['count'])->toBe(1);
+
+    // 3. /sitasi with topic query provides in-text citation format guidance
+    $sitasiResult = $service->handle($project, '/sitasi attention', null, 'academic_senior', 'project', $doc);
+    expect($sitasiResult['command'])->toBe(SlashCommand::SITASI->value)
+        ->and($sitasiResult['reply'])->toContain('Format Sitasi Dalam Teks');
 });
