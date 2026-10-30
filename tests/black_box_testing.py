@@ -193,6 +193,7 @@ test("Ribbon Preset: Keterbacaan", "Keterbacaan" in studio_html)
 test("Ribbon Button: Eksekusi Model AI", "Eksekusi Model" in studio_html)
 test("Ribbon Navigation Multi-tab: Judul, Versi & Pustaka",
      "Judul" in studio_html and "Versi" in studio_html and "Pustaka" in studio_html)
+test("Filament Studio: Navigator Scratchpad Tab Present", "Catatan" in studio_html)
 test("Navigator Tab Switching: setNavSidebarTab", "setNavSidebarTab" in studio_html)
 test("Filament Studio: Draw & Help Ribbon Tabs in Navigation",
      "Gambar" in studio_html and "Bantuan" in studio_html)
@@ -219,6 +220,7 @@ test("Docked Copilot Drawer: Search Input (drawerCommandSearch)", "drawerCommand
 status, studio_standalone_html, _ = http_get("/studio")
 test("Visit Standalone /studio (Public Access)", status == 200, f"status={status}")
 test("Standalone Studio: Multi-tab Navigator (Pustaka & Versi)", "Pustaka" in studio_standalone_html and "Versi" in studio_standalone_html)
+test("Standalone Studio: Navigator Scratchpad Tab Present", "Catatan" in studio_standalone_html)
 test("Standalone Studio: Outline Heading Section Reordering & Hierarchy Controls",
      "moveSection" in studio_standalone_html and "promoteHeading" in studio_standalone_html)
 test("Standalone Studio: Zen Focus Mode Toggle Present", "toggleZenMode" in studio_standalone_html)

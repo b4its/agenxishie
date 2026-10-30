@@ -822,3 +822,45 @@ it('supports citation audit command and direct execution chip in assistant page'
         ->and($lastMsg['data']['verified'])->toContain('lecun2015')
         ->and($lastMsg['data']['unmatched'])->toContain('unregistered2025');
 });
+
+it('supports equation and quote parsing when applying assistant response to naskah studio', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $doc = NaskahDocument::factory()->create([
+        'project_id' => $project->id,
+        'title' => 'Naskah AI Eksperimen',
+        'blocks' => [
+            ['id' => 'b1', 'type' => 'title', 'level' => 0, 'text' => 'Naskah AI Eksperimen'],
+        ],
+    ]);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+    $page->set('activeDocumentId', $doc->id);
+
+    // Mock an assistant response with equation and quote
+    $content = "# Teorema Utama\n\n> Definisi formal ruang vektor Hilbert.\n\n$$\\mathcal{H} = \\int |\\psi\\rangle d\\mu$$";
+    $page->set('log', [
+        [
+            'role' => 'assistant',
+            'content' => $content,
+            'model' => 'agnes',
+            'persona' => 'academic_senior',
+            'scope' => 'project',
+            'command' => 'chat',
+            'data' => [],
+            'created_at' => '10:00:00',
+        ],
+    ]);
+
+    // Apply to Naskah Studio
+    $page->call('applyToNaskahStudio', 0);
+
+    $doc->refresh();
+    $blocks = (array) $doc->blocks;
+    $types = array_column($blocks, 'type');
+
+    expect($types)->toContain('heading')
+        ->and($types)->toContain('quote')
+        ->and($types)->toContain('equation');
+});

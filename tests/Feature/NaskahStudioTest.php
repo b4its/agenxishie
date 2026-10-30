@@ -1286,3 +1286,37 @@ it('supports document line numbers toggle and gutter indicators for peer review 
     $pageSetup = $page->get('pageSetup');
     expect($pageSetup['lineNumbers'])->toBeFalse();
 });
+
+it('supports academic scratchpad notes management and insertion to manuscript in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Initial state: empty scratchpad
+    expect($page->get('scratchpadNotes'))->toBe('');
+
+    // Switch navigator to notes
+    $page->call('setNavSidebarTab', 'notes');
+    expect($page->get('navSidebarTab'))->toBe('notes');
+
+    // Save scratchpad notes
+    $notes = "Gagasan pokok: integrasi transformer dan graph neural network.\n\nPerlu diuji dengan benchmark QM9.";
+    $page->call('saveScratchpadNotes', $notes);
+    expect($page->get('scratchpadNotes'))->toBe($notes);
+
+    $initialBlockCount = count($page->get('blocks'));
+
+    // Insert notes to manuscript
+    $page->call('insertNotesToManuscript');
+    $blocks = $page->get('blocks');
+
+    expect(count($blocks))->toBeGreaterThan($initialBlockCount);
+    $lastBlock = end($blocks);
+    expect($lastBlock['type'])->toBe('paragraph')
+        ->and($lastBlock['text'])->toContain('QM9');
+
+    // Clear scratchpad notes
+    $page->call('clearScratchpadNotes');
+    expect($page->get('scratchpadNotes'))->toBe('');
+});
