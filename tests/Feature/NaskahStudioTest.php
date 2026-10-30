@@ -1531,3 +1531,78 @@ it('supports undo reversibility for citations, bibliography, footnotes, and symb
     $page->call('undo');
     expect(count($page->get('blocks')))->toBe(1);
 });
+
+it('supports undo reversibility for drop cap, heading hierarchy, block operations, and extended command palette', function (): void {
+    $this->actingAs(User::factory()->create());
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    $page->set('blocks', [
+        ['type' => 'heading', 'level' => 2, 'text' => 'Bab I Pendahuluan'],
+        ['type' => 'paragraph', 'text' => 'Paragraf pertama naskah riset.'],
+    ]);
+    $page->set('activeBlock', 1);
+
+    // 1. Drop Cap toggle & undo
+    $page->call('toggleDropCap', 1);
+    expect($page->get('blocks')[1]['dropCap'] ?? false)->toBeTrue();
+
+    $page->call('undo');
+    expect($page->get('blocks')[1]['dropCap'] ?? false)->toBeFalse();
+
+    // 2. Heading promote & demote undo
+    $page->call('promoteHeading', 0);
+    expect($page->get('blocks')[0]['level'])->toBe(1);
+
+    $page->call('undo');
+    expect($page->get('blocks')[0]['level'])->toBe(2);
+
+    $page->call('demoteHeading', 0);
+    expect($page->get('blocks')[0]['level'])->toBe(3);
+
+    $page->call('undo');
+    expect($page->get('blocks')[0]['level'])->toBe(2);
+
+    // 3. Block operations undo (addBlock, removeBlock, duplicateBlock)
+    $page->call('addBlock', 'paragraph');
+    expect(count($page->get('blocks')))->toBe(3);
+
+    $page->call('undo');
+    expect(count($page->get('blocks')))->toBe(2);
+
+    $page->call('duplicateBlock', 1);
+    expect(count($page->get('blocks')))->toBe(3);
+
+    $page->call('undo');
+    expect(count($page->get('blocks')))->toBe(2);
+
+    $page->call('removeBlock', 1);
+    expect(count($page->get('blocks')))->toBe(1);
+
+    $page->call('undo');
+    expect(count($page->get('blocks')))->toBe(2);
+
+    // 4. Extended command palette execution
+    $page->set('activeBlock', 1);
+    $page->call('executeCommand', 'format.drop_cap');
+    expect($page->get('blocks')[1]['dropCap'] ?? false)->toBeTrue();
+
+    $page->call('executeCommand', 'insert.sketch');
+    $blocks = $page->get('blocks');
+    expect(end($blocks)['type'])->toBe('callout')
+        ->and(end($blocks)['calloutType'])->toBe('sketch');
+
+    $page->call('executeCommand', 'file.snapshots');
+    expect($page->get('dialog'))->toBe('snapshots');
+
+    $page->call('executeCommand', 'tools.merge');
+    expect($page->get('dialog'))->toBe('merge');
+
+    $page->call('executeCommand', 'view.zen_mode');
+    expect($page->get('zenMode'))->toBeTrue();
+
+    $page->call('executeCommand', 'view.line_numbers');
+    expect($page->get('pageSetup')['lineNumbers'])->toBeTrue();
+
+    $page->call('executeCommand', 'references.audit');
+    expect($page->get('lastCitationAudit'))->not->toBeNull();
+});
