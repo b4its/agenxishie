@@ -468,17 +468,22 @@ class XishieAssistantPage extends Page
     {
         $q = trim($query);
         $project = $this->getProject();
-        if ($project === null || $q === '') {
+        if ($project === null) {
             return [];
         }
 
-        return $project->references()
-            ->where(function ($sub) use ($q): void {
+        $queryBuilder = $project->references();
+        if ($q !== '') {
+            $queryBuilder->where(function ($sub) use ($q): void {
                 $sub->where('title', 'like', "%{$q}%")
                     ->orWhere('citation_key', 'like', "%{$q}%")
                     ->orWhere('journal_name', 'like', "%{$q}%");
-            })
-            ->limit(10)
+            });
+        }
+
+        return $queryBuilder
+            ->latest('id')
+            ->limit(15)
             ->get()
             ->map(fn ($r): array => [
                 'id' => $r->id,

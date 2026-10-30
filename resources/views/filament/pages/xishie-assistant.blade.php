@@ -243,7 +243,7 @@
                     @endif
 
                     {{-- Bar Header & Drawer Pencarian Referensi Proyek --}}
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.65rem; padding:.3rem .55rem; background:#f0fdfa; border-radius:4px; border:1px solid #ccfbf1;">
+                    <div data-citation-action="insertCitationKey" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.65rem; padding:.3rem .55rem; background:#f0fdfa; border-radius:4px; border:1px solid #ccfbf1;">
                         <div style="display:flex; align-items:center; gap:.4rem;">
                             <span style="font-size:.65rem; font-weight:800; color:#0f766e; text-transform:uppercase;">🔍 PUSTAKA REFERENSI PROYEK</span>
                             <span style="font-size:.58rem; background:#ccfbf1; color:#0f766e; padding:1px 5px; border-radius:3px; font-weight:600;">{{ count($searchedReferences) }} rujukan</span>
