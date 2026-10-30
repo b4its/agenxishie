@@ -1916,3 +1916,71 @@ it('supports bibtex export with project resolution, latex table caption and foot
     expect($reply['reply'])->toContain('Skor Flesch Reading Ease')
         ->and($reply['reply'])->toContain($stats['fleschGrade']);
 });
+
+it('supports multi-format table caption export, footnote markdown parsing, and accurate uncited citation auditing', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $ref1 = ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'gauntlett2018making',
+        'title' => 'Making is Connecting',
+        'authors' => [['name' => 'David Gauntlett']],
+        'year' => 2018,
+        'journal_name' => 'Polity Press',
+        'is_verified' => true,
+    ]);
+
+    $ref2 = ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'sennett2019craftsman',
+        'title' => 'The Craftsman',
+        'authors' => [['name' => 'Richard Sennett']],
+        'year' => 2019,
+        'journal_name' => 'Yale University Press',
+        'is_verified' => true,
+    ]);
+
+    $model = app(NaskahRichModel::class);
+
+    // 1. Table caption export in HTML, Markdown, and RTF
+    $tableBlock = $model->newTableBlock([
+        [['text' => 'Indikator'], ['text' => 'Nilai']],
+        [['text' => 'F1-Score'], ['text' => '0.94']],
+    ], true, 'Tabel 2: Evaluasi Performa Klasifikasi');
+
+    $html = $model->toHtml([$tableBlock]);
+    expect($html)->toContain('<caption')
+        ->and($html)->toContain('Tabel 2: Evaluasi Performa Klasifikasi');
+
+    $md = $model->toMarkdown([$tableBlock]);
+    expect($md)->toContain('*Tabel 2: Evaluasi Performa Klasifikasi*');
+
+    $rtf = $model->toRtf([$tableBlock]);
+    expect($rtf)->toContain('Tabel 2: Evaluasi Performa Klasifikasi')
+        ->and($rtf)->toContain('F1-Score');
+
+    // 2. parseMarkdownToBlocks parses footnote and endnote definitions
+    $markdownSample = "Paragraf pembuka pembahasan.\n\n[^1]: Rujukan catatan kaki primer.\n\n[^akhir]: Rujukan catatan akhir dokumen.";
+    $parsedBlocks = $model->parseMarkdownToBlocks($markdownSample);
+
+    expect($parsedBlocks)->toHaveCount(3)
+        ->and($parsedBlocks[1]['type'])->toBe('footnote-ref')
+        ->and($parsedBlocks[1]['text'])->toBe('Rujukan catatan kaki primer.')
+        ->and($parsedBlocks[2]['type'])->toBe('endnote-ref')
+        ->and($parsedBlocks[2]['text'])->toBe('Rujukan catatan akhir dokumen.');
+
+    // 3. auditCitations accurately verifies author-year citation and excludes from uncited
+    $page = Livewire::test(NaskahStudioPage::class);
+    $page->set('sourceProjectId', $project->id);
+    $page->set('blocks', [
+        ['type' => 'paragraph', 'text' => 'Berdasarkan telaah empiris (Gauntlett, 2018), interaksi komunitas memicu inovasi.'],
+    ]);
+
+    $audit = $page->instance()->auditCitations($project->id);
+
+    expect($audit['verified'])->toContain('Gauntlett, 2018')
+        ->and($audit['unmatched'])->toBeEmpty()
+        ->and($audit['uncited'])->toContain('sennett2019craftsman')
+        ->and($audit['uncited'])->not->toContain('gauntlett2018making');
+});

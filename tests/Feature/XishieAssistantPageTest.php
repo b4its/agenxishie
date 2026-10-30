@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domain\Assistant\SlashCommand;
+use App\Domain\Assistant\XishieAssistantService;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Filament\Pages\XishieAssistantPage;
 use App\Models\NaskahDocument;
@@ -1142,4 +1143,48 @@ it('supports simultaneous search-filtered and starred transcript export without 
     $data = json_decode($jsonOutput, true);
     expect($data['total_messages'])->toBe(1)
         ->and($data['messages'][0]['content'])->toContain('stratified random sampling');
+});
+
+it('supports multi-style citation audit with author-year matching and orphan reference exclusion', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'bengio2013representation',
+        'title' => 'Representation Learning',
+        'authors' => [['name' => 'Yoshua Bengio']],
+        'year' => 2013,
+        'journal_name' => 'IEEE TPAMI',
+        'is_verified' => true,
+    ]);
+
+    ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'lecun2015deep',
+        'title' => 'Deep Learning',
+        'authors' => [['name' => 'Yann LeCun']],
+        'year' => 2015,
+        'journal_name' => 'Nature',
+        'is_verified' => true,
+    ]);
+
+    $doc = NaskahDocument::create([
+        'title' => 'Dokumen Naskah Machine Learning',
+        'project_id' => $project->id,
+        'source_type' => NaskahDocument::SOURCE_PROJECT,
+        'blocks' => [
+            ['type' => 'paragraph', 'text' => 'Berdasarkan telaah mendalam (Bengio, 2013), representasi fitur memegang peranan esensial.'],
+        ],
+        'word_count' => 12,
+        'last_saved_at' => now(),
+    ]);
+
+    $service = app(XishieAssistantService::class);
+    $result = $service->handle($project, '/sitasi audit', null, 'academic_senior', 'manuscript', $doc);
+
+    expect($result['command'])->toBe('/sitasi')
+        ->and($result['reply'])->toContain('Laporan Audit Integritas Sitasi Akademik')
+        ->and($result['reply'])->toContain('Bengio, 2013')
+        ->and($result['reply'])->toContain('lecun2015deep');
 });

@@ -104,6 +104,12 @@ cli_stats = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan'
 test("CLI naskah:manage stats Execution", cli_stats.returncode == 0 and "Kategori Keterbacaan" in cli_stats.stdout)
 test("CLI naskah:manage Flesch Reading Ease Present", "Flesch Reading Ease" in cli_stats.stdout)
 
+cli_md = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'export', str(doc_id), '--format=md'], capture_output=True, text=True)
+test("CLI naskah:manage export md Execution", cli_md.returncode == 0 and "naskah-export-" in cli_md.stdout)
+
+cli_tex = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'export', str(doc_id), '--format=latex'], capture_output=True, text=True)
+test("CLI naskah:manage export latex Execution", cli_tex.returncode == 0 and "naskah-export-" in cli_tex.stdout)
+
 # 3. Filament Admin Authentication & Xishie Assistant Page
 print("\n--- 3. Filament Admin Authentication & Xishie Assistant Page ---")
 # Authenticate session in Laravel database
