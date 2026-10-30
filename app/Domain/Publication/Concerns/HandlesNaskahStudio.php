@@ -1027,6 +1027,7 @@ trait HandlesNaskahStudio
 
     public function addBlock(string $type = 'paragraph'): void
     {
+        $this->pushUndo();
         $block = match ($type) {
             'table' => ['type' => 'table', 'table' => ['rows' => $this->emptyRows($this->tableRows, $this->tableCols), 'header' => true]],
             'pagebreak' => ['type' => 'pagebreak', 'pageBreak' => true],
@@ -1038,6 +1039,7 @@ trait HandlesNaskahStudio
         $this->activeBlock = count($this->blocks) - 1;
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     public function removeBlock(int $index): void
@@ -1046,11 +1048,13 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         array_splice($this->blocks, $index, 1);
         $this->blocks = array_values($this->blocks);
         $this->activeBlock = max(0, min($this->activeBlock, count($this->blocks) - 1));
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     public function deleteBlock(int $index): void
@@ -1066,6 +1070,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         [$this->blocks[$index], $this->blocks[$target]] = [$this->blocks[$target], $this->blocks[$index]];
         $this->activeBlock = $target;
         $this->dirty = true;
@@ -1078,9 +1083,11 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         array_splice($this->blocks, $index + 1, 0, [$this->blocks[$index]]);
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     public function updateBlockText(int $index, string $text): void
@@ -1125,11 +1132,13 @@ trait HandlesNaskahStudio
 
     public function insertParagraphAfter(int $index): void
     {
+        $this->pushUndo();
         $newBlock = $this->model->newBlock('paragraph', '');
         array_splice($this->blocks, $index + 1, 0, [$newBlock]);
         $this->activeBlock = $index + 1;
         $this->editorRevision++;
         $this->markDirty();
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     /**
@@ -1141,6 +1150,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $currentType = (string) ($this->blocks[$index]['type'] ?? 'paragraph');
         $this->blocks[$index]['text'] = $leftText;
         if (isset($this->blocks[$index]['runs'][0])) {
@@ -1162,6 +1172,7 @@ trait HandlesNaskahStudio
         $this->activeBlock = $index + 1;
         $this->editorRevision++;
         $this->markDirty();
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     /**
@@ -1205,10 +1216,12 @@ trait HandlesNaskahStudio
     public function removeBlockAndFocusPrev(int $index): void
     {
         if (count($this->blocks) > 1 && isset($this->blocks[$index])) {
+            $this->pushUndo();
             array_splice($this->blocks, $index, 1);
             $this->activeBlock = max(0, $index - 1);
             $this->editorRevision++;
             $this->markDirty();
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         }
     }
 
@@ -1280,6 +1293,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         [$type, $level] = match ($style) {
             'title' => ['title', 0],
             'subtitle' => ['subtitle', 0],
@@ -1315,6 +1329,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $attr = [$attribute => $value];
 
         $block = $this->blocks[$index];
@@ -1329,6 +1344,7 @@ trait HandlesNaskahStudio
 
         $this->blocks[$index] = $block;
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function clearFormatting(): void
@@ -1338,11 +1354,13 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $text = (string) ($this->blocks[$index]['text'] ?? '');
         $this->blocks[$index]['runs'] = $text === '' ? [] : [['text' => $text]];
         $this->blocks[$index]['align'] = 'left';
         $this->blocks[$index]['indent'] = 0;
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function changeCase(string $mode): void
@@ -1352,6 +1370,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $text = (string) ($this->blocks[$index]['text'] ?? '');
         $converted = match ($mode) {
             'upper' => mb_strtoupper($text),
@@ -1364,6 +1383,7 @@ trait HandlesNaskahStudio
         $this->blocks[$index]['text'] = $converted;
         $this->blocks[$index]['runs'] = $converted === '' ? [] : [['text' => $converted]];
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     public function adjustFontSize(int $delta): void
@@ -1378,11 +1398,15 @@ trait HandlesNaskahStudio
     /**
      * Format paragraf pada blok aktif.
      */
-    public function formatParagraph(string $attribute, mixed $value = null): void
+    public function formatParagraph(string $attribute, mixed $value = null, bool $pushUndo = true): void
     {
         $index = $this->activeBlock;
         if (! isset($this->blocks[$index])) {
             return;
+        }
+
+        if ($pushUndo) {
+            $this->pushUndo();
         }
 
         match ($attribute) {
@@ -1398,6 +1422,7 @@ trait HandlesNaskahStudio
         };
 
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     private function toggleList(string $type, int $index): void
@@ -1418,13 +1443,15 @@ trait HandlesNaskahStudio
      */
     public function formatAllBlocks(string $attribute, mixed $value = null): void
     {
+        $this->pushUndo();
         foreach (array_keys($this->blocks) as $index) {
             $this->activeBlock = $index;
-            $this->formatParagraph($attribute, $value);
+            $this->formatParagraph($attribute, $value, false);
         }
 
         $this->activeBlock = 0;
         $this->dirty = true;
+        $this->editorRevision++;
     }
 
     /**
@@ -8031,6 +8058,8 @@ trait HandlesNaskahStudio
             ['id' => 'file.stats', 'label' => 'Statistik & Skor Keterbacaan', 'category' => 'Berkas', 'icon' => '📊'],
             ['id' => 'file.pagesetup', 'label' => 'Pengaturan Margin & Kertas', 'category' => 'Tata Letak', 'icon' => '⚙️'],
             ['id' => 'file.properties', 'label' => 'Properti Dokumen & Metadata', 'category' => 'Berkas', 'icon' => 'ℹ️'],
+            ['id' => 'file.snapshots', 'label' => 'Riwayat Versi Dokumen (Snapshots)', 'category' => 'Berkas', 'icon' => '🕒'],
+            ['id' => 'tools.merge', 'label' => 'Gabung Data Surat / Mail Merge', 'category' => 'Alat', 'icon' => '📫'],
             ['id' => 'edit.undo', 'label' => 'Urungkan (Undo)', 'category' => 'Sunting', 'icon' => '↩️', 'shortcut' => 'Ctrl+Z'],
             ['id' => 'edit.redo', 'label' => 'Ulangi (Redo)', 'category' => 'Sunting', 'icon' => '↪️', 'shortcut' => 'Ctrl+Y'],
             ['id' => 'edit.copy_format', 'label' => 'Sapu Format (Salin Gaya)', 'category' => 'Papan Klip', 'icon' => '🖌️'],
@@ -8041,6 +8070,7 @@ trait HandlesNaskahStudio
             ['id' => 'format.italic', 'label' => 'Huruf Miring (Italic)', 'category' => 'Format', 'icon' => 'I', 'shortcut' => 'Ctrl+I'],
             ['id' => 'format.underline', 'label' => 'Garis Bawah (Underline)', 'category' => 'Format', 'icon' => 'U', 'shortcut' => 'Ctrl+U'],
             ['id' => 'format.strike', 'label' => 'Coret (Strikethrough)', 'category' => 'Format', 'icon' => 'S'],
+            ['id' => 'format.drop_cap', 'label' => 'Efek Drop Cap Huruf Awal Paragraf', 'category' => 'Format', 'icon' => '🔤'],
             ['id' => 'format.clear', 'label' => 'Bersihkan Semua Format', 'category' => 'Format', 'icon' => '🧹'],
             ['id' => 'format.align.left', 'label' => 'Rata Kiri', 'category' => 'Paragraf', 'icon' => '⬅️', 'shortcut' => 'Ctrl+L'],
             ['id' => 'format.align.center', 'label' => 'Rata Tengah', 'category' => 'Paragraf', 'icon' => '↔️', 'shortcut' => 'Ctrl+E'],
@@ -8056,8 +8086,10 @@ trait HandlesNaskahStudio
             ['id' => 'insert.footnote', 'label' => 'Sisipkan Catatan Kaki', 'category' => 'Sisipkan', 'icon' => '⚓'],
             ['id' => 'insert.pagebreak', 'label' => 'Sisipkan Pemisah Halaman', 'category' => 'Sisipkan', 'icon' => '✂️', 'shortcut' => 'Ctrl+Enter'],
             ['id' => 'insert.callout', 'label' => 'Sisipkan Kotak Sorotan (Callout)', 'category' => 'Sisipkan', 'icon' => '💡'],
+            ['id' => 'insert.sketch', 'label' => 'Sisipkan Kotak Catatan Sketsa', 'category' => 'Sisipkan', 'icon' => '🎨'],
             ['id' => 'insert.toc', 'label' => 'Buat / Perbarui Daftar Isi', 'category' => 'Referensi', 'icon' => '☰'],
             ['id' => 'insert.bibliography', 'label' => 'Sisipkan Daftar Pustaka Proyek', 'category' => 'Referensi', 'icon' => '📚'],
+            ['id' => 'references.audit', 'label' => 'Audit Keselarasan Sitasi & Pustaka', 'category' => 'Referensi', 'icon' => '🔍'],
             ['id' => 'review.spellcheck', 'label' => 'Pemeriksaan Ejaan Kata', 'category' => 'Peninjauan', 'icon' => '✓'],
             ['id' => 'review.thesaurus', 'label' => 'Tesaurus Sinonim Akademik', 'category' => 'Peninjauan', 'icon' => '📖'],
             ['id' => 'review.track_changes', 'label' => 'Toggle Lacak Perubahan (Track Changes)', 'category' => 'Peninjauan', 'icon' => '👁️'],
@@ -8071,6 +8103,8 @@ trait HandlesNaskahStudio
             ['id' => 'ai.switch_model', 'label' => 'Ganti Model AI Aktif (Model Selector)', 'category' => 'Wordcraft AI', 'icon' => '🤖'],
             ['id' => 'view.dark_mode', 'label' => 'Ganti Mode Gelap / Terang', 'category' => 'Tampilan', 'icon' => '◐'],
             ['id' => 'view.focus', 'label' => 'Mode Fokus / Bebas Gangguan', 'category' => 'Tampilan', 'icon' => '🎯'],
+            ['id' => 'view.zen_mode', 'label' => 'Mode Zen Layar Penuh Bebas Gangguan', 'category' => 'Tampilan', 'icon' => '🧘'],
+            ['id' => 'view.line_numbers', 'label' => 'Tampilkan Nomor Baris Naskah', 'category' => 'Tampilan', 'icon' => '🔢'],
             ['id' => 'view.ruler', 'label' => 'Tampilkan / Sembunyikan Penggaris', 'category' => 'Tampilan', 'icon' => '📏'],
             ['id' => 'view.navigator', 'label' => 'Tampilkan / Sembunyikan Navigator', 'category' => 'Tampilan', 'icon' => '🧭'],
             ['id' => 'view.shortcuts', 'label' => 'Daftar Tombol Pintas (Shortcuts)', 'category' => 'Bantuan', 'icon' => '⌨️', 'shortcut' => '?'],
@@ -8093,6 +8127,8 @@ trait HandlesNaskahStudio
             'file.stats' => $this->openDialog('stats'),
             'file.pagesetup' => $this->openDialog('pagesetup'),
             'file.properties' => $this->openDialog('properties'),
+            'file.snapshots' => $this->openDialog('snapshots'),
+            'tools.merge' => $this->openDialog('merge'),
             'edit.undo' => $this->undo(),
             'edit.redo' => $this->redo(),
             'edit.copy_format' => $this->copyFormat($this->activeBlock),
@@ -8103,6 +8139,7 @@ trait HandlesNaskahStudio
             'format.italic' => $this->formatInline('italic'),
             'format.underline' => $this->formatInline('underline'),
             'format.strike' => $this->formatInline('strike'),
+            'format.drop_cap' => $this->toggleDropCap($this->activeBlock),
             'format.clear' => $this->clearFormatting(),
             'format.align.left' => $this->formatParagraph('align', 'left'),
             'format.align.center' => $this->formatParagraph('align', 'center'),
@@ -8118,8 +8155,10 @@ trait HandlesNaskahStudio
             'insert.footnote' => $this->openDialog('footnote'),
             'insert.pagebreak' => $this->insertPageBreak(),
             'insert.callout' => $this->insertCallout((string) ($args['type'] ?? 'info')),
+            'insert.sketch' => $this->insertCallout('sketch'),
             'insert.toc' => $this->insertTableOfContents(),
             'insert.bibliography' => $this->insertBibliography(),
+            'references.audit' => $this->auditCitations(),
             'review.spellcheck' => $this->runSpellCheck(),
             'review.thesaurus' => $this->openDialog('thesaurus'),
             'review.track_changes' => $this->trackChanges = ! $this->trackChanges,
@@ -8133,6 +8172,8 @@ trait HandlesNaskahStudio
             'ai.switch_model' => $this->openDialog('execute_model'),
             'view.dark_mode' => $this->toggleDarkMode(),
             'view.focus' => $this->setViewMode($this->viewMode === 'read' ? 'print' : 'read'),
+            'view.zen_mode' => $this->toggleZenMode(),
+            'view.line_numbers' => $this->toggleLineNumbers(),
             'view.ruler' => $this->showRuler = ! $this->showRuler,
             'view.navigator' => $this->showNavigation = ! $this->showNavigation,
             'view.shortcuts' => $this->openDialog('shortcuts'),
@@ -8399,8 +8440,12 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $this->blocks[$index]['dropCap'] = ! ($this->blocks[$index]['dropCap'] ?? false);
         $this->dirty = true;
+        $this->editorRevision++;
+        $state = ! empty($this->blocks[$index]['dropCap']) ? 'diaktifkan' : 'dinonaktifkan';
+        $this->notify('Drop Cap', "Efek Drop Cap {$state} pada paragraf.", 'info');
     }
 
     public function documentText(): string
@@ -8462,6 +8507,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $this->blocks[$index]['level'] = $currentLevel - 1;
         $this->dirty = true;
         $this->editorRevision++;
@@ -8484,6 +8530,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $this->blocks[$index]['level'] = $currentLevel + 1;
         $this->dirty = true;
         $this->editorRevision++;
@@ -8536,6 +8583,7 @@ trait HandlesNaskahStudio
                 return false;
             }
 
+            $this->pushUndo();
             $prevSlice = array_slice($this->blocks, $prevStart, $currentStart - $prevStart);
             $currentSlice = array_slice($this->blocks, $currentStart, $currentEnd - $currentStart);
 
@@ -8572,6 +8620,7 @@ trait HandlesNaskahStudio
                 $nextEnd++;
             }
 
+            $this->pushUndo();
             $currentSlice = array_slice($this->blocks, $currentStart, $nextStart - $currentStart);
             $nextSlice = array_slice($this->blocks, $nextStart, $nextEnd - $nextStart);
 
