@@ -2215,3 +2215,68 @@ MD;
     $page->call('executeCommand', 'ai.translate', ['target' => 'id']);
     expect($page->get('blocks')[0]['text'])->not->toBeEmpty();
 });
+
+it('supports literature matrix table block insertion, idempotent bibliography, and statistical formulas', function (): void {
+    $project = makeProject();
+    seedReferences($project);
+
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('sourceProjectId', $project->id)
+        ->set('blocks', [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+            ['type' => 'paragraph', 'text' => 'Tinjauan pustaka terkait.'],
+        ])
+        ->set('activeBlock', 1);
+
+    // 1. Insert literature matrix table block directly
+    $page->call('insertLiteratureMatrixTable', $project->id);
+    $blocks = $page->get('blocks');
+    $lastBlock = end($blocks);
+    expect($lastBlock['type'])->toBe('table')
+        ->and($lastBlock['table']['caption'])->toContain('Matriks Sintesis Literatur')
+        ->and($lastBlock['table']['rows'])->toHaveCount(3);
+
+    // 2. Command palette execution for insert.matrix
+    $page->call('executeCommand', 'insert.matrix');
+    expect(count($page->get('blocks')))->toBeGreaterThan(3);
+
+    // 3. Idempotent bibliography generation (calling insert twice does not duplicate heading)
+    $page->call('insertBibliography', $project->id);
+    $blocksAfterFirstBib = $page->get('blocks');
+    $bibHeadingCount1 = 0;
+    foreach ($blocksAfterFirstBib as $b) {
+        if (($b['type'] ?? '') === 'heading' && preg_match('/^(daftar pustaka|bibliography|references)/iu', trim((string) ($b['text'] ?? '')))) {
+            $bibHeadingCount1++;
+        }
+    }
+    expect($bibHeadingCount1)->toBe(1);
+
+    // Second call should update in-place, keeping heading count at 1
+    $page->call('insertBibliography', $project->id);
+    $blocksAfterSecondBib = $page->get('blocks');
+    $bibHeadingCount2 = 0;
+    foreach ($blocksAfterSecondBib as $b) {
+        if (($b['type'] ?? '') === 'heading' && preg_match('/^(daftar pustaka|bibliography|references)/iu', trim((string) ($b['text'] ?? '')))) {
+            $bibHeadingCount2++;
+        }
+    }
+    expect($bibHeadingCount2)->toBe(1);
+
+    // 4. Insert assistant response containing table_block
+    $builder = app(\App\Domain\Research\LiteratureMatrixBuilder::class);
+    $tableBlock = $builder->toTableBlock($project);
+    $page->set('assistantLog', [
+        [
+            'role' => 'assistant',
+            'content' => 'Berikut matriks komparasi literatur:',
+            'data' => [
+                'table_block' => $tableBlock,
+            ],
+        ],
+    ]);
+    $page->call('insertAssistantResponse', 0);
+    $blocksWithAssistantTable = $page->get('blocks');
+    $insertedBlock = $blocksWithAssistantTable[$page->get('activeBlock')];
+    expect($insertedBlock['type'])->toBe('table')
+        ->and($insertedBlock['table']['caption'])->toContain('Matriks Sintesis Literatur');
+});

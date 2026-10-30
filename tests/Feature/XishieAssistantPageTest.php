@@ -1272,3 +1272,49 @@ it('supports command aliases and bidirectional academic translation with languag
         ->and($resId['reply'])->toContain('Bahasa Indonesia baku akademik')
         ->and($resId['reply'])->toContain('validasi empiris yang ketat');
 });
+
+it('supports literature matrix table block generation and empirical statistical formulas', function (): void {
+    $project = makeProject();
+
+    \App\Models\ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'vaswani2017',
+        'title' => 'Attention Is All You Need',
+        'authors' => [['name' => 'Ashish Vaswani'], ['name' => 'Noam Shazeer']],
+        'year' => 2017,
+        'journal_name' => 'NeurIPS',
+        'is_verified' => true,
+    ]);
+
+    $service = app(XishieAssistantService::class);
+
+    // 1. /matriks-literatur provides table_block structured for naskah studio
+    $resMatrix = $service->handle($project, '/matriks-literatur');
+    expect($resMatrix['command'])->toBe(SlashCommand::MATRIKS->value)
+        ->and($resMatrix['reply'])->toContain('Penulis')
+        ->and($resMatrix['reply'])->toContain('Ashish Vaswani')
+        ->and($resMatrix['data'])->toHaveKey('table_block')
+        ->and($resMatrix['data']['table_block']['type'])->toBe('table')
+        ->and($resMatrix['data']['table_block']['table']['caption'])->toContain('Matriks Sintesis Literatur')
+        ->and($resMatrix['data']['table_block']['table']['rows'][0][1]['text'])->toBe('Penulis')
+        ->and($resMatrix['data']['table_block']['table']['rows'])->toHaveCount(2)
+        ->and($resMatrix['data']['table_block']['table']['rows'][1][1]['text'])->toContain('Ashish Vaswani');
+
+    // 2. /rumus statistical formulas
+    $f1 = $service->handle($project, '/rumus f1');
+    expect($f1['command'])->toBe(SlashCommand::RUMUS->value)
+        ->and($f1['reply'])->toContain('F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}')
+        ->and($f1['data']['name'])->toBe('Ukuran F1-Score (Harmonic Mean)');
+
+    $rmse = $service->handle($project, '/rumus rmse');
+    expect($rmse['reply'])->toContain('\text{RMSE} = \sqrt{\frac{1}{n} \sum_{i=1}^{n} (y_i - \hat{y}_i)^2}');
+
+    $korelasi = $service->handle($project, '/rumus korelasi');
+    expect($korelasi['reply'])->toContain('r = \frac{\sum (x_i - \bar{x})');
+
+    $anova = $service->handle($project, '/rumus anova');
+    expect($anova['reply'])->toContain('F = \frac{\text{MS}_{\text{between}}}{\text{MS}_{\text{within}}}');
+
+    $ttest = $service->handle($project, '/rumus t-test');
+    expect($ttest['reply'])->toContain('t = \frac{\bar{x}_1 - \bar{x}_2}{\sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}}}');
+});

@@ -350,6 +350,10 @@ status, studio_references_html, _ = http_get("/studio?tab=references")
 test("Standalone Studio: References Ribbon Tab (?tab=references)", "Pustaka Riset" in studio_references_html and "Insert Citation" in studio_references_html)
 test("Standalone Studio: References Ribbon Update Bibliography Present (?tab=references)", "updateBibliography" in studio_references_html or "Update Bib" in studio_references_html)
 test("Standalone Studio: References Ribbon Citation Audit Present (?tab=references)", "auditCitations" in studio_references_html or "Audit Citations" in studio_references_html)
+test("Standalone Studio: References Ribbon Insert SOTA Matrix Present (?tab=references)", "insertLiteratureMatrixTable" in studio_references_html or "SOTA Matrix" in studio_references_html)
+
+status, filament_references_html, _ = http_get("/admin/naskah-studio?tab=references", headers=auth_headers)
+test("Filament Studio: References Ribbon Matriks SOTA Present (?tab=references)", "insertLiteratureMatrixTable" in filament_references_html or "Matriks SOTA" in filament_references_html)
 
 status, studio_review_html, _ = http_get("/studio?tab=review")
 test("Standalone Studio: Review Ribbon Tab (?tab=review)", "Cek Pedoman" in studio_review_html and "Cek Gap" in studio_review_html and "Keterbacaan" in studio_review_html)
