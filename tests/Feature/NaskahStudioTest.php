@@ -1177,3 +1177,42 @@ it('supports heading promotion, demotion, and section reordering in naskah studi
         ->and($restoredBlocks[2]['text'])->toBe('1.1 Rumusan Masalah')
         ->and($restoredBlocks[4]['text'])->toBe('Bab II: Kajian Pustaka');
 });
+
+it('supports zen focus mode toggling and section word counts in outline', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Initial zenMode is false
+    expect($page->get('zenMode'))->toBeFalse();
+
+    // Toggle zenMode to true
+    $page->call('toggleZenMode');
+    expect($page->get('zenMode'))->toBeTrue();
+
+    // Toggle zenMode back to false
+    $page->call('toggleZenMode');
+    expect($page->get('zenMode'))->toBeFalse();
+
+    // Test outline section word count calculation
+    $testBlocks = [
+        ['id' => 'b0', 'type' => 'heading', 'level' => 1, 'text' => 'Bab I: Pendahuluan'],
+        ['id' => 'b1', 'type' => 'paragraph', 'text' => 'Ini adalah paragraf pengantar dengan sepuluh kata yang sangat jelas.'],
+        ['id' => 'b2', 'type' => 'heading', 'level' => 2, 'text' => '1.1 Latar Belakang'],
+        ['id' => 'b3', 'type' => 'paragraph', 'text' => 'Latar belakang riset ini sangat mendalam dan terstruktur.'],
+        ['id' => 'b4', 'type' => 'heading', 'level' => 1, 'text' => 'Bab II: Metode'],
+        ['id' => 'b5', 'type' => 'paragraph', 'text' => 'Metode riset menggunakan desain kuantitatif eksperimental empiris.'],
+    ];
+
+    $page->set('blocks', $testBlocks);
+    $outline = $page->instance()->outline();
+
+    expect(count($outline))->toBe(3)
+        ->and($outline[0]['text'])->toBe('Bab I: Pendahuluan')
+        ->and($outline[0]['word_count'])->toBeGreaterThan(15)
+        ->and($outline[1]['text'])->toBe('1.1 Latar Belakang')
+        ->and($outline[1]['word_count'])->toBeGreaterThan(5)
+        ->and($outline[2]['text'])->toBe('Bab II: Metode')
+        ->and($outline[2]['word_count'])->toBeGreaterThan(8);
+});
