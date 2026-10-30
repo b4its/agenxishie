@@ -1162,7 +1162,7 @@ final class NaskahRichModel
     {
         return $this->normalizeBlock([
             'type' => 'callout',
-            'calloutType' => in_array($type, ['info', 'warning', 'tip', 'note', 'success', 'theorem', 'sketch'], true) ? $type : 'info',
+            'calloutType' => in_array($type, ['info', 'warning', 'tip', 'note', 'success', 'theorem', 'sketch', 'important', 'caution'], true) ? $type : 'info',
             'text' => $text,
             'runs' => [],
         ]);
@@ -1763,7 +1763,7 @@ final class NaskahRichModel
             }
 
             // 4. Callout (> [!NOTE] ...)
-            if (preg_match('/^>\s*\[!(NOTE|WARNING|TIP|THEOREM|INFO|SUCCESS|SKETCH)\]\s*(.*)$/is', $line, $cm)) {
+            if (preg_match('/^>\s*\[!(NOTE|WARNING|TIP|THEOREM|INFO|SUCCESS|SKETCH|IMPORTANT|CAUTION)\]\s*(.*)$/is', $line, $cm)) {
                 $cType = strtolower($cm[1]);
                 $cBody = trim($cm[2]);
                 $i++;

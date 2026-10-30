@@ -1011,6 +1011,7 @@
                         <button type="button" class="word-tool-btn" wire:click="insertSampleDiagram('flowchart')" title="Sisipkan Diagram Alur Metodologi">📊 Flowchart</button>
                         <button type="button" class="word-tool-btn" wire:click="insertSampleDiagram('piechart')" title="Sisipkan Diagram Lingkaran">🥧 Pie Chart</button>
                         <button type="button" class="word-tool-btn" wire:click="insertCallout('info')" title="Sisipkan Kotak Catatan Khusus">📌 Callout Note</button>
+                        <button type="button" class="word-tool-btn" wire:click="insertCallout('important')" title="Kotak Catatan Penting">⚡ Important</button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Illustrations</span></div>
@@ -2207,6 +2208,8 @@
                                                     'note' => 'ℹ️',
                                                     'sketch' => '🎨',
                                                     'success' => '✅',
+                                                    'important' => '⚡',
+                                                    'caution' => '🛑',
                                                     default => '📌',
                                                 };
                                                 $cBorder = match ($cType) {
@@ -2216,6 +2219,8 @@
                                                     'note' => '#0284c7',
                                                     'sketch' => '#ec4899',
                                                     'success' => '#16a34a',
+                                                    'important' => '#7c3aed',
+                                                    'caution' => '#dc2626',
                                                     default => '#0f6cbd',
                                                 };
                                                 $cBg = match ($cType) {
@@ -2225,6 +2230,8 @@
                                                     'note' => 'rgba(2, 132, 199, 0.05)',
                                                     'sketch' => 'rgba(236, 72, 153, 0.05)',
                                                     'success' => 'rgba(22, 163, 74, 0.05)',
+                                                    'important' => 'rgba(124, 58, 237, 0.05)',
+                                                    'caution' => 'rgba(220, 38, 38, 0.05)',
                                                     default => 'rgba(15, 108, 189, 0.05)',
                                                 };
                                             @endphp
@@ -2357,6 +2364,16 @@
                                                 <span style="font-size: 9pt; font-weight: 700; color: #0f6cbd;">⚓ Catatan Kaki:</span>
                                                 <span style="flex: 1; font-style: italic;">{!! e($text) !!}</span>
                                                 <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Catatan Kaki">🗑️</button>
+                                            </div>
+                                        @elseif ($type === 'endnote-ref')
+                                            <div class="word-endnote-block"
+                                                id="word-block-{{ $index }}"
+                                                data-block-index="{{ $index }}"
+                                                contenteditable="false"
+                                                style="margin: 8px 0; padding: 6px 10px; background: #f8fafc; border-left: 3px solid #64748b; border-radius: 3px; font-size: 9.5pt; color: #334155; display: flex; align-items: baseline; gap: 8px;">
+                                                <span style="font-size: 9pt; font-weight: 700; color: #475569;">📑 Catatan Akhir:</span>
+                                                <span style="flex: 1;">{!! e($text) !!}</span>
+                                                <button type="button" class="word-tool-btn" style="padding: 1px 6px; font-size: 10px; color: #d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Catatan Akhir">🗑️</button>
                                             </div>
                                         @else
                                             @if ($inBibliographySection)

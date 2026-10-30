@@ -73,6 +73,8 @@ class XishieAssistantPage extends Page
      */
     public array $lastClearedLog = [];
 
+    public ?array $lastDeletedMessage = null;
+
     public bool $showPromptTemplates = false;
 
     public string $templateCategoryFilter = 'all';
@@ -809,6 +811,10 @@ class XishieAssistantPage extends Page
     public function deleteMessage(int $logIndex): void
     {
         if (isset($this->log[$logIndex])) {
+            $this->lastDeletedMessage = [
+                'index' => $logIndex,
+                'entry' => $this->log[$logIndex],
+            ];
             array_splice($this->log, $logIndex, 1);
 
             // Perbarui dan geser indeks pesan berbintang
@@ -824,6 +830,19 @@ class XishieAssistantPage extends Page
             $this->dispatch('assistant-updated');
             Notification::make()->title('Pesan dihapus dari transkrip')->info()->send();
         }
+    }
+
+    public function restoreLastDeletedMessage(): void
+    {
+        if ($this->lastDeletedMessage === null) {
+            return;
+        }
+
+        $idx = min((int) ($this->lastDeletedMessage['index'] ?? 0), count($this->log));
+        array_splice($this->log, $idx, 0, [$this->lastDeletedMessage['entry']]);
+        $this->lastDeletedMessage = null;
+        $this->dispatch('assistant-updated');
+        Notification::make()->title('Pesan berhasil dipulihkan ke transkrip')->success()->send();
     }
 
     /**
@@ -890,7 +909,14 @@ class XishieAssistantPage extends Page
             return;
         }
 
-        $doc = NaskahDocument::query()->where('project_id', $project->id)->latest('last_saved_at')->first();
+        $doc = null;
+        if ($this->activeDocumentId !== null) {
+            $doc = NaskahDocument::query()->find($this->activeDocumentId);
+        }
+
+        if ($doc === null) {
+            $doc = NaskahDocument::query()->where('project_id', $project->id)->latest('last_saved_at')->first();
+        }
         if ($doc !== null) {
             $styleMeta = is_array($doc->style_meta) ? $doc->style_meta : [];
             $snapshots = is_array($styleMeta['snapshots'] ?? null) ? $styleMeta['snapshots'] : [];
@@ -1131,6 +1157,20 @@ class XishieAssistantPage extends Page
                 'category' => 'Struktur & Bab',
                 'description' => 'Pemisahan tegas implikasi multi-sektor dan keterbatasan studi beserta agenda riset masa depan.',
                 'prompt' => 'Uraikan pembahasan implikasi naskah menjadi: 1) Implikasi Teoretis (kontribusi terhadap pengembangan konsep/teori yang ada), 2) Implikasi Praktis & Kebijakan (rekomendasi manajerial/kebijakan konkret), 3) Keterbatasan Penelitian dan Agenda Riset Masa Depan (future research directions).',
+            ],
+            'thesaurus_academic_enhancement' => [
+                'id' => 'thesaurus_academic_enhancement',
+                'title' => 'Pengayaan Terminologi & Leksikon Akademik Baku',
+                'category' => 'Gaya & Format',
+                'description' => 'Tingkatkan diksi, terminologi ilmiah, dan gaya penulisan agar memenuhi standar Scopus / Dikti.',
+                'prompt' => 'Analisis dan tingkatkan pemilihan kata pada naskah ini. Gantikan kosakata informal/repetitif dengan padanan leksikon akademik yang baku, presisi, dan autoritatif. Sajikan daftar kata asli, padanan yang direkomendasikan, beserta kalimat revisinya.',
+            ],
+            'discussion_synthesis' => [
+                'id' => 'discussion_synthesis',
+                'title' => 'Pembahasan Komparatif Terhadap Literatur SOTA',
+                'category' => 'Struktur & Bab',
+                'description' => 'Bandingkan temuan empiris naskah secara kritis dengan penelitian terdahulu (konsistensi & divergensi).',
+                'prompt' => 'Susun narasi Bab Pembahasan (Discussion) yang mengonfrontasikan temuan empiris naskah kita dengan literatur acuan SOTA: 1) Di mana temuan kita mengonfirmasi teori yang ada, 2) Di mana temuan kita bertentangan/anomali dan apa penjelasan ilmiahnya, 3) Apa mekanisme kausal baru yang ditemukan.',
             ],
         ];
     }

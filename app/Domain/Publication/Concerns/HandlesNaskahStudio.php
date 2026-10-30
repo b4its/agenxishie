@@ -116,6 +116,8 @@ trait HandlesNaskahStudio
 
     public string $referenceSearchQuery = '';
 
+    public ?array $lastDeletedAssistantMessage = null;
+
     /**
      * Stack undo/redo.
      *
@@ -3521,15 +3523,15 @@ trait HandlesNaskahStudio
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
-    public function insertFootnote(): void
+    public function insertFootnote(?string $text = null): void
     {
-        $text = trim($this->footnoteText);
-        if ($text === '') {
+        $cleanText = trim((string) ($text ?: $this->footnoteText));
+        if ($cleanText === '') {
             return;
         }
 
         $this->pushUndo();
-        $newBlock = $this->model->newBlock('footnote-ref', $text);
+        $newBlock = $this->model->newBlock('footnote-ref', $cleanText);
         $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
             ? $this->activeBlock + 1
             : count($this->blocks);
@@ -3621,7 +3623,11 @@ trait HandlesNaskahStudio
     public function insertPageNumberField(): void
     {
         $this->pushUndo();
-        $newBlock = $this->model->newBlock('paragraph', 'Halaman 1');
+        $pageNum = $this->currentPage > 0 ? $this->currentPage : 1;
+        $total = $this->totalPages > 0 ? $this->totalPages : 1;
+        $label = $total > 1 ? "Halaman {$pageNum} dari {$total}" : "Halaman {$pageNum}";
+        $newBlock = $this->model->newBlock('paragraph', $label);
+        $newBlock['align'] = 'center';
         $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
             ? $this->activeBlock + 1
             : count($this->blocks);
@@ -6004,9 +6010,25 @@ trait HandlesNaskahStudio
     public function deleteAssistantMessage(int $logIndex): void
     {
         if (isset($this->assistantLog[$logIndex])) {
+            $this->lastDeletedAssistantMessage = [
+                'index' => $logIndex,
+                'entry' => $this->assistantLog[$logIndex],
+            ];
             array_splice($this->assistantLog, $logIndex, 1);
             $this->notify('Pesan Dihapus', 'Pesan asisten telah dihapus dari riwayat sesi.', 'info');
         }
+    }
+
+    public function restoreLastDeletedAssistantMessage(): void
+    {
+        if ($this->lastDeletedAssistantMessage === null) {
+            return;
+        }
+
+        $idx = min((int) ($this->lastDeletedAssistantMessage['index'] ?? 0), count($this->assistantLog));
+        array_splice($this->assistantLog, $idx, 0, [$this->lastDeletedAssistantMessage['entry']]);
+        $this->lastDeletedAssistantMessage = null;
+        $this->notify('Pesan Dipulihkan', 'Pesan asisten berhasil dikembalikan ke drawer.', 'success');
     }
 
     public function insertAssistantResponse(int $logIndex): void
@@ -7123,7 +7145,7 @@ trait HandlesNaskahStudio
         }
 
         $modelId = $this->getCurrentAssistantModel();
-        $formula = (string) ($this->blocks[$blockIndex]['equation']['formula'] ?? 'Y = \\beta_0 + \\beta_1 X_1 + \\varepsilon');
+        $formula = (string) ($this->blocks[$blockIndex]['equation']['latex'] ?? $this->blocks[$blockIndex]['equation']['formula'] ?? $this->blocks[$blockIndex]['text'] ?? 'Y = \\beta_0 + \\beta_1 X_1 + \\varepsilon');
         $caption = (string) ($this->blocks[$blockIndex]['equation']['caption'] ?? '(1)');
 
         $prompt = trim((string) ($instruction ?? ''));
@@ -7196,7 +7218,7 @@ trait HandlesNaskahStudio
 
         if (str_starts_with($tool, '/')) {
             $input = $tool;
-            if (str_contains($tool, 'parafrase') || str_contains($tool, 'poles') || str_contains($tool, 'kembangkan') || str_contains($tool, 'ringkaskan') || str_contains($tool, 'perbaiki-ejaan') || str_contains($tool, 'puebi') || str_contains($tool, 'terjemahkan') || str_contains($tool, 'ringkas') || str_contains($tool, 'keterbacaan') || str_contains($tool, 'format-paragraf') || str_contains($tool, 'kebaruan') || str_contains($tool, 'catatan-kaki')) {
+            if (str_contains($tool, 'parafrase') || str_contains($tool, 'poles') || str_contains($tool, 'kembangkan') || str_contains($tool, 'ringkaskan') || str_contains($tool, 'perbaiki-ejaan') || str_contains($tool, 'puebi') || str_contains($tool, 'terjemahkan') || str_contains($tool, 'ringkas') || str_contains($tool, 'keterbacaan') || str_contains($tool, 'format-paragraf') || str_contains($tool, 'kebaruan') || str_contains($tool, 'catatan-kaki') || str_contains($tool, 'tesaurus')) {
                 $target = $targetText !== '' ? $targetText : Str::limit(trim($documentText), 400, '');
                 $input = $tool.' '.$target;
             } elseif (str_contains($tool, 'sitasi')) {
@@ -8554,11 +8576,13 @@ trait HandlesNaskahStudio
             'note' => 'Catatan: penjelasan tambahan untuk memperjelas konteks pembahasan...',
             'theorem' => 'Teorema / Definisi: untuk setiap x dalam ruang domain...',
             'sketch' => 'Catatan Sketsa & Diagram: gambaran visual alur riset atau konsep model...',
+            'important' => 'Penting: temuan esensial yang memerlukan perhatian khusus...',
+            'caution' => 'Perhatian: potensi galat metodologis atau asumsi kritis...',
             default => 'Catatan Penting: sorotan utama hasil analisis atau temuan riset...',
         };
 
         $block = $this->model->newBlock('callout', $text ?? $sampleText);
-        $block['calloutType'] = in_array($type, ['info', 'warning', 'tip', 'note', 'success', 'theorem', 'sketch'], true) ? $type : 'info';
+        $block['calloutType'] = in_array($type, ['info', 'warning', 'tip', 'note', 'success', 'theorem', 'sketch', 'important', 'caution'], true) ? $type : 'info';
 
         if ($this->activeBlock > 0 && $this->activeBlock < count($this->blocks) - 1) {
             $insertAt = $this->activeBlock + 1;

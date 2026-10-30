@@ -1590,7 +1590,9 @@
                             <button type="button" class="ns-btn" wire:click="addBlock('heading')">+ Judul</button>
                             <button type="button" class="ns-btn" wire:click="addBlock('paragraph')">+ Paragraf</button>
                             <button type="button" class="ns-btn" wire:click="addBlock('quote')">&ldquo; Kutipan</button>
-                            <button type="button" class="ns-btn" wire:click="insertCallout('info')">&#128161; Catatan</button>
+                            <button type="button" class="ns-btn" wire:click="insertCallout('info')" title="Kotak Catatan Informasi">&#128161; Catatan</button>
+                            <button type="button" class="ns-btn" wire:click="insertCallout('tip')" title="Kotak Tips Riset">💡 Tips</button>
+                            <button type="button" class="ns-btn" wire:click="insertCallout('important')" title="Kotak Catatan Penting">⚡ Penting</button>
                             <button type="button" class="ns-btn" wire:click="addBlock('bullet')">+ Poin</button>
                             <button type="button" class="ns-btn" wire:click="addBlock('numbered')">+ Nomor</button>
                         </div>
@@ -2507,6 +2509,8 @@
                                                         'note' => 'ℹ️',
                                                         'sketch' => '🎨',
                                                         'success' => '✅',
+                                                        'important' => '⚡',
+                                                        'caution' => '🛑',
                                                         default => '📌',
                                                     };
                                                     $cBorder = match ($cType) {
@@ -2516,6 +2520,8 @@
                                                         'note' => '#0284c7',
                                                         'sketch' => '#ec4899',
                                                         'success' => '#16a34a',
+                                                        'important' => '#7c3aed',
+                                                        'caution' => '#dc2626',
                                                         default => '#3b82f6',
                                                     };
                                                     $cBg = match ($cType) {
@@ -2525,6 +2531,8 @@
                                                         'note' => '#f0f9ff',
                                                         'sketch' => '#fdf2f8',
                                                         'success' => '#ecfdf5',
+                                                        'important' => '#f5f3ff',
+                                                        'caution' => '#fef2f2',
                                                         default => '#eff6ff',
                                                     };
                                                 @endphp
@@ -2533,6 +2541,26 @@
                                                         <span style="font-size:1.1rem; line-height:1; user-select:none;">{{ $cIcon }}</span>
                                                         <p class="word-paragraph-text" style="margin:0; flex:1;">{!! $text ?: '<br>' !!}</p>
                                                     </div>
+                                                </div>
+                                            @elseif ($type === 'footnote-ref')
+                                                <div class="ns-footnote-block"
+                                                    id="word-block-{{ $index }}"
+                                                    data-block-index="{{ $index }}"
+                                                    contenteditable="false"
+                                                    style="margin:14px 0 6px 0; padding-top:6px; border-top:1px solid #cbd5e1; font-size:.78rem; color:#475569; display:flex; align-items:baseline; gap:8px;">
+                                                    <span style="font-size:.75rem; font-weight:700; color:#0f6cbd;">⚓ Catatan Kaki:</span>
+                                                    <span style="flex:1; font-style:italic;">{!! e($text) !!}</span>
+                                                    <button type="button" class="ns-btn" style="padding:1px 6px; font-size:10px; color:#d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Catatan Kaki">🗑️</button>
+                                                </div>
+                                            @elseif ($type === 'endnote-ref')
+                                                <div class="ns-endnote-block"
+                                                    id="word-block-{{ $index }}"
+                                                    data-block-index="{{ $index }}"
+                                                    contenteditable="false"
+                                                    style="margin:8px 0; padding:6px 10px; background:#f8fafc; border-left:3px solid #64748b; border-radius:3px; font-size:.78rem; color:#334155; display:flex; align-items:baseline; gap:8px;">
+                                                    <span style="font-size:.75rem; font-weight:700; color:#475569;">📑 Catatan Akhir:</span>
+                                                    <span style="flex:1;">{!! e($text) !!}</span>
+                                                    <button type="button" class="ns-btn" style="padding:1px 6px; font-size:10px; color:#d13438;" wire:click="deleteBlock({{ $index }})" title="Hapus Catatan Akhir">🗑️</button>
                                                 </div>
                                             @else
                                                 @if ($inBibliographySection)
