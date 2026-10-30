@@ -1643,4 +1643,194 @@ final class NaskahRichModel
 
         return null;
     }
+
+    /**
+     * Urai teks markdown yang kaya (termasuk rumus LaTeX, tabel, callout, kutipan, daftar, dan heading)
+     * menjadi rangkaian blok naskah terstruktur.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function parseMarkdownToBlocks(string $content, ?string $defaultEquationCaption = null): array
+    {
+        $content = trim($content);
+        if ($content === '') {
+            return [];
+        }
+
+        $lines = preg_split("/\r\n|\n|\r/", $content) ?: [];
+        $blocks = [];
+        $i = 0;
+        $count = count($lines);
+
+        while ($i < $count) {
+            $line = trim((string) $lines[$i]);
+
+            if ($line === '') {
+                $i++;
+                continue;
+            }
+
+            // 1. LaTeX code block ```latex ... ```
+            if (preg_match('/^```(?:latex|math|equation)?\s*$/i', $line)) {
+                $latexLines = [];
+                $i++;
+                while ($i < $count && ! preg_match('/^```\s*$/', trim((string) $lines[$i]))) {
+                    $latexLines[] = $lines[$i];
+                    $i++;
+                }
+                $i++; // lewati penutup ```
+                $formula = trim(implode("\n", $latexLines));
+                if ($formula !== '') {
+                    $caption = '';
+                    if (preg_match('/penomoran persamaan\s*`\(?([^\)`]+)\)?`/i', $content, $capMatch) === 1) {
+                        $caption = '('.$capMatch[1].')';
+                    } elseif (! empty($defaultEquationCaption)) {
+                        $caption = $defaultEquationCaption;
+                    }
+                    $blocks[] = $this->newEquationBlock($formula, $caption);
+                }
+                continue;
+            }
+
+            // 2. LaTeX inline block $$ ... $$ atau \[ ... \]
+            if (str_starts_with($line, '$$') || str_starts_with($line, '\\[')) {
+                $isDollar = str_starts_with($line, '$$');
+                $closeMarker = $isDollar ? '$$' : '\\]';
+                $prefixLen = 2;
+
+                if (str_ends_with($line, $closeMarker) && strlen($line) > ($prefixLen * 2)) {
+                    $formula = trim(substr($line, $prefixLen, -$prefixLen));
+                    $caption = ! empty($defaultEquationCaption) ? $defaultEquationCaption : '';
+                    $blocks[] = $this->newEquationBlock($formula, $caption);
+                    $i++;
+                    continue;
+                }
+
+                $latexLines = [];
+                $i++;
+                while ($i < $count && ! str_ends_with(trim((string) $lines[$i]), $closeMarker)) {
+                    $latexLines[] = $lines[$i];
+                    $i++;
+                }
+                if ($i < $count) {
+                    $last = trim((string) $lines[$i]);
+                    $latexLines[] = substr($last, 0, -$prefixLen);
+                    $i++;
+                }
+                $formula = trim(implode("\n", $latexLines));
+                if ($formula !== '') {
+                    $caption = ! empty($defaultEquationCaption) ? $defaultEquationCaption : '';
+                    $blocks[] = $this->newEquationBlock($formula, $caption);
+                }
+                continue;
+            }
+
+            // 3. Markdown Table (starts and ends with |)
+            if (str_starts_with($line, '|') && str_ends_with($line, '|')) {
+                $tableLines = [];
+                while ($i < $count && str_starts_with(trim((string) $lines[$i]), '|') && str_ends_with(trim((string) $lines[$i]), '|')) {
+                    $tableLines[] = trim((string) $lines[$i]);
+                    $i++;
+                }
+                if (count($tableLines) >= 2 && str_contains($tableLines[1], '---')) {
+                    $tableRows = [];
+                    foreach ($tableLines as $idx => $tRow) {
+                        if ($idx === 1) {
+                            continue; // lewati garis pemisah header tabel
+                        }
+                        $rawCells = explode('|', $tRow);
+                        if (count($rawCells) > 2) {
+                            array_shift($rawCells);
+                            array_pop($rawCells);
+                        }
+                        $cells = array_map('trim', $rawCells);
+                        $tableRows[] = array_map(static fn ($c) => ['text' => $c, 'runs' => []], $cells);
+                    }
+                    if (! empty($tableRows)) {
+                        $blocks[] = $this->newTableBlock($tableRows, true);
+                    }
+                }
+                continue;
+            }
+
+            // 4. Callout (> [!NOTE] ...)
+            if (preg_match('/^>\s*\[!(NOTE|WARNING|TIP|THEOREM|INFO|SUCCESS)\]\s*(.*)$/is', $line, $cm)) {
+                $cType = strtolower($cm[1]);
+                $cBody = trim($cm[2]);
+                $i++;
+                while ($i < $count && str_starts_with(trim((string) $lines[$i]), '>')) {
+                    $cBody .= ' '.trim(ltrim(trim((string) $lines[$i]), '>'));
+                    $i++;
+                }
+                $blocks[] = $this->newCalloutBlock($cType, trim($cBody));
+                continue;
+            }
+
+            // 5. Regular Quote (> kutipan)
+            if (preg_match('/^>\s+(.+)$/u', $line, $qm)) {
+                $quoteLines = [trim($qm[1])];
+                $i++;
+                while ($i < $count && str_starts_with(trim((string) $lines[$i]), '>') && ! preg_match('/^>\s*\[!/i', trim((string) $lines[$i]))) {
+                    $quoteLines[] = trim(ltrim(trim((string) $lines[$i]), '>'));
+                    $i++;
+                }
+                $cleanQuote = trim(implode(' ', $quoteLines));
+                $blocks[] = $this->normalizeBlock([
+                    'type' => 'quote',
+                    'text' => $cleanQuote,
+                    'runs' => [
+                        ['text' => $cleanQuote, 'italic' => true],
+                    ],
+                ]);
+                continue;
+            }
+
+            // 6. Headings
+            if (preg_match('/^(#{1,6})\s+(.+)$/u', $line, $hm) === 1) {
+                $blocks[] = $this->newBlock('heading', trim($hm[2]), min(3, strlen($hm[1])));
+                $i++;
+                continue;
+            }
+
+            // 7. Lists
+            if (str_starts_with($line, '- ') || str_starts_with($line, '* ') || str_starts_with($line, '• ')) {
+                $blocks[] = $this->newBlock('bullet', trim(mb_substr($line, 2)));
+                $i++;
+                continue;
+            }
+            if (preg_match('/^\d+[.)]\s+(.+)$/u', $line, $numMatch)) {
+                $blocks[] = $this->newBlock('numbered', trim($numMatch[1]));
+                $i++;
+                continue;
+            }
+
+            // 8. Regular paragraph
+            $paraLines = [$line];
+            $i++;
+            while ($i < $count) {
+                $nextLine = trim((string) $lines[$i]);
+                if ($nextLine === '' ||
+                    str_starts_with($nextLine, '#') ||
+                    str_starts_with($nextLine, '- ') ||
+                    str_starts_with($nextLine, '* ') ||
+                    str_starts_with($nextLine, '• ') ||
+                    str_starts_with($nextLine, '|') ||
+                    str_starts_with($nextLine, '$$') ||
+                    str_starts_with($nextLine, '\\[') ||
+                    str_starts_with($nextLine, '```') ||
+                    preg_match('/^\d+[.)]\s+/u', $nextLine) ||
+                    str_starts_with($nextLine, '>')) {
+                    break;
+                }
+                $paraLines[] = $nextLine;
+                $i++;
+            }
+            $cleanPara = trim(implode(' ', $paraLines));
+            if ($cleanPara !== '') {
+                $blocks[] = $this->newBlock('paragraph', $cleanPara);
+            }
+        }
+
+        return $blocks;
+    }
 }

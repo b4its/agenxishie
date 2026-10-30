@@ -4004,26 +4004,20 @@ trait HandlesNaskahStudio
             return;
         }
 
-        $paragraphs = preg_split('/\n{2,}/u', $text) ?: [$text];
-        foreach ($paragraphs as $pText) {
-            $trimmed = trim($pText);
-            if ($trimmed !== '') {
-                $this->blocks[] = [
-                    'id' => 'block_note_'.Str::random(6),
-                    'type' => 'paragraph',
-                    'level' => 0,
-                    'text' => htmlspecialchars($trimmed, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-                    'runs' => [
-                        ['text' => $trimmed, 'bold' => false, 'italic' => false, 'underline' => false],
-                    ],
-                ];
-            }
+        $newBlocks = $this->parseMarkdownToBlocks($text);
+        if (empty($newBlocks)) {
+            $newBlocks[] = $this->model->newBlock('paragraph', $text);
+        }
+
+        $this->pushUndo();
+        foreach ($newBlocks as $nb) {
+            $this->blocks[] = $nb;
         }
 
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
-        $this->notify('Catatan Disisipkan', 'Catatan berhasil disisipkan ke bagian akhir naskah.', 'success');
+        $this->notify('Catatan Disisipkan', 'Catatan berhasil disisipkan ke bagian akhir naskah ('.count($newBlocks).' blok).', 'success');
     }
 
     /**
@@ -5715,6 +5709,17 @@ trait HandlesNaskahStudio
         $this->notify('Riwayat Dibersihkan', 'Riwayat percakapan Xishie Assistant telah dikosongkan.', 'info');
     }
 
+    /**
+     * Hapus satu pesan tertentu dari riwayat percakapan drawer asisten di studio.
+     */
+    public function deleteAssistantMessage(int $logIndex): void
+    {
+        if (isset($this->assistantLog[$logIndex])) {
+            array_splice($this->assistantLog, $logIndex, 1);
+            $this->notify('Pesan Dihapus', 'Pesan asisten telah dihapus dari riwayat sesi.', 'info');
+        }
+    }
+
     public function insertAssistantResponse(int $logIndex): void
     {
         if (! isset($this->assistantLog[$logIndex]['content'])) {
@@ -6884,181 +6889,7 @@ trait HandlesNaskahStudio
      */
     protected function parseMarkdownToBlocks(string $content): array
     {
-        $content = trim($content);
-        if ($content === '') {
-            return [];
-        }
-
-        $lines = explode("\n", $content);
-        $blocks = [];
-        $i = 0;
-        $count = count($lines);
-
-        while ($i < $count) {
-            $line = trim($lines[$i]);
-
-            if ($line === '') {
-                $i++;
-
-                continue;
-            }
-
-            // 1. LaTeX code block ```latex ... ```
-            if (preg_match('/^```latex\s*$/i', $line)) {
-                $latexLines = [];
-                $i++;
-                while ($i < $count && ! preg_match('/^```\s*$/', trim($lines[$i]))) {
-                    $latexLines[] = $lines[$i];
-                    $i++;
-                }
-                $i++; // skip closing ```
-                $formula = trim(implode("\n", $latexLines));
-                if ($formula !== '') {
-                    $caption = '';
-                    if (preg_match('/penomoran persamaan\s*`\(?([^\)`]+)\)?`/i', $content, $capMatch) === 1) {
-                        $caption = '('.$capMatch[1].')';
-                    } elseif (! empty($this->equationCaption)) {
-                        $caption = $this->equationCaption;
-                    }
-                    $blocks[] = $this->model->newEquationBlock($formula, $caption);
-                }
-
-                continue;
-            }
-
-            // 2. LaTeX inline block $$ ... $$
-            if (str_starts_with($line, '$$')) {
-                if (str_ends_with($line, '$$') && strlen($line) > 4) {
-                    $formula = trim(substr($line, 2, -2));
-                    $caption = ! empty($this->equationCaption) ? $this->equationCaption : '';
-                    $blocks[] = $this->model->newEquationBlock($formula, $caption);
-                    $i++;
-
-                    continue;
-                }
-                $latexLines = [];
-                $i++;
-                while ($i < $count && ! str_ends_with(trim($lines[$i]), '$$')) {
-                    $latexLines[] = $lines[$i];
-                    $i++;
-                }
-                if ($i < $count) {
-                    $last = trim($lines[$i]);
-                    $latexLines[] = substr($last, 0, -2);
-                    $i++;
-                }
-                $formula = trim(implode("\n", $latexLines));
-                if ($formula !== '') {
-                    $caption = ! empty($this->equationCaption) ? $this->equationCaption : '';
-                    $blocks[] = $this->model->newEquationBlock($formula, $caption);
-                }
-
-                continue;
-            }
-
-            // 3. Markdown Table (starts and ends with |)
-            if (str_starts_with($line, '|') && str_ends_with($line, '|')) {
-                $tableLines = [];
-                while ($i < $count && str_starts_with(trim($lines[$i]), '|') && str_ends_with(trim($lines[$i]), '|')) {
-                    $tableLines[] = trim($lines[$i]);
-                    $i++;
-                }
-                if (count($tableLines) >= 2 && str_contains($tableLines[1], '---')) {
-                    $tableRows = [];
-                    foreach ($tableLines as $idx => $tRow) {
-                        if ($idx === 1) {
-                            continue; // skip separator
-                        }
-                        $rawCells = explode('|', $tRow);
-                        if (count($rawCells) > 2) {
-                            array_shift($rawCells);
-                            array_pop($rawCells);
-                        }
-                        $cells = array_map('trim', $rawCells);
-                        $tableRows[] = array_map(static fn ($c) => ['text' => $c, 'runs' => []], $cells);
-                    }
-                    if (! empty($tableRows)) {
-                        $blocks[] = $this->model->newTableBlock($tableRows, true);
-                    }
-                }
-
-                continue;
-            }
-
-            // 4. Callout (> [!NOTE] ...)
-            if (preg_match('/^>\s*\[!(NOTE|WARNING|TIP|THEOREM|INFO|SUCCESS)\]\s*(.*)$/is', $line, $cm)) {
-                $cType = strtolower($cm[1]);
-                $cBody = trim($cm[2]);
-                $i++;
-                while ($i < $count && str_starts_with(trim($lines[$i]), '>')) {
-                    $cBody .= ' '.trim(ltrim(trim($lines[$i]), '>'));
-                    $i++;
-                }
-                $blocks[] = $this->model->newCalloutBlock($cType, trim($cBody));
-
-                continue;
-            }
-
-            // 5. Headings
-            if (str_starts_with($line, '### ')) {
-                $blocks[] = $this->model->newBlock('heading', trim(substr($line, 4)), 2);
-                $i++;
-
-                continue;
-            }
-            if (str_starts_with($line, '## ')) {
-                $blocks[] = $this->model->newBlock('heading', trim(substr($line, 3)), 1);
-                $i++;
-
-                continue;
-            }
-            if (str_starts_with($line, '# ')) {
-                $blocks[] = $this->model->newBlock('title', trim(substr($line, 2)));
-                $i++;
-
-                continue;
-            }
-
-            // 6. Lists
-            if (str_starts_with($line, '- ') || str_starts_with($line, '* ')) {
-                $blocks[] = $this->model->newBlock('bullet', trim(substr($line, 2)));
-                $i++;
-
-                continue;
-            }
-            if (preg_match('/^\d+\.\s+(.*)$/u', $line, $numMatch)) {
-                $blocks[] = $this->model->newBlock('numbered', trim($numMatch[1]));
-                $i++;
-
-                continue;
-            }
-
-            // 7. Regular paragraph
-            $paraLines = [$line];
-            $i++;
-            while ($i < $count) {
-                $nextLine = trim($lines[$i]);
-                if ($nextLine === '' ||
-                    str_starts_with($nextLine, '#') ||
-                    str_starts_with($nextLine, '- ') ||
-                    str_starts_with($nextLine, '* ') ||
-                    str_starts_with($nextLine, '|') ||
-                    str_starts_with($nextLine, '$$') ||
-                    str_starts_with($nextLine, '```') ||
-                    preg_match('/^\d+\.\s+/u', $nextLine) ||
-                    preg_match('/^>\s*\[!/i', $nextLine)) {
-                    break;
-                }
-                $paraLines[] = $nextLine;
-                $i++;
-            }
-            $cleanPara = trim(implode(' ', $paraLines));
-            if ($cleanPara !== '') {
-                $blocks[] = $this->model->newBlock('paragraph', $cleanPara);
-            }
-        }
-
-        return $blocks;
+        return $this->model->parseMarkdownToBlocks($content, $this->equationCaption);
     }
 
     public function runTool(string $tool, ?string $selectedText = null): void

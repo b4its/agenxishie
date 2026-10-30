@@ -668,39 +668,7 @@ class XishieAssistantPage extends Page
         $richModel = app(NaskahRichModel::class);
         $existing = $richModel->normalize((array) $doc->blocks);
 
-        $lines = preg_split("/\r\n|\n|\r/", $content);
-        $newBlocks = [];
-        foreach ($lines as $line) {
-            $t = trim((string) $line);
-            if ($t === '') {
-                continue;
-            }
-            if (preg_match('/^(#{1,6})\s+(.+)$/', $t, $m)) {
-                $newBlocks[] = $richModel->newBlock('heading', trim($m[2]), strlen($m[1]));
-            } elseif (preg_match('/^\$\$(.+)\$\$$/', $t, $m) || preg_match('/^\\\\\[(.+)\\\\\]$/', $t, $m)) {
-                $newBlocks[] = [
-                    'id' => 'block_'.Str::random(8),
-                    'type' => 'equation',
-                    'equation' => [
-                        'latex' => trim($m[1]),
-                        'caption' => '',
-                    ],
-                    'text' => trim($m[1]),
-                ];
-            } elseif (str_starts_with($t, '> ')) {
-                $newBlocks[] = [
-                    'id' => 'block_'.Str::random(8),
-                    'type' => 'quote',
-                    'text' => trim(substr($t, 2)),
-                    'runs' => [
-                        ['text' => trim(substr($t, 2)), 'italic' => true],
-                    ],
-                ];
-            } else {
-                $newBlocks[] = $richModel->newBlock('paragraph', $t);
-            }
-        }
-
+        $newBlocks = $richModel->parseMarkdownToBlocks($content);
         if (empty($newBlocks)) {
             $newBlocks[] = $richModel->newBlock('paragraph', $content);
         }
