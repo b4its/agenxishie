@@ -288,6 +288,10 @@ test("Filament Studio: References Ribbon Citation Audit Present",
      "auditCitations" in studio_ref_html)
 test("Filament Studio: References Ribbon Table of Contents Action",
      "insertTableOfContents" in studio_ref_html or "Daftar Isi" in studio_ref_html)
+test("Filament Studio: References Ribbon Renumber Footnotes Action",
+     "renumberFootnotes" in studio_ref_html)
+test("Filament Studio: References Ribbon Renumber Endnotes Action",
+     "renumberEndnotes" in studio_ref_html)
 
 status, studio_layout_auth_html, _ = http_get("/admin/naskah-studio?tab=layout", headers=auth_headers)
 test("Filament Studio: Layout Ribbon Line Numbers Toggle Present",
@@ -415,6 +419,20 @@ test("Standalone Studio: Cross-Reference Dialog with Headings (?dialog=crossref)
 
 status, studio_endnote_html, _ = http_get("/studio?dialog=endnote")
 test("Standalone Studio: Endnote Dialog Supported (?dialog=endnote)", status == 200 and ("Insert Endnote" in studio_endnote_html or "Catatan Akhir" in studio_endnote_html))
+
+status, studio_fn_html, _ = http_get("/studio?dialog=footnote")
+test("Standalone Studio: Footnote Dialog Supported (?dialog=footnote)",
+     status == 200 and ("Insert Footnote" in studio_fn_html or "Footnote" in studio_fn_html))
+
+status, filament_fn_html, _ = http_get("/admin/naskah-studio?dialog=footnote", headers=auth_headers)
+test("Filament Studio: Footnote Dialog Supported (?dialog=footnote)",
+     status == 200 and ("Catatan Kaki" in filament_fn_html or "Footnote" in filament_fn_html))
+
+status, standalone_ref_html, _ = http_get("/studio?tab=references")
+test("Standalone Studio: References Ribbon Renumber Footnotes Action",
+     "renumberFootnotes" in standalone_ref_html)
+test("Standalone Studio: References Ribbon Renumber Endnotes Action",
+     "renumberEndnotes" in standalone_ref_html)
 
 status, studio_merge_html, _ = http_get("/studio?dialog=merge")
 test("Standalone Studio: Mail Merge Dialog Supported (?dialog=merge)", status == 200 and "Mail Merge" in studio_merge_html)

@@ -2993,3 +2993,107 @@ it('supports mail merge semicolon parsing, template presets, preview navigation,
     $component->call('setEquationPreset', 'entropy');
     expect($component->get('equationLatex'))->toContain('H(X) = -\sum');
 });
+
+it('supports footnote and endnote editing, sequential renumbering, and assistant diagram blocks in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id]);
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Pengujian Footnote & Diagram',
+        'source_type' => NaskahDocument::SOURCE_PROJECT,
+        'project_id' => $project->id,
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Pendahuluan'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Kajian awal meninjau literatur primer [^2] dan catatan akhir [#2].'],
+            ['type' => 'footnote-ref', 'level' => 0, 'text' => '[^2] Keterangan metodologis kedua.'],
+            ['type' => 'paragraph', 'level' => 0, 'text' => 'Kajian lanjutan meninjau literatur sekunder [^1] dan catatan akhir [#1].'],
+            ['type' => 'footnote-ref', 'level' => 0, 'text' => '[^1] Keterangan metodologis kesatu.'],
+            ['type' => 'endnote-ref', 'level' => 0, 'text' => '[#2] Elaborasi teoretis kedua.'],
+            ['type' => 'endnote-ref', 'level' => 0, 'text' => '[#1] Elaborasi teoretis kesatu.'],
+        ],
+        'word_count' => 50,
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    // 1. Test editFootnote and update existing footnote block
+    $component->call('editFootnote', 2);
+    expect($component->get('editingFootnoteIndex'))->toBe(2)
+        ->and($component->get('dialog'))->toBe('footnote')
+        ->and($component->get('footnoteText'))->toContain('Keterangan metodologis kedua');
+
+    $component->set('footnoteText', 'Keterangan metodologis kedua yang telah diperbarui.');
+    $component->call('insertFootnote');
+
+    expect($component->get('editingFootnoteIndex'))->toBeNull()
+        ->and($component->get('dialog'))->toBe('')
+        ->and($component->get('blocks')[2]['text'])->toContain('Keterangan metodologis kedua yang telah diperbarui');
+
+    // 2. Test editEndnote and update existing endnote block
+    $component->call('editEndnote', 5);
+    expect($component->get('editingEndnoteIndex'))->toBe(5)
+        ->and($component->get('dialog'))->toBe('endnote')
+        ->and($component->get('endnoteText'))->toBe('Elaborasi teoretis kedua.');
+
+    $component->set('endnoteText', 'Elaborasi teoretis kedua hasil revisi.');
+    $component->call('insertEndnote');
+
+    expect($component->get('editingEndnoteIndex'))->toBeNull()
+        ->and($component->get('dialog'))->toBe('')
+        ->and($component->get('blocks')[5]['text'])->toContain('Elaborasi teoretis kedua hasil revisi');
+
+    // 3. Test sequential renumbering of footnotes
+    $component->call('renumberFootnotes');
+    $blocks = $component->get('blocks');
+
+    // Block 2 was [^2], now should be sequentially [^1]
+    expect($blocks[2]['text'])->toStartWith('[^1]')
+        ->and($blocks[4]['text'])->toStartWith('[^2]');
+
+    // References in paragraphs should also be updated
+    expect($blocks[1]['text'])->toContain('[^1]')
+        ->and($blocks[3]['text'])->toContain('[^2]');
+
+    // 4. Test sequential renumbering of endnotes
+    $component->call('renumberEndnotes');
+    $blocks = $component->get('blocks');
+
+    // Block 5 was [#2], now should be sequentially [#1]
+    expect($blocks[5]['text'])->toStartWith('[#1]')
+        ->and($blocks[6]['text'])->toStartWith('[#2]');
+
+    expect($blocks[1]['text'])->toContain('[#1]')
+        ->and($blocks[3]['text'])->toContain('[#2]');
+
+    // 5. Test applyAssistantToCurrentPage with structured image_block
+    $svgDataUri = 'data:image/svg+xml;base64,'.base64_encode('<svg><text>Flowchart</text></svg>');
+    $component->set('assistantLog', [
+        [
+            'role' => 'assistant',
+            'content' => 'Berikut alur riset rekomendasi.',
+            'data' => [
+                'image_block' => [
+                    'type' => 'image',
+                    'level' => 0,
+                    'text' => 'Gambar 1: Alur Metodologi Riset Komputasi',
+                    'align' => 'center',
+                    'image' => [
+                        'src' => $svgDataUri,
+                        'alt' => 'Alur Metodologi',
+                        'caption' => 'Gambar 1: Alur Metodologi Riset Komputasi',
+                        'width' => 540,
+                    ],
+                ],
+            ],
+        ],
+    ]);
+
+    $applied = $component->instance()->applyAssistantToCurrentPage(0, 1);
+    expect($applied)->toBeTrue();
+
+    $updatedBlocks = $component->get('blocks');
+    $insertedBlock = $updatedBlocks[$component->get('activeBlock')];
+    expect($insertedBlock['type'])->toBe('image')
+        ->and($insertedBlock['image']['src'])->toBe($svgDataUri)
+        ->and($insertedBlock['image']['caption'])->toBe('Gambar 1: Alur Metodologi Riset Komputasi');
+});

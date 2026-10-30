@@ -1624,3 +1624,50 @@ it('supports individual prompt removal from history and bounded history storage'
     $page->call('clearPromptHistory');
     expect($page->get('promptHistory'))->toBeEmpty();
 });
+
+it('supports /gambar with structured SVG diagram blocks, applyToNaskahStudio, and transcript export', function (): void {
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id, 'title' => 'Riset Evaluasi Visualisasi Data']);
+
+    $page = Livewire::actingAs($user)
+        ->test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // 1. Test /gambar flowchart
+    $page->set('message', '/gambar flowchart');
+    $page->call('send');
+
+    $log = $page->get('log');
+    $lastEntry = end($log);
+    expect($lastEntry['role'])->toBe('assistant')
+        ->and($lastEntry['command'])->toBe('/gambar')
+        ->and($lastEntry['data'])->toHaveKey('image_block')
+        ->and($lastEntry['data']['diagram_type'])->toBe('flowchart')
+        ->and($lastEntry['data']['image_block']['image']['src'])->toStartWith('data:image/svg+xml;base64,');
+
+    // 2. Test /gambar barchart
+    $page->set('message', '/gambar grafik akurasi model');
+    $page->call('send');
+    $log = $page->get('log');
+    $barEntry = end($log);
+    expect($barEntry['data']['diagram_type'])->toBe('barchart')
+        ->and($barEntry['data']['image_block']['image']['caption'])->toContain('Grafik');
+
+    // 3. Test applyToNaskahStudio with the barchart entry
+    $barIndex = count($log) - 1;
+    $page->call('applyToNaskahStudio', $barIndex);
+
+    $doc = NaskahDocument::query()->where('project_id', $project->id)->latest('id')->first();
+    expect($doc)->not->toBeNull();
+
+    $imageBlocks = array_values(array_filter($doc->blocks, static fn ($b) => ($b['type'] ?? '') === 'image'));
+    expect($imageBlocks)->not->toBeEmpty()
+        ->and($imageBlocks[0]['image']['src'])->toStartWith('data:image/svg+xml;base64,');
+
+    // 4. Test exportTranscriptToDocument preserving image_block
+    $exportedDoc = $page->instance()->exportTranscriptToDocument('Dokumen Transkrip Diagram');
+    expect($exportedDoc)->not->toBeNull();
+
+    $exportedImages = array_values(array_filter($exportedDoc->blocks, static fn ($b) => ($b['type'] ?? '') === 'image'));
+    expect($exportedImages)->not->toBeEmpty()
+        ->and($exportedImages[0]['image']['caption'])->toBe($lastEntry['data']['image_block']['image']['caption']);
+});
