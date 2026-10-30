@@ -1594,3 +1594,33 @@ it('preserves structured callout, footnote, and methodology blocks in applyToNas
     $freshTypes = array_column($freshDoc->blocks, 'type');
     expect($freshTypes)->toContain('callout');
 });
+
+it('supports individual prompt removal from history and bounded history storage', function () {
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id]);
+
+    $page = Livewire::actingAs($user)
+        ->test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('promptHistory', [
+            '/kebaruan dalam metode ensemble deep learning',
+            '/metodologi penelitian kuantitatif inferensial',
+            '/rumus bayes untuk estimasi posterior',
+        ]);
+
+    expect($page->get('promptHistory'))->toHaveCount(3);
+
+    // Remove index 1
+    $page->call('removePromptFromHistory', 1);
+    $history = $page->get('promptHistory');
+    expect($history)->toHaveCount(2)
+        ->and($history[0])->toBe('/kebaruan dalam metode ensemble deep learning')
+        ->and($history[1])->toBe('/rumus bayes untuk estimasi posterior');
+
+    // Remove invalid index does not fail
+    $page->call('removePromptFromHistory', 99);
+    expect($page->get('promptHistory'))->toHaveCount(2);
+
+    // Clear all
+    $page->call('clearPromptHistory');
+    expect($page->get('promptHistory'))->toBeEmpty();
+});

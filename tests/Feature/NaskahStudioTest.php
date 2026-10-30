@@ -2931,3 +2931,65 @@ it('supports comment filtering, resolve all, comment and revision navigation, an
     expect($component->get('docWordCount'))->toBeGreaterThanOrEqual($wordsBeforeEq)
         ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
 });
+
+it('supports mail merge semicolon parsing, template presets, preview navigation, pagebreaks, and advanced equation presets', function () {
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id]);
+
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['project' => $project->id]);
+
+    // 1. Test setMergeTemplatePreset and preview
+    $component->call('setMergeTemplatePreset', 'reviewer_invitation');
+    expect($component->get('mergeTemplate'))->toContain('Mitra Bestari')
+        ->and($component->get('mergeCsv'))->toContain('Ahmad Fauzi')
+        ->and($component->get('mergePreviews'))->toHaveCount(2)
+        ->and($component->get('currentMergePreviewIndex'))->toBe(0)
+        ->and($component->get('mergePreviews')[0]['text'])->toContain('Ahmad Fauzi');
+
+    // 2. Test nextMergePreview and previousMergePreview
+    $component->call('nextMergePreview');
+    expect($component->get('currentMergePreviewIndex'))->toBe(1)
+        ->and($component->get('mergePreviews')[1]['text'])->toContain('Sri Wahyuni');
+
+    $component->call('previousMergePreview');
+    expect($component->get('currentMergePreviewIndex'))->toBe(0);
+
+    // 3. Test semicolon delimiter CSV parsing
+    $component->set('mergeCsv', "peneliti;institusi;status\nDr. Hendra;UGM;Diterima\nProf. Maya;ITB;Revisi");
+    $component->set('mergeTemplate', 'Yth. {{peneliti}} ({{institusi}}), naskah dinyatakan {{status}}.');
+    $component->call('previewMerge');
+    expect($component->get('mergePreviews'))->toHaveCount(2)
+        ->and($component->get('mergePreviews')[0]['text'])->toBe('Yth. Dr. Hendra (UGM), naskah dinyatakan Diterima.')
+        ->and($component->get('mergePreviews')[1]['text'])->toBe('Yth. Prof. Maya (ITB), naskah dinyatakan Revisi.');
+
+    // 4. Test insertMerge with mergeSeparatePages = true
+    $initialBlockCount = count($component->get('blocks'));
+    $component->set('mergeSeparatePages', true);
+    $component->call('insertMerge');
+
+    $blocks = $component->get('blocks');
+    expect(count($blocks))->toBeGreaterThan($initialBlockCount);
+
+    $pagebreaks = array_values(array_filter($blocks, static fn ($b) => ($b['type'] ?? '') === 'pagebreak'));
+    expect($pagebreaks)->not->toBeEmpty();
+
+    $mergedParagraphs = array_values(array_filter($blocks, static fn ($b) => str_contains((string) ($b['text'] ?? ''), 'Dr. Hendra')));
+    expect($mergedParagraphs)->not->toBeEmpty();
+
+    // 5. Test advanced equation presets
+    $component->call('setEquationPreset', 'bayes');
+    expect($component->get('equationLatex'))->toBe('P(A|B) = \frac{P(B|A) P(A)}{P(B)}');
+
+    $component->call('setEquationPreset', 'f1');
+    expect($component->get('equationLatex'))->toContain('F_1 = 2 \cdot \frac{\text{Precision}');
+
+    $component->call('setEquationPreset', 'rmse');
+    expect($component->get('equationLatex'))->toContain('\text{RMSE} = \sqrt');
+
+    $component->call('setEquationPreset', 'sigmoid');
+    expect($component->get('equationLatex'))->toContain('\sigma(z)');
+
+    $component->call('setEquationPreset', 'entropy');
+    expect($component->get('equationLatex'))->toContain('H(X) = -\sum');
+});

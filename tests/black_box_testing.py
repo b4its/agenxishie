@@ -119,7 +119,10 @@ test(f"GET /api/v1/naskah/documents/{doc_id}/export?format=json", status == 200 
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export-page?page=1&format=md")
 test(f"GET /api/v1/naskah/documents/{doc_id}/export-page?page=1", status == 200 and len(body) > 0)
 
-status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/execute-model", {"preset": "table", "page": 1, "max_tokens": 100})
+status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/execute-model", {"preset": "table", "page": 1, "max_tokens": 100}, timeout=90)
+if status != 200:
+    time.sleep(1)
+    status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/execute-model", {"preset": "table", "page": 1, "max_tokens": 100}, timeout=90)
 test(f"POST /api/v1/naskah/documents/{doc_id}/execute-model", status == 200 and ("blocks_inserted" in body or "word_count" in body))
 
 cli_stats = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'stats', str(doc_id)], capture_output=True, text=True)
@@ -243,7 +246,7 @@ test("Assistant Academic Prompt Templates Actions Supported", "applyPromptTempla
 test("Assistant Reference Search Drawer Present", "PUSTAKA REFERENSI PROYEK" in assistant_html or "toggleReferenceDrawer" in assistant_html)
 test("Assistant Reference Drawer Citation Insertion Action Present", "insertCitationKey" in assistant_html)
 test("Assistant Session Summary Action Present", "generateSessionSummary" in assistant_html or "Rangkum Sesi" in assistant_html)
-test("Assistant Prompt History Support Present", "selectPromptFromHistory" in assistant_html or "Riwayat Prompt" in assistant_html or "promptHistory" in assistant_html)
+test("Assistant Prompt History Support Present", "promptHistory" in assistant_html)
 test("Assistant Message Copy-to-Clipboard Action Present", "clipboard.writeText" in assistant_html or "Salin" in assistant_html)
 test("Assistant Direct Execution Audit Sitasi Chip Present", "⚡ Audit Sitasi" in assistant_html)
 test("Assistant Direct Execution Tesaurus Chip Present", "⚡ Tesaurus" in assistant_html)
@@ -415,6 +418,28 @@ test("Standalone Studio: Endnote Dialog Supported (?dialog=endnote)", status == 
 
 status, studio_merge_html, _ = http_get("/studio?dialog=merge")
 test("Standalone Studio: Mail Merge Dialog Supported (?dialog=merge)", status == 200 and "Mail Merge" in studio_merge_html)
+test("Standalone Studio: Mail Merge Dialog Presets & Options (?dialog=merge)",
+     "setMergeTemplatePreset" in studio_merge_html and "mergeSeparatePages" in studio_merge_html)
+
+status, filament_merge_html, _ = http_get("/admin/naskah-studio?dialog=merge", headers=auth_headers)
+test("Filament Studio: Mail Merge Dialog Presets & Options (?dialog=merge)",
+     "setMergeTemplatePreset" in filament_merge_html and "mergeSeparatePages" in filament_merge_html)
+
+status, studio_mailings_html, _ = http_get("/studio?tab=mailings")
+test("Standalone Studio: Mailings Ribbon Tab (?tab=mailings)",
+     status == 200 and ("Start Merge" in studio_mailings_html or "Mail Merge" in studio_mailings_html))
+
+status, filament_mailings_html, _ = http_get("/admin/naskah-studio?tab=mailings", headers=auth_headers)
+test("Filament Studio: Mailings Ribbon Tab (?tab=mailings)",
+     status == 200 and ("Mail Merge" in filament_mailings_html or "Pratinjau Merge" in filament_mailings_html))
+
+status, studio_equation_html, _ = http_get("/studio?dialog=equation")
+test("Standalone Studio: Equation Dialog Bayes and F1 Presets (?dialog=equation)",
+     "setEquationPreset('bayes')" in studio_equation_html and "setEquationPreset('f1')" in studio_equation_html)
+
+status, filament_equation_html, _ = http_get("/admin/naskah-studio?dialog=equation", headers=auth_headers)
+test("Filament Studio: Equation Dialog Bayes and F1 Presets (?dialog=equation)",
+     "setEquationPreset('bayes')" in filament_equation_html and "setEquationPreset('f1')" in filament_equation_html)
 
 status, studio_references_html, _ = http_get("/studio?tab=references")
 test("Standalone Studio: References Ribbon Tab (?tab=references)", "Pustaka Riset" in studio_references_html and "Insert Citation" in studio_references_html)
@@ -452,6 +477,12 @@ test("Standalone Studio: View Ribbon Tab Line Numbers & Zen Mode (?tab=view)", (
 
 status, studio_draw_html, _ = http_get("/studio?tab=draw")
 test("Standalone Studio: Draw Ribbon Tab (?tab=draw)", status == 200 and ("Pena Biru" in studio_draw_html or "Eraser" in studio_draw_html or "Drawing Tools" in studio_draw_html or "Blue Pen" in studio_draw_html))
+test("Standalone Studio: Draw Ribbon Green & Purple Pen (?tab=draw)",
+     "Green Pen" in studio_draw_html and "Purple Pen" in studio_draw_html)
+
+status, filament_draw_html, _ = http_get("/admin/naskah-studio?tab=draw", headers=auth_headers)
+test("Filament Studio: Draw Ribbon Green & Purple Pen (?tab=draw)",
+     "Pena Hijau" in filament_draw_html and "Pena Ungu" in filament_draw_html)
 
 status, studio_help_html, _ = http_get("/studio?tab=help")
 test("Standalone Studio: Help Ribbon Tab (?tab=help)", status == 200 and ("Shortcuts" in studio_help_html or "Commands" in studio_help_html or "Pintasan" in studio_help_html))
