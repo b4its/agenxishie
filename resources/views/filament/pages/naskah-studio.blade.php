@@ -3032,6 +3032,7 @@
                         <div class="ns-dialog__footer" style="display:flex; justify-content:space-between; gap:.4rem;">
                             <div style="display:flex; gap:.35rem;">
                                 <button type="button" class="ns-btn" wire:click="findText">Cari Semua</button>
+                                <button type="button" class="ns-btn" wire:click="findPrevious" title="Cari kemunculan sebelumnya">⏮ Sebelumnya</button>
                                 <button type="button" class="ns-btn" wire:click="findNext" title="Cari kemunculan berikutnya">Berikutnya ⏭</button>
                             </div>
                             <div style="display:flex; gap:.35rem;">
@@ -3341,7 +3342,17 @@
                             </div>
                             @if ($thesaurusResult)
                                 <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:.5rem; border-radius:4px;">
-                                    {{ $thesaurusResult }}
+                                    <div>{{ $thesaurusResult }}</div>
+                                    @if (!empty($thesaurusSynonyms))
+                                        <div style="margin-top:.45rem; display:flex; flex-wrap:wrap; gap:.3rem; align-items:center;">
+                                            <span style="font-size:.62rem; color:#64748b; font-weight:600; width:100%;">Terapkan ke blok aktif:</span>
+                                            @foreach ($thesaurusSynonyms as $syn)
+                                                <button type="button" class="ns-btn" style="font-size:.62rem; padding:.15rem .45rem; background:#eff6ff; color:#1d4ed8; font-weight:700; border-color:#bfdbfe;" wire:click="applyThesaurusSynonym('{{ $syn }}')" title="Terapkan sinonim '{{ $syn }}' ke blok aktif">
+                                                    ✓ {{ $syn }}
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    @endif
                                 </div>
                             @endif
                         </div>

@@ -209,6 +209,11 @@ trait HandlesNaskahStudio
 
     public string $thesaurusResult = '';
 
+    /**
+     * @var array<int, string>
+     */
+    public array $thesaurusSynonyms = [];
+
     public string $spellResult = '';
 
     public int $tableRows = 3;
@@ -2894,6 +2899,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $rows = (array) $block['table']['rows'];
         $cols = count((array) ($rows[0] ?? []));
         $newRow = array_fill(0, max(1, $cols), ['text' => '', 'runs' => []]);
@@ -2911,6 +2917,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         array_splice($rows, $rowIndex, 1);
         $this->blocks[$index]['table']['rows'] = array_values($rows);
         $this->dirty = true;
@@ -2921,6 +2928,7 @@ trait HandlesNaskahStudio
     {
         $rows = (array) ($this->blocks[$index]['table']['rows'] ?? []);
 
+        $this->pushUndo();
         foreach ($rows as $r => $row) {
             array_splice($rows[$r], $after + 1, 0, [['text' => '', 'runs' => []]]);
         }
@@ -2939,6 +2947,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         foreach ($rows as $r => $row) {
             array_splice($rows[$r], $colIndex, 1);
         }
@@ -2950,6 +2959,7 @@ trait HandlesNaskahStudio
 
     public function tableToggleHeader(int $index): void
     {
+        $this->pushUndo();
         $current = (bool) ($this->blocks[$index]['table']['header'] ?? true);
         $this->blocks[$index]['table']['header'] = ! $current;
         $this->dirty = true;
@@ -3281,6 +3291,7 @@ trait HandlesNaskahStudio
             $captionText = '('.($existingEquationCount + 1).')';
         }
 
+        $this->pushUndo();
         $newBlock = $this->model->newEquationBlock($formula, $captionText, $display);
 
         if ($this->editingEquationIndex !== null && isset($this->blocks[$this->editingEquationIndex])) {
@@ -3314,6 +3325,7 @@ trait HandlesNaskahStudio
             default => $label,
         };
 
+        $this->pushUndo();
         $index = $this->activeBlock;
         if (! isset($this->blocks[$index])) {
             $this->blocks[] = $this->model->newBlock('paragraph', '');
@@ -4972,28 +4984,75 @@ trait HandlesNaskahStudio
 
         if ($word === '') {
             $this->thesaurusResult = 'Masukkan kata terlebih dahulu.';
+            $this->thesaurusSynonyms = [];
             $this->dialog = 'thesaurus';
 
             return;
         }
 
         $map = [
-            'penelitian' => ['kajian', 'studi', 'riset', 'investigasi'],
-            'metode' => ['metodologi', 'pendekatan', 'prosedur', 'teknik'],
-            'hasil' => ['temuan', 'capaian', 'keluaran', 'output'],
-            'masalah' => ['permasalahan', 'kendala', 'isu', 'tantangan'],
-            'tujuan' => ['sasaran', 'maksud', 'target', 'arah'],
-            'analisis' => ['telaah', 'kajian', 'penguraian', 'pembahasan'],
-            'penting' => ['signifikan', 'krusial', 'esensial', 'vital'],
-            'meningkatkan' => ['menaikkan', 'memperbaiki', 'mengembangkan', 'memperkuat'],
-            'data' => ['informasi', 'keterangan', 'fakta', 'bahan'],
+            'penelitian' => ['kajian', 'studi', 'riset', 'investigasi', 'telaah ilmiah'],
+            'metode' => ['metodologi', 'pendekatan', 'prosedur', 'teknik', 'tata cara'],
+            'hasil' => ['temuan', 'capaian', 'keluaran', 'output', 'implikasi'],
+            'masalah' => ['permasalahan', 'kendala', 'isu', 'tantangan', 'hambatan'],
+            'tujuan' => ['sasaran', 'maksud', 'target', 'arah', 'objektif'],
+            'analisis' => ['telaah', 'kajian', 'penguraian', 'pembahasan', 'evaluasi'],
+            'penting' => ['signifikan', 'krusial', 'esensial', 'vital', 'fundamental'],
+            'meningkatkan' => ['menaikkan', 'memperbaiki', 'mengembangkan', 'memperkuat', 'mengoptimalkan'],
+            'data' => ['informasi', 'keterangan', 'fakta', 'bahan', 'korpus'],
+            'kesimpulan' => ['inferensi', 'simpulan', 'konklusi', 'rangkuman', 'deduksi'],
+            'kebaruan' => ['orisinalitas', 'novelty', 'inovasi', 'keunikan', 'pembeda'],
+            'pengaruh' => ['dampak', 'efek', 'implikasi', 'konsekuensi', 'efektivitas'],
+            'hubungan' => ['korelasi', 'asosiasi', 'keterkaitan', 'relasi', 'interkoneksi'],
+            'faktor' => ['determinan', 'unsur', 'variabel', 'elemen', 'aspek'],
+            'model' => ['kerangka', 'paradigma', 'konstruk', 'skema', 'purwarupa'],
+            'validitas' => ['kesahihan', 'keandalan', 'akurasi', 'kredibilitas', 'otentisitas'],
+            'efektivitas' => ['keberhasilan', 'daya guna', 'efisiensi', 'produktivitas', 'kemanjuran'],
+            'strategi' => ['taktik', 'pendekatan', 'kebijakan', 'manuver', 'rancangan aksi'],
+            'konsep' => ['gagasan', 'nosional', 'ide', 'pengertian', 'postulat'],
+            'dasar' => ['fundamental', 'landasan', 'basis', 'pijakan', 'fondasi'],
+            'pendahuluan' => ['pengantar', 'prolog', 'latar belakang', 'introduksi', 'premis awal'],
+            'pembahasan' => ['diskusi', 'eksplanasi', 'uraian', 'penjabaran', 'eksplorasi'],
+            'signifikan' => ['bermakna', 'nyata', 'berbobot', 'substansial', 'meyakinkan'],
+            'hipotesis' => ['dugaan awal', 'praduga', 'asumsi sementara', 'postulat', 'premis'],
+            'limitasi' => ['batasan', 'keterbatasan', 'cakupan terbatas', 'kendala ruang lingkup'],
+            'teori' => ['landasan teoretis', 'doktrin', 'prinsip ilmiah', 'dalil'],
         ];
 
-        $this->thesaurusResult = isset($map[$word])
-            ? 'Sinonim "'.$word.'": '.implode(', ', $map[$word]).'.'
+        $this->thesaurusSynonyms = $map[$word] ?? [];
+        $this->thesaurusResult = ! empty($this->thesaurusSynonyms)
+            ? 'Sinonim "'.$word.'": '.implode(', ', $this->thesaurusSynonyms).'.'
             : 'Tidak ada sinonim untuk "'.$word.'" di tesaurus ringkas.';
 
         $this->dialog = 'thesaurus';
+    }
+
+    /**
+     * Terapkan sinonim terpilih dari tesaurus ke blok aktif.
+     */
+    public function applyThesaurusSynonym(string $synonym): void
+    {
+        $targetWord = trim($this->thesaurusWord);
+        if ($synonym === '' || ! isset($this->blocks[$this->activeBlock])) {
+            return;
+        }
+
+        $this->pushUndo();
+        $text = (string) ($this->blocks[$this->activeBlock]['text'] ?? '');
+        if ($targetWord !== '' && mb_stripos($text, $targetWord) !== false) {
+            $this->blocks[$this->activeBlock]['text'] = (string) preg_replace('/'.preg_quote($targetWord, '/').'/iu', $synonym, $text, 1);
+            $this->blocks[$this->activeBlock]['runs'] = [];
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Sinonim Diterapkan', "Kata '{$targetWord}' diganti dengan '{$synonym}'.", 'success');
+        } else {
+            $cleanText = trim($text);
+            $this->blocks[$this->activeBlock]['text'] = $cleanText !== '' ? $cleanText.' '.$synonym : $synonym;
+            $this->blocks[$this->activeBlock]['runs'] = [];
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Sinonim Disisipkan', "Sinonim '{$synonym}' disisipkan ke blok aktif.", 'success');
+        }
     }
 
     // =====================================================================
@@ -5045,6 +5104,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $replaced = 0;
         foreach ($this->blocks as $i => $block) {
             if (($block['type'] ?? '') === 'table') {
@@ -5076,6 +5136,7 @@ trait HandlesNaskahStudio
         $this->findResult = "Mengganti {$replaced} kemunculan.";
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     public function findNext(): void
@@ -5117,6 +5178,49 @@ trait HandlesNaskahStudio
         $this->findResult = "Ditemukan ".count($matches)." kemunculan. Posisi #".($this->findCurrentHitIndex + 1)." di blok #".($this->activeBlock + 1).".";
     }
 
+    /**
+     * Cari kemunculan kata sebelumnya dalam naskah.
+     */
+    public function findPrevious(): void
+    {
+        $query = trim($this->findQuery);
+        if ($query === '') {
+            $this->findResult = 'Masukkan kata yang dicari.';
+
+            return;
+        }
+
+        $matches = [];
+        foreach ($this->blocks as $i => $block) {
+            $text = (string) ($block['text'] ?? '');
+            if (($block['type'] ?? '') === 'table') {
+                $rows = (array) ($block['table']['rows'] ?? []);
+                foreach ($rows as $r => $row) {
+                    foreach ((array) $row as $c => $cell) {
+                        $cellText = (string) ($cell['text'] ?? '');
+                        if (mb_stripos($cellText, $query) !== false) {
+                            $matches[] = ['block' => $i, 'type' => 'table', 'row' => $r, 'col' => $c];
+                        }
+                    }
+                }
+            } elseif (mb_stripos($text, $query) !== false) {
+                $matches[] = ['block' => $i, 'type' => 'block'];
+            }
+        }
+
+        if (empty($matches)) {
+            $this->findResult = "Tidak ditemukan '{$query}'.";
+
+            return;
+        }
+
+        $total = count($matches);
+        $this->findCurrentHitIndex = ($this->findCurrentHitIndex - 1 + $total) % $total;
+        $activeHit = $matches[$this->findCurrentHitIndex];
+        $this->activeBlock = $activeHit['block'];
+        $this->findResult = "Ditemukan {$total} kemunculan. Posisi #".($this->findCurrentHitIndex + 1)." di blok #".($this->activeBlock + 1).".";
+    }
+
     public function replaceCurrent(): void
     {
         $find = trim($this->findQuery);
@@ -5130,10 +5234,12 @@ trait HandlesNaskahStudio
         if (isset($this->blocks[$index])) {
             $text = (string) ($this->blocks[$index]['text'] ?? '');
             if (mb_stripos($text, $find) !== false) {
+                $this->pushUndo();
                 $this->blocks[$index]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $text, 1);
                 $this->blocks[$index]['runs'] = [];
                 $this->dirty = true;
                 $this->editorRevision++;
+                $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
                 $this->findResult = "1 kemunculan pada blok #".($index + 1)." berhasil diganti.";
                 $this->findNext();
 
