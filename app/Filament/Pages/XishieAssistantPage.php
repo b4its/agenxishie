@@ -1372,8 +1372,23 @@ class XishieAssistantPage extends Page
 
             foreach ($exportLog as $entry) {
                 $sender = $entry['role'] === 'user' ? 'Peneliti' : 'Xishie Assistant';
-                $lines[] = "### [{$sender}]";
-                $lines[] = $entry['content'];
+                $metaParts = [];
+                if (! empty($entry['model'])) {
+                    $metaParts[] = 'Model: `'.$entry['model'].'`';
+                }
+                if (! empty($entry['persona'])) {
+                    $metaParts[] = 'Persona: *'.$entry['persona'].'*';
+                }
+                if (! empty($entry['command'])) {
+                    $metaParts[] = 'Perintah: `'.$entry['command'].'`';
+                }
+                if (! empty($entry['created_at'])) {
+                    $metaParts[] = 'Waktu: '.$entry['created_at'];
+                }
+                $metaSuffix = ! empty($metaParts) ? ' ('.implode(' · ', $metaParts).')' : '';
+                $lines[] = "### [{$sender}]{$metaSuffix}";
+                $lines[] = '';
+                $lines[] = (string) ($entry['content'] ?? '');
                 $lines[] = '';
             }
 

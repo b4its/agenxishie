@@ -5494,6 +5494,40 @@ trait HandlesNaskahStudio
                     }
                 }
 
+                $tableCap = (string) ($block['table']['caption'] ?? '');
+                $capCount = mb_substr_count(mb_strtolower($tableCap), mb_strtolower($find));
+                if ($capCount > 0) {
+                    $this->blocks[$i]['table']['caption'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $tableCap);
+                    $replaced += $capCount;
+                }
+
+                continue;
+            }
+
+            if (($block['type'] ?? '') === 'equation') {
+                $latex = (string) ($block['latex'] ?? $block['equation']['latex'] ?? $block['text'] ?? '');
+                $count = mb_substr_count(mb_strtolower($latex), mb_strtolower($find));
+                if ($count > 0) {
+                    $newLatex = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $latex);
+                    $this->blocks[$i]['latex'] = $newLatex;
+                    $this->blocks[$i]['text'] = $newLatex;
+                    if (isset($this->blocks[$i]['equation'])) {
+                        $this->blocks[$i]['equation']['latex'] = $newLatex;
+                    }
+                    $replaced += $count;
+                }
+
+                $eqCap = (string) ($block['caption'] ?? $block['equation']['caption'] ?? '');
+                $eqCapCount = mb_substr_count(mb_strtolower($eqCap), mb_strtolower($find));
+                if ($eqCapCount > 0) {
+                    $newEqCap = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $eqCap);
+                    $this->blocks[$i]['caption'] = $newEqCap;
+                    if (isset($this->blocks[$i]['equation'])) {
+                        $this->blocks[$i]['equation']['caption'] = $newEqCap;
+                    }
+                    $replaced += $eqCapCount;
+                }
+
                 continue;
             }
 
@@ -5526,14 +5560,24 @@ trait HandlesNaskahStudio
         foreach ($this->blocks as $i => $block) {
             $text = (string) ($block['text'] ?? '');
             if (($block['type'] ?? '') === 'table') {
+                $tableCap = (string) ($block['table']['caption'] ?? '');
+                if (mb_stripos($tableCap, $query) !== false) {
+                    $matches[] = ['block' => $i, 'type' => 'table_caption'];
+                }
                 $rows = (array) ($block['table']['rows'] ?? []);
                 foreach ($rows as $r => $row) {
                     foreach ((array) $row as $c => $cell) {
                         $cellText = (string) ($cell['text'] ?? '');
                         if (mb_stripos($cellText, $query) !== false) {
-                            $matches[] = ['block' => $i, 'type' => 'table', 'row' => $r, 'col' => $c];
+                            $matches[] = ['block' => $i, 'type' => 'table_cell', 'row' => $r, 'col' => $c];
                         }
                     }
+                }
+            } elseif (($block['type'] ?? '') === 'equation') {
+                $eqText = (string) ($block['latex'] ?? $block['equation']['latex'] ?? $block['text'] ?? '');
+                $caption = (string) ($block['caption'] ?? $block['equation']['caption'] ?? '');
+                if (mb_stripos($eqText, $query) !== false || mb_stripos($caption, $query) !== false) {
+                    $matches[] = ['block' => $i, 'type' => 'equation'];
                 }
             } elseif (mb_stripos($text, $query) !== false) {
                 $matches[] = ['block' => $i, 'type' => 'block'];
@@ -5568,14 +5612,24 @@ trait HandlesNaskahStudio
         foreach ($this->blocks as $i => $block) {
             $text = (string) ($block['text'] ?? '');
             if (($block['type'] ?? '') === 'table') {
+                $tableCap = (string) ($block['table']['caption'] ?? '');
+                if (mb_stripos($tableCap, $query) !== false) {
+                    $matches[] = ['block' => $i, 'type' => 'table_caption'];
+                }
                 $rows = (array) ($block['table']['rows'] ?? []);
                 foreach ($rows as $r => $row) {
                     foreach ((array) $row as $c => $cell) {
                         $cellText = (string) ($cell['text'] ?? '');
                         if (mb_stripos($cellText, $query) !== false) {
-                            $matches[] = ['block' => $i, 'type' => 'table', 'row' => $r, 'col' => $c];
+                            $matches[] = ['block' => $i, 'type' => 'table_cell', 'row' => $r, 'col' => $c];
                         }
                     }
+                }
+            } elseif (($block['type'] ?? '') === 'equation') {
+                $eqText = (string) ($block['latex'] ?? $block['equation']['latex'] ?? $block['text'] ?? '');
+                $caption = (string) ($block['caption'] ?? $block['equation']['caption'] ?? '');
+                if (mb_stripos($eqText, $query) !== false || mb_stripos($caption, $query) !== false) {
+                    $matches[] = ['block' => $i, 'type' => 'equation'];
                 }
             } elseif (mb_stripos($text, $query) !== false) {
                 $matches[] = ['block' => $i, 'type' => 'block'];
@@ -5606,18 +5660,83 @@ trait HandlesNaskahStudio
 
         $index = $this->activeBlock;
         if (isset($this->blocks[$index])) {
-            $text = (string) ($this->blocks[$index]['text'] ?? '');
-            if (mb_stripos($text, $find) !== false) {
-                $this->pushUndo();
-                $this->blocks[$index]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $text, 1);
-                $this->blocks[$index]['runs'] = [];
-                $this->dirty = true;
-                $this->editorRevision++;
-                $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
-                $this->findResult = "1 kemunculan pada blok #".($index + 1)." berhasil diganti.";
-                $this->findNext();
+            $bType = $this->blocks[$index]['type'] ?? '';
+            if ($bType === 'table') {
+                $caption = (string) ($this->blocks[$index]['table']['caption'] ?? '');
+                if (mb_stripos($caption, $find) !== false) {
+                    $this->pushUndo();
+                    $this->blocks[$index]['table']['caption'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $caption, 1);
+                    $this->dirty = true;
+                    $this->editorRevision++;
+                    $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+                    $this->findResult = "1 kemunculan pada judul tabel blok #".($index + 1)." berhasil diganti.";
+                    $this->findNext();
 
-                return;
+                    return;
+                }
+                $rows = (array) ($this->blocks[$index]['table']['rows'] ?? []);
+                foreach ($rows as $r => $row) {
+                    foreach ((array) $row as $c => $cell) {
+                        $cellText = (string) ($cell['text'] ?? '');
+                        if (mb_stripos($cellText, $find) !== false) {
+                            $this->pushUndo();
+                            $this->blocks[$index]['table']['rows'][$r][$c]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $cellText, 1);
+                            $this->dirty = true;
+                            $this->editorRevision++;
+                            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+                            $this->findResult = "1 kemunculan pada sel tabel blok #".($index + 1)." berhasil diganti.";
+                            $this->findNext();
+
+                            return;
+                        }
+                    }
+                }
+            } elseif ($bType === 'equation') {
+                $caption = (string) ($this->blocks[$index]['caption'] ?? $this->blocks[$index]['equation']['caption'] ?? '');
+                if (mb_stripos($caption, $find) !== false) {
+                    $this->pushUndo();
+                    $newCaption = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $caption, 1);
+                    $this->blocks[$index]['caption'] = $newCaption;
+                    if (isset($this->blocks[$index]['equation'])) {
+                        $this->blocks[$index]['equation']['caption'] = $newCaption;
+                    }
+                    $this->dirty = true;
+                    $this->editorRevision++;
+                    $this->findResult = "1 kemunculan pada keterangan persamaan blok #".($index + 1)." berhasil diganti.";
+                    $this->findNext();
+
+                    return;
+                }
+                $latex = (string) ($this->blocks[$index]['latex'] ?? $this->blocks[$index]['equation']['latex'] ?? $this->blocks[$index]['text'] ?? '');
+                if (mb_stripos($latex, $find) !== false) {
+                    $this->pushUndo();
+                    $newLatex = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $latex, 1);
+                    $this->blocks[$index]['latex'] = $newLatex;
+                    $this->blocks[$index]['text'] = $newLatex;
+                    if (isset($this->blocks[$index]['equation'])) {
+                        $this->blocks[$index]['equation']['latex'] = $newLatex;
+                    }
+                    $this->dirty = true;
+                    $this->editorRevision++;
+                    $this->findResult = "1 kemunculan pada rumus persamaan blok #".($index + 1)." berhasil diganti.";
+                    $this->findNext();
+
+                    return;
+                }
+            } else {
+                $text = (string) ($this->blocks[$index]['text'] ?? '');
+                if (mb_stripos($text, $find) !== false) {
+                    $this->pushUndo();
+                    $this->blocks[$index]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $text, 1);
+                    $this->blocks[$index]['runs'] = [];
+                    $this->dirty = true;
+                    $this->editorRevision++;
+                    $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+                    $this->findResult = "1 kemunculan pada blok #".($index + 1)." berhasil diganti.";
+                    $this->findNext();
+
+                    return;
+                }
             }
         }
 
