@@ -157,6 +157,8 @@ test("Command Category: Audit & Validasi", "Audit &amp; Validasi" in assistant_h
 test("Command Category: Gaya & Format", "Gaya &amp; Format" in assistant_html or "Gaya & Format" in assistant_html)
 test("Academic Slash Commands Present (/abstrak, /pendahuluan, /sitasi, /kebaruan)",
      "/abstrak" in assistant_html and "/pendahuluan" in assistant_html and "/sitasi" in assistant_html and "/kebaruan" in assistant_html)
+test("Assistant Academic Commands: Daftar Isi & Pustaka",
+     "/daftar-isi" in assistant_html and "/daftar-pustaka" in assistant_html)
 test("Command Search Input Field Present", "commandSearch" in assistant_html or "Cari..." in assistant_html)
 test("HTML Transcript Export Option Present", "HTML" in assistant_html)
 test("LaTeX Transcript Export Option Present", "LaTeX" in assistant_html)
@@ -217,10 +219,14 @@ test("Filament Studio: Zen Focus Mode Toggle & Statusbar Action",
 status, studio_ref_html, _ = http_get("/admin/naskah-studio?tab=references", headers=auth_headers)
 test("Filament Studio: References Ribbon Citation Audit Present",
      "auditCitations" in studio_ref_html)
+test("Filament Studio: References Ribbon Table of Contents Action",
+     "insertTableOfContents" in studio_ref_html or "Daftar Isi" in studio_ref_html)
 
 status, studio_layout_auth_html, _ = http_get("/admin/naskah-studio?tab=layout", headers=auth_headers)
 test("Filament Studio: Layout Ribbon Line Numbers Toggle Present",
      "toggleLineNumbers" in studio_layout_auth_html or "Nomor Baris" in studio_layout_auth_html)
+test("Filament Studio: Layout Two-Column & Multi-Column Support",
+     "columns" in studio_layout_auth_html or "Kolom" in studio_layout_auth_html)
 
 status, studio_review_auth_html, _ = http_get("/admin/naskah-studio?tab=review", headers=auth_headers)
 test("Filament Studio: Review Ribbon Citation Audit Present",

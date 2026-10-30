@@ -1984,3 +1984,58 @@ it('supports multi-format table caption export, footnote markdown parsing, and a
         ->and($audit['uncited'])->toContain('sennett2019craftsman')
         ->and($audit['uncited'])->not->toContain('gauntlett2018making');
 });
+
+it('supports dynamic table of contents generation and multi-format rendering across html, latex, markdown, and rtf', function (): void {
+    $model = app(NaskahRichModel::class);
+
+    $page = Livewire::test(NaskahStudioPage::class)
+        ->set('blocks', [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+            ['type' => 'paragraph', 'text' => 'Urgensi riset dan motivasi telaah empiris.'],
+            ['type' => 'heading', 'level' => 2, 'text' => 'Rumusan Masalah'],
+            ['type' => 'paragraph', 'text' => 'Pertanyaan penelitian dirumuskan secara terstruktur.'],
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab II Tinjauan Pustaka'],
+            ['type' => 'paragraph', 'text' => 'Kajian literatur dan sintesis teori.'],
+        ])
+        ->call('insertTableOfContents');
+
+    $blocks = $page->get('blocks');
+    $tocHeadingCount = collect($blocks)->filter(fn ($b) => ($b['type'] ?? '') === 'heading' && trim($b['text'] ?? '') === 'Daftar Isi')->count();
+    expect($tocHeadingCount)->toBe(1);
+
+    // Call updateTableOfContents to verify idempotency (no duplicate headings)
+    $page->call('updateTableOfContents');
+    $updatedBlocks = $page->get('blocks');
+    $tocHeadingCountAfter = collect($updatedBlocks)->filter(fn ($b) => ($b['type'] ?? '') === 'heading' && trim($b['text'] ?? '') === 'Daftar Isi')->count();
+    expect($tocHeadingCountAfter)->toBe(1);
+
+    $tocBlock = collect($updatedBlocks)->firstWhere('type', 'toc');
+    expect($tocBlock)->not->toBeNull()
+        ->and($tocBlock['table']['rows'])->not->toBeEmpty();
+
+    // Verify multi-format exports
+    // 1. HTML export with two-column layout
+    $html = $model->toHtml($updatedBlocks, 'Dokumen Uji', ['columns' => 2]);
+    expect($html)->toContain('table-of-contents')
+        ->and($html)->toContain('Bab I Pendahuluan')
+        ->and($html)->toContain('Bab II Tinjauan Pustaka')
+        ->and($html)->toContain('column-count:2');
+
+    // 2. LaTeX export with twocolumn documentclass and \tableofcontents
+    $latex = $model->toLatex($updatedBlocks, 'Dokumen Uji', ['columns' => 2]);
+    expect($latex)->toContain('twocolumn')
+        ->and($latex)->toContain('\\tableofcontents')
+        ->and($latex)->toContain('\\usepackage{graphicx}');
+
+    // 3. Markdown export
+    $md = $model->toMarkdown($updatedBlocks);
+    expect($md)->toContain('### Daftar Isi')
+        ->and($md)->toContain('Bab I Pendahuluan')
+        ->and($md)->toContain('Bab II Tinjauan Pustaka');
+
+    // 4. RTF export
+    $rtf = $model->toRtf($updatedBlocks);
+    expect($rtf)->toContain('DAFTAR ISI')
+        ->and($rtf)->toContain('Bab I Pendahuluan')
+        ->and($rtf)->toContain('Bab II Tinjauan Pustaka');
+});

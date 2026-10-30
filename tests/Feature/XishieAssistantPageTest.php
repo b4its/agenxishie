@@ -9,6 +9,7 @@ use App\Filament\Pages\XishieAssistantPage;
 use App\Models\NaskahDocument;
 use App\Models\ProjectReference;
 use App\Models\User;
+use App\Models\XishieProject;
 use Livewire\Livewire;
 
 /**
@@ -1187,4 +1188,53 @@ it('supports multi-style citation audit with author-year matching and orphan ref
         ->and($result['reply'])->toContain('Laporan Audit Integritas Sitasi Akademik')
         ->and($result['reply'])->toContain('Bengio, 2013')
         ->and($result['reply'])->toContain('lecun2015deep');
+});
+
+it('supports contextual document outline in /daftar_isi and explicit citation style switch in /daftar_pustaka', function (): void {
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id]);
+
+    $doc = NaskahDocument::create([
+        'user_id' => $user->id,
+        'project_id' => $project->id,
+        'title' => 'Naskah Tesis Utama',
+        'source_type' => NaskahDocument::SOURCE_PROJECT,
+        'blocks' => [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+            ['type' => 'paragraph', 'text' => 'Latar belakang penelitian.'],
+            ['type' => 'heading', 'level' => 2, 'text' => 'Rumusan Masalah'],
+            ['type' => 'paragraph', 'text' => 'Daftar pertanyaan riset.'],
+            ['type' => 'heading', 'level' => 1, 'text' => 'Bab II Metodologi'],
+            ['type' => 'paragraph', 'text' => 'Rancangan eksperimen kuantitatif.'],
+        ],
+        'word_count' => 18,
+        'last_saved_at' => now(),
+    ]);
+
+    $ref = ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'vaswani2017attention',
+        'title' => 'Attention Is All You Need',
+        'authors' => [['name' => 'Ashish Vaswani'], ['name' => 'Noam Shazeer']],
+        'year' => 2017,
+        'journal_name' => 'Advances in Neural Information Processing Systems',
+        'is_verified' => true,
+    ]);
+
+    $service = app(XishieAssistantService::class);
+
+    // 1. /daftar_isi with context document
+    $tocResult = $service->handle($project, '/daftar_isi', null, 'academic_senior', 'manuscript', $doc);
+    expect($tocResult['command'])->toBe(SlashCommand::DAFTAR_ISI->value)
+        ->and($tocResult['reply'])->toContain('Struktur Bab Teridentifikasi pada Dokumen Naskah')
+        ->and($tocResult['reply'])->toContain('Bab I Pendahuluan')
+        ->and($tocResult['reply'])->toContain('Bab II Metodologi')
+        ->and($tocResult['data']['document_outline'])->not->toBeEmpty();
+
+    // 2. /daftar_pustaka with explicit APA style switch
+    $bibResult = $service->handle($project, '/daftar_pustaka apa', null, 'academic_senior', 'project', $doc);
+    expect($bibResult['command'])->toBe(SlashCommand::DAFTAR_PUSTAKA->value)
+        ->and($bibResult['reply'])->toContain('APA 7th Edition')
+        ->and($bibResult['data']['style'])->toBe('apa7')
+        ->and($bibResult['data']['count'])->toBe(1);
 });
