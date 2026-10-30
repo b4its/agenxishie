@@ -2028,7 +2028,7 @@
                         <button type="button" class="ns-nav__tab @if(($navSidebarTab ?? '') === 'snapshots') ns-nav__tab--active @endif" style="flex:1; padding:.35rem .15rem; font-size:.62rem; text-align:center; font-weight:700;" wire:click="setNavSidebarTab('snapshots')">
                             📁 Versi ({{ count($snapshots) }})
                         </button>
-                        <button type="button" class="ns-nav__tab @if(($navSidebarTab ?? '') === 'references') ns-nav__tab--active @endif" style="flex:1; padding:.35rem .15rem; font-size:.62rem; text-align:center; font-weight:700;" wire:click="setNavSidebarTab('references')">
+                        <button type="button" class="ns-nav__tab @if(($navSidebarTab ?? '') === 'references') ns-nav__tab--active @endif" style="flex:1; padding:.35rem .15rem; font-size:.62rem; text-align:center; font-weight:700;" wire:click="setNavSidebarTab('references')" data-citation-action="insertReferenceCitation">
                             📚 Pustaka ({{ count($projectReferences) }})
                         </button>
                         <button type="button" class="ns-nav__tab @if(($navSidebarTab ?? '') === 'notes') ns-nav__tab--active @endif" style="flex:1; padding:.35rem .15rem; font-size:.62rem; text-align:center; font-weight:700;" wire:click="setNavSidebarTab('notes')" title="Catatan Riset &amp; Scratchpad">

@@ -712,8 +712,12 @@ trait HandlesNaskahStudio
 
         $this->redoStack[] = $this->blocks;
         $this->blocks = array_pop($this->undoStack) ?? [];
+        if ($this->activeBlock >= count($this->blocks)) {
+            $this->activeBlock = max(0, count($this->blocks) - 1);
+        }
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     public function redo(): void
@@ -724,8 +728,12 @@ trait HandlesNaskahStudio
 
         $this->undoStack[] = $this->blocks;
         $this->blocks = array_pop($this->redoStack) ?? [];
+        if ($this->activeBlock >= count($this->blocks)) {
+            $this->activeBlock = max(0, count($this->blocks) - 1);
+        }
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     public function copyFormat(int $index): void
@@ -3445,6 +3453,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $text = trim($this->linkText) !== '' ? trim($this->linkText) : $url;
 
         $index = $this->activeBlock;
@@ -3464,6 +3473,8 @@ trait HandlesNaskahStudio
         $this->linkText = '';
         $this->dialog = '';
         $this->dirty = true;
+        $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     public function insertFootnote(): void
@@ -3473,6 +3484,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $newBlock = $this->model->newBlock('footnote-ref', $text);
         $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
             ? $this->activeBlock + 1
@@ -3484,6 +3496,7 @@ trait HandlesNaskahStudio
         $this->dialog = '';
         $this->editorRevision++;
         $this->dirty = true;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->notify('Catatan kaki disisipkan', '', 'success');
     }
 
@@ -3494,6 +3507,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         $existing = count(array_filter($this->blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'endnote-ref'));
         $enNumber = $existing + 1;
 
@@ -3511,12 +3525,14 @@ trait HandlesNaskahStudio
         $this->endnoteText = '';
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->dialog = '';
         $this->notify('Catatan akhir disisipkan', "[#{$enNumber}] {$cleanNote}", 'success');
     }
 
     public function insertPageBreak(): void
     {
+        $this->pushUndo();
         $newBlock = $this->model->normalizeBlock(['type' => 'pagebreak']);
         $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
             ? $this->activeBlock + 1
@@ -3531,6 +3547,7 @@ trait HandlesNaskahStudio
 
     public function insertHorizontalRule(): void
     {
+        $this->pushUndo();
         $newBlock = $this->model->newBlock('paragraph', '――――――――――――――――――――――――――――――');
         $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
             ? $this->activeBlock + 1
@@ -3544,6 +3561,7 @@ trait HandlesNaskahStudio
 
     public function insertDate(): void
     {
+        $this->pushUndo();
         $newBlock = $this->model->newBlock('paragraph', now()->translatedFormat('d F Y'));
         $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
             ? $this->activeBlock + 1
@@ -3553,10 +3571,12 @@ trait HandlesNaskahStudio
         $this->activeBlock = $insertAt;
         $this->editorRevision++;
         $this->dirty = true;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     public function insertPageNumberField(): void
     {
+        $this->pushUndo();
         $newBlock = $this->model->newBlock('paragraph', 'Halaman 1');
         $insertAt = $this->activeBlock >= 0 && $this->activeBlock < count($this->blocks)
             ? $this->activeBlock + 1
@@ -3566,10 +3586,12 @@ trait HandlesNaskahStudio
         $this->activeBlock = $insertAt;
         $this->editorRevision++;
         $this->dirty = true;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
     }
 
     public function insertSymbol(string $symbol): void
     {
+        $this->pushUndo();
         $index = $this->activeBlock;
         if (isset($this->blocks[$index]) && in_array($this->blocks[$index]['type'] ?? '', ['paragraph', 'heading', 'title', 'subtitle', 'quote', 'bullet', 'numbered'], true)) {
             $existing = (string) ($this->blocks[$index]['text'] ?? '');
@@ -3589,6 +3611,7 @@ trait HandlesNaskahStudio
         $this->editorRevision++;
         $this->dirty = true;
         $this->dialog = '';
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->notify('Simbol disisipkan', $symbol, 'success');
     }
 
@@ -3632,6 +3655,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         // Hapus TOC lama lalu sisipkan di awal.
         $this->blocks = array_values(array_filter($this->blocks, static fn (array $b): bool => ($b['type'] ?? '') !== 'toc'));
         array_unshift($this->blocks, $this->model->normalizeBlock(['type' => 'heading', 'level' => 1, 'text' => 'Daftar Isi']));
@@ -3644,6 +3668,7 @@ trait HandlesNaskahStudio
         $this->buildTocBlock();
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->notify('Daftar isi dibuat', count($outline).' judul.', 'success');
     }
 
@@ -3671,6 +3696,7 @@ trait HandlesNaskahStudio
 
     public function insertBibliography(?int $projectId = null): void
     {
+        $this->pushUndo();
         $project = $projectId !== null ? XishieProject::find($projectId) : ($this->sourceProjectId !== null ? XishieProject::find($this->sourceProjectId) : null);
 
         $this->blocks[] = $this->model->newBlock('heading', 'Daftar Pustaka', 1);
@@ -3698,6 +3724,7 @@ trait HandlesNaskahStudio
 
                 $this->dirty = true;
                 $this->editorRevision++;
+                $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
                 $this->dialog = '';
                 $this->notify('Daftar Pustaka Disisipkan', $refs->count().' referensi proyek (Gaya: '.$this->citationStyle.').', 'success');
 
@@ -3723,6 +3750,7 @@ trait HandlesNaskahStudio
 
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->dialog = '';
         $this->notify('Daftar Pustaka Disisipkan', '4 referensi akademik format APA telah ditambahkan sebagai acuan naskah.', 'success');
     }
@@ -3748,6 +3776,7 @@ trait HandlesNaskahStudio
             return;
         }
 
+        $this->pushUndo();
         // Cari batas akhir blok daftar pustaka (hingga heading berikutnya atau akhir dokumen)
         $removeCount = 0;
         $totalBlocks = count($this->blocks);
@@ -3804,6 +3833,7 @@ trait HandlesNaskahStudio
 
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Daftar Pustaka Diperbarui', count($newBlocks).' referensi diformat ulang ke gaya '.$this->citationStyle.'.', 'success');
     }
@@ -3816,6 +3846,7 @@ trait HandlesNaskahStudio
 
     public function insertCitation(?string $citationText = null): void
     {
+        $this->pushUndo();
         $citation = $citationText ?? match ($this->citationStyle) {
             'IEEE' => '[1]',
             'Harvard' => '(Gauntlett 2018)',
@@ -3826,12 +3857,16 @@ trait HandlesNaskahStudio
 
         if (isset($this->blocks[$this->activeBlock])) {
             $this->blocks[$this->activeBlock]['text'] = rtrim((string) ($this->blocks[$this->activeBlock]['text'] ?? '')).' '.$citation;
+            if (isset($this->blocks[$this->activeBlock]['runs'][0])) {
+                $this->blocks[$this->activeBlock]['runs'][0]['text'] = $this->blocks[$this->activeBlock]['text'];
+            }
         } else {
             $this->blocks[] = $this->model->newBlock('paragraph', $citation);
         }
 
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->dialog = '';
         $this->notify('Sitasi Disisipkan', "Acuan sitasi {$citation} disisipkan ke naskah.", 'success');
     }
