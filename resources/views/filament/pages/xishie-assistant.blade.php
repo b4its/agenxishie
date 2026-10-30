@@ -90,6 +90,9 @@
                             <button type="button" class="rb-button" wire:click="exportTranscript('json')" title="Unduh transkrip sesi sebagai JSON">&#11015; JSON</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('csv')" title="Unduh transkrip sesi sebagai CSV (Spreadsheet / Excel)">&#11015; CSV</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('txt')" title="Unduh transkrip sesi sebagai Plain Text">&#11015; TXT</button>
+                            <button type="button" class="rb-button" x-data="{ copied: false }" @click="navigator.clipboard.writeText(document.querySelector('.rb-terminal')?.innerText || ''); copied = true; setTimeout(() => copied = false, 2000)" title="Salin seluruh isi percakapan ke papan klip">
+                                <span x-text="copied ? '✓ Tersalin!' : '📋 Salin Transkrip'">📋 Salin Transkrip</span>
+                            </button>
                             <button type="button" class="rb-button" style="background:#1d4ed8; color:#ffffff; font-weight:700;" wire:click="exportTranscriptToDocument" title="Konversi sesi percakapan menjadi Dokumen Baru di Naskah Studio">📝 Buat Naskah Studio</button>
                             <button type="button" class="rb-button" wire:click="saveSessionAsSnapshot" title="Simpan transkrip sesi ini ke versi naskah (Snapshot)">💾 Snapshot</button>
                             <button type="button" class="rb-button" style="background:#4338ca; color:#ffffff; font-weight:700;" wire:click="generateSessionSummary" title="Sintesis dan rangkum seluruh sesi diskusi akademik">📌 Rangkum Sesi</button>
@@ -359,6 +362,16 @@
                                                         title="Terapkan rekomendasi ini langsung ke Naskah Studio"
                                                         wire:click="applyToNaskahStudio({{ $loop->index }})"
                                                     >⚡ Ke Naskah Studio</button>
+                                                    <button
+                                                        type="button"
+                                                        class="rb-terminal__time"
+                                                        x-data="{ copied: false }"
+                                                        @click="navigator.clipboard.writeText(@js($msg['content'])); copied = true; setTimeout(() => copied = false, 2000)"
+                                                        style="border:0; background:rgba(16,185,129,0.2); color:#6ee7b7; cursor:pointer; font-size:.62rem; font-weight:700; padding:2px 6px; border-radius:3px;"
+                                                        title="Salin teks respon ini ke papan klip (clipboard)"
+                                                    >
+                                                        <span x-text="copied ? '✓ Tersalin!' : '📋 Salin'">📋 Salin</span>
+                                                    </button>
                                                 @endunless
                                             </div>
                                         </div>
@@ -461,6 +474,9 @@
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:.35rem; flex-wrap:wrap; gap:.4rem;">
                         <div class="rb-mono rb-muted" style="font-size:.6rem;">
                             Ctrl+Enter mengirim &middot; Jawaban mengacu pada konteks naskah &amp; dirender sebagai GFM.
+                            @if (!empty($message))
+                                <span style="margin-left:6px; color:#4338ca; font-weight:700;">({{ strlen($message) }} kar, {{ str_word_count($message) }} kata)</span>
+                            @endif
                         </div>
                         <div style="font-size:.62rem; color:var(--rb-primary); font-family:monospace; font-weight:600;">
                             &#129302; Model Aktif: {{ $currentModel }}
