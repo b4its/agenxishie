@@ -78,6 +78,7 @@ final class XishieAssistantService
             SlashCommand::CATATAN_KAKI => $this->catatanKaki($project, $argument),
             SlashCommand::KETERBACAAN => $this->keterbacaan($project, $argument, $contextDocument),
             SlashCommand::KEBARUAN => $this->kebaruan($project, $argument, $modelId, $persona, $scope),
+            SlashCommand::TESAURUS => $this->tesaurus($argument),
         };
     }
 
@@ -1475,6 +1476,78 @@ final class XishieAssistantService
                 'field_of_study' => $field,
                 'persona' => $persona,
                 'scope' => $scope,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{command: string, reply: string, data: array<string, mixed>}
+     */
+    private function tesaurus(string $argument): array
+    {
+        $word = mb_strtolower(trim($argument));
+        $map = [
+            'penelitian' => ['kajian', 'studi', 'riset', 'investigasi', 'telaah ilmiah'],
+            'metode' => ['metodologi', 'pendekatan', 'prosedur', 'teknik', 'tata cara'],
+            'hasil' => ['temuan', 'capaian', 'keluaran', 'output', 'implikasi'],
+            'masalah' => ['permasalahan', 'kendala', 'isu', 'tantangan', 'hambatan'],
+            'tujuan' => ['sasaran', 'maksud', 'target', 'arah', 'objektif'],
+            'analisis' => ['telaah', 'kajian', 'penguraian', 'pembahasan', 'evaluasi'],
+            'penting' => ['signifikan', 'krusial', 'esensial', 'vital', 'fundamental'],
+            'meningkatkan' => ['menaikkan', 'memperbaiki', 'mengembangkan', 'memperkuat', 'mengoptimalkan'],
+            'data' => ['informasi', 'keterangan', 'fakta', 'bahan', 'korpus'],
+            'kesimpulan' => ['inferensi', 'simpulan', 'konklusi', 'rangkuman', 'deduksi'],
+            'kebaruan' => ['orisinalitas', 'novelty', 'inovasi', 'keunikan', 'pembeda'],
+            'pengaruh' => ['dampak', 'efek', 'implikasi', 'konsekuensi', 'daya pengaruh'],
+            'hubungan' => ['relasi', 'korelasi', 'keterkaitan', 'interaksi', 'asosiasi'],
+            'faktor' => ['determinan', 'unsur', 'aspek', 'komponen', 'variabel penentu'],
+            'model' => ['kerangka kerja', 'paradigma', 'skema', 'konstruk', 'rancangan'],
+            'validitas' => ['kesahihan', 'keabsahan', 'akurasi', 'kredibilitas'],
+            'efektivitas' => ['keberdayagunaan', 'kemujaraban', 'ketepatgunaan', 'daya guna'],
+            'strategi' => ['taktik', 'pendekatan', 'rekayasa langkah', 'kebijakan'],
+            'konsep' => ['gagasan', 'nosional', 'konstruk teoretis', 'abstraksi'],
+            'dasar' => ['fundamental', 'landasan', 'pijakan', 'basis', 'fondasi'],
+            'pendahuluan' => ['eksposisi', 'pengantar', 'latar belakang', 'prolegomena'],
+            'pembahasan' => ['diskusi', 'elaborasi', 'telaah kritis', 'eksplanasi'],
+            'signifikan' => ['bermakna', 'nyata', 'substansial', 'berbobot'],
+            'hipotesis' => ['dugaan sementara', 'postulat', 'premis', 'anggapan dasar'],
+            'limitasi' => ['keterbatasan', 'cakupan batas', 'restriksi', 'kendala lingkup'],
+            'teori' => ['landasan teoretis', 'konstruk konseptual', 'doktrin ilmiah', 'postulat'],
+        ];
+
+        if ($word === '') {
+            $terms = implode(', ', array_keys($map));
+
+            return [
+                'command' => SlashCommand::TESAURUS->value,
+                'reply' => "Sertakan kata akademik yang ingin dicari sinonimnya setelah `/tesaurus [kata]`.\n\nContoh kata kunci terindeks: {$terms}.",
+                'data' => ['indexed_terms' => array_keys($map)],
+            ];
+        }
+
+        if (isset($map[$word])) {
+            $synonyms = $map[$word];
+            $list = implode("\n", array_map(fn (string $s): string => "- **{$s}**", $synonyms));
+            $reply = "### 📚 Tesaurus Akademik: '{$word}'\n\n"
+                ."Daftar padanan kata dan sinonim ilmiah baku:\n\n{$list}\n\n"
+                ."*Tips: Gunakan padanan kata ini untuk memperkaya variasi kalimat dan mencegah pengulangan berlebih.*";
+
+            return [
+                'command' => SlashCommand::TESAURUS->value,
+                'reply' => $reply,
+                'data' => [
+                    'word' => $word,
+                    'synonyms' => $synonyms,
+                ],
+            ];
+        }
+
+        return [
+            'command' => SlashCommand::TESAURUS->value,
+            'reply' => "Kata '{$word}' belum tercatat dalam tesaurus ringkas luring. Disarankan menggunakan kata kunci terkait dalam naskah ilmiah seperti: `penelitian`, `analisis`, `signifikan`, atau `kebaruan`.",
+            'data' => [
+                'word' => $word,
+                'synonyms' => [],
             ],
         ];
     }

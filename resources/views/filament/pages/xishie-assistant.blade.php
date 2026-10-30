@@ -439,11 +439,13 @@
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/tabel-analisis')">📊 /tabel-analisis</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/rumus')">π /rumus</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/keterbacaan')">📈 /keterbacaan</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 5px;" wire:click="insertCommand('/tesaurus ')">📚 /tesaurus</button>
                         <span style="border-left:1px solid #cbd5e1; height:14px; margin:0 3px;"></span>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#4338ca; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/kebaruan')" title="Eksekusi analisis kebaruan sekarang">⚡ Cek Kebaruan</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#0f766e; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/keterbacaan')" title="Eksekusi audit keterbacaan sekarang">⚡ Cek Keterbacaan</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#0369a1; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/daftar-pustaka')" title="Format pustaka sekarang">⚡ Format Pustaka</button>
                         <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#059669; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/sitasi audit')" title="Eksekusi audit integritas sitasi & deteksi halusinasi">⚡ Audit Sitasi</button>
+                        <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#7c3aed; color:#ffffff; font-weight:700;" wire:click="executeCommandDirectly('/tesaurus')" title="Buka indeks tesaurus akademik">⚡ Tesaurus</button>
                     </div>
 
                     {{-- Riwayat Prompt Sesi --}}

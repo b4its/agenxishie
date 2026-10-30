@@ -36,6 +36,7 @@ enum SlashCommand: string
     case CATATAN_KAKI = '/catatan-kaki';
     case KETERBACAAN = '/keterbacaan';
     case KEBARUAN = '/kebaruan';
+    case TESAURUS = '/tesaurus';
 
     public function description(): string
     {
@@ -66,6 +67,7 @@ enum SlashCommand: string
             self::CATATAN_KAKI => 'Panduan penulisan catatan kaki (footnote) dan standar Chicago/Turabian.',
             self::KETERBACAAN => 'Audit keterbacaan, densitas kata, dan estimasi waktu baca naskah akademik.',
             self::KEBARUAN => 'Rumuskan pernyataan kebaruan ilmiah (novelty statement) dan orisinalitas riset.',
+            self::TESAURUS => 'Eksplorasi sinonim akademik baku untuk memperkaya variasi leksikon ilmiah.',
         };
     }
 
@@ -126,6 +128,9 @@ enum SlashCommand: string
         }
         if (in_array($firstToken, ['/novelty', '/orisinalitas', '/kontribusi', '/kebaruan'], true)) {
             return self::KEBARUAN;
+        }
+        if (in_array($firstToken, ['/thesaurus', '/sinonim', '/tesaurus', '/padanan-kata'], true)) {
+            return self::TESAURUS;
         }
 
         return self::tryFrom($firstToken);
