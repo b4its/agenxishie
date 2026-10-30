@@ -2626,3 +2626,56 @@ it('synchronizes document word count and statistics across wordcraft ai block ac
     expect($component->get('docWordCount'))->toBe(6)
         ->and($component->get('statistics')['words'])->toBe(6);
 });
+
+it('supports thesaurus command, structured table payloads, and statistics synchronization in find-replace and thesaurus application', function () {
+    $user = User::factory()->create();
+    $doc = NaskahDocument::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Dokumen Pengujian Tesaurus & Cari Ganti',
+        'blocks' => [
+            ['type' => 'paragraph', 'text' => 'Kami melakukan analisis mendalam terhadap data penelitian ini.'],
+        ],
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    // 1. answerResponse with /tesaurus returns synonyms and structured data
+    $thesaurusResp = $component->instance()->answerResponse(null, '/tesaurus analisis');
+    expect($thesaurusResp['reply'])->toContain('Tesaurus Akademik')
+        ->and($thesaurusResp['reply'])->toContain('telaah')
+        ->and($thesaurusResp['data']['word'])->toBe('analisis')
+        ->and($thesaurusResp['data']['synonyms'])->toContain('telaah');
+
+    // 2. answerResponse with /tabel-analisis returns structured table_block
+    $tableResp = $component->instance()->answerResponse(null, '/tabel-analisis');
+    expect($tableResp['data'])->toHaveKey('table_block')
+        ->and($tableResp['data']['table_block']['type'])->toBe('table')
+        ->and($tableResp['data']['table_block']['table']['rows'])->toHaveCount(5);
+
+    // 3. answerResponse with /matriks-literatur returns structured table_block
+    $matrixResp = $component->instance()->answerResponse(null, '/matriks-literatur');
+    expect($matrixResp['data'])->toHaveKey('table_block')
+        ->and($matrixResp['data']['table_block']['type'])->toBe('table');
+
+    // 4. applyThesaurusSynonym replaces the target word and synchronizes statistics and docWordCount
+    $component->set('thesaurusWord', 'analisis');
+    $component->call('applyThesaurusSynonym', 'kajian kritis komparatif');
+    expect($component->get('blocks')[0]['text'])->toContain('kajian kritis komparatif')
+        ->and($component->get('docWordCount'))->toBeGreaterThan(8)
+        ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
+
+    // 5. replaceCurrent updates docWordCount and statistics
+    $component->set('findQuery', 'data penelitian');
+    $component->set('replaceQuery', 'bukti empiris primer');
+    $component->call('replaceCurrent');
+    expect($component->get('blocks')[0]['text'])->toContain('bukti empiris primer')
+        ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
+
+    // 6. replaceAll updates docWordCount and statistics
+    $component->set('findQuery', 'mendalam');
+    $component->set('replaceQuery', 'sistematis komprehensif');
+    $component->call('replaceAll');
+    expect($component->get('blocks')[0]['text'])->toContain('sistematis komprehensif')
+        ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
+});

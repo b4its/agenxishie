@@ -49,7 +49,7 @@ def http_post(path, data, headers=None):
         default_headers.update(headers)
     req = urllib.request.Request(url, data=post_data, headers=default_headers)
     try:
-        with urllib.request.urlopen(req, timeout=15) as res:
+        with urllib.request.urlopen(req, timeout=30) as res:
             return res.status, res.read().decode("utf-8", errors="replace"), res.headers
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode("utf-8", errors="replace"), e.headers
@@ -114,6 +114,9 @@ test(f"GET /api/v1/naskah/documents/{doc_id}/export?format=json", status == 200 
 
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export-page?page=1&format=md")
 test(f"GET /api/v1/naskah/documents/{doc_id}/export-page?page=1", status == 200 and len(body) > 0)
+
+status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/execute-model", {"preset": "table", "page": 1, "max_tokens": 100})
+test(f"POST /api/v1/naskah/documents/{doc_id}/execute-model", status == 200 and ("blocks_inserted" in body or "word_count" in body))
 
 cli_stats = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'stats', str(doc_id)], capture_output=True, text=True)
 test("CLI naskah:manage stats Execution", cli_stats.returncode == 0 and "Kategori Keterbacaan" in cli_stats.stdout)
