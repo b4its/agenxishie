@@ -454,10 +454,13 @@
                             <span style="font-size:.58rem; font-weight:700; color:#475569; display:inline-flex; align-items:center; gap:2px;">
                                 🕒 Riwayat Prompt:
                             </span>
-                            @foreach (array_slice($promptHistory, 0, 5) as $hPrompt)
-                                <button type="button" class="rb-button" style="font-size:.58rem; padding:1px 6px; background:#ffffff; color:#1e293b; border-color:#cbd5e1; max-width:210px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" wire:click="selectPromptFromHistory('{{ addslashes($hPrompt) }}')" title="{{ $hPrompt }}">
-                                    {{ Str::limit($hPrompt, 30) }}
-                                </button>
+                            @foreach (array_slice($promptHistory, 0, 5) as $idx => $hPrompt)
+                                <span style="display:inline-flex; align-items:center; background:#ffffff; border:1px solid #cbd5e1; border-radius:3px; padding:1px 5px; gap:3px;">
+                                    <button type="button" style="background:none; border:none; font-size:.58rem; color:#1e293b; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; padding:0;" wire:click="selectPromptFromHistory('{{ addslashes($hPrompt) }}')" title="{{ $hPrompt }}">
+                                        {{ Str::limit($hPrompt, 28) }}
+                                    </button>
+                                    <button type="button" wire:click="removePromptFromHistory({{ $idx }})" style="background:none; border:none; font-size:.55rem; color:#94a3b8; cursor:pointer; padding:0 2px;" title="Hapus prompt ini">×</button>
+                                </span>
                             @endforeach
                             <button type="button" wire:click="clearPromptHistory" style="background:none; border:none; font-size:.58rem; color:#94a3b8; cursor:pointer; padding:0 3px;" title="Bersihkan riwayat prompt">✕</button>
                         </div>

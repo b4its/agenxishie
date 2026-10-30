@@ -1114,6 +1114,14 @@
                         <div style="width:20px; height:20px; background:#dc2626; border-radius:9999px;"></div>
                         <span>Red Pen</span>
                     </button>
+                    <button type="button" class="word-btn-large" wire:click="formatInline('highlight', '#bbf7d0')" title="Green Pen Drawing (Positive Remarks)">
+                        <div style="width:20px; height:20px; background:#16a34a; border-radius:9999px;"></div>
+                        <span>Green Pen</span>
+                    </button>
+                    <button type="button" class="word-btn-large" wire:click="formatInline('highlight', '#e9d5ff')" title="Purple Pen Drawing (Style Notes)">
+                        <div style="width:20px; height:20px; background:#9333ea; border-radius:9999px;"></div>
+                        <span>Purple Pen</span>
+                    </button>
                     <button type="button" class="word-btn-large" wire:click="formatInline('highlight', '#fef08a')" title="Yellow Highlighter">
                         <div style="width:20px; height:20px; background:#eab308; border-radius:9999px;"></div>
                         <span>Highlighter</span>
@@ -3535,6 +3543,10 @@
                                 <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('limit')">Limit</button>
                                 <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('summation')">Sigma Deret</button>
                                 <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('fourier')">Transformasi Fourier</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('bayes')">Teorema Bayes</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('f1')">F1-Score</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('rmse')">RMSE</button>
+                                <button type="button" class="word-tool-btn" style="font-size:11px; padding:3px 8px;" wire:click="setEquationPreset('sigmoid')">Sigmoid</button>
                             </div>
                         </div>
 
@@ -4030,6 +4042,12 @@
                         <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
                     <div class="word-dialog__body">
+                        <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-bottom:8px;">
+                            <span style="font-size:11px; color:#475569; font-weight:600;">Presets:</span>
+                            <button type="button" class="word-tool-btn" style="font-size:10.5px; padding:2px 6px;" wire:click="setMergeTemplatePreset('reviewer_invitation')">Reviewer Invitation</button>
+                            <button type="button" class="word-tool-btn" style="font-size:10.5px; padding:2px 6px;" wire:click="setMergeTemplatePreset('certificate')">Certificate</button>
+                            <button type="button" class="word-tool-btn" style="font-size:10.5px; padding:2px 6px;" wire:click="setMergeTemplatePreset('author_decision')">Author Decision</button>
+                        </div>
                         <div>
                             <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">CSV Data (Row 1 = Headers):</label>
                             <textarea rows="4" class="word-select" style="width:100%; height:auto; font-family:var(--ms-font-mono); font-size:11px;" wire:model.live="mergeCsv" placeholder="name,organization&#10;Alice,Alder Studios&#10;Bob,Makers Guild"></textarea>
@@ -4047,6 +4065,23 @@
                             <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Template (Use @{{name}}):</label>
                             <textarea rows="2" class="word-select" style="width:100%; height:auto;" wire:model="mergeTemplate" placeholder="Dear @{{name}} at @{{organization}}..."></textarea>
                         </div>
+                        <div style="margin-top:6px;">
+                            <button type="button" class="word-tool-btn {{ $mergeSeparatePages ? 'active' : '' }}" wire:click="toggleMergeSeparatePages" style="font-size:11px;">
+                                📄 Separate each record with new page: {{ $mergeSeparatePages ? 'ON' : 'OFF' }}
+                            </button>
+                        </div>
+                        @if (!empty($mergePreviews))
+                            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:8px; border-radius:4px; font-size:11px; margin-top:8px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                    <strong>Record Preview {{ $currentMergePreviewIndex + 1 }} of {{ count($mergePreviews) }}:</strong>
+                                    <div style="display:flex; gap:3px;">
+                                        <button type="button" class="word-tool-btn" style="font-size:10px; padding:1px 6px; height:18px;" wire:click="previousMergePreview" @disabled($currentMergePreviewIndex === 0)>⏮ Prev</button>
+                                        <button type="button" class="word-tool-btn" style="font-size:10px; padding:1px 6px; height:18px;" wire:click="nextMergePreview" @disabled($currentMergePreviewIndex >= count($mergePreviews) - 1)>⏭ Next</button>
+                                    </div>
+                                </div>
+                                <div style="white-space:pre-wrap;">{{ $mergePreviews[$currentMergePreviewIndex]['text'] ?? '' }}</div>
+                            </div>
+                        @endif
                     </div>
                     <div class="word-dialog__footer">
                         <button type="button" class="word-btn-pill" wire:click="previewMerge">Preview</button>

@@ -978,6 +978,14 @@ class XishieAssistantPage extends Page
         Notification::make()->title('Riwayat prompt dibersihkan')->info()->send();
     }
 
+    public function removePromptFromHistory(int $index): void
+    {
+        if (isset($this->promptHistory[$index])) {
+            array_splice($this->promptHistory, $index, 1);
+            Notification::make()->title('Entri prompt dihapus dari riwayat')->info()->send();
+        }
+    }
+
     /**
      * Kompilasi dan rangkum seluruh sesi diskusi menjadi pesan sintesis eksekutif akademik.
      */

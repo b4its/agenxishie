@@ -267,6 +267,10 @@ trait HandlesNaskahStudio
      */
     public array $mergePreviews = [];
 
+    public int $currentMergePreviewIndex = 0;
+
+    public bool $mergeSeparatePages = false;
+
     public string $commandSearch = '';
 
     public string $drawerCommandSearch = '';
@@ -3606,6 +3610,15 @@ trait HandlesNaskahStudio
             'radical' => '\\sqrt{a^2 + b^2}',
             'schrodinger' => 'i\\hbar \\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r},t) = \\hat{H}\\Psi(\\mathbf{r},t)',
             'fourier' => '\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} \\, dx',
+            'bayes' => 'P(A|B) = \\frac{P(B|A) P(A)}{P(B)}',
+            'sigmoid' => '\\sigma(z) = \\frac{1}{1 + e^{-z}}',
+            'loss', 'cross-entropy' => '\\mathcal{L}_{CE} = -\\sum_{i=1}^{C} y_i \\log(\\hat{y}_i)',
+            'f1', 'f1-score' => 'F_1 = 2 \\cdot \\frac{\\text{Precision} \\cdot \\text{Recall}}{\\text{Precision} + \\text{Recall}}',
+            'rmse', 'mse' => '\\text{RMSE} = \\sqrt{\\frac{1}{n} \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2}',
+            'korelasi', 'pearson' => 'r = \\frac{\\sum (x_i - \\bar{x})(y_i - \\bar{y})}{\\sqrt{\\sum (x_i - \\bar{x})^2 \\sum (y_i - \\bar{y})^2}}',
+            'anova' => 'F = \\frac{\\text{MS}_{\\text{between}}}{\\text{MS}_{\\text{within}}}',
+            't-test', 'uji-t' => 't = \\frac{\\bar{x}_1 - \\bar{x}_2}{\\sqrt{\\frac{s_1^2}{n_1} + \\frac{s_2^2}{n_2}}}',
+            'entropy', 'shannon' => 'H(X) = -\\sum_{i=1}^{n} P(x_i) \\log_2 P(x_i)',
             default => 'E = mc^2',
         };
         if ($this->equationCaption === '') {
@@ -5967,7 +5980,48 @@ trait HandlesNaskahStudio
         }
 
         $this->mergePreviews = $previews;
+        $this->currentMergePreviewIndex = 0;
         $this->notify('Pratinjau dibuat', count($previews).' baris.', 'success');
+    }
+
+    public function nextMergePreview(): void
+    {
+        if ($this->currentMergePreviewIndex < count($this->mergePreviews) - 1) {
+            $this->currentMergePreviewIndex++;
+        }
+    }
+
+    public function previousMergePreview(): void
+    {
+        if ($this->currentMergePreviewIndex > 0) {
+            $this->currentMergePreviewIndex--;
+        }
+    }
+
+    public function toggleMergeSeparatePages(): void
+    {
+        $this->mergeSeparatePages = ! $this->mergeSeparatePages;
+    }
+
+    public function setMergeTemplatePreset(string $presetKey): void
+    {
+        match ($presetKey) {
+            'reviewer_invitation' => [
+                $this->mergeTemplate = "Yth. {{gelar}} {{nama}},\n\nKami mengundang Bapak/Ibu sebagai Mitra Bestari (Peer Reviewer) untuk mengevaluasi naskah bertajuk \"{{judul}}\" pada jurnal kami.\n\nSalam hormat,\nDewan Editor",
+                $this->mergeCsv = "gelar,nama,judul\nDr.,Ahmad Fauzi,Penerapan Deep Learning pada Klasifikasi Spektrum Citra Medis\nProf.,Sri Wahyuni,Optimasi Algoritma Genetika untuk Jaringan Sensor Nirkabel",
+            ],
+            'certificate' => [
+                $this->mergeTemplate = "SERTIFIKAT PENGHARGAAN\n\nDiberikan kepada: {{nama}} ({{lembaga}})\nAtas kontribusinya sebagai {{peran}} dalam kegiatan {{kegiatan}} tahun {{tahun}}.",
+                $this->mergeCsv = "nama,lembaga,peran,kegiatan,tahun\nAndi Pratama,Universitas Gadjah Mada,Pemakalah Utama,Seminar Riset Nasional,2026\nDewi Lestari,Institut Teknologi Bandung,Reviewer Terbaik,Konferensi Ilmiah Internasional,2026",
+            ],
+            'author_decision' => [
+                $this->mergeTemplate = "Kepada Penulis: {{penulis}}\nPerihal: Keputusan Editorial Naskah #{{id_naskah}}\n\nBerdasarkan hasil penelaahan sejawat, naskah Anda yang berjudul \"{{judul}}\" diputuskan untuk: {{status}} dengan catatan revisi terlampir.",
+                $this->mergeCsv = "penulis,id_naskah,judul,status\nBudi Santoso,NS-2026-081,Analisis Sentimen Menggunakan RoBERTa,Diterima dengan Revisi Minor\nRina Marlina,NS-2026-092,Model Ekonometrika Perbankan Digital,Diterima Tanpa Revisi",
+            ],
+            default => null,
+        };
+
+        $this->previewMerge();
     }
 
     public function insertMerge(): void
@@ -5981,10 +6035,20 @@ trait HandlesNaskahStudio
         }
 
         $this->pushUndo();
-        foreach ($rows as $row) {
+        $total = count($rows);
+        foreach ($rows as $idx => $row) {
             $text = $this->renderMergeTemplate($row);
             if (trim($text) !== '') {
-                $this->blocks[] = $this->model->newBlock('paragraph', $text);
+                $lines = explode("\n", $text);
+                foreach ($lines as $line) {
+                    if (trim($line) !== '') {
+                        $this->blocks[] = $this->model->newBlock('paragraph', trim($line));
+                    }
+                }
+            }
+
+            if ($this->mergeSeparatePages && $idx < $total - 1) {
+                $this->blocks[] = $this->model->newBlock('pagebreak', '');
             }
         }
 
@@ -6062,11 +6126,13 @@ trait HandlesNaskahStudio
             return [];
         }
 
-        $header = array_map('trim', str_getcsv(array_shift($lines)));
+        $firstLine = array_shift($lines);
+        $delimiter = str_contains($firstLine, ';') ? ';' : ',';
+        $header = array_map('trim', str_getcsv($firstLine, $delimiter));
         $rows = [];
 
         foreach ($lines as $line) {
-            $cells = str_getcsv($line);
+            $cells = str_getcsv($line, $delimiter);
             $row = [];
             foreach ($header as $i => $col) {
                 $row[$col] = (string) ($cells[$i] ?? '');

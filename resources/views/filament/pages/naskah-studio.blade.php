@@ -1663,6 +1663,8 @@
                             <button type="button" class="ns-btn ns-btn--active" title="Mode Kursor Biasa">&#10148; Pilih</button>
                             <button type="button" class="ns-btn" wire:click="formatInline('highlight', '#bfdbfe')" title="Pena Biru" style="color:#1d4ed8; font-weight:700;">&#9679; Pena Biru</button>
                             <button type="button" class="ns-btn" wire:click="formatInline('highlight', '#fecaca')" title="Pena Merah" style="color:#dc2626; font-weight:700;">&#9679; Pena Merah</button>
+                            <button type="button" class="ns-btn" wire:click="formatInline('highlight', '#bbf7d0')" title="Pena Hijau (Komentar Positif)" style="color:#15803d; font-weight:700;">&#9679; Pena Hijau</button>
+                            <button type="button" class="ns-btn" wire:click="formatInline('highlight', '#e9d5ff')" title="Pena Ungu (Catatan Gaya)" style="color:#7e22ce; font-weight:700;">&#9679; Pena Ungu</button>
                             <button type="button" class="ns-btn" wire:click="formatInline('highlight', '#fef08a')" title="Stabilo Kuning" style="color:#ca8a04; font-weight:700;">&#9679; Stabilo</button>
                             <button type="button" class="ns-btn" wire:click="formatInline('highlight', null)" title="Penghapus Tinta">&#9003; Penghapus</button>
                         </div>
@@ -3516,6 +3518,10 @@
                                     <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('einstein')">Massa-Energi (E=mc²)</button>
                                     <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('taylor')">Deret Taylor</button>
                                     <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('fourier')">Fourier</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('bayes')">Teorema Bayes</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('f1')">F1-Score</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('rmse')">RMSE</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setEquationPreset('sigmoid')">Sigmoid</button>
                                 </div>
                             </div>
                             <div>
@@ -3847,6 +3853,12 @@
                             <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
                         </div>
                         <div class="ns-dialog__body">
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-bottom:.35rem;">
+                                <span style="font-size:.62rem; color:#475569; font-weight:600;">Templat Presets:</span>
+                                <button type="button" class="ns-btn" style="font-size:.58rem; padding:1px 6px;" wire:click="setMergeTemplatePreset('reviewer_invitation')">Undangan Reviewer</button>
+                                <button type="button" class="ns-btn" style="font-size:.58rem; padding:1px 6px;" wire:click="setMergeTemplatePreset('certificate')">Sertifikat</button>
+                                <button type="button" class="ns-btn" style="font-size:.58rem; padding:1px 6px;" wire:click="setMergeTemplatePreset('author_decision')">Keputusan Penulis</button>
+                            </div>
                             <div>
                                 <label style="font-weight:600; font-size:.68rem;">Data CSV (baris 1 = header nama kolom):</label>
                                 <textarea class="ns-btn" style="width:100%; height:80px; font-family:var(--rb-font-mono); font-size:.68rem;" wire:model.live="mergeCsv" placeholder="nama,instansi,kota&#10;Budi,Universitas Indonesia,Jakarta&#10;Siti,ITB,Bandung"></textarea>
@@ -3864,10 +3876,21 @@
                                 <label style="font-weight:600; font-size:.68rem;">Template Dokumen (gunakan &#123;&#123;kolom&#125;&#125;):</label>
                                 <textarea class="ns-btn" style="width:100%; height:60px;" wire:model="mergeTemplate" placeholder="Yth. @{{nama}} di @{{instansi}}..."></textarea>
                             </div>
+                            <div style="margin:.3rem 0;">
+                                <button type="button" class="ns-btn @if($mergeSeparatePages) ns-btn--active @endif" wire:click="toggleMergeSeparatePages" style="font-size:.62rem;">
+                                    📄 Pisahkan Tiap Rekaman ke Halaman Baru: {{ $mergeSeparatePages ? 'AKTIF' : 'NONAKTIF' }}
+                                </button>
+                            </div>
                             @if (!empty($mergePreviews))
                                 <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:.4rem; border-radius:4px; font-size:.7rem;">
-                                    <strong>Pratinjau Rekaman 1:</strong>
-                                    <div>{{ $mergePreviews[0]['text'] ?? '' }}</div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.3rem;">
+                                        <strong>Pratinjau Rekaman {{ $currentMergePreviewIndex + 1 }} dari {{ count($mergePreviews) }}:</strong>
+                                        <div style="display:flex; gap:3px;">
+                                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:1px 5px;" wire:click="previousMergePreview" @disabled($currentMergePreviewIndex === 0)>&#9194; Sblm</button>
+                                            <button type="button" class="ns-btn" style="font-size:.58rem; padding:1px 5px;" wire:click="nextMergePreview" @disabled($currentMergePreviewIndex >= count($mergePreviews) - 1)>&#9193; Lanjut</button>
+                                        </div>
+                                    </div>
+                                    <div style="white-space:pre-wrap;">{{ $mergePreviews[$currentMergePreviewIndex]['text'] ?? '' }}</div>
                                 </div>
                             @endif
                         </div>
