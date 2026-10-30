@@ -72,7 +72,12 @@
                             </select>
                         </div>
                         <div style="flex:1 1 14rem; min-width:12rem;">
-                            <div class="rb-kpi-card__label" style="margin-bottom:.3rem;">📄 KONTEKS NASKAH</div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.3rem;">
+                                <span class="rb-kpi-card__label">📄 KONTEKS NASKAH</span>
+                                @if ($activeDocumentId)
+                                    <a href="{{ route('filament.admin.pages.naskah-studio', ['document' => $activeDocumentId]) }}" target="_blank" style="font-size:.58rem; color:#1d4ed8; font-weight:700; text-decoration:none;" title="Buka dokumen ini langsung di Naskah Studio">↗ Buka Studio</a>
+                                @endif
+                            </div>
                             <select class="rb-select" wire:change="selectContextDocument($event.target.value)" style="width:100%;">
                                 <option value="">(Semua / Keseluruhan Proyek)</option>
                                 @foreach ($documents as $d)
@@ -476,6 +481,7 @@
                             Ctrl+Enter mengirim &middot; Jawaban mengacu pada konteks naskah &amp; dirender sebagai GFM.
                             @if (!empty($message))
                                 <span style="margin-left:6px; color:#4338ca; font-weight:700;">({{ strlen($message) }} kar, {{ str_word_count($message) }} kata)</span>
+                                <button type="button" wire:click="$set('message', '')" style="background:none; border:none; color:#ef4444; font-size:.58rem; cursor:pointer; margin-left:4px; font-weight:600;" title="Kosongkan kolom pesan">✕ Reset</button>
                             @endif
                         </div>
                         <div style="font-size:.62rem; color:var(--rb-primary); font-family:monospace; font-weight:600;">
