@@ -9521,6 +9521,33 @@ trait HandlesNaskahStudio
         }
     }
 
+    public function tableSortColumn(int $index, int $colIndex, string $direction = 'asc'): void
+    {
+        if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+            return;
+        }
+
+        $this->pushUndo();
+        $this->blocks[$index] = $this->model->sortTableRows($this->blocks[$index], $colIndex, $direction);
+        $this->dirty = true;
+        $this->editorRevision++;
+        $dirLabel = strtolower($direction) === 'desc' ? 'menurun (Z-A / Desc)' : 'menaik (A-Z / Asc)';
+        $this->notify('Tabel Diurutkan', "Baris tabel diurutkan berdasarkan kolom #".($colIndex + 1)." secara {$dirLabel}.", 'success');
+    }
+
+    public function tableTranspose(int $index): void
+    {
+        if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+            return;
+        }
+
+        $this->pushUndo();
+        $this->blocks[$index] = $this->model->transposeTable($this->blocks[$index]);
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Tabel Ditranspose', 'Baris dan kolom tabel berhasil ditukar orientasi.', 'success');
+    }
+
     public function createSnapshot(?string $label = null): void
     {
         $label = trim((string) ($label ?: $this->snapshotLabel ?: ('Versi '.now()->translatedFormat('d M Y H:i'))));

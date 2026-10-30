@@ -1268,7 +1268,19 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::PENDAHULUAN->value,
             'reply' => $reply,
-            'data' => ['section' => 'pendahuluan', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope],
+            'data' => [
+                'section' => 'pendahuluan',
+                'focus' => $focus,
+                'persona' => $persona,
+                'scope' => $scope,
+                'blocks' => [
+                    ['type' => 'heading', 'level' => 1, 'text' => 'Pendahuluan'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => "Latar Belakang & Konteks Luas: Dinamika perkembangan kontemporer menuntut pemahaman mendalam terkait isu \"{$focus}\", yang menjadi landasan strategis kajian ini."],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Identifikasi Masalah & Urgensi Riset: Kesenjangan antara harapan teoretis dan kenyataan empiris menunjukkan perlunya intervensi metodologis terarah guna mengatasi hambatan struktural yang ada.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'State of the Art (SOTA) & Research Gap: Kajian terdahulu sebagian besar berfokus pada tataran parsial, sehingga menyisakan celah analitis signifikan dalam mengintegrasikan dimensi multidisipliner secara komprehensif.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Tujuan Penelitian & Orisinalitas: Riset ini bertujuan mengevaluasi fenomena tersebut melalui pendekatan terukur, memberikan kontribusi kebaruan yang memperkaya literatur ilmiah terkait.'],
+                ],
+            ],
         ];
     }
 
@@ -1307,7 +1319,19 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::PEMBAHASAN->value,
             'reply' => $reply,
-            'data' => ['section' => 'pembahasan', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope],
+            'data' => [
+                'section' => 'pembahasan',
+                'focus' => $focus,
+                'persona' => $persona,
+                'scope' => $scope,
+                'blocks' => [
+                    ['type' => 'heading', 'level' => 1, 'text' => 'Pembahasan'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => "Interpretasi Temuan Kunci: Hasil analisis terhadap \"{$focus}\" membuktikan adanya korelasi signifikan antara indikator operasional dan parameter keberhasilan yang diuji."],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Komparasi Kritis dengan Literatur Terkait: Temuan ini mengonfirmasi proposisi teoretis yang diajukan dalam literatur rujukan, sekaligus memberikan wawasan baru terkait variabilitas respons dalam konteks empiris.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Implikasi Teoretis & Manajerial: Secara konseptual, hasil riset ini memperluas cakupan teori yang ada; secara praktis, temuan ini memberikan panduan strategis bagi pengambil keputusan.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Eksplorasi Limitasi Penelitian: Variasi lingkungan pengujian dan keterbatasan cakupan data perlu dipertimbangkan sebagai konteks pembatas generalisasi hasil.'],
+                ],
+            ],
         ];
     }
 
@@ -1346,7 +1370,19 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::KESIMPULAN->value,
             'reply' => $reply,
-            'data' => ['section' => 'kesimpulan', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope],
+            'data' => [
+                'section' => 'kesimpulan',
+                'focus' => $focus,
+                'persona' => $persona,
+                'scope' => $scope,
+                'blocks' => [
+                    ['type' => 'heading', 'level' => 1, 'text' => 'Kesimpulan dan Saran'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => "Sintesis Temuan Utama: Penelitian terkait \"{$focus}\" berhasil menjawab seluruh pertanyaan penelitian dengan membuktikan efektivitas pendekatan yang diusulkan secara empiris."],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Kontribusi Kebaruan (Novelty): Integrasi metode ini memberikan kontribusi nyata dalam menjembatani kesenjangan teoretis dan implementasi teknis di lapangan.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Limitasi Riset: Pembatasan pada aspek parameter evaluasi dan periode observasi menjadi batasan objektif naskah ini.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Rekomendasi Riset Lanjutan: Disarankan bagi peneliti mendatang untuk memperluas korpus data dan menguji ketahanan model pada skenario yang lebih kompleks.'],
+                ],
+            ],
         ];
     }
 
@@ -1385,7 +1421,19 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::TINJAUAN_PUSTAKA->value,
             'reply' => $reply,
-            'data' => ['section' => 'tinjauan-pustaka', 'focus' => $focus, 'persona' => $persona, 'scope' => $scope],
+            'data' => [
+                'section' => 'tinjauan-pustaka',
+                'focus' => $focus,
+                'persona' => $persona,
+                'scope' => $scope,
+                'blocks' => [
+                    ['type' => 'heading', 'level' => 1, 'text' => 'Tinjauan Pustaka'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => "Landasan Konseptual Utama: Telaah komprehensif terhadap konsep fundamental \"{$focus}\" berdasarkan teori-teori kanonik yang telah teruji dalam kepustakaan ilmiah."],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Taksonomi & Pemetaan Literatur Terkini: Klasifikasi kontribusi akademisi selama lima tahun terakhir, memetakan evolusi metodologi dan perdebatan akademik utama.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Kerangka Teoretis Hubungan Antar-Variabel: Model konseptual yang menghubungkan variabel independen, mediator, dan luaran terukur dengan hipotesis yang diajukan.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Sintesis Rujukan Bereputasi: Setiap postulat didukung sitasi dari publikasi terindeks untuk menjamin validitas argumentasi ilmiah naskah.'],
+                ],
+            ],
         ];
     }
 

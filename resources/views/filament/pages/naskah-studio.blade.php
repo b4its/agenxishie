@@ -1765,6 +1765,7 @@
                             <select class="ns-btn" style="padding:.2rem .35rem; font-weight:600;" wire:change="setCitationStyle($event.target.value)">
                                 <option value="APA" @selected($citationStyle === 'APA')>APA 7th</option>
                                 <option value="IEEE" @selected($citationStyle === 'IEEE')>IEEE [1]</option>
+                                <option value="Vancouver" @selected(strtoupper($citationStyle) === 'VANCOUVER')>Vancouver (1)</option>
                                 <option value="Harvard" @selected($citationStyle === 'Harvard')>Harvard</option>
                                 <option value="Chicago" @selected($citationStyle === 'Chicago')>Chicago</option>
                                 <option value="MLA" @selected($citationStyle === 'MLA')>MLA</option>
@@ -1967,6 +1968,14 @@
                             <button type="button" class="ns-btn" wire:click="tableSetStyle({{ $activeBlock }}, 'striped')" title="Terapkan gaya tabel bergaris belang (Zebra)">Zebra</button>
                             <button type="button" class="ns-btn" wire:click="tableSetStyle({{ $activeBlock }}, 'minimal')" title="Terapkan gaya tabel minimalis">Minimal</button>
                             <button type="button" class="ns-btn" style="color:#b91c1c;" @mousedown.prevent="deleteTable()" wire:click="removeBlock({{ $activeBlock }})" title="Hapus Seluruh Tabel">&#128465; Hapus</button>
+                        </div>
+                    </div>
+                    <div class="ns-group">
+                        <span class="ns-group__label">Urutkan &amp; Posisi</span>
+                        <div class="ns-group__row">
+                            <button type="button" class="ns-btn" wire:click="tableSortColumn({{ $activeBlock }}, 0, 'asc')" title="Urutkan baris data kolom pertama secara menaik (A-Z / 0-9)">🔤 Urut A-Z</button>
+                            <button type="button" class="ns-btn" wire:click="tableSortColumn({{ $activeBlock }}, 0, 'desc')" title="Urutkan baris data kolom pertama secara menurun (Z-A / 9-0)">🔤 Urut Z-A</button>
+                            <button type="button" class="ns-btn" wire:click="tableTranspose({{ $activeBlock }})" title="Tukar posisi baris dan kolom tabel (Transpose Matrix)">🔄 Transpose</button>
                         </div>
                     </div>
 

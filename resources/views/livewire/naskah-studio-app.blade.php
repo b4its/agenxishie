@@ -1271,6 +1271,7 @@
                             <select wire:change="setCitationStyle($event.target.value)" class="word-select" style="width: 95px; height: 22px; font-size: 11px;">
                                 <option value="APA" {{ ($citationStyle ?? 'APA') === 'APA' ? 'selected' : '' }}>APA (7th)</option>
                                 <option value="IEEE" {{ ($citationStyle ?? 'APA') === 'IEEE' ? 'selected' : '' }}>IEEE</option>
+                                <option value="Vancouver" {{ strtoupper($citationStyle ?? 'APA') === 'VANCOUVER' ? 'selected' : '' }}>Vancouver (1)</option>
                                 <option value="Harvard" {{ ($citationStyle ?? 'APA') === 'Harvard' ? 'selected' : '' }}>Harvard</option>
                                 <option value="Chicago" {{ ($citationStyle ?? 'APA') === 'Chicago' ? 'selected' : '' }}>Chicago</option>
                                 <option value="MLA" {{ ($citationStyle ?? 'APA') === 'MLA' ? 'selected' : '' }}>MLA (9th)</option>
@@ -1620,6 +1621,24 @@
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Formulas &amp; Data</span></div>
+            </div>
+
+            <!-- Group: Sort & Transpose -->
+            <div class="word-group">
+                <div class="word-group__content">
+                    <div class="word-group__col">
+                        <button type="button" class="word-tool-btn" wire:click="tableSortColumn({{ $activeBlock }}, 0, 'asc')" title="Sort Rows Ascending (A-Z / 0-9)">
+                            🔤 Sort A-Z
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableSortColumn({{ $activeBlock }}, 0, 'desc')" title="Sort Rows Descending (Z-A / 9-0)">
+                            🔤 Sort Z-A
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableTranspose({{ $activeBlock }})" title="Transpose Table Rows and Columns">
+                            🔄 Transpose
+                        </button>
+                    </div>
+                </div>
+                <div class="word-group__footer"><span class="word-group__label">Sort &amp; Transform</span></div>
             </div>
 
             <div class="word-group">

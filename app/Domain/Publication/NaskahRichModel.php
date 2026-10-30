@@ -598,6 +598,83 @@ final class NaskahRichModel
     }
 
     /**
+     * Urutkan baris data tabel berdasarkan kolom tertentu (Ascending / Descending).
+     * Mempertahankan baris header pada posisi teratas.
+     *
+     * @param  array<string, mixed>  $tableBlock
+     * @return array<string, mixed>
+     */
+    public function sortTableRows(array $tableBlock, int $colIndex, string $direction = 'asc'): array
+    {
+        $rows = (array) ($tableBlock['table']['rows'] ?? []);
+        if (count($rows) <= 1) {
+            return $tableBlock;
+        }
+
+        $hasHeader = (bool) ($tableBlock['table']['header'] ?? true);
+        $headerRows = $hasHeader ? [array_shift($rows)] : [];
+
+        $dir = strtolower($direction) === 'desc' ? -1 : 1;
+
+        usort($rows, function ($rowA, $rowB) use ($colIndex, $dir) {
+            $valA = trim((string) ($rowA[$colIndex]['text'] ?? ''));
+            $valB = trim((string) ($rowB[$colIndex]['text'] ?? ''));
+
+            $cleanA = str_replace([',', ' ', '%'], ['', '', ''], $valA);
+            $cleanB = str_replace([',', ' ', '%'], ['', '', ''], $valB);
+
+            if (is_numeric($cleanA) && is_numeric($cleanB)) {
+                $comp = ((float) $cleanA <=> (float) $cleanB);
+            } else {
+                $comp = strnatcasecmp($valA, $valB);
+            }
+
+            return $comp * $dir;
+        });
+
+        $tableBlock['table']['rows'] = array_merge($headerRows, $rows);
+
+        return $tableBlock;
+    }
+
+    /**
+     * Transpose (tukar orientasi baris dan kolom) pada grid tabel.
+     *
+     * @param  array<string, mixed>  $tableBlock
+     * @return array<string, mixed>
+     */
+    public function transposeTable(array $tableBlock): array
+    {
+        $rows = (array) ($tableBlock['table']['rows'] ?? []);
+        if ($rows === []) {
+            return $tableBlock;
+        }
+
+        $maxCols = 0;
+        foreach ($rows as $r) {
+            $maxCols = max($maxCols, count((array) $r));
+        }
+
+        if ($maxCols === 0) {
+            return $tableBlock;
+        }
+
+        $transposed = [];
+        for ($c = 0; $c < $maxCols; $c++) {
+            $newRow = [];
+            for ($r = 0; $r < count($rows); $r++) {
+                $cell = $rows[$r][$c] ?? ['text' => '', 'runs' => []];
+                $newRow[] = $cell;
+            }
+            $transposed[] = $newRow;
+        }
+
+        $tableBlock['table']['rows'] = $transposed;
+
+        return $tableBlock;
+    }
+
+    /**
      * @param  array<string, mixed>  $run
      * @param  array<string, mixed>  $attribute
      * @return array<string, mixed>
