@@ -1606,3 +1606,42 @@ it('supports undo reversibility for drop cap, heading hierarchy, block operation
     $page->call('executeCommand', 'references.audit');
     expect($page->get('lastCitationAudit'))->not->toBeNull();
 });
+
+it('supports custom dictionary management, scratchpad persistence, and vancouver citation style', function (): void {
+    $this->actingAs(User::factory()->create());
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // 1. Custom dictionary addition and removal
+    $page->call('addCustomWordToDictionary', 'TransformerX');
+    expect($page->get('customDictionary'))->toContain('transformerx');
+
+    $page->call('removeCustomWordFromDictionary', 'TransformerX');
+    expect($page->get('customDictionary'))->not->toContain('transformerx');
+
+    // Add back for save verification
+    $page->call('addCustomWordToDictionary', 'DeepLearningV3');
+    $page->call('saveScratchpadNotes', 'Catatan penting validasi eksperimen.');
+    $page->call('setCitationStyle', 'VANCOUVER');
+    $page->call('save');
+
+    $docId = $page->get('documentId');
+    expect($docId)->not->toBeNull();
+
+    $doc = NaskahDocument::find($docId);
+    expect($doc->style_meta['scratchpad_notes'])->toBe('Catatan penting validasi eksperimen.')
+        ->and($doc->style_meta['custom_dictionary'])->toContain('deeplearningv3')
+        ->and($doc->style_meta['citation_style'])->toBe('VANCOUVER');
+
+    // 2. Load document into new component instance and verify properties loaded
+    $newPage = Livewire::test(NaskahStudioPage::class)
+        ->call('loadDocument', $doc);
+
+    expect($newPage->get('scratchpadNotes'))->toBe('Catatan penting validasi eksperimen.')
+        ->and($newPage->get('customDictionary'))->toContain('deeplearningv3')
+        ->and($newPage->get('citationStyle'))->toBe('VANCOUVER');
+
+    // 3. Vancouver citation insertion
+    $newPage->call('insertCitation');
+    $activeBlock = $newPage->get('activeBlock');
+    expect($newPage->get('blocks')[$activeBlock]['text'])->toContain('(1)');
+});

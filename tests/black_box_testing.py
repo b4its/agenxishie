@@ -275,6 +275,9 @@ test("Filament Studio: Snapshots Dialog Supported (?dialog=snapshots)", status =
 status, studio_thesaurus_auth_html, _ = http_get("/admin/naskah-studio?dialog=thesaurus", headers=auth_headers)
 test("Filament Studio: Thesaurus Dialog Supported (?dialog=thesaurus)", status == 200 and "runThesaurus" in studio_thesaurus_auth_html)
 
+status, studio_spelling_auth_html, _ = http_get("/admin/naskah-studio?dialog=spelling", headers=auth_headers)
+test("Filament Studio: Spelling Proofing Dialog Supported (?dialog=spelling)", status == 200 and ("addCustomWordToDictionary" in studio_spelling_auth_html or "Kamus" in studio_spelling_auth_html or "Kamus ringkas" in studio_spelling_auth_html or "spelling" in studio_spelling_auth_html))
+
 status, studio_merge_html, _ = http_get("/studio?dialog=merge")
 test("Standalone Studio: Mail Merge Dialog Supported (?dialog=merge)", "insertMerge" in studio_merge_html or "Mail Merge" in studio_merge_html)
 
