@@ -677,6 +677,25 @@ class XishieAssistantPage extends Page
             }
             if (preg_match('/^(#{1,6})\s+(.+)$/', $t, $m)) {
                 $newBlocks[] = $richModel->newBlock('heading', trim($m[2]), strlen($m[1]));
+            } elseif (preg_match('/^\$\$(.+)\$\$$/', $t, $m) || preg_match('/^\\\\\[(.+)\\\\\]$/', $t, $m)) {
+                $newBlocks[] = [
+                    'id' => 'block_'.Str::random(8),
+                    'type' => 'equation',
+                    'equation' => [
+                        'latex' => trim($m[1]),
+                        'caption' => '',
+                    ],
+                    'text' => trim($m[1]),
+                ];
+            } elseif (str_starts_with($t, '> ')) {
+                $newBlocks[] = [
+                    'id' => 'block_'.Str::random(8),
+                    'type' => 'quote',
+                    'text' => trim(substr($t, 2)),
+                    'runs' => [
+                        ['text' => trim(substr($t, 2)), 'italic' => true],
+                    ],
+                ];
             } else {
                 $newBlocks[] = $richModel->newBlock('paragraph', $t);
             }
@@ -1010,6 +1029,7 @@ class XishieAssistantPage extends Page
                 ['command' => '/metodologi', 'label' => '📐 Bab Metodologi', 'badge' => 'Bab 3'],
                 ['command' => '/matriks-literatur', 'label' => '📊 Matriks SOTA', 'badge' => 'Matriks'],
                 ['command' => '/daftar-isi', 'label' => '📑 Struktur Bab', 'badge' => 'Outline'],
+                ['command' => '/sitasi audit', 'label' => '🔍 Audit Sitasi', 'badge' => 'Sitasi'],
             ],
             'analysis', 'manuscript' => [
                 ['command' => '/pembahasan', 'label' => '💬 Bab Pembahasan', 'badge' => 'Bab 4'],
@@ -1023,6 +1043,7 @@ class XishieAssistantPage extends Page
                 ['command' => '/kesimpulan', 'label' => '🏁 Simpulan & Saran', 'badge' => 'Bab 5'],
                 ['command' => '/daftar-pustaka', 'label' => '📚 Daftar Pustaka', 'badge' => 'Bibliografi'],
                 ['command' => '/keterbacaan', 'label' => '📈 Skor Keterbacaan', 'badge' => 'Audit'],
+                ['command' => '/sitasi audit', 'label' => '🔍 Audit Sitasi', 'badge' => 'Sitasi'],
                 ['command' => '/cek-pedoman', 'label' => '📜 Cek Pedoman', 'badge' => 'Pedoman'],
             ],
             default => [
