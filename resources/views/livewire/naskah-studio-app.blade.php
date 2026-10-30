@@ -1542,11 +1542,17 @@
                         <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'avg')" title="Hitung Rata-rata Kolom Angka">
                             μ Average (Rata-rata)
                         </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'median')" title="Cari Nilai Median / Nilai Tengah Kolom">
+                            ~ Median (Nilai Tengah)
+                        </button>
                         <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'min')" title="Cari Nilai Minimum Kolom">
                             ↓ Min (Minimum)
                         </button>
                         <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'max')" title="Cari Nilai Maksimum Kolom">
                             ↑ Max (Maksimum)
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'count')" title="Hitung Jumlah Entri Numerik Kolom">
+                            # Total Data (Count)
                         </button>
                         <button type="button" class="word-tool-btn" wire:click="tableFormatApa({{ $activeBlock }})" title="Format Tabel Kaidah APA 7th (3 Garis Horizontal)">
                             🏛️ Format APA
@@ -1713,6 +1719,9 @@
             <!-- TAB: PUSTAKA (PROJECT REFERENCES) -->
             @elseif ($navigationTab === 'pustaka')
                 <div style="padding:8px 10px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; max-height:calc(100vh - 280px);">
+                    <div style="margin-bottom:2px;">
+                        <input type="text" wire:model.live.debounce.250ms="referenceSearchQuery" placeholder="Cari pustaka (judul, penulis, kunci)..." class="word-select" style="width:100%; height:auto; font-size:10.5px; padding:4px 6px;" />
+                    </div>
                     @forelse ($projectReferences as $pRef)
                         <div style="border:1px solid #e2e8f0; border-radius:4px; padding:6px 8px; background:#ffffff; font-size:11px;">
                             <div style="font-weight:700; color:#1e293b; margin-bottom:2px;">{{ Str::limit($pRef->title, 45) }}</div>

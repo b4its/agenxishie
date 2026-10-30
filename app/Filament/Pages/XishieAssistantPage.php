@@ -477,7 +477,12 @@ class XishieAssistantPage extends Page
             $queryBuilder->where(function ($sub) use ($q): void {
                 $sub->where('title', 'like', "%{$q}%")
                     ->orWhere('citation_key', 'like', "%{$q}%")
-                    ->orWhere('journal_name', 'like', "%{$q}%");
+                    ->orWhere('journal_name', 'like', "%{$q}%")
+                    ->orWhere('doi', 'like', "%{$q}%")
+                    ->orWhere('authors', 'like', "%{$q}%");
+                if (is_numeric($q)) {
+                    $sub->orWhere('year', (int) $q);
+                }
             });
         }
 
@@ -502,7 +507,8 @@ class XishieAssistantPage extends Page
 
     public function insertCitationKey(string $citationKey): void
     {
-        $tag = "[@{$citationKey}]";
+        $cleanKey = ltrim(trim($citationKey), '@');
+        $tag = "[@{$cleanKey}]";
         $this->message = trim($this->message.' '.$tag);
         Notification::make()->title("Kunci Sitasi Disisipkan: {$tag}")->success()->send();
     }

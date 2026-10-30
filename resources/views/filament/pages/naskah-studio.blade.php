@@ -1918,8 +1918,10 @@
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'sum')" title="Jumlahkan Angka Kolom (LibreOffice Table Formula)">&#8721; Jumlahkan</button>
                             <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'avg')" title="Hitung Rata-rata Kolom">x̄ Rata-rata</button>
+                            <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'median')" title="Cari Nilai Median Kolom">~ Median</button>
                             <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'min')" title="Cari Nilai Minimum Kolom">↓ Nilai Min</button>
                             <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'max')" title="Cari Nilai Maksimum Kolom">↑ Nilai Max</button>
+                            <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'count')" title="Hitung Jumlah Entri Numerik Kolom"># Total Data</button>
                         </div>
                     </div>
                     <div class="ns-group">
@@ -2080,6 +2082,9 @@
                                     <button type="button" class="ns-block__btn" wire:click="auditCitations" title="Audit kepatuhan sitasi naskah">🔍 Audit</button>
                                     <button type="button" class="ns-block__btn" wire:click="insertBibliography" title="Sisipkan semua ke daftar pustaka">&#128218; Semua</button>
                                 </div>
+                            </div>
+                            <div style="margin-bottom:.35rem;">
+                                <input type="text" wire:model.live.debounce.250ms="referenceSearchQuery" placeholder="Cari pustaka (judul, penulis, kunci)..." style="width:100%; font-size:.62rem; padding:2px 6px; border:1px solid #cbd5e1; border-radius:3px; background:#ffffff; color:#1e293b;" />
                             </div>
                             @if (!empty($lastCitationAudit))
                                 <div style="margin-bottom:.4rem; padding:.3rem .45rem; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:3px; font-size:.58rem; color:#166534; line-height:1.4;">

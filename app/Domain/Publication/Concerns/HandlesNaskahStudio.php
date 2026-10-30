@@ -114,6 +114,8 @@ trait HandlesNaskahStudio
      */
     public ?array $lastCitationAudit = null;
 
+    public string $referenceSearchQuery = '';
+
     /**
      * Stack undo/redo.
      *
@@ -3419,9 +3421,11 @@ trait HandlesNaskahStudio
                     'src' => (string) ($block['image']['src'] ?? ''),
                 ];
             } elseif ($type === 'table') {
+                $customCaption = (string) ($block['table']['caption'] ?? $block['caption'] ?? '');
+                $caption = $customCaption !== '' ? $customCaption : ('Tabel '.(count($tables) + 1));
                 $tables[] = [
                     'index' => $idx,
-                    'caption' => 'Tabel '.(count($tables) + 1),
+                    'caption' => $caption,
                 ];
             } elseif ($type === 'heading') {
                 $headings[] = [
@@ -3952,19 +3956,45 @@ trait HandlesNaskahStudio
     {
         $project = $projectId !== null
             ? XishieProject::find($projectId)
-            : ($this->sourceProjectId !== null ? XishieProject::find($this->sourceProjectId) : XishieProject::first());
+            : ($this->sourceProjectId !== null ? XishieProject::find($this->sourceProjectId) : $this->resolveAssistantProject());
 
         $refKeys = [];
+        $refMap = [];
         if ($project !== null) {
-            $refKeys = $project->references()->pluck('citation_key')->filter()->all();
+            $references = $project->references()->get();
+            foreach ($references as $r) {
+                $key = (string) ($r->citation_key ?? '');
+                if ($key !== '') {
+                    $refKeys[] = $key;
+                }
+                $authors = (array) ($r->authors ?? []);
+                $firstAuthor = ! empty($authors[0]['name'])
+                    ? (string) $authors[0]['name']
+                    : (! empty($authors[0]) && is_string($authors[0]) ? $authors[0] : '');
+                $surname = '';
+                if ($firstAuthor !== '') {
+                    $parts = preg_split('/\s+/', trim($firstAuthor));
+                    $surname = $parts ? (string) end($parts) : $firstAuthor;
+                }
+
+                $refMap[] = [
+                    'id' => (string) $r->id,
+                    'key' => $key,
+                    'authors' => $authors,
+                    'surname' => $surname,
+                    'first_author' => $firstAuthor,
+                    'year' => (string) ($r->year ?? ''),
+                ];
+            }
         }
 
         // Pindai teks dokumen lengkap
         $plainText = $this->documentText();
 
-        // Ekstrak pola [@key], [key], atau (Author, Year)
+        // Ekstrak pola [@key], [key], atau (Author, Year) atau (Author Year) atau numeric [1] atau (1)
         preg_match_all('/\[@?([a-zA-Z0-9_\-]+)\]/u', $plainText, $bracketMatches);
-        preg_match_all('/\(([A-Z][a-zA-Z\s]+(?:et\sal\.)?,\s?\d{4}[a-z]?)\)/u', $plainText, $parenMatches);
+        preg_match_all('/\(([A-Z][a-zA-Z\s]+(?:et\sal\.)?,?\s?\d{4}[a-z]?)\)/u', $plainText, $parenMatches);
+        preg_match_all('/\((\d{1,4})\)/u', $plainText, $vancouverMatches);
 
         $foundKeys = [];
         if (! empty($bracketMatches[1])) {
@@ -3972,6 +4002,8 @@ trait HandlesNaskahStudio
                 $trimmed = trim((string) $k);
                 if (! is_numeric($trimmed) && mb_strlen($trimmed) >= 3) {
                     $foundKeys[] = $trimmed;
+                } elseif (is_numeric($trimmed)) {
+                    $foundKeys[] = "[{$trimmed}]";
                 }
             }
         }
@@ -3980,6 +4012,14 @@ trait HandlesNaskahStudio
                 $trimmed = trim((string) $p);
                 if ($trimmed !== '') {
                     $foundKeys[] = $trimmed;
+                }
+            }
+        }
+        if (! empty($vancouverMatches[1])) {
+            foreach ($vancouverMatches[1] as $v) {
+                $trimmed = trim((string) $v);
+                if (is_numeric($trimmed)) {
+                    $foundKeys[] = "({$trimmed})";
                 }
             }
         }
@@ -4003,6 +4043,26 @@ trait HandlesNaskahStudio
                     if (str_contains(mb_strtolower($rKey), $lowerKey) || str_contains($lowerKey, mb_strtolower($rKey))) {
                         $matched = true;
                         break;
+                    }
+                }
+
+                if (! $matched && ! empty($refMap)) {
+                    foreach ($refMap as $idx => $rData) {
+                        $seq = (string) ($idx + 1);
+                        if ($key === "[{$rData['id']}]" || $key === "[{$seq}]" || $key === "({$rData['id']})" || $key === "({$seq})") {
+                            $matched = true;
+                            break;
+                        }
+                        if ($rData['year'] !== '' && str_contains($lowerKey, $rData['year'])) {
+                            if ($rData['surname'] !== '' && str_contains($lowerKey, mb_strtolower($rData['surname']))) {
+                                $matched = true;
+                                break;
+                            }
+                            if ($rData['first_author'] !== '' && str_contains($lowerKey, mb_strtolower($rData['first_author']))) {
+                                $matched = true;
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -4166,6 +4226,21 @@ trait HandlesNaskahStudio
     public function tableFormatApa(int $index): void
     {
         $this->tableSetStyle($index, 'apa');
+    }
+
+    public function tableSetCaption(int $index, string $caption): void
+    {
+        if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+            return;
+        }
+
+        $this->pushUndo();
+        $trimmed = trim($caption);
+        $this->blocks[$index]['table']['caption'] = $trimmed;
+        $this->blocks[$index]['caption'] = $trimmed;
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Keterangan Tabel', 'Keterangan tabel berhasil diperbarui.', 'success');
     }
 
     /**
@@ -8310,6 +8385,16 @@ trait HandlesNaskahStudio
             $this->dirty = true;
             $this->editorRevision++;
             $this->notify('Kalkulasi Tabel', "Jumlah entri numerik kolom #{$colIndex} dihitung.", 'success');
+        } elseif ($op === 'median') {
+            if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+                return;
+            }
+
+            $this->pushUndo();
+            $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'median');
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Kalkulasi Tabel', "Nilai median kolom #{$colIndex} dihitung.", 'success');
         } else {
             $this->tableSumColumn($index, $colIndex);
         }
@@ -8753,7 +8838,25 @@ trait HandlesNaskahStudio
             'styleMeta' => $this->styleMeta,
             'snapshots' => $this->snapshots,
             'metadata' => $this->metadata,
-            'projectReferences' => $this->sourceProjectId ? ProjectReference::query()->where('project_id', $this->sourceProjectId)->latest()->get() : collect(),
+            'projectReferences' => ($resolved = $this->resolveAssistantProject())
+                ? ProjectReference::query()
+                    ->where('project_id', $resolved->id)
+                    ->when($this->referenceSearchQuery !== '', function ($q): void {
+                        $term = trim($this->referenceSearchQuery);
+                        $q->where(function ($sub) use ($term): void {
+                            $sub->where('title', 'like', "%{$term}%")
+                                ->orWhere('citation_key', 'like', "%{$term}%")
+                                ->orWhere('journal_name', 'like', "%{$term}%")
+                                ->orWhere('authors', 'like', "%{$term}%");
+                            if (is_numeric($term)) {
+                                $sub->orWhere('year', (int) $term);
+                            }
+                        });
+                    })
+                    ->latest()
+                    ->get()
+                : collect(),
+            'referenceSearchQuery' => $this->referenceSearchQuery,
             'drawerCategories' => [
                 'all' => 'Semua',
                 'structure' => 'Struktur',

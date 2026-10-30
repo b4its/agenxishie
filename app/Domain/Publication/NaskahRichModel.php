@@ -551,6 +551,13 @@ final class NaskahRichModel
             'min' => min($values),
             'max' => max($values),
             'count' => count($values),
+            'median' => (function () use ($values): float {
+                sort($values);
+                $n = count($values);
+                $mid = (int) floor($n / 2);
+
+                return ($n % 2 === 0) ? (($values[$mid - 1] + $values[$mid]) / 2) : $values[$mid];
+            })(),
             default => array_sum($values),
         };
 
