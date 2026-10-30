@@ -1434,6 +1434,7 @@ final class NaskahRichModel
         $out = "\\documentclass[{$docClassOpt}]{article}\n"
             ."\\usepackage[utf8]{inputenc}\n"
             ."\\usepackage[margin=2.5cm]{geometry}\n"
+            ."\\usepackage{amsmath,amssymb}\n"
             ."\\usepackage{graphicx}\n"
             ."\\usepackage{hyperref}\n"
             ."\\usepackage{booktabs}\n\n";

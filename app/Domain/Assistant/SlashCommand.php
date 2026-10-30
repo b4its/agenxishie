@@ -87,6 +87,9 @@ enum SlashCommand: string
         if (in_array($firstToken, ['/audit-sitasi', '/cek-sitasi', '/verifikasi-sitasi', '/sitasi-audit'], true)) {
             return self::SITASI;
         }
+        if (in_array($firstToken, ['/cari-ref', '/referensi', '/search-ref', '/cari_referensi'], true)) {
+            return self::CARI_REFERENSI;
+        }
         if (in_array($firstToken, ['/perbaiki-ejaan', '/ejaan', '/spelling', '/grammar', '/tata-bahasa', '/typo'], true)) {
             return self::PUEBI;
         }

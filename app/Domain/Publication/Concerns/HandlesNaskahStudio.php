@@ -6547,8 +6547,10 @@ trait HandlesNaskahStudio
 
         $blocksToInsert = [];
 
-        // 1. Jika model menghasilkan tabel terstruktur (table_rows)
-        if (! empty($data['table_rows']) && is_array($data['table_rows'])) {
+        // 1. Jika model menghasilkan blok tabel terstruktur lengkap atau table_rows
+        if (! empty($data['table_block']) && is_array($data['table_block'])) {
+            $blocksToInsert[] = $data['table_block'];
+        } elseif (! empty($data['table_rows']) && is_array($data['table_rows'])) {
             $blocksToInsert[] = $this->model->newTableBlock($data['table_rows'], true);
         }
         // 2. Jika model menghasilkan rumus LaTeX
@@ -8117,8 +8119,9 @@ trait HandlesNaskahStudio
             return ['reply' => implode("\n", $lines), 'data' => ['matrix' => $refs]];
         }
 
-        if (str_starts_with($effectiveInput, '/cari-referensi')) {
-            $topic = trim(substr($effectiveInput, 15));
+        if (str_starts_with($effectiveInput, '/cari-referensi') || str_starts_with($effectiveInput, '/cari-ref') || str_starts_with($effectiveInput, '/referensi') || str_starts_with($effectiveInput, '/search-ref')) {
+            $parts = explode(' ', $effectiveInput, 2);
+            $topic = trim($parts[1] ?? '');
             if ($topic === '') {
                 $topic = $this->docTitle;
             }

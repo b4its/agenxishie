@@ -1493,9 +1493,17 @@ class XishieAssistantPage extends Page
                 ];
             } else {
                 $richModel = app(NaskahRichModel::class);
-                $respBlocks = $richModel->parseMarkdownToBlocks($content);
-                if (empty($respBlocks)) {
-                    $respBlocks[] = $richModel->newBlock('paragraph', $content);
+                if (! empty($entry['data']['table_block']) && is_array($entry['data']['table_block'])) {
+                    $respBlocks = [$entry['data']['table_block']];
+                } elseif (! empty($entry['data']['latex'])) {
+                    $formula = (string) $entry['data']['latex'];
+                    $caption = (string) ($entry['data']['caption'] ?? '');
+                    $respBlocks = [$richModel->newEquationBlock($formula, $caption)];
+                } else {
+                    $respBlocks = $richModel->parseMarkdownToBlocks($content);
+                    if (empty($respBlocks)) {
+                        $respBlocks[] = $richModel->newBlock('paragraph', $content);
+                    }
                 }
                 foreach ($respBlocks as $rb) {
                     $blocks[] = $rb;

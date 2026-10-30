@@ -443,7 +443,7 @@ final class ManuscriptExporter
         );
 
         $out = "\\documentclass[12pt]{article}\n";
-        $out .= "\\usepackage[utf8]{inputenc}\n\\usepackage{geometry}\n\\geometry{a4paper, margin=2.5cm}\n";
+        $out .= "\\usepackage[utf8]{inputenc}\n\\usepackage{amsmath,amssymb}\n\\usepackage{geometry}\n\\geometry{a4paper, margin=2.5cm}\n";
         $out .= '\\title{'.$escape($m['title'])."}\n\\author{Agen Xishie}\n\\date{\\today}\n";
         $out .= "\\begin{document}\n\\maketitle\n\n";
 
