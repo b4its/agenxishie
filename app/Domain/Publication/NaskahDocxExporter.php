@@ -130,12 +130,23 @@ final class NaskahDocxExporter
                     'warning' => '[Peringatan] ',
                     'tip' => '[Tips] ',
                     'theorem' => '[Teorema] ',
+                    'important' => '[Penting] ',
+                    'caution' => '[Perhatian] ',
+                    'sketch' => '[Sketsa & Diagram] ',
                     default => '[Catatan] ',
                 };
+                $color = match ($cType) {
+                    'warning' => 'D83B01',
+                    'caution' => 'A80000',
+                    'important' => '8E44AD',
+                    'tip' => '107C41',
+                    'sketch' => '004E8C',
+                    default => '0F6CBD',
+                };
                 $text = (string) ($block['text'] ?? '');
-                $body .= '<w:p><w:pPr><w:pBdr><w:left w:val="single" w:sz="24" w:space="12" w:color="0F6CBD"/></w:pBdr>'
+                $body .= '<w:p><w:pPr><w:pBdr><w:left w:val="single" w:sz="24" w:space="12" w:color="'.$color.'"/></w:pBdr>'
                     .'<w:ind w:left="360"/><w:spacing w:before="180" w:after="180"/></w:pPr>'
-                    .'<w:r><w:rPr><w:b/><w:color w:val="0F6CBD"/></w:rPr><w:t xml:space="preserve">'.$this->esc($prefix).'</w:t></w:r>'
+                    .'<w:r><w:rPr><w:b/><w:color w:val="'.$color.'"/></w:rPr><w:t xml:space="preserve">'.$this->esc($prefix).'</w:t></w:r>'
                     .'<w:r><w:t xml:space="preserve">'.$this->esc($text).'</w:t></w:r></w:p>';
 
                 continue;

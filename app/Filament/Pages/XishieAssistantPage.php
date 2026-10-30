@@ -681,9 +681,17 @@ class XishieAssistantPage extends Page
         $richModel = app(NaskahRichModel::class);
         $existing = $richModel->normalize((array) $doc->blocks);
 
-        $newBlocks = $richModel->parseMarkdownToBlocks($content);
-        if (empty($newBlocks)) {
-            $newBlocks[] = $richModel->newBlock('paragraph', $content);
+        if (! empty($entry['data']['table_block']) && is_array($entry['data']['table_block'])) {
+            $newBlocks = [$entry['data']['table_block']];
+        } elseif (! empty($entry['data']['latex'])) {
+            $formula = (string) $entry['data']['latex'];
+            $caption = (string) ($entry['data']['caption'] ?? '');
+            $newBlocks = [$richModel->newEquationBlock($formula, $caption)];
+        } else {
+            $newBlocks = $richModel->parseMarkdownToBlocks($content);
+            if (empty($newBlocks)) {
+                $newBlocks[] = $richModel->newBlock('paragraph', $content);
+            }
         }
 
         foreach ($newBlocks as $b) {

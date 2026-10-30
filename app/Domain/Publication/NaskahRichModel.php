@@ -183,7 +183,7 @@ final class NaskahRichModel
             'lineSpacing' => max(0.8, min(3.0, (float) ($block['lineSpacing'] ?? 1.0))),
             'pageBreak' => (bool) ($block['pageBreak'] ?? false),
             'dropCap' => (bool) ($block['dropCap'] ?? false),
-            'calloutType' => in_array($block['calloutType'] ?? '', ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true) ? $block['calloutType'] : 'info',
+            'calloutType' => in_array($block['calloutType'] ?? '', ['info', 'warning', 'tip', 'note', 'success', 'theorem', 'sketch', 'important', 'caution'], true) ? $block['calloutType'] : 'info',
             'firstLineIndent' => (bool) ($block['firstLineIndent'] ?? false),
         ];
 
@@ -561,6 +561,19 @@ final class NaskahRichModel
                 $mid = (int) floor($n / 2);
 
                 return ($n % 2 === 0) ? (($values[$mid - 1] + $values[$mid]) / 2) : $values[$mid];
+            })(),
+            'stddev', 'stdev' => (function () use ($values): float {
+                $n = count($values);
+                if ($n <= 1) {
+                    return 0.0;
+                }
+                $mean = array_sum($values) / $n;
+                $sumSq = 0.0;
+                foreach ($values as $v) {
+                    $sumSq += pow($v - $mean, 2);
+                }
+
+                return sqrt($sumSq / ($n - 1));
             })(),
             default => array_sum($values),
         };
@@ -1714,7 +1727,7 @@ final class NaskahRichModel
             $block['type'] = $attributes['type'];
         }
 
-        if (isset($attributes['calloutType']) && in_array($attributes['calloutType'], ['info', 'warning', 'tip', 'note', 'success', 'theorem'], true)) {
+        if (isset($attributes['calloutType']) && in_array($attributes['calloutType'], ['info', 'warning', 'tip', 'note', 'success', 'theorem', 'sketch', 'important', 'caution'], true)) {
             $block['calloutType'] = $attributes['calloutType'];
         }
 

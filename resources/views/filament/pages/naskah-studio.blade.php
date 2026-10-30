@@ -1942,6 +1942,7 @@
                             <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'sum')" title="Jumlahkan Angka Kolom (LibreOffice Table Formula)">&#8721; Jumlahkan</button>
                             <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'avg')" title="Hitung Rata-rata Kolom">x̄ Rata-rata</button>
                             <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'median')" title="Cari Nilai Median Kolom">~ Median</button>
+                            <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'stddev')" title="Hitung Standar Deviasi Sampel (s) Kolom">&sigma; StdDev</button>
                             <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'min')" title="Cari Nilai Minimum Kolom">↓ Nilai Min</button>
                             <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'max')" title="Cari Nilai Maksimum Kolom">↑ Nilai Max</button>
                             <button type="button" class="ns-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'count')" title="Hitung Jumlah Entri Numerik Kolom"># Total Data</button>

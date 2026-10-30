@@ -8685,6 +8685,16 @@ trait HandlesNaskahStudio
             $this->dirty = true;
             $this->editorRevision++;
             $this->notify('Kalkulasi Tabel', "Nilai median kolom #{$colIndex} dihitung.", 'success');
+        } elseif ($op === 'stddev' || $op === 'stdev') {
+            if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+                return;
+            }
+
+            $this->pushUndo();
+            $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'stddev');
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Kalkulasi Tabel', "Standar deviasi sampel kolom #{$colIndex} dihitung.", 'success');
         } else {
             $this->tableSumColumn($index, $colIndex);
         }

@@ -1575,6 +1575,9 @@
                         <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'median')" title="Cari Nilai Median / Nilai Tengah Kolom">
                             ~ Median (Nilai Tengah)
                         </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'stddev')" title="Hitung Standar Deviasi Sampel (s) Kolom Angka">
+                            σ StdDev (Standar Deviasi)
+                        </button>
                         <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'min')" title="Cari Nilai Minimum Kolom">
                             ↓ Min (Minimum)
                         </button>

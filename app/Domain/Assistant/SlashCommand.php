@@ -87,7 +87,7 @@ enum SlashCommand: string
         if (in_array($firstToken, ['/audit-sitasi', '/cek-sitasi', '/verifikasi-sitasi', '/sitasi-audit'], true)) {
             return self::SITASI;
         }
-        if (in_array($firstToken, ['/perbaiki-ejaan', '/ejaan', '/spelling'], true)) {
+        if (in_array($firstToken, ['/perbaiki-ejaan', '/ejaan', '/spelling', '/grammar', '/tata-bahasa', '/typo'], true)) {
             return self::PUEBI;
         }
         if (in_array($firstToken, ['/metode', '/methodology', '/method'], true)) {
@@ -96,11 +96,20 @@ enum SlashCommand: string
         if (in_array($firstToken, ['/ringkaskan', '/summary', '/summarize', '/ringkasan'], true)) {
             return self::RINGKAS;
         }
-        if (in_array($firstToken, ['/latex', '/equation', '/formula'], true)) {
+        if (in_array($firstToken, ['/latex', '/equation', '/formula', '/math', '/persamaan'], true)) {
             return self::RUMUS;
         }
-        if (in_array($firstToken, ['/diagram', '/chart', '/figure'], true)) {
+        if (in_array($firstToken, ['/diagram', '/chart', '/figure', '/image', '/grafik'], true)) {
             return self::GAMBAR;
+        }
+        if (in_array($firstToken, ['/tabel', '/table', '/matrix-table'], true)) {
+            return self::TABEL_ANALISIS;
+        }
+        if (in_array($firstToken, ['/elaborasi', '/elaborate', '/expand'], true)) {
+            return self::KEMBANGKAN;
+        }
+        if (in_array($firstToken, ['/polish', '/refine'], true)) {
+            return self::POLES;
         }
         if (in_array($firstToken, ['/abstract'], true)) {
             return self::ABSTRAK;
