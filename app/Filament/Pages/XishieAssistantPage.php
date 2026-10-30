@@ -696,6 +696,12 @@ class XishieAssistantPage extends Page
         Notification::make()
             ->title('Berhasil Diterapkan ke Naskah Studio')
             ->body("Konten rekomendasi asisten berhasil disisipkan ke dokumen '{$doc->title}' (".count($newBlocks).' blok).')
+            ->actions([
+                \Filament\Actions\Action::make('openInStudio')
+                    ->label('Buka Dokumen di Studio')
+                    ->url($url)
+                    ->button(),
+            ])
             ->success()
             ->send();
     }
@@ -710,6 +716,14 @@ class XishieAssistantPage extends Page
             Notification::make()->title('Pesan atau perintah kosong')->warning()->send();
 
             return;
+        }
+
+        // Rekam prompt ke riwayat unik sesi (maksimal 10)
+        if (! in_array($input, $this->promptHistory, true)) {
+            array_unshift($this->promptHistory, $input);
+            if (count($this->promptHistory) > 10) {
+                array_pop($this->promptHistory);
+            }
         }
 
         $project = $this->getProject();
@@ -875,8 +889,11 @@ class XishieAssistantPage extends Page
             $styleMeta = is_array($doc->style_meta) ? $doc->style_meta : [];
             $snapshots = is_array($styleMeta['snapshots'] ?? null) ? $styleMeta['snapshots'] : [];
             $snapshots[] = [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
                 'label' => 'Sesi Asisten '.now()->format('d/m/Y H:i'),
+                'at' => now()->toIso8601String(),
                 'timestamp' => now()->toIso8601String(),
+                'count' => is_array($doc->blocks) ? count($doc->blocks) : 0,
                 'notes' => 'Transkrip percakapan asisten ('.count($this->log).' pesan, Model: '.$this->getCurrentAssistantModel().')',
                 'blocks' => $doc->blocks,
                 'assistant_log' => $this->log,
@@ -1435,13 +1452,15 @@ class XishieAssistantPage extends Page
             'last_saved_at' => now(),
         ]);
 
+        $url = route('filament.admin.pages.naskah-studio', ['document' => $document->id]);
+
         Notification::make()
             ->title('Naskah Studio Berhasil Dibuat')
             ->body("Dokumen '{$docTitle}' ({$wordCount} kata) telah dibuat di Naskah Studio.")
             ->actions([
                 \Filament\Actions\Action::make('buka')
                     ->label('Buka Naskah Studio')
-                    ->url("/admin/naskah-studio?document={$document->id}")
+                    ->url($url)
                     ->button(),
             ])
             ->success()

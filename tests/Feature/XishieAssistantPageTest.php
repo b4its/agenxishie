@@ -458,6 +458,9 @@ it('archives assistant transcript into document snapshots', function (): void {
     $snapshots = $doc->style_meta['snapshots'] ?? [];
     expect($snapshots)->toHaveCount(1)
         ->and($snapshots[0]['label'])->toContain('Sesi Asisten')
+        ->and($snapshots[0]['id'])->not->toBeEmpty()
+        ->and($snapshots[0]['at'])->not->toBeEmpty()
+        ->and($snapshots[0]['count'])->toBe(1)
         ->and($snapshots[0]['assistant_log'])->toHaveCount(2);
 });
 
@@ -619,7 +622,8 @@ it('supports selecting context document and searching project references in assi
     // Apply response to selected document
     $page->set('log', [
         ['role' => 'assistant', 'content' => "## Tambahan Pendahuluan\nParagraf tambahan dari asisten AI."],
-    ])->call('applyToNaskahStudio', 0);
+    ])->call('applyToNaskahStudio', 0)
+        ->assertNotified('Berhasil Diterapkan ke Naskah Studio');
 
     $updatedDoc = NaskahDocument::find($doc->id);
     expect($updatedDoc->word_count)->toBeGreaterThan(6);
@@ -959,4 +963,20 @@ it('provides project references on open drawer and filters dynamically on search
     $filteredRefs = $page->instance()->searchProjectReferences($firstKey);
     expect(count($filteredRefs))->toBeGreaterThan(0)
         ->and(array_column($filteredRefs, 'citation_key'))->toContain($firstKey);
+});
+
+it('tracks executed prompts into prompt history and links to studio from transcript export', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // 1. Direct model execution records into promptHistory
+    $page->call('executeCurrentModelToStudio', 'Analisis kebaruan metodologi eksperimental');
+    expect($page->get('promptHistory'))->toContain('Analisis kebaruan metodologi eksperimental');
+
+    // 2. Export transcript to document creates NaskahDocument with proper link
+    $doc = $page->instance()->exportTranscriptToDocument('Dokumen Hasil Sintesis');
+    expect($doc)->not->toBeNull()
+        ->and($doc->title)->toBe('Dokumen Hasil Sintesis');
 });
