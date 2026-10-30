@@ -1762,3 +1762,75 @@ it('supports multi-style citation audit and reference search filtering in studio
         ->and($audit['unmatched'])->toContain('Fiktif, 2099')
         ->and($audit['total_citations'])->toBe(3);
 });
+
+it('supports important and caution callouts, footnote with text, and dynamic page numbering', function (): void {
+    $this->actingAs(User::factory()->create());
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Test insertCallout with important
+    $page->call('insertCallout', 'important', 'Perhatikan konvergensi matriks gradien.');
+    $blocks = $page->get('blocks');
+    $calloutBlock = end($blocks);
+    expect($calloutBlock['type'])->toBe('callout')
+        ->and($calloutBlock['calloutType'])->toBe('important')
+        ->and($calloutBlock['text'])->toBe('Perhatikan konvergensi matriks gradien.');
+
+    // Test insertCallout with caution
+    $page->call('insertCallout', 'caution');
+    $blocks = $page->get('blocks');
+    $cautionBlock = end($blocks);
+    expect($cautionBlock['calloutType'])->toBe('caution')
+        ->and($cautionBlock['text'])->toContain('potensi galat');
+
+    // Test insertFootnote with direct parameter
+    $page->call('insertFootnote', 'Lihat lampiran 2 untuk pembuktian lema.');
+    $blocks = $page->get('blocks');
+    $fnBlock = end($blocks);
+    expect($fnBlock['type'])->toBe('footnote-ref')
+        ->and($fnBlock['text'])->toBe('Lihat lampiran 2 untuk pembuktian lema.');
+
+    // Test insertPageNumberField with multi-page state
+    $page->set('currentPage', 3);
+    $page->set('totalPages', 8);
+    $page->call('insertPageNumberField');
+    $blocks = $page->get('blocks');
+    $pnBlock = end($blocks);
+    expect($pnBlock['text'])->toBe('Halaman 3 dari 8')
+        ->and($pnBlock['align'])->toBe('center');
+});
+
+it('supports copilot drawer message deletion and restoration, and equation model execution with actual latex formula', function (): void {
+    $this->actingAs(User::factory()->create());
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Test copilot drawer message deletion and restore
+    $page->set('assistantLog', [
+        ['role' => 'user', 'content' => 'Bagaimana metodologi penelitian kuantitatif?'],
+        ['role' => 'assistant', 'content' => 'Gunakan desain eksperimental acak terkontrol.'],
+    ]);
+
+    $page->call('deleteAssistantMessage', 1);
+    expect($page->get('assistantLog'))->toHaveCount(1);
+
+    $page->call('restoreLastDeletedAssistantMessage');
+    expect($page->get('assistantLog'))->toHaveCount(2)
+        ->and($page->get('assistantLog')[1]['content'])->toContain('eksperimental acak');
+
+    // Test executeModelOnEquation uses actual equation latex
+    $page->set('blocks', [
+        [
+            'type' => 'equation',
+            'equation' => [
+                'latex' => 'E = mc^2',
+                'caption' => '(1.1)',
+                'display' => 'block',
+            ],
+        ],
+    ]);
+
+    $page->call('executeModelOnEquation', 0);
+    $blocks = $page->get('blocks');
+    expect(count($blocks))->toBe(2)
+        ->and($blocks[1]['type'])->toBe('paragraph')
+        ->and($blocks[1]['text'])->toContain('Persamaan (1.1)');
+});

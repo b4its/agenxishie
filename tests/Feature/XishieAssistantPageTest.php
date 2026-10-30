@@ -666,7 +666,7 @@ it('supports academic prompt templates catalog, category filtering, and direct e
 
     // Reset filter
     $page->call('setTemplateCategoryFilter', 'all');
-    expect(count($page->instance()->getFilteredPromptTemplates()))->toBe(6);
+    expect(count($page->instance()->getFilteredPromptTemplates()))->toBe(8);
 
     // Apply template into input message
     $page->call('applyPromptTemplate', 'gap_matrix', false);
@@ -1033,4 +1033,63 @@ it('supports reference search by author or year and cleans citation key insertio
     // Test insertCitationKey with leading @
     $page->call('insertCitationKey', '@bengio2013representation');
     expect($page->get('message'))->toBe('[@bengio2013representation]');
+});
+
+it('supports message deletion and restoration, and prioritizes context document on snapshot save', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    // Create 2 documents for the project
+    $doc1 = NaskahDocument::create([
+        'title' => 'Dokumen Pertama',
+        'project_id' => $project->id,
+        'source_type' => NaskahDocument::SOURCE_PROJECT,
+        'blocks' => [['type' => 'paragraph', 'text' => 'Teks dokumen 1']],
+        'word_count' => 3,
+        'last_saved_at' => now()->subDay(),
+    ]);
+
+    $doc2 = NaskahDocument::create([
+        'title' => 'Dokumen Kedua Terpilih',
+        'project_id' => $project->id,
+        'source_type' => NaskahDocument::SOURCE_PROJECT,
+        'blocks' => [['type' => 'paragraph', 'text' => 'Teks dokumen 2']],
+        'word_count' => 3,
+        'last_saved_at' => now()->subHours(2),
+    ]);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', [
+            ['role' => 'user', 'content' => 'Pertanyaan nomor satu'],
+            ['role' => 'assistant', 'content' => 'Jawaban nomor satu'],
+            ['role' => 'user', 'content' => 'Pertanyaan nomor dua'],
+            ['role' => 'assistant', 'content' => 'Jawaban nomor dua'],
+        ]);
+
+    // Test delete and restore message
+    $page->call('deleteMessage', 1);
+    expect($page->get('log'))->toHaveCount(3);
+
+    $page->call('restoreLastDeletedMessage');
+    expect($page->get('log'))->toHaveCount(4)
+        ->and($page->get('log')[1]['content'])->toBe('Jawaban nomor satu');
+
+    // Test saveSessionAsSnapshot prioritizing activeDocumentId
+    $page->set('activeDocumentId', $doc1->id);
+    $page->call('saveSessionAsSnapshot');
+
+    $doc1->refresh();
+    $doc2->refresh();
+
+    // Snapshots should be attached to doc1 because activeDocumentId was set to doc1
+    $meta1 = $doc1->style_meta;
+    $meta2 = $doc2->style_meta;
+
+    expect($meta1['snapshots'] ?? [])->toHaveCount(1)
+        ->and($meta2['snapshots'] ?? [])->toHaveCount(0);
+
+    // Test prompt templates expansion
+    $templates = $page->instance()->getAcademicPromptTemplates();
+    expect($templates)->toHaveKey('thesaurus_academic_enhancement')
+        ->and($templates)->toHaveKey('discussion_synthesis');
 });
