@@ -1384,3 +1384,61 @@ EOT;
         ->and($types)->toContain('quote')
         ->and($types)->toContain('bullet');
 });
+
+it('supports bidirectional find navigation, reversible replace undo, and interactive thesaurus synonym application', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    // Setup blocks with repeating keyword
+    $page->set('blocks', [
+        ['type' => 'paragraph', 'text' => 'Penelitian ini berfokus pada evaluasi model.'],
+        ['type' => 'paragraph', 'text' => 'Banyak penelitian sejenis menunjukkan signifikansi hasil.'],
+        ['type' => 'paragraph', 'text' => 'Hasil akhir penelitian memberikan kontribusi baru.'],
+    ]);
+    $page->set('activeBlock', 0);
+
+    // 1. Test bidirectional find: findNext & findPrevious
+    $page->set('findQuery', 'penelitian');
+    $page->call('findNext');
+    expect($page->get('findResult'))->toContain('Ditemukan 3 kemunculan')
+        ->and($page->get('findCurrentHitIndex'))->toBe(0);
+
+    $page->call('findNext');
+    expect($page->get('findCurrentHitIndex'))->toBe(1)
+        ->and($page->get('activeBlock'))->toBe(1);
+
+    $page->call('findPrevious');
+    expect($page->get('findCurrentHitIndex'))->toBe(0)
+        ->and($page->get('activeBlock'))->toBe(0);
+
+    // 2. Test replaceAll with undo restoration
+    $page->set('replaceQuery', 'kajian');
+    $page->call('replaceAll');
+
+    $replacedBlocks = $page->get('blocks');
+    expect($replacedBlocks[0]['text'])->toContain('kajian ini berfokus')
+        ->and($replacedBlocks[1]['text'])->toContain('Banyak kajian sejenis')
+        ->and($replacedBlocks[2]['text'])->toContain('Hasil akhir kajian');
+
+    // Undo should revert replaceAll
+    $page->call('undo');
+    $restoredBlocks = $page->get('blocks');
+    expect($restoredBlocks[0]['text'])->toContain('Penelitian ini berfokus');
+
+    // 3. Test expanded academic thesaurus & applyThesaurusSynonym
+    $page->set('thesaurusWord', 'kesimpulan');
+    $page->call('runThesaurus');
+
+    $synonyms = $page->get('thesaurusSynonyms');
+    expect($synonyms)->toContain('simpulan')
+        ->and($synonyms)->toContain('konklusi')
+        ->and($synonyms)->toContain('inferensi');
+
+    // Apply synonym to active block
+    $page->set('thesaurusWord', 'penelitian');
+    $page->call('applyThesaurusSynonym', 'investigasi');
+    $updatedBlock = $page->get('blocks')[0];
+    expect($updatedBlock['text'])->toContain('investigasi ini berfokus');
+});

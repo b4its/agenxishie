@@ -253,6 +253,15 @@ test("Standalone Studio: Proofing Language Indicator in Statusbar", "Indonesia (
 
 status, studio_snap_html, _ = http_get("/studio?dialog=snapshots")
 test("Standalone Studio: Snapshot Dialog Supported (?dialog=snapshots)", status == 200 and ("compareSnapshot" in studio_snap_html or "restoreSnapshot" in studio_snap_html or "Snapshot" in studio_snap_html))
+
+status, studio_find_html, _ = http_get("/studio?dialog=find")
+test("Standalone Studio: Find Dialog with Bidirectional Navigation (?dialog=find)", "findPrevious" in studio_find_html and "findNext" in studio_find_html)
+
+status, studio_thesaurus_html, _ = http_get("/studio?dialog=thesaurus")
+test("Standalone Studio: Thesaurus Dialog Supported (?dialog=thesaurus)", "runThesaurus" in studio_thesaurus_html)
+
+status, studio_find_auth_html, _ = http_get("/admin/naskah-studio?dialog=find", headers=auth_headers)
+test("Filament Studio: Find Dialog with Bidirectional Navigation (?dialog=find)", "findPrevious" in studio_find_auth_html and "findNext" in studio_find_auth_html)
 test("Standalone Studio: Ribbon Table APA Format Present", "Format APA" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon Generasi AI Group", "Generasi AI" in studio_standalone_html and "Model AI" in studio_standalone_html)
 test("Standalone Studio: Home Ribbon AI Presets (Poles, Kembangkan, Kebaruan, Abstrak)",
