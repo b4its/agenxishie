@@ -1384,6 +1384,19 @@ final class XishieAssistantService
         $avgWps = round($words / $sentenceCount, 1);
         $readingSecs = (int) round(($words / 200) * 60);
 
+        preg_match_all('/[aiueoAIUEO]/u', $textToAnalyze, $matches);
+        $syllables = max(1, count($matches[0] ?? []));
+        $syllablesPerWord = $words > 0 ? ($syllables / $words) : 1.0;
+        $rawReadingEase = 206.835 - (1.015 * $avgWps) - (84.6 * $syllablesPerWord);
+        $readingEase = round(max(0.0, min(100.0, $rawReadingEase)), 1);
+        $fleschGrade = match (true) {
+            $readingEase >= 90 => 'Sangat Mudah',
+            $readingEase >= 70 => 'Standar Populer',
+            $readingEase >= 50 => 'Standar Optimal Akademik',
+            $readingEase >= 30 => 'Akademik Kompleks',
+            default => 'Padat Teori',
+        };
+
         $level = match (true) {
             $avgWps <= 14.0 => 'Mudah Dibaca (Ringan)',
             $avgWps <= 22.0 => 'Standar Akademik Optimal (Sesuai Pedoman Jurnal & Tesis)',
@@ -1394,6 +1407,7 @@ final class XishieAssistantService
             ."- **Jumlah Kata**: {$words} kata\n"
             ."- **Jumlah Kalimat**: {$sentenceCount} kalimat\n"
             ."- **Rata-rata Kata per Kalimat**: {$avgWps} kata/kalimat\n"
+            ."- **Skor Flesch Reading Ease**: {$readingEase} / 100 ({$fleschGrade})\n"
             .'- **Estimasi Waktu Baca**: '.$readingSecs.' detik (~'.max(1, (int) ceil($readingSecs / 60))." menit)\n"
             ."- **Status Keterbacaan**: **{$level}**\n\n"
             ."**Rekomendasi Akademik**:\n"
@@ -1410,6 +1424,8 @@ final class XishieAssistantService
                 'sentence_count' => $sentenceCount,
                 'avg_words_per_sentence' => $avgWps,
                 'reading_time_seconds' => $readingSecs,
+                'reading_ease' => $readingEase,
+                'flesch_grade' => $fleschGrade,
                 'readability_level' => $level,
             ],
         ];

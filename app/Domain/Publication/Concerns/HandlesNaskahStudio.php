@@ -7587,7 +7587,7 @@ trait HandlesNaskahStudio
         $hasArg = trim(substr($trimmed, strlen($firstToken))) !== '';
 
         $effectiveInput = $input;
-        if (! $hasArg && in_array($firstToken, ['/poles', '/parafrase', '/kembangkan', '/puebi', '/perbaiki-ejaan', '/terjemahkan', '/ringkaskan'], true)) {
+        if (! $hasArg && in_array($firstToken, ['/poles', '/parafrase', '/kembangkan', '/puebi', '/perbaiki-ejaan', '/terjemahkan', '/ringkaskan', '/keterbacaan'], true)) {
             $fallbackArg = $activeBlockText !== '' ? $activeBlockText : Str::limit(trim($this->documentText()), 400, '');
             if ($fallbackArg !== '') {
                 $effectiveInput = $firstToken.' '.$fallbackArg;
@@ -7623,12 +7623,14 @@ trait HandlesNaskahStudio
         }
 
         if ($project !== null) {
+            $contextDoc = $this->documentId !== null ? NaskahDocument::query()->find($this->documentId) : null;
             $result = app(XishieAssistantService::class)->handle(
                 $project,
                 $effectiveInput,
                 $this->getCurrentAssistantModel(),
                 'academic_senior',
-                'manuscript'
+                'manuscript',
+                $contextDoc
             );
             if (! empty($result['data']['latex'])) {
                 $this->equationLatex = (string) $result['data']['latex'];

@@ -259,14 +259,18 @@ final class NaskahRichModel
             }
         }
 
+        $caption = (string) ($table['caption'] ?? $block['caption'] ?? '');
+
         return [
             'type' => 'table',
             'text' => '',
             'runs' => [],
+            'caption' => $caption,
             'table' => [
                 'rows' => $normRows,
                 'header' => (bool) ($table['header'] ?? true),
                 'style' => (string) ($table['style'] ?? 'grid'),
+                'caption' => $caption,
             ],
             'align' => $this->align($block['align'] ?? 'left'),
         ];
@@ -1184,13 +1188,15 @@ final class NaskahRichModel
      * @param  array<int, array<int, array<string, mixed>|string>>  $rows
      * @return array<string, mixed>
      */
-    public function newTableBlock(array $rows = [], bool $hasHeader = true): array
+    public function newTableBlock(array $rows = [], bool $hasHeader = true, string $caption = ''): array
     {
         return $this->normalizeBlock([
             'type' => 'table',
+            'caption' => $caption,
             'table' => [
                 'header' => $hasHeader,
                 'rows' => $rows,
+                'caption' => $caption,
             ],
         ]);
     }
