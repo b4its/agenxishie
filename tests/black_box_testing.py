@@ -140,6 +140,35 @@ test("CLI naskah:manage export rtf Execution", cli_rtf.returncode == 0 and "nask
 cli_odt = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'export', str(doc_id), '--format=odt'], capture_output=True, text=True)
 test("CLI naskah:manage export odt Execution", cli_odt.returncode == 0 and "naskah-export-" in cli_odt.stdout)
 
+cli_docx = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'export', str(doc_id), '--format=docx'], capture_output=True, text=True)
+test("CLI naskah:manage export docx Execution", cli_docx.returncode == 0 and "naskah-export-" in cli_docx.stdout)
+
+docx_inspect = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'unzip', '-l', f'/var/www/html/storage/app/naskah-export-{doc_id}.docx'], capture_output=True, text=True)
+test("CLI naskah:manage DOCX includes word/numbering.xml", "word/numbering.xml" in docx_inspect.stdout)
+
+odt_inspect = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'unzip', '-p', f'/var/www/html/storage/app/naskah-export-{doc_id}.odt', 'content.xml'], capture_output=True, text=True)
+test("CLI naskah:manage ODT includes valid OpenDocument content", "office:document-content" in odt_inspect.stdout)
+
+assistant_test = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'tinker', '--execute', r"""
+$svc = app(\App\Domain\Assistant\XishieAssistantService::class);
+$p = \App\Models\XishieProject::first();
+$k = $svc->handle($p, '/kebaruan');
+$m = $svc->handle($p, '/metodologi');
+$fn = $svc->handle($p, '/catatan-kaki Rujukan Bukti Primer');
+echo json_encode([
+    'k_callout' => !empty($k['data']['callout_block']),
+    'm_blocks' => !empty($m['data']['blocks']),
+    'fn_block' => !empty($fn['data']['footnote_block']),
+]);
+"""], capture_output=True, text=True)
+try:
+    asst_json = json.loads(assistant_test.stdout.strip().splitlines()[-1])
+    test("Assistant /kebaruan returns structured callout_block", asst_json.get("k_callout") is True)
+    test("Assistant /metodologi returns structured blocks", asst_json.get("m_blocks") is True)
+    test("Assistant /catatan-kaki returns structured footnote_block", asst_json.get("fn_block") is True)
+except Exception as e:
+    test("Assistant structured payloads verification", False, str(e))
+
 # 3. Filament Admin Authentication & Xishie Assistant Page
 print("\n--- 3. Filament Admin Authentication & Xishie Assistant Page ---")
 # Authenticate session in Laravel database

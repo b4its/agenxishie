@@ -2679,3 +2679,162 @@ it('supports thesaurus command, structured table payloads, and statistics synchr
     expect($component->get('blocks')[0]['text'])->toContain('sistematis komprehensif')
         ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
 });
+
+it('supports advanced docx and odt multi-level list exports, styled runs, and structured assistant application for novelty, footnotes, and methodology', function () {
+    $user = User::factory()->create();
+    $doc = NaskahDocument::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Naskah Pengujian Format Multi-Level & Asisten Terstruktur',
+        'blocks' => [
+            ['type' => 'paragraph', 'text' => 'Paragraf pembuka.'],
+        ],
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    // 1. Test NaskahRichModel parseMarkdownToBlocks indented listLevel detection
+    $model = app(\App\Domain\Publication\NaskahRichModel::class);
+    $markdown = "1. Item Utama\n  - Sub Bullet Level 1\n    - Sub Bullet Level 2\n2. Item Utama Dua";
+    $parsedBlocks = $model->parseMarkdownToBlocks($markdown);
+    expect($parsedBlocks)->toHaveCount(4)
+        ->and($parsedBlocks[0]['type'])->toBe('numbered')
+        ->and($parsedBlocks[0]['listLevel'])->toBe(0)
+        ->and($parsedBlocks[1]['type'])->toBe('bullet')
+        ->and($parsedBlocks[1]['listLevel'])->toBe(1)
+        ->and($parsedBlocks[2]['type'])->toBe('bullet')
+        ->and($parsedBlocks[2]['listLevel'])->toBe(2);
+
+    // 2. Test NaskahDocxExporter with multi-level lists, hanging indent, shading, and table margins
+    $docxExporter = app(\App\Domain\Publication\NaskahDocxExporter::class);
+    $docxBlocks = [
+        ['type' => 'heading', 'level' => 1, 'text' => 'Bab I Pendahuluan'],
+        [
+            'type' => 'paragraph',
+            'text' => 'Paragraf dengan hanging indent dan latar belakang.',
+            'hangingIndent' => true,
+            'backgroundColor' => '#f1f5f9',
+            'borderColor' => '#2563eb',
+        ],
+        ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Tujuan Utama'],
+        ['type' => 'numbered', 'listLevel' => 1, 'text' => 'Sub-tujuan Eksplorasi'],
+        ['type' => 'bullet', 'listLevel' => 0, 'text' => 'Poin Analisis'],
+        ['type' => 'bullet', 'listLevel' => 1, 'text' => 'Sub-poin Empiris'],
+        [
+            'type' => 'table',
+            'table' => [
+                'header' => true,
+                'caption' => 'Tabel Pengujian Sel dan Format',
+                'rows' => [
+                    [['text' => 'Header 1', 'align' => 'center'], ['text' => 'Header 2', 'align' => 'right']],
+                    [['text' => 'Data 1', 'bg' => '#e2e8f0'], ['text' => 'Data 2', 'highlight' => '#fef08a']],
+                ],
+            ],
+        ],
+    ];
+
+    $docxBinary = $docxExporter->build($docxBlocks, 'Naskah Docx Canggih');
+    expect(strlen($docxBinary))->toBeGreaterThan(500);
+
+    $tempDocx = tempnam(sys_get_temp_dir(), 'test_docx_');
+    file_put_contents($tempDocx, $docxBinary);
+    $zipDocx = new ZipArchive;
+    expect($zipDocx->open($tempDocx))->toBeTrue();
+    $numberingXml = $zipDocx->getFromName('word/numbering.xml');
+    $contentTypesXml = $zipDocx->getFromName('[Content_Types].xml');
+    $documentXml = $zipDocx->getFromName('word/document.xml');
+    $documentRelsXml = $zipDocx->getFromName('word/_rels/document.xml.rels');
+    $zipDocx->close();
+    @unlink($tempDocx);
+
+    expect($numberingXml)->not->toBeFalse()
+        ->and($numberingXml)->toContain('<w:abstractNum w:abstractNumId="1">')
+        ->and($numberingXml)->toContain('<w:abstractNum w:abstractNumId="2">')
+        ->and($numberingXml)->toContain('<w:num w:numId="1">')
+        ->and($contentTypesXml)->toContain('word/numbering.xml')
+        ->and($documentRelsXml)->toContain('Target="numbering.xml"')
+        ->and($documentXml)->toContain('w:hanging="720"')
+        ->and($documentXml)->toContain('w:tblCellMar');
+
+    // 3. Test NaskahOdtExporter with styled runs, inline math, and grouped multi-level lists
+    $odtExporter = app(\App\Domain\Publication\NaskahOdtExporter::class);
+    $odtBlocks = [
+        ['type' => 'heading', 'level' => 1, 'text' => 'Judul ODT'],
+        [
+            'type' => 'paragraph',
+            'text' => 'Teks dengan format tebal dan formula $E = mc^2$ di dalam alinea.',
+            'runs' => [
+                ['text' => 'Teks dengan format '],
+                ['text' => 'tebal', 'bold' => true],
+                ['text' => ' dan formula $E = mc^2$ di dalam alinea.'],
+            ],
+            'align' => 'justify',
+        ],
+        ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Langkah Pertama'],
+        ['type' => 'numbered', 'listLevel' => 1, 'text' => 'Rincian Langkah Pertama'],
+        ['type' => 'callout', 'calloutType' => 'theorem', 'text' => 'Teorema Pembuktian Matematis'],
+    ];
+
+    $odtBinary = $odtExporter->build($odtBlocks, 'Naskah ODT Canggih');
+    expect(strlen($odtBinary))->toBeGreaterThan(500);
+
+    $tempOdt = tempnam(sys_get_temp_dir(), 'test_odt_');
+    file_put_contents($tempOdt, $odtBinary);
+    $zipOdt = new ZipArchive;
+    expect($zipOdt->open($tempOdt))->toBeTrue();
+    $odtContentXml = $zipOdt->getFromName('content.xml');
+    $odtStylesXml = $zipOdt->getFromName('styles.xml');
+    $zipOdt->close();
+    @unlink($tempOdt);
+
+    expect($odtContentXml)->not->toBeFalse()
+        ->and($odtStylesXml)->toContain('NumberedList')
+        ->and($odtStylesXml)->toContain('T_Math')
+        ->and($odtContentXml)->toContain('text:style-name="T_Bold"')
+        ->and($odtContentXml)->toContain('text:style-name="T_Math"')
+        ->and($odtContentXml)->toContain('text:style-name="NumberedList"');
+
+    // 4. Test assistant /kebaruan returns callout_block and applies to document
+    $noveltyResp = $component->instance()->answerResponse(null, '/kebaruan pendekatan agen otonom');
+    expect($noveltyResp['data'])->toHaveKey('callout_block')
+        ->and($noveltyResp['data']['callout_block']['type'])->toBe('callout');
+
+    $component->set('assistantLog', [
+        ['role' => 'assistant', 'content' => $noveltyResp['reply'], 'data' => $noveltyResp['data']],
+    ]);
+    $component->call('applyAssistantToCurrentPage', 0);
+    $blocks = $component->get('blocks');
+    $lastBlock = end($blocks);
+    expect($lastBlock['type'])->toBe('callout')
+        ->and($lastBlock['calloutType'])->toBe('theorem')
+        ->and($lastBlock['text'])->toContain('Pernyataan Kebaruan Ilmiah');
+
+    // 5. Test assistant /catatan-kaki returns footnote_block and applies to document
+    $fnResp = $component->instance()->answerResponse(null, '/catatan-kaki Rujukan buku Smith (2024)');
+    expect($fnResp['data'])->toHaveKey('footnote_block')
+        ->and($fnResp['data']['footnote_block']['type'])->toBe('footnote-ref');
+
+    $component->set('assistantLog', [
+        ['role' => 'assistant', 'content' => $fnResp['reply'], 'data' => $fnResp['data']],
+    ]);
+    $component->call('applyAssistantToCurrentPage', 0);
+    $blocksAfterFn = $component->get('blocks');
+    $fnBlock = end($blocksAfterFn);
+    expect($fnBlock['type'])->toBe('footnote-ref')
+        ->and($fnBlock['text'])->toContain('Rujukan buku Smith (2024)');
+
+    // 6. Test assistant /metodologi returns multi-block payload and applies to document
+    $methodResp = $component->instance()->answerResponse(null, '/metodologi');
+    expect($methodResp['data'])->toHaveKey('blocks')
+        ->and($methodResp['data']['blocks'])->toBeArray()
+        ->and(count($methodResp['data']['blocks']))->toBeGreaterThanOrEqual(4);
+
+    $initialBlockCount = count($component->get('blocks'));
+    $component->set('assistantLog', [
+        ['role' => 'assistant', 'content' => $methodResp['reply'], 'data' => $methodResp['data']],
+    ]);
+    $component->call('applyAssistantToCurrentPage', 0);
+    expect(count($component->get('blocks')))->toBeGreaterThan($initialBlockCount)
+        ->and($component->get('docWordCount'))->toBeGreaterThan(0)
+        ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
+});
