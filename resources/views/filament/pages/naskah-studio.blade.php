@@ -3764,7 +3764,7 @@
                             @endif
                             <div>
                                 <label style="font-weight:600; font-size:.68rem;">Template Dokumen (gunakan &#123;&#123;kolom&#125;&#125;):</label>
-                                <textarea class="ns-btn" style="width:100%; height:60px;" wire:model="mergeTemplate" placeholder="Yth. {{nama}} di {{instansi}}..."></textarea>
+                                <textarea class="ns-btn" style="width:100%; height:60px;" wire:model="mergeTemplate" placeholder="Yth. @{{nama}} di @{{instansi}}..."></textarea>
                             </div>
                             @if (!empty($mergePreviews))
                                 <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:.4rem; border-radius:4px; font-size:.7rem;">
