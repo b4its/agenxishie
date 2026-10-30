@@ -2028,6 +2028,9 @@
                         <button type="button" class="ns-nav__tab @if(($navSidebarTab ?? '') === 'references') ns-nav__tab--active @endif" style="flex:1; padding:.35rem .15rem; font-size:.62rem; text-align:center; font-weight:700;" wire:click="setNavSidebarTab('references')">
                             📚 Pustaka ({{ count($projectReferences) }})
                         </button>
+                        <button type="button" class="ns-nav__tab @if(($navSidebarTab ?? '') === 'notes') ns-nav__tab--active @endif" style="flex:1; padding:.35rem .15rem; font-size:.62rem; text-align:center; font-weight:700;" wire:click="setNavSidebarTab('notes')" title="Catatan Riset &amp; Scratchpad">
+                            📝 Catatan
+                        </button>
                     </div>
                     <div class="ns-nav__body">
                         @if (($navSidebarTab ?? 'outline') === 'outline')
@@ -2099,6 +2102,29 @@
                                     Belum ada referensi pada proyek. Impor referensi melalui Smart Revision Center atau Academic Workspace.
                                 </div>
                             @endforelse
+                        @elseif (($navSidebarTab ?? '') === 'notes')
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; padding:.2rem 0; gap:4px;">
+                                <strong style="font-size:.65rem; color:#1e40af;">📝 Catatan Riset / Scratchpad</strong>
+                                <span style="font-size:.55rem; color:#64748b;">{{ str_word_count($scratchpadNotes) }} kata</span>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:.35rem;">
+                                <textarea
+                                    wire:model.live.debounce.400ms="scratchpadNotes"
+                                    placeholder="Tulis ide cepat, kutipan sementara, atau catatan reviewer di sini..."
+                                    style="width:100%; min-height:180px; font-size:.68rem; padding:.4rem; border:1px solid #cbd5e1; border-radius:4px; font-family:var(--rb-font-mono, monospace); resize:vertical; background:#f8fafc; color:#1e293b; line-height:1.4;"
+                                ></textarea>
+                                <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:2px;">
+                                    <button type="button" class="ns-btn ns-btn--primary" style="flex:1; padding:3px 6px; font-size:.6rem; background:#2563eb; color:#ffffff; font-weight:700;" wire:click="insertNotesToManuscript" title="Sisipkan seluruh isi catatan ke bagian akhir naskah">
+                                        ⬇️ Ke Naskah
+                                    </button>
+                                    <button type="button" class="ns-btn" style="padding:3px 6px; font-size:.6rem; background:#ffffff; color:#dc2626; border-color:#fca5a5;" wire:click="clearScratchpadNotes" title="Bersihkan catatan">
+                                        ✕ Bersihkan
+                                    </button>
+                                </div>
+                                <div style="font-size:.55rem; color:#64748b; line-height:1.3; margin-top:4px; padding:4px; background:#eff6ff; border-radius:3px; border:1px solid #bfdbfe;">
+                                    💡 <strong>Tips Akademik</strong>: Catatan ini tidak akan dicetak ke dalam naskah akhir, kecuali Anda menekan tombol <em>&ldquo;⬇️ Ke Naskah&rdquo;</em>.
+                                </div>
+                            </div>
                         @endif
 
                         <div style="border-top:1px solid #e2e8f0; margin-top:.5rem; padding-top:.4rem; font-family:var(--rb-font-mono); font-size:.58rem; color:var(--rb-ink-muted);">

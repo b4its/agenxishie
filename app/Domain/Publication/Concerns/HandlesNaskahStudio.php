@@ -262,6 +262,8 @@ trait HandlesNaskahStudio
 
     public string $navSidebarTab = 'outline';
 
+    public string $scratchpadNotes = '';
+
     public string $calloutType = 'info';
 
     /**
@@ -3965,7 +3967,8 @@ trait HandlesNaskahStudio
             'headings', 'outline' => 'outline',
             'versi', 'snapshots' => 'snapshots',
             'pustaka', 'references' => 'references',
-            default => in_array($tab, ['outline', 'snapshots', 'references'], true) ? $tab : 'outline',
+            'notes', 'catatan', 'scratchpad' => 'notes',
+            default => in_array($tab, ['outline', 'snapshots', 'references', 'notes'], true) ? $tab : 'outline',
         };
         $this->navSidebarTab = $normalized;
         if (property_exists($this, 'navigationTab')) {
@@ -3973,9 +3976,64 @@ trait HandlesNaskahStudio
                 'references', 'pustaka' => 'pustaka',
                 'snapshots', 'versi' => 'versi',
                 'outline', 'headings' => 'headings',
-                default => in_array($tab, ['headings', 'pages', 'pustaka', 'versi', 'results'], true) ? $tab : 'headings',
+                'notes', 'catatan', 'scratchpad' => 'notes',
+                default => in_array($tab, ['headings', 'pages', 'pustaka', 'versi', 'results', 'notes'], true) ? $tab : 'headings',
             };
         }
+    }
+
+    /**
+     * Simpan catatan riset / scratchpad.
+     */
+    public function saveScratchpadNotes(string $notes): void
+    {
+        $this->scratchpadNotes = $notes;
+        $this->dirty = true;
+        $this->notify('Catatan Riset Tersimpan', 'Catatan kerja Anda telah diperbarui.', 'info');
+    }
+
+    /**
+     * Sisipkan catatan riset langsung ke dalam naskah sebagai paragraf baru.
+     */
+    public function insertNotesToManuscript(): void
+    {
+        $text = trim($this->scratchpadNotes);
+        if ($text === '') {
+            $this->notify('Catatan Kosong', 'Tuliskan catatan terlebih dahulu sebelum menyisipkan ke naskah.', 'warning');
+
+            return;
+        }
+
+        $paragraphs = preg_split('/\n{2,}/u', $text) ?: [$text];
+        foreach ($paragraphs as $pText) {
+            $trimmed = trim($pText);
+            if ($trimmed !== '') {
+                $this->blocks[] = [
+                    'id' => 'block_note_'.Str::random(6),
+                    'type' => 'paragraph',
+                    'level' => 0,
+                    'text' => htmlspecialchars($trimmed, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    'runs' => [
+                        ['text' => $trimmed, 'bold' => false, 'italic' => false, 'underline' => false],
+                    ],
+                ];
+            }
+        }
+
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->notify('Catatan Disisipkan', 'Catatan berhasil disisipkan ke bagian akhir naskah.', 'success');
+    }
+
+    /**
+     * Bersihkan catatan riset.
+     */
+    public function clearScratchpadNotes(): void
+    {
+        $this->scratchpadNotes = '';
+        $this->dirty = true;
+        $this->notify('Catatan Dibersihkan', 'Catatan kerja telah dikosongkan.', 'info');
     }
 
     public function setNavigationTab(string $tab): void

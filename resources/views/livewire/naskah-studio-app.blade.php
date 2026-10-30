@@ -1625,6 +1625,9 @@
                 <button type="button" wire:click="setNavigationTab('versi')" class="word-nav-pill {{ $navigationTab === 'versi' ? 'active' : '' }}" title="Riwayat Versi &amp; Snapshot">
                     Versi ({{ count($snapshots) }})
                 </button>
+                <button type="button" wire:click="setNavigationTab('notes')" class="word-nav-pill {{ $navigationTab === 'notes' ? 'active' : '' }}" title="Catatan Riset &amp; Scratchpad Penulis">
+                    Catatan
+                </button>
                 <button type="button" wire:click="setNavigationTab('results')" class="word-nav-pill {{ $navigationTab === 'results' ? 'active' : '' }}" title="Pencarian Teks">
                     Cari
                 </button>
@@ -1747,6 +1750,28 @@
                             Belum ada snapshot tersimpan.
                         </div>
                     @endforelse
+                </div>
+
+            <!-- TAB: CATATAN (SCRATCHPAD) -->
+            @elseif ($navigationTab === 'notes')
+                <div style="padding:10px; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:11px; font-weight:700; color:#334155;">📝 Catatan Riset / Scratchpad</span>
+                        <span style="font-size:10px; color:#64748b;">{{ str_word_count($scratchpadNotes) }} kata</span>
+                    </div>
+                    <textarea
+                        wire:model.live.debounce.400ms="scratchpadNotes"
+                        placeholder="Tulis ide cepat, kutipan sementara, atau catatan reviewer di sini..."
+                        style="width:100%; min-height:180px; font-size:11px; padding:6px; border:1px solid #cbd5e1; border-radius:4px; font-family:monospace; resize:vertical; background:#f8fafc; color:#1e293b; line-height:1.4;"
+                    ></textarea>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="word-tool-btn" style="flex:1; background:#2563eb; color:#ffffff; font-weight:700; padding:4px 8px;" wire:click="insertNotesToManuscript" title="Sisipkan seluruh isi catatan ke naskah">
+                            ⬇️ Ke Naskah
+                        </button>
+                        <button type="button" class="word-tool-btn" style="color:#dc2626;" wire:click="clearScratchpadNotes" title="Bersihkan catatan">
+                            ✕ Bersihkan
+                        </button>
+                    </div>
                 </div>
 
             <!-- TAB 3: RESULTS -->
