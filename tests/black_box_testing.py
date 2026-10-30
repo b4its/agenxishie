@@ -300,11 +300,13 @@ test("Standalone Studio: Ribbon Layout Watermark Present (?tab=layout)", "setWat
 test("Standalone Studio: Ribbon Layout Line Numbers Toggle Present (?tab=layout)", "toggleLineNumbers" in studio_layout_html or "Line Numbers" in studio_layout_html)
 
 status, studio_table_html, _ = http_get("/studio?tab=table")
-test("Standalone Studio: Table Calculation Formulas (?tab=table)", "Min" in studio_table_html and "Max" in studio_table_html)
+test("Standalone Studio: Table Calculation Formulas (?tab=table)", "Min" in studio_table_html and "Max" in studio_table_html and "Median" in studio_table_html)
 test("Standalone Studio: Table Styles (?tab=table)", "APA" in studio_table_html and "Grid" in studio_table_html and "Zebra" in studio_table_html)
 
 status, studio_table_auth_html, _ = http_get("/admin/naskah-studio?tab=table", headers=auth_headers)
-test("Filament Studio: Table Calculation Formulas (?tab=table)", "tableCalculateColumn" in studio_table_auth_html or "tableSumColumn" in studio_table_auth_html)
+test("Filament Studio: Table Calculation Formulas (?tab=table)", "tableCalculateColumn" in studio_table_auth_html and ("median" in studio_table_auth_html or "Median" in studio_table_auth_html))
+
+test("Filament Studio: References Navigator Search Field", "referenceSearchQuery" in studio_table_auth_html or "referenceSearchQuery" in studio_html)
 
 status, studio_endnote_html, _ = http_get("/studio?dialog=endnote")
 test("Standalone Studio: Endnote Dialog Supported (?dialog=endnote)", status == 200 and ("Insert Endnote" in studio_endnote_html or "Catatan Akhir" in studio_endnote_html))

@@ -7,6 +7,7 @@ use App\Domain\Publication\NaskahRichModel;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Filament\Pages\NaskahStudioPage;
 use App\Models\NaskahDocument;
+use App\Models\ProjectReference;
 use App\Models\User;
 use App\Models\XishieProject;
 use App\Omnigensi\Orchestrator\XishieSupervisor;
@@ -1676,4 +1677,88 @@ it('supports table count calculation and column formula undo', function (): void
     // Test undo
     $page->call('undo');
     expect(count($page->get('blocks')[0]['table']['rows']))->toBe(4);
+});
+
+it('supports table median calculation and custom table caption with cross reference', function (): void {
+    $this->actingAs(User::factory()->create());
+    $page = Livewire::test(NaskahStudioPage::class);
+
+    $page->set('blocks', [
+        [
+            'type' => 'table',
+            'table' => [
+                'header' => true,
+                'rows' => [
+                    [['text' => 'Sampel'], ['text' => 'Skor']],
+                    [['text' => 'A'], ['text' => '10']],
+                    [['text' => 'B'], ['text' => '20']],
+                    [['text' => 'C'], ['text' => '30']],
+                ],
+            ],
+        ],
+    ]);
+
+    // Test tableCalculateColumn with median (10, 20, 30 -> median = 20)
+    $page->call('tableCalculateColumn', 0, 1, 'median');
+    $rows = $page->get('blocks')[0]['table']['rows'];
+    $lastRow = end($rows);
+
+    expect($lastRow[0]['text'])->toBe('MEDIAN')
+        ->and($lastRow[1]['text'])->toBe('20');
+
+    // Test tableSetCaption
+    $page->call('tableSetCaption', 0, 'Tabel 1: Hasil Skor Sampel');
+    expect($page->get('blocks')[0]['table']['caption'])->toBe('Tabel 1: Hasil Skor Sampel');
+
+    $captions = $page->instance()->getManuscriptCaptions();
+    expect($captions['tables'])->toHaveCount(1)
+        ->and($captions['tables'][0]['caption'])->toBe('Tabel 1: Hasil Skor Sampel');
+});
+
+it('supports multi-style citation audit and reference search filtering in studio', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    // Create references with authors and citation keys
+    $ref1 = ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'vaswani2017attention',
+        'title' => 'Attention Is All You Need',
+        'authors' => [['name' => 'Ashish Vaswani'], ['name' => 'Noam Shazeer']],
+        'year' => 2017,
+        'journal_name' => 'NeurIPS',
+        'is_verified' => true,
+    ]);
+
+    $ref2 = ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'creswell2018',
+        'title' => 'Research Design Qualitative and Quantitative',
+        'authors' => [['name' => 'John W. Creswell']],
+        'year' => 2018,
+        'journal_name' => 'SAGE Publications',
+        'is_verified' => true,
+    ]);
+
+    $page = Livewire::test(NaskahStudioPage::class, ['project' => $project->id]);
+
+    // Test search filter in references navigator
+    $page->set('referenceSearchQuery', 'Attention');
+    $viewRefs = $page->viewData('projectReferences');
+    expect($viewRefs)->toHaveCount(1)
+        ->and($viewRefs->first()->citation_key)->toBe('vaswani2017attention');
+
+    // Test audit with both author-year format and IEEE numeric format
+    $page->set('blocks', [
+        ['type' => 'paragraph', 'text' => 'Menurut (Vaswani et al., 2017), self-attention sangat efektif.'],
+        ['type' => 'paragraph', 'text' => 'Pendekatan campuran dirujuk pada [2] dalam literatur metodologi.'],
+        ['type' => 'paragraph', 'text' => 'Klaim fiktif tidak berdasar oleh (Fiktif, 2099).'],
+    ]);
+
+    $audit = $page->instance()->auditCitations($project->id);
+
+    expect($audit['verified'])->toContain('Vaswani et al., 2017')
+        ->and($audit['verified'])->toContain('[2]')
+        ->and($audit['unmatched'])->toContain('Fiktif, 2099')
+        ->and($audit['total_citations'])->toBe(3);
 });

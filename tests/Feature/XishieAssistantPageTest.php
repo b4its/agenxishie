@@ -6,6 +6,7 @@ use App\Domain\Assistant\SlashCommand;
 use App\Domain\Workspace\Enums\ProjectStage;
 use App\Filament\Pages\XishieAssistantPage;
 use App\Models\NaskahDocument;
+use App\Models\ProjectReference;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -1001,4 +1002,35 @@ it('supports search-filtered transcript export and metadata annotation', functio
     $blocks = $doc->blocks;
     expect($blocks[1]['text'])->toContain('Filter Pencarian: "metodologi"')
         ->and($blocks[2]['text'])->toContain('metodologi penelitian kuantitatif');
+});
+
+it('supports reference search by author or year and cleans citation key insertion', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    ProjectReference::create([
+        'project_id' => $project->id,
+        'citation_key' => 'bengio2013representation',
+        'title' => 'Representation Learning: A Review and New Perspectives',
+        'authors' => [['name' => 'Yoshua Bengio'], ['name' => 'Aaron Courville']],
+        'year' => 2013,
+        'journal_name' => 'IEEE TPAMI',
+        'is_verified' => true,
+    ]);
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id]);
+
+    // Search by author name "Bengio"
+    $results = $page->instance()->searchProjectReferences('Bengio');
+    expect($results)->toHaveCount(1)
+        ->and($results[0]['citation_key'])->toBe('bengio2013representation')
+        ->and($results[0]['authors'])->toContain('Yoshua Bengio');
+
+    // Search by year "2013"
+    $yearResults = $page->instance()->searchProjectReferences('2013');
+    expect($yearResults)->toHaveCount(1);
+
+    // Test insertCitationKey with leading @
+    $page->call('insertCitationKey', '@bengio2013representation');
+    expect($page->get('message'))->toBe('[@bengio2013representation]');
 });
