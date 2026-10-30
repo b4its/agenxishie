@@ -94,7 +94,8 @@ final class NaskahOdtExporter
         return '<?xml version="1.0" encoding="UTF-8"?>'."\n"
             .'<office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
             .'xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" '
-            .'xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.3">'."\n"
+            .'xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" '
+            .'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" office:version="1.3">'."\n"
             .' <office:styles>'."\n"
             .'  <style:style style:name="Standard" style:family="paragraph" style:class="text">'."\n"
             .'   <style:text-properties fo:font-size="12pt" fo:font-family="Georgia"/>'."\n"
@@ -115,8 +116,158 @@ final class NaskahOdtExporter
             .'   <style:paragraph-properties fo:margin-left="1cm" fo:margin-top="0.3cm" fo:margin-bottom="0.3cm"/>'."\n"
             .'   <style:text-properties fo:font-style="italic" fo:color="#334155"/>'."\n"
             .'  </style:style>'."\n"
+            .'  <style:style style:name="Callout_Box" style:family="paragraph" style:parent-style-name="Standard">'."\n"
+            .'   <style:paragraph-properties fo:margin-left="0.8cm" fo:padding-left="0.4cm" fo:border-left="0.08cm solid #2563eb" fo:margin-top="0.3cm" fo:margin-bottom="0.3cm"/>'."\n"
+            .'   <style:text-properties fo:color="#1e293b"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="P_Justify" style:family="paragraph" style:parent-style-name="Standard">'."\n"
+            .'   <style:paragraph-properties fo:text-align="justify"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="P_Center" style:family="paragraph" style:parent-style-name="Standard">'."\n"
+            .'   <style:paragraph-properties fo:text-align="center"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="P_Right" style:family="paragraph" style:parent-style-name="Standard">'."\n"
+            .'   <style:paragraph-properties fo:text-align="end"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="P_Hanging" style:family="paragraph" style:parent-style-name="Standard">'."\n"
+            .'   <style:paragraph-properties fo:margin-left="1.27cm" fo:text-indent="-1.27cm" fo:text-align="justify"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="Footnote" style:family="paragraph" style:parent-style-name="Standard">'."\n"
+            .'   <style:paragraph-properties fo:margin-top="0.2cm" fo:margin-bottom="0.2cm"/>'."\n"
+            .'   <style:text-properties fo:font-size="10pt" fo:font-style="italic" fo:color="#475569"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="Formula" style:family="paragraph" style:parent-style-name="Standard">'."\n"
+            .'   <style:paragraph-properties fo:text-align="center" fo:margin-top="0.4cm" fo:margin-bottom="0.4cm"/>'."\n"
+            .'   <style:text-properties fo:font-family="Cambria Math" fo:font-size="12pt"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="TableCaption" style:family="paragraph" style:parent-style-name="Standard">'."\n"
+            .'   <style:paragraph-properties fo:margin-top="0.3cm" fo:margin-bottom="0.15cm"/>'."\n"
+            .'   <style:text-properties fo:font-weight="bold" fo:font-size="10pt" fo:color="#334155"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="T_Bold" style:family="text">'."\n"
+            .'   <style:text-properties fo:font-weight="bold"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="T_Italic" style:family="text">'."\n"
+            .'   <style:text-properties fo:font-style="italic"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="T_Bold_Italic" style:family="text">'."\n"
+            .'   <style:text-properties fo:font-weight="bold" fo:font-style="italic"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="T_Underline" style:family="text">'."\n"
+            .'   <style:text-properties style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="T_Strike" style:family="text">'."\n"
+            .'   <style:text-properties style:text-line-through-style="solid"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="T_Sub" style:family="text">'."\n"
+            .'   <style:text-properties style:text-position="sub 58%"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="T_Sup" style:family="text">'."\n"
+            .'   <style:text-properties style:text-position="super 58%"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <style:style style:name="T_Math" style:family="text">'."\n"
+            .'   <style:text-properties fo:font-family="Cambria Math" fo:font-style="italic"/>'."\n"
+            .'  </style:style>'."\n"
+            .'  <text:list-style style:name="BulletList">'."\n"
+            .'   <text:list-level-style-bullet text:level="1" text:style-name="Standard" text:bullet-char="•">'."\n"
+            .'    <style:list-level-properties text:space-before="0.6cm" text:min-label-width="0.5cm"/>'."\n"
+            .'   </text:list-level-style-bullet>'."\n"
+            .'   <text:list-level-style-bullet text:level="2" text:style-name="Standard" text:bullet-char="◦">'."\n"
+            .'    <style:list-level-properties text:space-before="1.2cm" text:min-label-width="0.5cm"/>'."\n"
+            .'   </text:list-level-style-bullet>'."\n"
+            .'   <text:list-level-style-bullet text:level="3" text:style-name="Standard" text:bullet-char="▪">'."\n"
+            .'    <style:list-level-properties text:space-before="1.8cm" text:min-label-width="0.5cm"/>'."\n"
+            .'   </text:list-level-style-bullet>'."\n"
+            .'  </text:list-style>'."\n"
+            .'  <text:list-style style:name="NumberedList">'."\n"
+            .'   <text:list-level-style-number text:level="1" style:num-format="1" style:num-suffix=".">'."\n"
+            .'    <style:list-level-properties text:space-before="0.6cm" text:min-label-width="0.5cm"/>'."\n"
+            .'   </text:list-level-style-number>'."\n"
+            .'   <text:list-level-style-number text:level="2" style:num-format="a" style:num-suffix=".">'."\n"
+            .'    <style:list-level-properties text:space-before="1.2cm" text:min-label-width="0.5cm"/>'."\n"
+            .'   </text:list-level-style-number>'."\n"
+            .'   <text:list-level-style-number text:level="3" style:num-format="i" style:num-suffix=".">'."\n"
+            .'    <style:list-level-properties text:space-before="1.8cm" text:min-label-width="0.5cm"/>'."\n"
+            .'   </text:list-level-style-number>'."\n"
+            .'  </text:list-style>'."\n"
             .' </office:styles>'."\n"
             .'</office:document-styles>';
+    }
+
+    /**
+     * Format runs blok naskah menjadi elemen teks ODT XML.
+     *
+     * @param  array<string, mixed>  $block
+     */
+    private function runsToOdt(array $block): string
+    {
+        $runs = $this->model->runsWithText($block);
+        if (empty($runs)) {
+            $text = (string) ($block['text'] ?? '');
+
+            return htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        $out = '';
+        foreach ($runs as $run) {
+            $text = (string) ($run['text'] ?? '');
+            if ($text === '') {
+                continue;
+            }
+
+            $bold = ! empty($run['bold']);
+            $italic = ! empty($run['italic']);
+            $underline = ! empty($run['underline']);
+            $strike = ! empty($run['strike']);
+            $sub = ! empty($run['sub']);
+            $sup = ! empty($run['sup']);
+
+            $styleName = null;
+            if ($bold && $italic) {
+                $styleName = 'T_Bold_Italic';
+            } elseif ($bold) {
+                $styleName = 'T_Bold';
+            } elseif ($italic) {
+                $styleName = 'T_Italic';
+            } elseif ($underline) {
+                $styleName = 'T_Underline';
+            } elseif ($strike) {
+                $styleName = 'T_Strike';
+            } elseif ($sub) {
+                $styleName = 'T_Sub';
+            } elseif ($sup) {
+                $styleName = 'T_Sup';
+            }
+
+            if (str_contains($text, '$') && preg_match('/\$(.+?)\$/', $text)) {
+                $parts = preg_split('/(\$.+?\$)/', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+                if (is_array($parts)) {
+                    foreach ($parts as $part) {
+                        if ($part === '') {
+                            continue;
+                        }
+                        if (str_starts_with($part, '$') && str_ends_with($part, '$') && strlen($part) > 2) {
+                            $math = substr($part, 1, -1);
+                            $escMath = htmlspecialchars($math, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                            $out .= '<text:span text:style-name="T_Math">'.$escMath.'</text:span>';
+                        } else {
+                            $escPart = htmlspecialchars($part, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                            $out .= $styleName !== null
+                                ? '<text:span text:style-name="'.$styleName.'">'.$escPart.'</text:span>'
+                                : $escPart;
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            $escText = htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $out .= $styleName !== null
+                ? '<text:span text:style-name="'.$styleName.'">'.$escText.'</text:span>'
+                : $escText;
+        }
+
+        return $out;
     }
 
     /**
@@ -131,16 +282,36 @@ final class NaskahOdtExporter
             $body .= '<text:h text:outline-level="1" text:style-name="Heading_1">'.$escTitle.'</text:h>';
         }
 
-        foreach ($blocks as $block) {
+        $i = 0;
+        $total = count($blocks);
+
+        while ($i < $total) {
+            $block = $blocks[$i];
             $type = (string) ($block['type'] ?? 'paragraph');
-            $text = (string) ($block['text'] ?? '');
-            $escText = htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+            if ($type === 'bullet' || $type === 'numbered') {
+                $listStyle = $type === 'bullet' ? 'BulletList' : 'NumberedList';
+                $body .= '<text:list text:style-name="'.$listStyle.'">';
+                while ($i < $total && (string) ($blocks[$i]['type'] ?? '') === $type) {
+                    $itemBlock = $blocks[$i];
+                    $lvl = (int) ($itemBlock['listLevel'] ?? 0);
+                    $itemRuns = $this->runsToOdt($itemBlock);
+                    if ($lvl > 0) {
+                        $body .= '<text:list-item><text:list><text:list-item><text:p>'.$itemRuns.'</text:p></text:list-item></text:list></text:list-item>';
+                    } else {
+                        $body .= '<text:list-item><text:p>'.$itemRuns.'</text:p></text:list-item>';
+                    }
+                    $i++;
+                }
+                $body .= '</text:list>';
+                continue;
+            }
 
             if ($type === 'heading') {
                 $level = max(1, min(3, (int) ($block['level'] ?? 1)));
-                $body .= '<text:h text:outline-level="'.$level.'" text:style-name="Heading_'.$level.'">'.$escText.'</text:h>';
+                $body .= '<text:h text:outline-level="'.$level.'" text:style-name="Heading_'.$level.'">'.$this->runsToOdt($block).'</text:h>';
             } elseif ($type === 'quote') {
-                $body .= '<text:p text:style-name="Quotations">'.$escText.'</text:p>';
+                $body .= '<text:p text:style-name="Quotations">'.$this->runsToOdt($block).'</text:p>';
             } elseif ($type === 'callout') {
                 $cType = (string) ($block['calloutType'] ?? 'info');
                 $label = match ($cType) {
@@ -152,16 +323,12 @@ final class NaskahOdtExporter
                     'theorem' => '[Teorema]',
                     default => '[Catatan]',
                 };
-                $body .= '<text:p text:style-name="Quotations">'.$label.' '.$escText.'</text:p>';
-            } elseif ($type === 'bullet') {
-                $body .= '<text:list><text:list-item><text:p>'.$escText.'</text:p></text:list-item></text:list>';
-            } elseif ($type === 'numbered') {
-                $body .= '<text:list><text:list-item><text:p>'.$escText.'</text:p></text:list-item></text:list>';
+                $body .= '<text:p text:style-name="Callout_Box">'.$label.' '.$this->runsToOdt($block).'</text:p>';
             } elseif ($type === 'pagebreak') {
                 $body .= '<text:p><text:page-break/></text:p>';
             } elseif ($type === 'footnote-ref' || $type === 'endnote-ref') {
                 $badge = ($type === 'endnote-ref') ? '[Catatan Akhir]' : '[Catatan Kaki]';
-                $body .= '<text:p text:style-name="Footnote">'.$badge.' '.$escText.'</text:p>';
+                $body .= '<text:p text:style-name="Footnote">'.$badge.' '.$this->runsToOdt($block).'</text:p>';
             } elseif ($type === 'equation') {
                 $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
                 $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
@@ -178,12 +345,16 @@ final class NaskahOdtExporter
                 if ($cols > 0) {
                     $body .= '<table:table table:name="Table'.uniqid().'">';
                     $body .= '<table:table-column table:number-columns-repeated="'.$cols.'"/>';
-                    foreach ($rows as $row) {
+                    foreach ($rows as $rIdx => $row) {
                         $body .= '<table:table-row>';
                         foreach ((array) $row as $cell) {
                             $cellText = is_array($cell) ? (string) ($cell['text'] ?? '') : (string) $cell;
+                            $cellRuns = is_array($cell) ? ($cell['runs'] ?? []) : [];
+                            $formatted = ! empty($cellRuns)
+                                ? $this->runsToOdt(['text' => $cellText, 'runs' => $cellRuns])
+                                : htmlspecialchars($cellText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
                             $body .= '<table:table-cell office:value-type="string"><text:p>'
-                                .htmlspecialchars($cellText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+                                .$formatted
                                 .'</text:p></table:table-cell>';
                         }
                         $body .= '</table:table-row>';
@@ -191,8 +362,19 @@ final class NaskahOdtExporter
                     $body .= '</table:table>';
                 }
             } else {
-                $body .= '<text:p>'.$escText.'</text:p>';
+                $align = (string) ($block['align'] ?? 'left');
+                $hanging = ! empty($block['hangingIndent']);
+                $pStyle = match (true) {
+                    $hanging => 'P_Hanging',
+                    $align === 'justify' => 'P_Justify',
+                    $align === 'center' => 'P_Center',
+                    $align === 'right' => 'P_Right',
+                    default => 'Standard',
+                };
+                $body .= '<text:p text:style-name="'.$pStyle.'">'.$this->runsToOdt($block).'</text:p>';
             }
+
+            $i++;
         }
 
         return '<?xml version="1.0" encoding="UTF-8"?>'."\n"

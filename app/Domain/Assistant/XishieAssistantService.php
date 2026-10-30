@@ -882,7 +882,18 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::METODOLOGI->value,
             'reply' => $reply,
-            'data' => ['methodology' => true, 'persona' => $persona, 'scope' => $scope],
+            'data' => [
+                'methodology' => true,
+                'persona' => $persona,
+                'scope' => $scope,
+                'blocks' => [
+                    ['type' => 'heading', 'level' => 2, 'text' => 'Metodologi Penelitian'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Desain Riset: Pendekatan kuantitatif inferensial yang mengombinasikan telaah literatur sistematis dengan validasi empiris terukur.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Populasi & Sampel: Teknik purposive sampling terhadap korpus naskah akademik berbasis indeks reputasi Scopus/Sinta.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Instrumen Evaluasi: Rubrik kepatuhan pedoman IMRAD, metrik keterbacaan Flesch, dan matriks sintesis literatur komparatif.'],
+                    ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Prosedur & Analisis Data: Pengujian hipotesis dilakukan melalui analisis statistik parametrik disertai uji reliabilitas dan keabsahan instrumen.'],
+                ],
+            ],
         ];
     }
 
@@ -1493,6 +1504,10 @@ final class XishieAssistantService
                 'data' => [
                     'argument' => $argument,
                     'footnote_marker' => "[^{$fnNumber}]",
+                    'footnote_block' => [
+                        'type' => 'footnote-ref',
+                        'text' => $argument,
+                    ],
                 ],
             ];
         }
@@ -1638,6 +1653,11 @@ final class XishieAssistantService
                         'persona' => $persona,
                         'scope' => $scope,
                         'source' => 'omnigensi-llm',
+                        'callout_block' => [
+                            'type' => 'callout',
+                            'calloutType' => 'theorem',
+                            'text' => 'Pernyataan Kebaruan Ilmiah (Novelty): '.Str::limit(trim($answer), 280, '...'),
+                        ],
                     ],
                 ];
             }
@@ -1668,6 +1688,11 @@ final class XishieAssistantService
                 'field_of_study' => $field,
                 'persona' => $persona,
                 'scope' => $scope,
+                'callout_block' => [
+                    'type' => 'callout',
+                    'calloutType' => 'theorem',
+                    'text' => "Pernyataan Kebaruan Ilmiah: Berbeda dengan studi-studi terdahulu, penelitian ini mengusulkan {$noveltyPoint} yang secara spesifik mengatasi celah efisiensi dan reliabilitas melalui kerangka evaluasi empiris yang terukur.",
+                ],
             ],
         ];
     }

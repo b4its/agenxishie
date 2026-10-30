@@ -1930,12 +1930,16 @@ final class NaskahRichModel
         $count = count($lines);
 
         while ($i < $count) {
-            $line = trim((string) $lines[$i]);
+            $rawLine = (string) $lines[$i];
+            $line = trim($rawLine);
 
             if ($line === '') {
                 $i++;
                 continue;
             }
+
+            $leadingSpaces = strlen($rawLine) - strlen(ltrim($rawLine, " \t"));
+            $detectedLevel = max(0, min(8, (int) floor($leadingSpaces / 2)));
 
             // 1. LaTeX code block ```latex ... ```
             if (preg_match('/^```(?:latex|math|equation)?\s*$/i', $line)) {
@@ -2062,12 +2066,16 @@ final class NaskahRichModel
 
             // 7. Lists
             if (str_starts_with($line, '- ') || str_starts_with($line, '* ') || str_starts_with($line, '• ')) {
-                $blocks[] = $this->newBlock('bullet', trim(mb_substr($line, 2)));
+                $block = $this->newBlock('bullet', trim(mb_substr($line, 2)));
+                $block['listLevel'] = $detectedLevel;
+                $blocks[] = $block;
                 $i++;
                 continue;
             }
             if (preg_match('/^\d+[.)]\s+(.+)$/u', $line, $numMatch)) {
-                $blocks[] = $this->newBlock('numbered', trim($numMatch[1]));
+                $block = $this->newBlock('numbered', trim($numMatch[1]));
+                $block['listLevel'] = $detectedLevel;
+                $blocks[] = $block;
                 $i++;
                 continue;
             }

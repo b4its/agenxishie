@@ -50,6 +50,7 @@ final class NaskahDocxExporter
         $zip->addFromString('_rels/.rels', $this->rootRels());
         $zip->addFromString('word/document.xml', $documentXml);
         $zip->addFromString('word/styles.xml', $this->stylesXml());
+        $zip->addFromString('word/numbering.xml', $this->numberingXml());
         $zip->addFromString('word/_rels/document.xml.rels', $this->documentRels(count($media)));
 
         foreach ($media as $i => $binary) {
@@ -206,11 +207,31 @@ final class NaskahDocxExporter
 
         $indent = (int) ($block['indent'] ?? 0);
         $firstLine = (bool) ($block['firstLineIndent'] ?? false);
+        $hanging = (bool) ($block['hangingIndent'] ?? false);
+        $rightIndent = (int) ($block['rightIndent'] ?? 0);
         $ind = '';
-        if ($indent > 0 || $firstLine) {
-            $leftAttr = $indent > 0 ? ' w:left="'.($indent * 720).'"' : '';
+        if ($indent > 0 || $firstLine || $hanging || $rightIndent > 0) {
+            $leftAttr = ($indent > 0 || $hanging) ? ' w:left="'.(($indent > 0 ? $indent : 1) * 720).'"' : '';
             $firstLineAttr = $firstLine ? ' w:firstLine="720"' : '';
-            $ind = '<w:ind'.$leftAttr.$firstLineAttr.'/>';
+            $hangingAttr = $hanging ? ' w:hanging="720"' : '';
+            $rightAttr = $rightIndent > 0 ? ' w:right="'.($rightIndent * 720).'"' : '';
+            $ind = '<w:ind'.$leftAttr.$firstLineAttr.$hangingAttr.$rightAttr.'/>';
+        }
+
+        $shd = '';
+        if (! empty($block['backgroundColor']) && is_string($block['backgroundColor']) && $block['backgroundColor'] !== 'none') {
+            $bgHex = $this->hex($block['backgroundColor']);
+            if ($bgHex !== null) {
+                $shd = '<w:shd w:val="clear" w:fill="'.$bgHex.'"/>';
+            }
+        }
+
+        $bdr = '';
+        if (! empty($block['borderColor']) && is_string($block['borderColor'])) {
+            $bdrHex = $this->hex($block['borderColor']);
+            if ($bdrHex !== null) {
+                $bdr = '<w:pBdr><w:left w:val="single" w:sz="18" w:space="12" w:color="'.$bdrHex.'"/></w:pBdr>';
+            }
         }
 
         $spacing = '';
@@ -233,7 +254,7 @@ final class NaskahDocxExporter
             $numPr = '<w:numPr><w:ilvl w:val="'.(int) ($block['listLevel'] ?? 0).'"/><w:numId w:val="'.$numId.'"/></w:numPr>';
         }
 
-        $pPr = '<w:pPr>'.$style.$numPr.$spacing.$ind.$jc.'</w:pPr>';
+        $pPr = '<w:pPr>'.$style.$numPr.$spacing.$ind.$jc.$bdr.$shd.'</w:pPr>';
 
         $content = '';
         $size = $type === 'heading' ? (32 - ((int) ($block['level'] ?? 1) * 4)) : 24;
@@ -343,7 +364,11 @@ final class NaskahDocxExporter
             .'<w:right w:val="single" w:sz="4" w:space="0" w:color="94A3B8"/>'
             .'<w:insideH w:val="single" w:sz="4" w:space="0" w:color="CBD5E1"/>'
             .'<w:insideV w:val="single" w:sz="4" w:space="0" w:color="CBD5E1"/>'
-            .'</w:tblBorders></w:tblPr><w:tblGrid>';
+            .'</w:tblBorders>'
+            .'<w:tblCellMar>'
+            .'<w:top w:w="120" w:type="dxa"/><w:left w:w="160" w:type="dxa"/><w:bottom w:w="120" w:type="dxa"/><w:right w:w="160" w:type="dxa"/>'
+            .'</w:tblCellMar>'
+            .'</w:tblPr><w:tblGrid>';
 
         for ($c = 0; $c < $cols; $c++) {
             $xml .= '<w:gridCol w:w="'.(int) (9000 / $cols).'"/>';
@@ -355,13 +380,25 @@ final class NaskahDocxExporter
             foreach ((array) $row as $cell) {
                 $cellText = (string) ($cell['text'] ?? '');
                 $isHeader = $header && $rIndex === 0;
-                $shading = $isHeader ? '<w:shd w:val="clear" w:fill="EFF6FF"/>' : '';
+                $cellBgHex = ! empty($cell['bg']) ? $this->hex((string) $cell['bg']) : (! empty($cell['highlight']) ? $this->hex((string) $cell['highlight']) : null);
+                $shading = $cellBgHex !== null
+                    ? '<w:shd w:val="clear" w:fill="'.$cellBgHex.'"/>'
+                    : ($isHeader ? '<w:shd w:val="clear" w:fill="EFF6FF"/>' : '');
+
+                $cellAlign = (string) ($cell['align'] ?? ($isHeader ? 'center' : 'left'));
+                $cellJc = match ($cellAlign) {
+                    'center' => '<w:jc w:val="center"/>',
+                    'right' => '<w:jc w:val="right"/>',
+                    'justify' => '<w:jc w:val="both"/>',
+                    default => '<w:jc w:val="left"/>',
+                };
+
                 $cellRuns = '';
                 foreach ($this->model->runsWithText(['text' => $cellText, 'runs' => $cell['runs'] ?? []]) as $run) {
                     $run['bold'] = $isHeader ? true : ($run['bold'] ?? false);
                     $cellRuns .= $this->runXml((string) $run['text'], $run, 22);
                 }
-                $xml .= '<w:tc><w:tcPr>'.$shading.'</w:tcPr><w:p>'.$cellRuns.'</w:p></w:tc>';
+                $xml .= '<w:tc><w:tcPr>'.$shading.'</w:tcPr><w:p><w:pPr>'.$cellJc.'</w:pPr>'.$cellRuns.'</w:p></w:tc>';
             }
             $xml .= '</w:tr>';
         }
@@ -412,6 +449,7 @@ final class NaskahDocxExporter
             .$defaults
             .'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
             .'<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+            .'<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>'
             .'</Types>';
     }
 
@@ -427,13 +465,67 @@ final class NaskahDocxExporter
     {
         $rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>';
+            .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            .'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>';
 
         for ($i = 1; $i <= $mediaCount; $i++) {
             $rels .= '<Relationship Id="rId'.(100 + $i).'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image'.$i.'.png"/>';
         }
 
         return $rels.'</Relationships>';
+    }
+
+    private function numberingXml(): string
+    {
+        $bulletLevels = '';
+        $numberedLevels = '';
+
+        for ($lvl = 0; $lvl <= 8; $lvl++) {
+            $indLeft = ($lvl + 1) * 720;
+            $bulletChar = match ($lvl % 3) {
+                0 => '&#8226;',
+                1 => 'o',
+                2 => '&#9642;',
+            };
+            $bulletFont = match ($lvl % 3) {
+                0 => 'Symbol',
+                1 => 'Courier New',
+                2 => 'Wingdings',
+            };
+            $bulletLevels .= '<w:lvl w:ilvl="'.$lvl.'">'
+                .'<w:start w:val="1"/>'
+                .'<w:numFmt w:val="bullet"/>'
+                .'<w:lvlText w:val="'.$bulletChar.'"/>'
+                .'<w:rPr><w:rFonts w:ascii="'.$bulletFont.'" w:hAnsi="'.$bulletFont.'" w:hint="default"/></w:rPr>'
+                .'<w:pPr><w:ind w:left="'.$indLeft.'" w:hanging="360"/></w:pPr>'
+                .'</w:lvl>';
+
+            $numFmt = match ($lvl % 3) {
+                0 => 'decimal',
+                1 => 'lowerLetter',
+                2 => 'lowerRoman',
+            };
+            $numberedLevels .= '<w:lvl w:ilvl="'.$lvl.'">'
+                .'<w:start w:val="1"/>'
+                .'<w:numFmt w:val="'.$numFmt.'"/>'
+                .'<w:lvlText w:val="%'.($lvl + 1).'."/>'
+                .'<w:pPr><w:ind w:left="'.$indLeft.'" w:hanging="360"/></w:pPr>'
+                .'</w:lvl>';
+        }
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            .'<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            .'<w:abstractNum w:abstractNumId="1">'
+            .'<w:multiLevelType w:val="hybridMultilevel"/>'
+            .$bulletLevels
+            .'</w:abstractNum>'
+            .'<w:abstractNum w:abstractNumId="2">'
+            .'<w:multiLevelType w:val="hybridMultilevel"/>'
+            .$numberedLevels
+            .'</w:abstractNum>'
+            .'<w:num w:numId="1"><w:abstractNumId w:val="1"/></w:num>'
+            .'<w:num w:numId="2"><w:abstractNumId w:val="2"/></w:num>'
+            .'</w:numbering>';
     }
 
     private function stylesXml(): string

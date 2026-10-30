@@ -6603,7 +6603,23 @@ trait HandlesNaskahStudio
             $caption = (string) ($data['caption'] ?? '(1)');
             $blocksToInsert[] = $this->model->newEquationBlock($formula, $caption);
         }
-        // 3. Parse markdown respons model menjadi kumpulan blok terstruktur
+        // 3. Jika model menghasilkan blok callout khusus
+        elseif (! empty($data['callout_block']) && is_array($data['callout_block'])) {
+            $blocksToInsert[] = $this->model->normalizeBlock($data['callout_block']);
+        }
+        // 4. Jika model menghasilkan catatan kaki terstruktur
+        elseif (! empty($data['footnote_block']) && is_array($data['footnote_block'])) {
+            $blocksToInsert[] = $this->model->normalizeBlock($data['footnote_block']);
+        }
+        // 5. Jika model menghasilkan array kumpulan blok terstruktur
+        elseif (! empty($data['blocks']) && is_array($data['blocks'])) {
+            foreach ($data['blocks'] as $b) {
+                if (is_array($b)) {
+                    $blocksToInsert[] = $this->model->normalizeBlock($b);
+                }
+            }
+        }
+        // 6. Parse markdown respons model menjadi kumpulan blok terstruktur
         elseif ($content !== '') {
             $parsed = $this->parseMarkdownToBlocks($content);
             if (! empty($parsed)) {
@@ -8262,7 +8278,19 @@ trait HandlesNaskahStudio
                 ."3. **Instrumen Evaluasi**: Rubrik kepatuhan pedoman IMRAD, metrik keterbacaan Flesch, dan matriks sintesis literatur komparatif.\n"
                 .'4. **Prosedur & Analisis Data**: Pengujian hipotesis dilakukan melalui analisis statistik parametrik disertai uji reliabilitas dan keabsahan instrumen.';
 
-            return ['reply' => $reply, 'data' => ['methodology' => true]];
+            return [
+                'reply' => $reply,
+                'data' => [
+                    'methodology' => true,
+                    'blocks' => [
+                        ['type' => 'heading', 'level' => 2, 'text' => 'Metodologi Penelitian'],
+                        ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Desain Riset: Pendekatan kuantitatif inferensial yang mengombinasikan telaah literatur sistematis dengan validasi empiris terukur.'],
+                        ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Populasi & Sampel: Teknik purposive sampling terhadap korpus naskah akademik berbasis indeks reputasi Scopus/Sinta.'],
+                        ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Instrumen Evaluasi: Rubrik kepatuhan pedoman IMRAD, metrik keterbacaan Flesch, dan matriks sintesis literatur komparatif.'],
+                        ['type' => 'numbered', 'listLevel' => 0, 'text' => 'Prosedur & Analisis Data: Pengujian hipotesis dilakukan melalui analisis statistik parametrik disertai uji reliabilitas dan keabsahan instrumen.'],
+                    ],
+                ],
+            ];
         }
 
         if (str_starts_with($effectiveInput, '/tabel-analisis')) {
@@ -8470,7 +8498,20 @@ trait HandlesNaskahStudio
                 ."3. **State of the Art (SOTA) & Research Gap**: Kajian terdahulu sebagian besar berfokus pada tataran parsial, sehingga menyisakan celah analitis signifikan dalam mengintegrasikan dimensi multidisipliner secara komprehensif.\n"
                 .'4. **Tujuan Penelitian & Orisinalitas**: Riset ini bertujuan mengevaluasi fenomena tersebut melalui pendekatan terukur, memberikan kontribusi kebaruan yang memperkaya literatur ilmiah terkait.';
 
-            return ['reply' => $reply, 'data' => ['section' => 'pendahuluan', 'topic' => $topic]];
+            return [
+                'reply' => $reply,
+                'data' => [
+                    'section' => 'pendahuluan',
+                    'topic' => $topic,
+                    'blocks' => [
+                        ['type' => 'heading', 'level' => 1, 'text' => 'Pendahuluan'],
+                        ['type' => 'paragraph', 'text' => "Dinamika perkembangan kontemporer menuntut pemahaman mendalam terkait isu \"{$topic}\", yang menjadi landasan strategis kajian ini."],
+                        ['type' => 'paragraph', 'text' => 'Kesenjangan antara harapan teoretis dan kenyataan empiris menunjukkan perlunya intervensi metodologis terarah guna mengatasi hambatan struktural yang ada.'],
+                        ['type' => 'paragraph', 'text' => 'Kajian terdahulu sebagian besar berfokus pada tataran parsial, sehingga menyisakan celah analitis signifikan dalam mengintegrasikan dimensi multidisipliner secara komprehensif.'],
+                        ['type' => 'paragraph', 'text' => 'Riset ini bertujuan mengevaluasi fenomena tersebut melalui pendekatan terukur, memberikan kontribusi kebaruan yang memperkaya literatur ilmiah terkait.'],
+                    ],
+                ],
+            ];
         }
 
         if (str_starts_with($effectiveInput, '/pembahasan') || str_starts_with($effectiveInput, '/diskusi')) {
@@ -8532,7 +8573,18 @@ trait HandlesNaskahStudio
                 ."   - **Praktis**: Memberikan instrumen replikasi yang siap diadopsi oleh praktisi dan peneliti lanjutan.\n\n"
                 .'*Tips: Letakkan kalimat kebaruan ini pada paragraf akhir Bab Pendahuluan sebelum sistematika penulisan.*';
 
-            return ['reply' => $reply, 'data' => ['novelty' => true, 'topic' => $topic]];
+            return [
+                'reply' => $reply,
+                'data' => [
+                    'novelty' => true,
+                    'topic' => $topic,
+                    'callout_block' => [
+                        'type' => 'callout',
+                        'calloutType' => 'theorem',
+                        'text' => "Pernyataan Kebaruan Ilmiah: Berbeda dengan studi-studi terdahulu, naskah ini mengusulkan pendekatan terintegrasi pada {$topic} yang secara spesifik mengatasi celah efisiensi dan reliabilitas melalui kerangka evaluasi empiris yang terukur.",
+                    ],
+                ],
+            ];
         }
 
         if (str_starts_with($effectiveInput, '/daftar-isi') || str_starts_with($effectiveInput, '/outline')) {
@@ -8633,7 +8685,16 @@ trait HandlesNaskahStudio
                 ."`[^1]: Penulis, Judul Rujukan (Kota: Penerbit, Tahun), hlm. XX.`\n\n"
                 .'*Gunakan tombol **Sisipkan Catatan Kaki** pada toolbar naskah studio atau shortcut Ctrl+Alt+F untuk menambahkannya langsung ke halaman aktif.*';
 
-            return ['reply' => $reply, 'data' => ['footnote' => true]];
+            return [
+                'reply' => $reply,
+                'data' => [
+                    'footnote' => true,
+                    'footnote_block' => [
+                        'type' => 'footnote-ref',
+                        'text' => $arg,
+                    ],
+                ],
+            ];
         }
 
         if (str_starts_with($effectiveInput, '/keterbacaan') || str_starts_with($effectiveInput, '/readability')) {
