@@ -1599,6 +1599,12 @@
                         <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'stddev')" title="Hitung Standar Deviasi Sampel (s) Kolom Angka">
                             σ StdDev (Standar Deviasi)
                         </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'var')" title="Hitung Varians Sampel (s²) Kolom Angka">
+                            s² Variance (Varians)
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'range')" title="Hitung Rentang Nilai (Max - Min) Kolom Angka">
+                            Δ Range (Rentang)
+                        </button>
                         <button type="button" class="word-tool-btn" wire:click="tableCalculateColumn({{ $activeBlock }}, 0, 'min')" title="Cari Nilai Minimum Kolom">
                             ↓ Min (Minimum)
                         </button>

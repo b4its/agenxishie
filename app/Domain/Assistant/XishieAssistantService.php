@@ -410,6 +410,7 @@ final class XishieAssistantService
             'reply' => $markdown,
             'data' => [
                 'rows' => $rows,
+                'stats' => $this->matrixBuilder->synthesisStats($project),
                 'table_block' => $this->matrixBuilder->toTableBlock($project),
             ],
         ];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Research;
 
 use App\Domain\Publication\NaskahDocxExporter;
+use App\Domain\Publication\NaskahOdtExporter;
 use App\Models\ProjectReference;
 use App\Models\XishieProject;
 
@@ -334,6 +335,139 @@ final class LiteratureMatrixBuilder
         $out .= "}\n";
 
         return $out;
+    }
+
+    /**
+     * Hitung metrik sintesis literatur dari korpus referensi proyek.
+     *
+     * @return array{
+     *     total_references: int,
+     *     verified_count: int,
+     *     unverified_count: int,
+     *     year_range: array{min: int|null, max: int|null},
+     *     with_method_count: int,
+     *     with_result_count: int,
+     *     with_gap_count: int,
+     *     completion_rate: float
+     * }
+     */
+    public function synthesisStats(XishieProject $project): array
+    {
+        $rows = $this->build($project);
+        $total = count($rows);
+
+        $verified = 0;
+        $years = [];
+        $withMethod = 0;
+        $withResult = 0;
+        $withGap = 0;
+
+        foreach ($rows as $r) {
+            if ($r['is_verified']) {
+                $verified++;
+            }
+            if ($r['year'] !== null && is_numeric($r['year'])) {
+                $years[] = (int) $r['year'];
+            }
+            if (! empty($r['method']) && trim((string) $r['method']) !== '-' && trim((string) $r['method']) !== '') {
+                $withMethod++;
+            }
+            if (! empty($r['result']) && trim((string) $r['result']) !== '-' && trim((string) $r['result']) !== '') {
+                $withResult++;
+            }
+            if (! empty($r['gap']) && trim((string) $r['gap']) !== '-' && trim((string) $r['gap']) !== '') {
+                $withGap++;
+            }
+        }
+
+        $minYear = ! empty($years) ? min($years) : null;
+        $maxYear = ! empty($years) ? max($years) : null;
+        $unverified = $total - $verified;
+
+        $completionRate = $total > 0
+            ? round((($withMethod + $withResult + $withGap) / ($total * 3)) * 100, 1)
+            : 0.0;
+
+        return [
+            'total_references' => $total,
+            'verified_count' => $verified,
+            'unverified_count' => $unverified,
+            'year_range' => ['min' => $minYear, 'max' => $maxYear],
+            'with_method_count' => $withMethod,
+            'with_result_count' => $withResult,
+            'with_gap_count' => $withGap,
+            'completion_rate' => $completionRate,
+        ];
+    }
+
+    /**
+     * Render matriks literatur (SOTA) sebagai kode tabel LaTeX tabular.
+     */
+    public function toLatex(XishieProject $project): string
+    {
+        $rows = $this->build($project);
+        $escape = static fn (string $s): string => str_replace(
+            ['\\', '&', '%', '$', '#', '_', '{', '}', '~', '^'],
+            ['\\textbackslash{}', '\\&', '\\%', '\\$', '\\#', '\\_', '\\{', '\\}', '\\textasciitilde{}', '\\textasciicircum{}'],
+            $s,
+        );
+
+        $out = "% Tabel Matriks Literatur (State of the Art) - {$escape($project->title)}\n";
+        $out .= "\\begin{table}[htbp]\n";
+        $out .= "\\centering\n";
+        $out .= "\\small\n";
+        $out .= "\\begin{tabular}{|c|p{2.5cm}|c|p{3cm}|p{3.5cm}|p{3cm}|}\n";
+        $out .= "\\hline\n";
+        $out .= "\\textbf{No} & \\textbf{Penulis} & \\textbf{Tahun} & \\textbf{Metode} & \\textbf{Hasil Temuan} & \\textbf{Gap/Keterbatasan} \\\\\n";
+        $out .= "\\hline\n";
+
+        foreach ($rows as $index => $row) {
+            $num = $index + 1;
+            $author = $row['authors'] !== '' ? $row['authors'] : $row['citation_key'];
+            $year = (string) ($row['year'] ?? '-');
+            $method = (string) ($row['method'] ?? '-');
+            $result = (string) ($row['result'] ?? '-');
+            $gap = (string) ($row['gap'] ?? '-');
+
+            $out .= sprintf(
+                "%d & %s & %s & %s & %s & %s \\\\\n\\hline\n",
+                $num,
+                $escape($author),
+                $escape($year),
+                $escape($method),
+                $escape($result),
+                $escape($gap)
+            );
+        }
+
+        $out .= "\\end{tabular}\n";
+        $out .= "\\caption{Matriks Sintesis Literatur (State of the Art) - ".$escape($project->title)."}\n";
+        $out .= "\\label{tab:sota-matrix}\n";
+        $out .= "\\end{table}\n";
+
+        return $out;
+    }
+
+    /**
+     * Render matriks literatur sebagai berkas OpenDocument (.odt).
+     */
+    public function toOdt(XishieProject $project): string
+    {
+        $rows = $this->build($project);
+        $blocks = [
+            [
+                'type' => 'heading',
+                'level' => 1,
+                'text' => 'Tabel Matriks Literatur (State-of-the-Art)',
+            ],
+            [
+                'type' => 'paragraph',
+                'text' => "Proyek Riset: {$project->title} | Bidang: {$project->field_of_study->label()} | Total Referensi: ".count($rows),
+            ],
+            $this->toTableBlock($project),
+        ];
+
+        return app(NaskahOdtExporter::class)->build($blocks, 'Matriks Literatur - '.$project->title);
     }
 
     private function escape(string $value): string

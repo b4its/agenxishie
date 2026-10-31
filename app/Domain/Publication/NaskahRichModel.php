@@ -575,6 +575,20 @@ final class NaskahRichModel
 
                 return sqrt($sumSq / ($n - 1));
             })(),
+            'var', 'variance' => (function () use ($values): float {
+                $n = count($values);
+                if ($n <= 1) {
+                    return 0.0;
+                }
+                $mean = array_sum($values) / $n;
+                $sumSq = 0.0;
+                foreach ($values as $v) {
+                    $sumSq += pow($v - $mean, 2);
+                }
+
+                return $sumSq / ($n - 1);
+            })(),
+            'range' => count($values) > 0 ? (max($values) - min($values)) : 0.0,
             default => array_sum($values),
         };
 

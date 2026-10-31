@@ -7059,6 +7059,83 @@ trait HandlesNaskahStudio
             return;
         }
 
+        // 3. Check if assistant response contains structured callout block
+        if (! empty($log['data']['callout_block']) && is_array($log['data']['callout_block'])) {
+            $insertAt = $this->activeBlock + 1;
+            $newBlock = $this->model->normalizeBlock($log['data']['callout_block']);
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->activeBlock = $insertAt;
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Berhasil Disisipkan', 'Blok callout asisten berhasil disisipkan ke naskah.', 'success');
+
+            return;
+        }
+
+        // 4. Check if assistant response contains structured image or diagram block
+        if (! empty($log['data']['image_block']) && is_array($log['data']['image_block'])) {
+            $insertAt = $this->activeBlock + 1;
+            $newBlock = $this->model->normalizeBlock($log['data']['image_block']);
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->activeBlock = $insertAt;
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Berhasil Disisipkan', 'Diagram/gambar asisten berhasil disisipkan ke naskah.', 'success');
+
+            return;
+        }
+
+        // 5. Check if assistant response contains structured footnote block
+        if (! empty($log['data']['footnote_block']) && is_array($log['data']['footnote_block'])) {
+            $insertAt = $this->activeBlock + 1;
+            $newBlock = $this->model->normalizeBlock($log['data']['footnote_block']);
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->activeBlock = $insertAt;
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Berhasil Disisipkan', 'Catatan kaki asisten berhasil disisipkan ke naskah.', 'success');
+
+            return;
+        }
+
+        // 6. Check if assistant response contains summary data
+        if (! empty($log['data']['summary'])) {
+            $insertAt = $this->activeBlock + 1;
+            $newBlock = $this->model->newBlock('paragraph', (string) $log['data']['summary']);
+            array_splice($this->blocks, $insertAt, 0, [$newBlock]);
+            $this->activeBlock = $insertAt;
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Berhasil Disisipkan', 'Ringkasan asisten berhasil disisipkan ke naskah.', 'success');
+
+            return;
+        }
+
+        // 7. Check if assistant response contains structured blocks array
+        if (! empty($log['data']['blocks']) && is_array($log['data']['blocks'])) {
+            $blocksToAdd = [];
+            foreach ($log['data']['blocks'] as $b) {
+                if (is_array($b)) {
+                    $blocksToAdd[] = $this->model->normalizeBlock($b);
+                }
+            }
+            if (! empty($blocksToAdd)) {
+                $insertAt = $this->activeBlock + 1;
+                array_splice($this->blocks, $insertAt, 0, $blocksToAdd);
+                $this->activeBlock = min(count($this->blocks) - 1, $insertAt + count($blocksToAdd) - 1);
+                $this->dirty = true;
+                $this->editorRevision++;
+                $this->statistics = $this->model->computeStatistics($this->blocks);
+                $this->notify('Berhasil Disisipkan', 'Kumpulan blok asisten berhasil disisipkan ke naskah.', 'success');
+
+                return;
+            }
+        }
+
         $newBlocks = $this->parseMarkdownToBlocks($content);
         if (empty($newBlocks)) {
             return;
@@ -7119,6 +7196,50 @@ trait HandlesNaskahStudio
             $this->editorRevision++;
             $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Blok Diganti dengan Tabel', '', 'success');
+
+            return;
+        }
+
+        // 3. If assistant has structured callout block, replace active block
+        if (! empty($log['data']['callout_block']) && is_array($log['data']['callout_block'])) {
+            $this->blocks[$this->activeBlock] = $this->model->normalizeBlock($log['data']['callout_block']);
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Blok Diganti dengan Callout', '', 'success');
+
+            return;
+        }
+
+        // 4. If assistant has structured image/diagram block, replace active block
+        if (! empty($log['data']['image_block']) && is_array($log['data']['image_block'])) {
+            $this->blocks[$this->activeBlock] = $this->model->normalizeBlock($log['data']['image_block']);
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Blok Diganti dengan Gambar/Diagram', '', 'success');
+
+            return;
+        }
+
+        // 5. If assistant has structured footnote block, replace active block
+        if (! empty($log['data']['footnote_block']) && is_array($log['data']['footnote_block'])) {
+            $this->blocks[$this->activeBlock] = $this->model->normalizeBlock($log['data']['footnote_block']);
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Blok Diganti dengan Catatan Kaki', '', 'success');
+
+            return;
+        }
+
+        // 6. If assistant has summary data, replace active block with summary paragraph
+        if (! empty($log['data']['summary'])) {
+            $this->blocks[$this->activeBlock] = $this->model->newBlock('paragraph', (string) $log['data']['summary']);
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Blok Diganti dengan Ringkasan', '', 'success');
 
             return;
         }
@@ -7219,7 +7340,11 @@ trait HandlesNaskahStudio
         elseif (! empty($data['footnote_block']) && is_array($data['footnote_block'])) {
             $blocksToInsert[] = $this->model->normalizeBlock($data['footnote_block']);
         }
-        // 6. Jika model menghasilkan array kumpulan blok terstruktur
+        // 6. Jika model menghasilkan ringkasan terstruktur
+        elseif (! empty($data['summary'])) {
+            $blocksToInsert[] = $this->model->newBlock('paragraph', (string) $data['summary']);
+        }
+        // 7. Jika model menghasilkan array kumpulan blok terstruktur
         elseif (! empty($data['blocks']) && is_array($data['blocks'])) {
             foreach ($data['blocks'] as $b) {
                 if (is_array($b)) {
@@ -9727,6 +9852,26 @@ trait HandlesNaskahStudio
             $this->dirty = true;
             $this->editorRevision++;
             $this->notify('Kalkulasi Tabel', "Standar deviasi sampel kolom #{$colIndex} dihitung.", 'success');
+        } elseif ($op === 'var' || $op === 'variance') {
+            if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+                return;
+            }
+
+            $this->pushUndo();
+            $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'var');
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Kalkulasi Tabel', "Varians sampel (s²) kolom #{$colIndex} dihitung.", 'success');
+        } elseif ($op === 'range') {
+            if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+                return;
+            }
+
+            $this->pushUndo();
+            $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'range');
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->notify('Kalkulasi Tabel', "Rentang nilai (Range) kolom #{$colIndex} dihitung.", 'success');
         } else {
             $this->tableSumColumn($index, $colIndex);
         }

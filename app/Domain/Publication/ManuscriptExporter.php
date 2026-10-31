@@ -523,18 +523,24 @@ final class ManuscriptExporter
     }
 
     /**
+     * Konversi struktur naskah ke kumpulan blok NaskahRichModel.
+     *
      * @param  array{title: string, abstract: string, keywords: array<int, string>, sections: array<int, array{heading: string, content: string}>, bibliography: array<int, string>, citation_style: string}  $m
+     * @return array<int, array<string, mixed>>
      */
-    private function toOdt(array $m): string
+    public function toBlocks(array $m): array
     {
         $blocks = [];
 
         if ($m['abstract'] !== '') {
             $blocks[] = ['type' => 'heading', 'level' => 1, 'text' => 'Abstrak'];
-            foreach (preg_split('/\n{2,}/', $m['abstract']) ?: [] as $para) {
-                if (trim($para) !== '') {
-                    $blocks[] = ['type' => 'paragraph', 'text' => trim($para)];
+            $abstractBlocks = app(NaskahRichModel::class)->parseMarkdownToBlocks($m['abstract']);
+            if (! empty($abstractBlocks)) {
+                foreach ($abstractBlocks as $ab) {
+                    $blocks[] = $ab;
                 }
+            } else {
+                $blocks[] = ['type' => 'paragraph', 'text' => $m['abstract']];
             }
         }
 
@@ -547,9 +553,16 @@ final class ManuscriptExporter
                 $blocks[] = ['type' => 'heading', 'level' => 1, 'text' => $section['heading']];
             }
 
-            foreach (preg_split('/\n{2,}/', $section['content']) ?: [] as $para) {
-                if (trim($para) !== '') {
-                    $blocks[] = ['type' => 'paragraph', 'text' => trim($para)];
+            $contentBlocks = app(NaskahRichModel::class)->parseMarkdownToBlocks($section['content']);
+            if (! empty($contentBlocks)) {
+                foreach ($contentBlocks as $cb) {
+                    $blocks[] = $cb;
+                }
+            } else {
+                foreach (preg_split('/\n{2,}/', $section['content']) ?: [] as $para) {
+                    if (trim($para) !== '') {
+                        $blocks[] = ['type' => 'paragraph', 'text' => trim($para)];
+                    }
                 }
             }
         }
@@ -561,7 +574,15 @@ final class ManuscriptExporter
             }
         }
 
-        return app(NaskahOdtExporter::class)->build($blocks, $m['title']);
+        return $blocks;
+    }
+
+    /**
+     * @param  array{title: string, abstract: string, keywords: array<int, string>, sections: array<int, array{heading: string, content: string}>, bibliography: array<int, string>, citation_style: string}  $m
+     */
+    private function toOdt(array $m): string
+    {
+        return app(NaskahOdtExporter::class)->build($this->toBlocks($m), $m['title']);
     }
 
     /**
@@ -638,126 +659,12 @@ final class ManuscriptExporter
     }
 
     /**
-     * Hasilkan berkas DOCX (OOXML) minimal yang valid tanpa dependensi.
+     * Hasilkan berkas DOCX (OOXML) nyata dan kaya via NaskahDocxExporter.
      *
      * @param  array{title: string, abstract: string, keywords: array<int, string>, sections: array<int, array{heading: string, content: string}>, bibliography: array<int, string>, citation_style: string}  $m
      */
     private function toDocx(array $m): string
     {
-        $paragraphs = [];
-
-        $paragraphs[] = $this->docxParagraph($m['title'], 'Title');
-
-        if ($m['abstract'] !== '') {
-            $paragraphs[] = $this->docxParagraph('Abstrak', 'Heading1');
-            foreach (preg_split('/\n{2,}/', $m['abstract']) ?: [] as $para) {
-                if (trim($para) !== '') {
-                    $paragraphs[] = $this->docxParagraph(trim($para));
-                }
-            }
-        }
-
-        if ($m['keywords'] !== []) {
-            $paragraphs[] = $this->docxParagraph('Kata kunci: '.implode(', ', $m['keywords']), 'Normal', true);
-        }
-
-        foreach ($m['sections'] as $section) {
-            if ($section['heading'] !== '') {
-                $paragraphs[] = $this->docxParagraph($section['heading'], 'Heading1');
-            }
-
-            foreach (preg_split('/\n{2,}/', $section['content']) ?: [] as $para) {
-                if (trim($para) !== '') {
-                    $paragraphs[] = $this->docxParagraph(trim($para));
-                }
-            }
-        }
-
-        if ($m['bibliography'] !== []) {
-            $paragraphs[] = $this->docxParagraph('Daftar Pustaka', 'Heading1');
-            foreach ($m['bibliography'] as $entry) {
-                $paragraphs[] = $this->docxParagraph($entry, 'Normal');
-            }
-        }
-
-        $documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            .'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-            .'<w:body>'.implode('', $paragraphs)
-            .'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>'
-            .'<w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="1418" w:header="708" w:footer="708" w:gutter="0"/>'
-            .'</w:sectPr></w:body></w:document>';
-
-        $temp = tempnam(sys_get_temp_dir(), 'xishie-docx-');
-        if ($temp === false) {
-            throw new RuntimeException('Tidak dapat membuat berkas sementara untuk DOCX.');
-        }
-
-        $zip = new ZipArchive;
-        if ($zip->open($temp, ZipArchive::OVERWRITE) !== true) {
-            @unlink($temp);
-            throw new RuntimeException('Tidak dapat membuka arsip DOCX.');
-        }
-
-        $zip->addFromString('[Content_Types].xml', $this->docxContentTypes());
-        $zip->addFromString('_rels/.rels', $this->docxRootRels());
-        $zip->addFromString('word/document.xml', $documentXml);
-        $zip->addFromString('word/_rels/document.xml.rels', $this->docxDocumentRels());
-        $zip->addFromString('word/styles.xml', $this->docxStyles());
-        $zip->close();
-
-        $binary = (string) file_get_contents($temp);
-        @unlink($temp);
-
-        return $binary;
-    }
-
-    private function docxParagraph(string $text, string $style = 'Normal', bool $bold = false): string
-    {
-        $runProps = $bold ? '<w:rPr><w:b/></w:rPr>' : '';
-        $pPr = $style !== 'Normal' ? '<w:pPr><w:pStyle w:val="'.$style.'"/></w:pPr>' : '';
-
-        return '<w:p>'.$pPr.'<w:r>'.$runProps.'<w:t xml:space="preserve">'.$this->xmlEscape($text).'</w:t></w:r></w:p>';
-    }
-
-    private function xmlEscape(string $text): string
-    {
-        return htmlspecialchars($text, ENT_QUOTES | ENT_XML1, 'UTF-8');
-    }
-
-    private function docxContentTypes(): string
-    {
-        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            .'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-            .'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-            .'<Default Extension="xml" ContentType="application/xml"/>'
-            .'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
-            .'<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
-            .'</Types>';
-    }
-
-    private function docxRootRels(): string
-    {
-        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
-            .'</Relationships>';
-    }
-
-    private function docxDocumentRels(): string
-    {
-        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
-            .'</Relationships>';
-    }
-
-    private function docxStyles(): string
-    {
-        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            .'<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-            .'<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>'
-            .'<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:rPr><w:b/><w:sz w:val="40"/></w:rPr></w:style>'
-            .'<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:rPr><w:b/><w:sz w:val="30"/></w:rPr></w:style>'
-            .'</w:styles>';
+        return app(NaskahDocxExporter::class)->build($this->toBlocks($m), $m['title']);
     }
 }
