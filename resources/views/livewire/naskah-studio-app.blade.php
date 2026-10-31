@@ -3864,7 +3864,17 @@
                         <span>Insert Hyperlink</span>
                         <button type="button" class="word-icon-btn" wire:click="closeDialog">&times;</button>
                     </div>
-                    <div class="word-dialog__body">
+                    <div class="word-dialog__body" style="display:flex; flex-direction:column; gap:10px;">
+                        <div>
+                            <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Academic Quick Presets:</label>
+                            <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                                <button type="button" class="word-btn" style="font-size:11px; padding:3px 8px; border:1px solid #d1d5db; border-radius:3px; background:#f9fafb;" wire:click="setLinkPreset('doi')">⚡ DOI</button>
+                                <button type="button" class="word-btn" style="font-size:11px; padding:3px 8px; border:1px solid #d1d5db; border-radius:3px; background:#f9fafb;" wire:click="setLinkPreset('arxiv')">⚡ arXiv</button>
+                                <button type="button" class="word-btn" style="font-size:11px; padding:3px 8px; border:1px solid #d1d5db; border-radius:3px; background:#f9fafb;" wire:click="setLinkPreset('scholar')">⚡ Scholar</button>
+                                <button type="button" class="word-btn" style="font-size:11px; padding:3px 8px; border:1px solid #d1d5db; border-radius:3px; background:#f9fafb;" wire:click="setLinkPreset('github')">⚡ GitHub</button>
+                                <button type="button" class="word-btn" style="font-size:11px; padding:3px 8px; border:1px solid #d1d5db; border-radius:3px; background:#f9fafb;" wire:click="setLinkPreset('dataset')">⚡ Dataset</button>
+                            </div>
+                        </div>
                         <div>
                             <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Address (URL):</label>
                             <input type="url" class="word-select" style="width:100%; height:32px;" wire:model="linkUrl" placeholder="https://">

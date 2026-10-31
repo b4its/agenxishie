@@ -3648,6 +3648,19 @@ trait HandlesNaskahStudio
         }
     }
 
+    public function setLinkPreset(string $preset): void
+    {
+        $preset = strtolower(trim($preset));
+        match ($preset) {
+            'doi' => $this->linkUrl = 'https://doi.org/10.',
+            'arxiv' => $this->linkUrl = 'https://arxiv.org/abs/',
+            'github' => $this->linkUrl = 'https://github.com/',
+            'dataset', 'huggingface' => $this->linkUrl = 'https://huggingface.co/datasets/',
+            'scholar' => $this->linkUrl = 'https://scholar.google.com/scholar?q=',
+            default => null,
+        };
+    }
+
     public function insertLink(): void
     {
         $url = trim($this->linkUrl);
@@ -3678,6 +3691,8 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+        $this->notify('Tautan berhasil disisipkan.', '', 'success');
     }
 
     public function editFootnote(int $blockIndex): void

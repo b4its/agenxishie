@@ -2040,6 +2040,61 @@ final class NaskahRichModel
      *
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Urai format inline Markdown (termasuk tautan [teks](url)) menjadi teks polos dan runs.
+     *
+     * @return array{text: string, runs: array<int, array<string, mixed>>}
+     */
+    public function parseInlineMarkdown(string $content): array
+    {
+        if (! str_contains($content, '[') || ! str_contains($content, '](')) {
+            return ['text' => $content, 'runs' => []];
+        }
+
+        $pattern = '/\[([^\]]+)\]\((https?:\/\/[^\s\)]+|#[^\s\)]+)\)/u';
+        if (! preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+            return ['text' => $content, 'runs' => []];
+        }
+
+        $runs = [];
+        $plainText = '';
+        $lastOffset = 0;
+        $totalMatches = count($matches[0]);
+
+        for ($k = 0; $k < $totalMatches; $k++) {
+            $fullMatch = $matches[0][$k][0];
+            $matchOffset = $matches[0][$k][1];
+            $anchorText = $matches[1][$k][0];
+            $url = $matches[2][$k][0];
+
+            if ($matchOffset > $lastOffset) {
+                $before = substr($content, $lastOffset, $matchOffset - $lastOffset);
+                if ($before !== '') {
+                    $plainText .= $before;
+                    $runs[] = ['text' => $before] + $this->plainRunAttributes();
+                }
+            }
+
+            $plainText .= $anchorText;
+            $linkRun = $this->plainRunAttributes();
+            $linkRun['text'] = $anchorText;
+            $linkRun['link'] = $url;
+            $runs[] = $linkRun;
+
+            $lastOffset = $matchOffset + strlen($fullMatch);
+        }
+
+        if ($lastOffset < strlen($content)) {
+            $after = substr($content, $lastOffset);
+            if ($after !== '') {
+                $plainText .= $after;
+                $runs[] = ['text' => $after] + $this->plainRunAttributes();
+            }
+        }
+
+        return ['text' => $plainText, 'runs' => $runs];
+    }
+
     public function parseMarkdownToBlocks(string $content, ?string $defaultEquationCaption = null): array
     {
         $content = trim($content);
@@ -2063,6 +2118,31 @@ final class NaskahRichModel
 
             $leadingSpaces = strlen($rawLine) - strlen(ltrim($rawLine, " \t"));
             $detectedLevel = max(0, min(8, (int) floor($leadingSpaces / 2)));
+
+            // 0. Markdown Image ![alt](src)
+            if (preg_match('/^!\[(.*?)\]\((.*?)\)$/u', $line, $im)) {
+                $alt = trim($im[1]);
+                $src = trim($im[2]);
+                $blocks[] = $this->normalizeBlock([
+                    'type' => 'image',
+                    'image' => [
+                        'src' => $src,
+                        'alt' => $alt,
+                        'caption' => $alt,
+                        'width' => 480,
+                    ],
+                    'align' => 'center',
+                ]);
+                $i++;
+                continue;
+            }
+
+            // 0b. Pagebreak / Horizontal rule (--- or ***)
+            if (preg_match('/^(?:---|---|\*\*\*)\s*$/u', $line)) {
+                $blocks[] = $this->normalizeBlock(['type' => 'pagebreak']);
+                $i++;
+                continue;
+            }
 
             // 1. LaTeX code block ```latex ... ```
             if (preg_match('/^```(?:latex|math|equation)?\s*$/i', $line)) {
@@ -2189,14 +2269,24 @@ final class NaskahRichModel
 
             // 7. Lists
             if (str_starts_with($line, '- ') || str_starts_with($line, '* ') || str_starts_with($line, '• ')) {
-                $block = $this->newBlock('bullet', trim(mb_substr($line, 2)));
+                $rawListText = trim(mb_substr($line, 2));
+                $parsed = $this->parseInlineMarkdown($rawListText);
+                $block = $this->newBlock('bullet', $parsed['text']);
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
                 $block['listLevel'] = $detectedLevel;
                 $blocks[] = $block;
                 $i++;
                 continue;
             }
             if (preg_match('/^\d+[.)]\s+(.+)$/u', $line, $numMatch)) {
-                $block = $this->newBlock('numbered', trim($numMatch[1]));
+                $rawListText = trim($numMatch[1]);
+                $parsed = $this->parseInlineMarkdown($rawListText);
+                $block = $this->newBlock('numbered', $parsed['text']);
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
                 $block['listLevel'] = $detectedLevel;
                 $blocks[] = $block;
                 $i++;
@@ -2230,6 +2320,8 @@ final class NaskahRichModel
                     str_starts_with($nextLine, '- ') ||
                     str_starts_with($nextLine, '* ') ||
                     str_starts_with($nextLine, '• ') ||
+                    str_starts_with($nextLine, '![') ||
+                    preg_match('/^(?:---|---|\*\*\*)\s*$/u', $nextLine) ||
                     str_starts_with($nextLine, '|') ||
                     str_starts_with($nextLine, '$$') ||
                     str_starts_with($nextLine, '\\[') ||
@@ -2244,7 +2336,12 @@ final class NaskahRichModel
             }
             $cleanPara = trim(implode(' ', $paraLines));
             if ($cleanPara !== '') {
-                $blocks[] = $this->newBlock('paragraph', $cleanPara);
+                $parsed = $this->parseInlineMarkdown($cleanPara);
+                $block = $this->newBlock('paragraph', $parsed['text']);
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
+                $blocks[] = $block;
             }
         }
 

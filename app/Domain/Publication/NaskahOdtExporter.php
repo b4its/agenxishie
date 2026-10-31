@@ -239,6 +239,8 @@ final class NaskahOdtExporter
                 $styleName = 'T_Sup';
             }
 
+            $link = ! empty($run['link']) ? (string) $run['link'] : null;
+
             if (str_contains($text, '$') && preg_match('/\$(.+?)\$/', $text)) {
                 $parts = preg_split('/(\$.+?\$)/', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
                 if (is_array($parts)) {
@@ -249,12 +251,19 @@ final class NaskahOdtExporter
                         if (str_starts_with($part, '$') && str_ends_with($part, '$') && strlen($part) > 2) {
                             $math = substr($part, 1, -1);
                             $escMath = htmlspecialchars($math, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                            $out .= '<text:span text:style-name="T_Math">'.$escMath.'</text:span>';
+                            $item = '<text:span text:style-name="T_Math">'.$escMath.'</text:span>';
                         } else {
                             $escPart = htmlspecialchars($part, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                            $out .= $styleName !== null
+                            $item = $styleName !== null
                                 ? '<text:span text:style-name="'.$styleName.'">'.$escPart.'</text:span>'
                                 : $escPart;
+                        }
+
+                        if ($link !== null) {
+                            $escHref = htmlspecialchars($link, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                            $out .= '<text:a xlink:type="simple" xlink:href="'.$escHref.'">'.$item.'</text:a>';
+                        } else {
+                            $out .= $item;
                         }
                     }
                     continue;
@@ -262,9 +271,16 @@ final class NaskahOdtExporter
             }
 
             $escText = htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-            $out .= $styleName !== null
+            $span = $styleName !== null
                 ? '<text:span text:style-name="'.$styleName.'">'.$escText.'</text:span>'
                 : $escText;
+
+            if ($link !== null) {
+                $escHref = htmlspecialchars($link, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                $out .= '<text:a xlink:type="simple" xlink:href="'.$escHref.'">'.$span.'</text:a>';
+            } else {
+                $out .= $span;
+            }
         }
 
         return $out;
@@ -381,7 +397,8 @@ final class NaskahOdtExporter
             .'<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
             .'xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" '
             .'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" '
-            .'xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" office:version="1.3">'."\n"
+            .'xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" '
+            .'xmlns:xlink="http://www.w3.org/1999/xlink" office:version="1.3">'."\n"
             .' <office:body>'."\n"
             .'  <office:text>'."\n"
             .'   '.$body."\n"

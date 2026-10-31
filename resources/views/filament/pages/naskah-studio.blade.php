@@ -3717,7 +3717,17 @@
                             <span>&#128279; Sisipkan Tautan (Hyperlink)</span>
                             <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" wire:click="closeDialog">&times;</button>
                         </div>
-                        <div class="ns-dialog__body">
+                        <div class="ns-dialog__body" style="display:flex; flex-direction:column; gap:.65rem;">
+                            <div>
+                                <label style="font-weight:600; font-size:.68rem; display:block; margin-bottom:.25rem;">Preset Tautan Akademik:</label>
+                                <div style="display:flex; flex-wrap:wrap; gap:.25rem;">
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setLinkPreset('doi')">⚡ DOI</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setLinkPreset('arxiv')">⚡ arXiv</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setLinkPreset('scholar')">⚡ Scholar</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setLinkPreset('github')">⚡ GitHub</button>
+                                    <button type="button" class="ns-btn" style="font-size:.6rem; padding:.15rem .35rem;" wire:click="setLinkPreset('dataset')">⚡ Dataset</button>
+                                </div>
+                            </div>
                             <div>
                                 <label style="font-weight:600; font-size:.68rem;">URL Tujuan (https://...):</label>
                                 <input type="url" class="ns-btn" style="width:100%;" wire:model="linkUrl" placeholder="https://example.com" />

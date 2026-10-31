@@ -73,6 +73,38 @@ final class NaskahBlockParser
                 continue;
             }
 
+            if (preg_match('/^!\[(.*?)\]\((.*?)\)$/u', $line, $im) === 1) {
+                $flush();
+                $alt = trim($im[1]);
+                $src = trim($im[2]);
+                $blocks[] = [
+                    'type' => 'image',
+                    'level' => 0,
+                    'text' => '',
+                    'image' => [
+                        'src' => $src,
+                        'alt' => $alt,
+                        'caption' => $alt,
+                        'width' => 480,
+                    ],
+                    'align' => 'center',
+                ];
+
+                continue;
+            }
+
+            if (preg_match('/^(?:---|---|\*\*\*)\s*$/u', $line) === 1) {
+                $flush();
+                $blocks[] = [
+                    'type' => 'pagebreak',
+                    'pageBreak' => true,
+                    'level' => 0,
+                    'text' => '',
+                ];
+
+                continue;
+            }
+
             if (preg_match('/^\[\^([^\]]+)\]:\s*(.+)$/u', $line, $fm) === 1) {
                 $flush();
                 $blocks[] = [
@@ -287,7 +319,7 @@ final class NaskahBlockParser
                 'text' => trim((string) ($block['text'] ?? '')),
             ];
 
-            foreach (['table', 'calloutType', 'equation', 'latex', 'caption', 'image', 'runs', 'align'] as $extraKey) {
+            foreach (['table', 'calloutType', 'equation', 'latex', 'caption', 'image', 'runs', 'align', 'pageBreak'] as $extraKey) {
                 if (isset($block[$extraKey])) {
                     $item[$extraKey] = $block[$extraKey];
                 }

@@ -305,6 +305,11 @@ final class NaskahDocxExporter
             if ($hex !== null) {
                 $rPr .= '<w:color w:val="'.$hex.'"/>';
             }
+        } elseif (! empty($run['link'])) {
+            $rPr .= '<w:color w:val="2563EB"/>';
+        }
+        if (! empty($run['link']) && empty($run['underline'])) {
+            $rPr .= '<w:u w:val="single"/>';
         }
         if (! empty($run['highlight']) && is_string($run['highlight'])) {
             $hex = $this->hex($run['highlight']);
