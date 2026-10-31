@@ -3505,3 +3505,52 @@ it('supports nested list indentation parsing, markdown table cell runs, rich htm
         ->and($rtf)->toContain('HYPERLINK "https://xishie.id/docs"')
         ->and($rtf)->toContain('\li720');
 });
+
+it('supports document statistics api endpoint, csv api export, indonesian preset execution, and standalone stats aliases', function () {
+    $user = User::factory()->create();
+    $doc = NaskahDocument::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Dokumen Telemetri API',
+        'blocks' => [
+            ['id' => 'p1', 'type' => 'paragraph', 'text' => 'Kajian empiris ini menguji algoritma optimasi berbasis komputasi cerdas.'],
+            ['id' => 't1', 'type' => 'table', 'table' => ['rows' => [[['text' => 'Metode'], ['text' => 'Akurasi']], [['text' => 'Xishie'], ['text' => '99.2%']]], 'caption' => 'Tabel Evaluasi']],
+        ],
+        'word_count' => 12,
+    ]);
+
+    // 1. GET /api/v1/naskah/documents/{id}/statistics
+    $this->getJson("/api/v1/naskah/documents/{$doc->id}/statistics")
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('document_id', $doc->id)
+        ->assertJsonStructure(['statistics' => ['words', 'characters', 'paragraphs', 'tables', 'readingTimeMinutes', 'readingEase']]);
+
+    // 2. GET /api/v1/naskah/documents/{id}/export?format=csv
+    $this->getJson("/api/v1/naskah/documents/{$doc->id}/export?format=csv")
+        ->assertOk()
+        ->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+
+    // 3. GET /api/v1/naskah/documents/{id}/export-page?page=1&format=csv
+    $this->getJson("/api/v1/naskah/documents/{$doc->id}/export-page?page=1&format=csv")
+        ->assertOk()
+        ->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+
+    // 4. POST /api/v1/naskah/documents/{id}/execute-model with Indonesian preset
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/execute-model", [
+        'preset' => 'kesimpulan',
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('data.document_id', $doc->id);
+
+    // 5. Standalone Studio /stats and /word-count aliases
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    $statsResponse = $component->instance()->answerResponse(null, '/stats');
+    expect($statsResponse['reply'])->toContain('Laporan Analisis Keterbacaan Dokumen')
+        ->and($statsResponse['data'])->toHaveKey('stats');
+
+    $wordCountResponse = $component->instance()->answerResponse(null, '/word-count');
+    expect($wordCountResponse['reply'])->toContain('Jumlah Kata');
+});

@@ -1811,3 +1811,30 @@ it('exports html and latex transcripts with persona and command metadata tags', 
         ->and($latexContent)->toContain('Persona: akademisi')
         ->and($latexContent)->toContain('Perintah: /rumus');
 });
+
+it('supports slash command aliases for statistics, chapter structure, references, and endnotes', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    expect(SlashCommand::tryParse('/stats'))->toBe(SlashCommand::KETERBACAAN)
+        ->and(SlashCommand::tryParse('/statistik'))->toBe(SlashCommand::KETERBACAAN)
+        ->and(SlashCommand::tryParse('/word-count'))->toBe(SlashCommand::KETERBACAAN)
+        ->and(SlashCommand::tryParse('/jumlah-kata'))->toBe(SlashCommand::KETERBACAAN)
+        ->and(SlashCommand::tryParse('/struktur-bab'))->toBe(SlashCommand::DAFTAR_ISI)
+        ->and(SlashCommand::tryParse('/daftar-bab'))->toBe(SlashCommand::DAFTAR_ISI)
+        ->and(SlashCommand::tryParse('/daftar-referensi'))->toBe(SlashCommand::DAFTAR_PUSTAKA)
+        ->and(SlashCommand::tryParse('/catatan-akhir'))->toBe(SlashCommand::CATATAN_KAKI)
+        ->and(SlashCommand::tryParse('/endnotes'))->toBe(SlashCommand::CATATAN_KAKI);
+
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('message', '/stats Analisis data eksperimen menghasilkan akurasi yang memuaskan dan reliabel.')
+        ->call('send');
+
+    $log = $page->get('log');
+    $lastEntry = end($log);
+    expect($lastEntry['command'])->toBe(SlashCommand::KETERBACAAN->value)
+        ->and($lastEntry['content'])->toContain('Laporan Analisis Keterbacaan Naskah')
+        ->and($lastEntry['data'])->toHaveKey('reading_ease');
+});

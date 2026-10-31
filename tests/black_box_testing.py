@@ -116,6 +116,12 @@ test(f"POST /api/v1/naskah/documents/{doc_id}/align-page", status == 200 and "al
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export?format=json")
 test(f"GET /api/v1/naskah/documents/{doc_id}/export?format=json", status == 200 and "word_count" in body)
 
+status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/statistics")
+test(f"GET /api/v1/naskah/documents/{doc_id}/statistics", status == 200 and "statistics" in body)
+
+status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export?format=csv")
+test(f"GET /api/v1/naskah/documents/{doc_id}/export?format=csv", status == 200)
+
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export-page?page=1&format=md")
 test(f"GET /api/v1/naskah/documents/{doc_id}/export-page?page=1", status == 200 and len(body) > 0)
 
