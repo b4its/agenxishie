@@ -8633,7 +8633,7 @@ trait HandlesNaskahStudio
         $hasArg = trim(substr($trimmed, strlen($firstToken))) !== '';
 
         $effectiveInput = $input;
-        if (! $hasArg && in_array($firstToken, ['/poles', '/parafrase', '/kembangkan', '/puebi', '/perbaiki-ejaan', '/terjemahkan', '/ringkaskan', '/keterbacaan', '/tesaurus', '/thesaurus', '/sinonim', '/padanan-kata'], true)) {
+        if (! $hasArg && in_array($firstToken, ['/poles', '/parafrase', '/kembangkan', '/puebi', '/perbaiki-ejaan', '/terjemahkan', '/ringkaskan', '/keterbacaan', '/stats', '/statistik', '/word-count', '/jumlah-kata', '/tesaurus', '/thesaurus', '/sinonim', '/padanan-kata'], true)) {
             $fallbackArg = $activeBlockText !== '' ? $activeBlockText : Str::limit(trim($this->documentText()), 400, '');
             if ($fallbackArg !== '') {
                 $effectiveInput = $firstToken.' '.$fallbackArg;
@@ -9328,7 +9328,7 @@ trait HandlesNaskahStudio
             ];
         }
 
-        if (str_starts_with($effectiveInput, '/keterbacaan') || str_starts_with($effectiveInput, '/readability')) {
+        if (str_starts_with($effectiveInput, '/keterbacaan') || str_starts_with($effectiveInput, '/readability') || str_starts_with($effectiveInput, '/stats') || str_starts_with($effectiveInput, '/statistik') || str_starts_with($effectiveInput, '/word-count') || str_starts_with($effectiveInput, '/jumlah-kata') || str_starts_with($effectiveInput, '/telemetri')) {
             $stats = $this->statistics;
             $words = (int) ($stats['words'] ?? 0);
             $sentences = (int) ($stats['sentences'] ?? 1);

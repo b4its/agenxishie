@@ -1555,6 +1555,10 @@ final class NaskahRichModel
 
         $sentences = max(1, count(preg_split('/[.!?]+(?:\s+|$)/u', trim($text), -1, PREG_SPLIT_NO_EMPTY) ?: [1]));
         $paragraphs = max(1, count(array_filter($blocks, static fn (array $b): bool => in_array($b['type'] ?? '', ['paragraph', 'quote', 'heading', 'bullet', 'numbered'], true))));
+        $tableCount = count(array_filter($blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'table'));
+        $equationCount = count(array_filter($blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'equation'));
+        $footnoteCount = count(array_filter($blocks, static fn (array $b): bool => in_array($b['type'] ?? '', ['footnote-ref', 'endnote-ref'], true)));
+        $calloutCount = count(array_filter($blocks, static fn (array $b): bool => ($b['type'] ?? '') === 'callout'));
 
         preg_match_all('/[aiueoAIUEO]/u', $text, $matches);
         $syllables = max(1, count($matches[0] ?? []));
@@ -1585,6 +1589,10 @@ final class NaskahRichModel
             'charactersNoSpaces' => $charCountNoSpaces,
             'sentences' => $sentences,
             'paragraphs' => $paragraphs,
+            'tables' => $tableCount,
+            'equations' => $equationCount,
+            'footnotes' => $footnoteCount,
+            'callouts' => $calloutCount,
             'syllables' => $syllables,
             'readingEase' => $readingEase,
             'gradeLevel' => $gradeLevel,

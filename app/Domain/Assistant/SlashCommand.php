@@ -126,7 +126,7 @@ enum SlashCommand: string
         if (in_array($firstToken, ['/matrix', '/matriks', '/lit-matrix'], true)) {
             return self::MATRIKS;
         }
-        if (in_array($firstToken, ['/footnotes', '/footnote', '/catatan_kaki', '/catatan-kaki'], true)) {
+        if (in_array($firstToken, ['/footnotes', '/footnote', '/catatan_kaki', '/catatan-kaki', '/endnote', '/endnotes', '/catatan-akhir'], true)) {
             return self::CATATAN_KAKI;
         }
         if (in_array($firstToken, ['/guideline', '/pedoman', '/cek_pedoman'], true)) {
@@ -147,16 +147,16 @@ enum SlashCommand: string
         if (in_array($firstToken, ['/literatur', '/teori', '/kerangka-teori', '/tinjauan', '/literature'], true)) {
             return self::TINJAUAN_PUSTAKA;
         }
-        if (in_array($firstToken, ['/toc', '/outline', '/struktur', '/daftar_isi'], true)) {
+        if (in_array($firstToken, ['/toc', '/outline', '/struktur', '/daftar_isi', '/struktur-bab', '/daftar-bab'], true)) {
             return self::DAFTAR_ISI;
         }
-        if (in_array($firstToken, ['/bibliografi', '/pustaka', '/references', '/bibliography', '/daftar_pustaka'], true)) {
+        if (in_array($firstToken, ['/bibliografi', '/pustaka', '/references', '/bibliography', '/daftar_pustaka', '/daftar-referensi'], true)) {
             return self::DAFTAR_PUSTAKA;
         }
-        if (in_array($firstToken, ['/paragraf', '/aturan-paragraf', '/format-paragraf', '/paragraph-rules', '/paragraph'], true)) {
+        if (in_array($firstToken, ['/paragraf', '/aturan-paragraf', '/format-paragraf', '/paragraph-rules', '/paragraph', '/tipografi'], true)) {
             return self::FORMAT_PARAGRAF;
         }
-        if (in_array($firstToken, ['/readability', '/baca', '/audit-baca', '/skor-baca', '/keterbacaan'], true)) {
+        if (in_array($firstToken, ['/readability', '/baca', '/audit-baca', '/skor-baca', '/keterbacaan', '/stats', '/statistik', '/telemetri', '/word-count', '/jumlah-kata'], true)) {
             return self::KETERBACAAN;
         }
         if (in_array($firstToken, ['/novelty', '/orisinalitas', '/kontribusi', '/kebaruan'], true)) {

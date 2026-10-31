@@ -173,6 +173,7 @@ class NaskahStudioApiController extends Controller
             'html' => [$this->model->toHtml($blocks, $document->title), 'html', 'text/html; charset=UTF-8'],
             'latex', 'tex' => [$this->model->toLatex($blocks, $document->title), 'tex', 'application/x-tex; charset=UTF-8'],
             'rtf' => [$this->model->toRtf($blocks, $document->title), 'rtf', 'application/rtf; charset=UTF-8'],
+            'csv' => [$this->model->toCsv($blocks, $document->title), 'csv', 'text/csv; charset=UTF-8'],
             'txt' => [$this->model->toPlainText($blocks), 'txt', 'text/plain; charset=UTF-8'],
             'json' => [(string) json_encode([
                 'id' => $document->id,
@@ -219,6 +220,9 @@ class NaskahStudioApiController extends Controller
 
         [$content, $ext, $mime] = match ($format) {
             'html' => [$this->model->toHtml($pageBlocks, "{$document->title} - Hal {$pageNumber}"), 'html', 'text/html; charset=UTF-8'],
+            'latex', 'tex' => [$this->model->toLatex($pageBlocks, "{$document->title} - Hal {$pageNumber}"), 'tex', 'application/x-tex; charset=UTF-8'],
+            'rtf' => [$this->model->toRtf($pageBlocks, "{$document->title} - Hal {$pageNumber}"), 'rtf', 'application/rtf; charset=UTF-8'],
+            'csv' => [$this->model->toCsv($pageBlocks, "{$document->title} - Hal {$pageNumber}"), 'csv', 'text/csv; charset=UTF-8'],
             'txt', 'text' => [$this->model->toPlainText($pageBlocks), 'txt', 'text/plain; charset=UTF-8'],
             default => [$this->model->toMarkdown($pageBlocks, "{$document->title} - Hal {$pageNumber}"), 'md', 'text/markdown; charset=UTF-8'],
         };
@@ -226,6 +230,24 @@ class NaskahStudioApiController extends Controller
         return response()->streamDownload(static function () use ($content): void {
             echo $content;
         }, "naskah-{$id}-hal-{$pageNumber}.{$ext}", ['Content-Type' => $mime]);
+    }
+
+    public function statistics(int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $blocks = $this->model->normalize((array) $document->blocks);
+        $stats = $this->model->computeStatistics($blocks);
+
+        return response()->json([
+            'status' => 'success',
+            'document_id' => $document->id,
+            'title' => $document->title,
+            'statistics' => $stats,
+        ]);
     }
 
     public function auditPage(Request $request, int $id): JsonResponse
@@ -517,6 +539,37 @@ class NaskahStudioApiController extends Controller
         }
 
         $preset = $request->input('preset');
+        $presetMap = [
+            'expand' => 'expand',
+            'kembangkan' => 'expand',
+            'polish' => 'polish',
+            'poles' => 'polish',
+            'paraphrase' => 'paraphrase',
+            'parafrase' => 'paraphrase',
+            'novelty' => 'novelty',
+            'kebaruan' => 'novelty',
+            'table' => 'table',
+            'tabel' => 'table',
+            'equation' => 'equation',
+            'rumus' => 'equation',
+            'critique' => 'critique',
+            'kritik' => 'critique',
+            'abstract' => 'abstract',
+            'abstrak' => 'abstract',
+            'methodology' => 'methodology',
+            'metodologi' => 'methodology',
+            'conclusion' => 'conclusion',
+            'kesimpulan' => 'conclusion',
+            'summary' => 'summary',
+            'ringkas' => 'summary',
+            'ringkasan' => 'summary',
+            'key_points' => 'key_points',
+            'poin_kunci' => 'key_points',
+            'thesaurus' => 'thesaurus',
+            'tesaurus' => 'thesaurus',
+        ];
+        $presetKey = is_string($preset) ? ($presetMap[strtolower(trim($preset))] ?? strtolower(trim($preset))) : null;
+
         $presetPrompts = [
             'expand' => 'Kembangkan dan elaborasi argumen akademik secara mendalam dengan kerangka teoretis dan justifikasi ilmiah yang kuat.',
             'polish' => 'Poles dan sempurnakan diksi, tata bahasa akademik baku, serta kohesi antar-kalimat pada naskah ini.',
@@ -527,12 +580,15 @@ class NaskahStudioApiController extends Controller
             'critique' => 'Lakukan evaluasi kritis komprehensif terhadap kelemahan argumen, ancaman validitas, dan saran mitigasi metodologis.',
             'abstract' => 'Susun draf abstrak akademik terstruktur berformat IMRAD (Latar Belakang, Tujuan, Metode, Hasil, Implikasi) dengan kata kunci ilmiah.',
             'methodology' => 'Rancang bagian metodologi penelitian terstruktur mencakup desain riset, populasi/sampel, instrumen, dan prosedur validasi data.',
+            'conclusion' => 'Rumuskan kesimpulan komprehensif, sintesis temuan utama, keterbatasan penelitian, dan agenda riset mendatang.',
+            'summary' => 'Susun intisari eksekutif 1-2 alinea padat yang merangkum keseluruhan esensi temuan naskah ini.',
+            'key_points' => 'Ekstrak 3-5 poin kunci terpenting dari naskah ini dalam bentuk butir-butir terstruktur.',
             'thesaurus' => 'Eksplorasi padanan kata dan variasi sinonim akademik baku untuk memperkaya naskah ilmiah.',
         ];
 
         $prompt = trim((string) $request->input('prompt', ''));
-        if ($prompt === '' && is_string($preset) && isset($presetPrompts[$preset])) {
-            $prompt = $presetPrompts[$preset];
+        if ($prompt === '' && $presetKey !== null && isset($presetPrompts[$presetKey])) {
+            $prompt = $presetPrompts[$presetKey];
         }
 
         if ($prompt === '') {
@@ -661,92 +717,11 @@ class NaskahStudioApiController extends Controller
      */
     private function parseContentToBlocks(string $content): array
     {
-        $lines = preg_split("/\r\n|\n|\r/", trim($content));
-        $blocks = [];
-        $tableLines = [];
-        $inTable = false;
-
-        foreach ($lines as $line) {
-            $trimmed = trim((string) $line);
-
-            if (str_starts_with($trimmed, '|')) {
-                $tableLines[] = $trimmed;
-                $inTable = true;
-
-                continue;
-            }
-
-            if ($inTable) {
-                if (! empty($tableLines)) {
-                    $tableBlock = $this->parseMarkdownTableToBlock($tableLines);
-                    if ($tableBlock !== null) {
-                        $blocks[] = $tableBlock;
-                    }
-                    $tableLines = [];
-                }
-                $inTable = false;
-            }
-
-            if ($trimmed === '') {
-                continue;
-            }
-
-            if (preg_match('/^\$\$(.+)\$\$$/', $trimmed, $eqMatch)) {
-                $blocks[] = $this->model->newEquationBlock(trim($eqMatch[1]), '(1)');
-
-                continue;
-            }
-
-            if (preg_match('/^(#{1,6})\s+(.+)$/', $trimmed, $hMatch)) {
-                $level = strlen($hMatch[1]);
-                $blocks[] = $this->model->newBlock('heading', trim($hMatch[2]), $level);
-
-                continue;
-            }
-
-            if (preg_match('/^[-*]\s+(.+)$/', $trimmed, $bMatch)) {
-                $para = $this->model->newBlock('paragraph', trim($bMatch[1]));
-                $para['bullet'] = true;
-                $blocks[] = $para;
-
-                continue;
-            }
-
-            $blocks[] = $this->model->newBlock('paragraph', $trimmed);
+        $blocks = $this->model->parseMarkdownToBlocks($content);
+        if (! empty($blocks)) {
+            return $blocks;
         }
 
-        if ($inTable && ! empty($tableLines)) {
-            $tableBlock = $this->parseMarkdownTableToBlock($tableLines);
-            if ($tableBlock !== null) {
-                $blocks[] = $tableBlock;
-            }
-        }
-
-        return $blocks;
-    }
-
-    /**
-     * @param  array<int, string>  $tableLines
-     * @return array<string, mixed>|null
-     */
-    private function parseMarkdownTableToBlock(array $tableLines): ?array
-    {
-        $rows = [];
-        foreach ($tableLines as $line) {
-            $line = trim($line);
-            if (preg_match('/^\|?\s*[-:]+[-|\s:]*$/', $line)) {
-                continue;
-            }
-            $cells = array_values(array_filter(array_map('trim', explode('|', $line)), fn ($c) => $c !== ''));
-            if (! empty($cells)) {
-                $rows[] = $cells;
-            }
-        }
-
-        if (empty($rows)) {
-            return null;
-        }
-
-        return $this->model->newTableBlock($rows, true);
+        return [$this->model->newBlock('paragraph', trim($content))];
     }
 }
