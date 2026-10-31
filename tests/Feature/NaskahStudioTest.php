@@ -3443,3 +3443,65 @@ it('supports rich latex exports with href and grouped list environments, and inl
         ->and($blocks[0]['runs'][0]['bold'])->toBeTrue()
         ->and($blocks[0]['runs'][1]['text'])->toBe(' Tabel 1');
 });
+
+it('supports nested list indentation parsing, markdown table cell runs, rich html callouts and rtf styled runs', function () {
+    $parser = app(\App\Domain\Publication\NaskahBlockParser::class);
+    $model = app(\App\Domain\Publication\NaskahRichModel::class);
+
+    $rawMarkdown = "- Butir Induk\n  - Sub Butir Level 1\n    - Sub Butir Level 2\n\n1. Langkah Induk\n  1. Sub Langkah 1\n\n| **Metode** | [Tautan Dokumentasi](https://xishie.id/docs) |\n|---|---|\n| *CNN* | [Akurasi 98%](https://arxiv.org/abs/1234) |\n\n> [!NOTE] Perhatikan **parameter** kunci ini.\n\n[^1]: Penjelasan *detail* sitasi [web](https://xishie.id).";
+
+    $parsed = $parser->parse($rawMarkdown);
+
+    // 1. Verify parser nested listLevel
+    expect($parsed[0]['type'])->toBe('bullet')
+        ->and($parsed[0]['listLevel'] ?? 0)->toBe(0)
+        ->and($parsed[1]['type'])->toBe('bullet')
+        ->and($parsed[1]['listLevel'] ?? 0)->toBe(1)
+        ->and($parsed[2]['type'])->toBe('bullet')
+        ->and($parsed[2]['listLevel'] ?? 0)->toBe(2)
+        ->and($parsed[3]['type'])->toBe('numbered')
+        ->and($parsed[3]['listLevel'] ?? 0)->toBe(0)
+        ->and($parsed[4]['type'])->toBe('numbered')
+        ->and($parsed[4]['listLevel'] ?? 0)->toBe(1);
+
+    // 2. Verify table cell runs parsing
+    $tableBlock = $parsed[5];
+    expect($tableBlock['type'])->toBe('table')
+        ->and($tableBlock['table']['rows'][0][0]['runs'][0]['bold'])->toBeTrue()
+        ->and($tableBlock['table']['rows'][0][1]['runs'][0]['link'])->toBe('https://xishie.id/docs')
+        ->and($tableBlock['table']['rows'][1][0]['runs'][0]['italic'])->toBeTrue()
+        ->and($tableBlock['table']['rows'][1][1]['runs'][0]['link'])->toBe('https://arxiv.org/abs/1234');
+
+    // 3. Verify callout and footnote-ref runs parsing
+    $calloutBlock = $parsed[6];
+    expect($calloutBlock['type'])->toBe('callout')
+        ->and($calloutBlock['runs'][1]['bold'])->toBeTrue()
+        ->and($calloutBlock['runs'][1]['text'])->toBe('parameter');
+
+    $footnoteBlock = $parsed[7];
+    expect($footnoteBlock['type'])->toBe('footnote-ref')
+        ->and($footnoteBlock['runs'][1]['italic'])->toBeTrue()
+        ->and($footnoteBlock['runs'][3]['link'])->toBe('https://xishie.id');
+
+    // 4. Verify toMarkdown with nested listLevel and table cell runs
+    $exportedMd = $model->toMarkdown($parsed);
+    expect($exportedMd)->toContain('  - Sub Butir Level 1')
+        ->and($exportedMd)->toContain('    - Sub Butir Level 2')
+        ->and($exportedMd)->toContain('  1. Sub Langkah 1')
+        ->and($exportedMd)->toContain('| **Metode** | [Tautan Dokumentasi](https://xishie.id/docs) |')
+        ->and($exportedMd)->toContain('| *CNN* | [Akurasi 98%](https://arxiv.org/abs/1234) |');
+
+    // 5. Verify toHtml callout runs and table cell styling
+    $html = $model->toHtml($parsed, 'Uji HTML Kaya');
+    expect($html)->toContain('<strong>parameter</strong>')
+        ->and($html)->toContain('<em>detail</em>')
+        ->and($html)->toContain('<a href="https://xishie.id"')
+        ->and($html)->toContain('<a href="https://xishie.id/docs"');
+
+    // 6. Verify toRtf formatted runs
+    $rtf = $model->toRtf($parsed, 'Uji RTF Kaya');
+    expect($rtf)->toContain('\b parameter\b0')
+        ->and($rtf)->toContain('\i detail\i0')
+        ->and($rtf)->toContain('HYPERLINK "https://xishie.id/docs"')
+        ->and($rtf)->toContain('\li720');
+});

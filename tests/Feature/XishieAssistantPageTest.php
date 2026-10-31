@@ -1763,3 +1763,51 @@ it('supports /ringkas with text arguments and slash command aliases for citation
     expect($doc)->not->toBeNull()
         ->and($doc->word_count)->toBeGreaterThan(0);
 });
+
+it('exports html and latex transcripts with persona and command metadata tags', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', [
+            [
+                'role' => 'user',
+                'content' => '/rumus f1',
+                'command' => '/rumus',
+                'model' => 'hv/agnes-3.0-flash',
+                'persona' => 'akademisi',
+                'created_at' => now()->format('H:i:s'),
+            ],
+            [
+                'role' => 'assistant',
+                'content' => 'Berikut rumus F1-Score: $$F_1 = 2 \cdot \frac{P \cdot R}{P + R}$$',
+                'command' => '/rumus',
+                'model' => 'hv/agnes-3.0-flash',
+                'persona' => 'akademisi',
+                'created_at' => now()->format('H:i:s'),
+            ],
+        ]);
+
+    // 1. Export HTML
+    $htmlResponse = $page->instance()->exportTranscript('html');
+    ob_start();
+    $htmlResponse->sendContent();
+    $htmlContent = ob_get_clean();
+
+    expect($htmlContent)->toContain('Transkrip Percakapan Xishie Assistant')
+        ->and($htmlContent)->toContain('hv/agnes-3.0-flash')
+        ->and($htmlContent)->toContain('🎭 akademisi')
+        ->and($htmlContent)->toContain('⚡ /rumus');
+
+    // 2. Export LaTeX
+    $latexResponse = $page->instance()->exportTranscript('latex');
+    ob_start();
+    $latexResponse->sendContent();
+    $latexContent = ob_get_clean();
+
+    expect($latexContent)->toContain('\usepackage{hyperref}')
+        ->and($latexContent)->toContain('Xishie Assistant')
+        ->and($latexContent)->toContain('Model: hv/agnes-3.0-flash')
+        ->and($latexContent)->toContain('Persona: akademisi')
+        ->and($latexContent)->toContain('Perintah: /rumus');
+});
