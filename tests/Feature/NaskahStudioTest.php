@@ -3852,3 +3852,101 @@ it('supports outline, comments, revisions, snapshots, find-replace, and extended
         ->assertJsonPath('status', 'success')
         ->assertJsonPath('data.document_id', $doc->id);
 });
+
+it('supports bibtex export via rich model, rest api, and cli, plus table cell autocorrect and cli collaboration actions', function (): void {
+    $model = app(NaskahRichModel::class);
+    $blocks = $model->normalize([
+        ['type' => 'heading', 'level' => 1, 'text' => 'Bab 1 Pendahuluan'],
+        ['type' => 'paragraph', 'text' => 'Metode ini memiliki efektifitas -- tinggi dalam praktek analisis.'],
+        [
+            'type' => 'table',
+            'table' => [
+                'header' => true,
+                'caption' => 'Tabel 1 -- Hasil Analisa',
+                'rows' => [
+                    [['text' => 'Indikator'], ['text' => 'Keterangan']],
+                    [['text' => 'Akurasi'], ['text' => 'Sangat tinggi -- konsisten']],
+                ],
+            ],
+        ],
+        ['type' => 'heading', 'level' => 1, 'text' => 'Daftar Pustaka'],
+        ['type' => 'paragraph', 'text' => 'Wijaya, A. (2024). Deep Learning untuk Penelitian Ilmiah. Jurnal Riset AI, 12(1), 10-25.', 'hangingIndent' => true],
+    ]);
+
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Naskah Uji BibTeX & CLI',
+        'source_type' => 'custom',
+        'blocks' => $blocks,
+        'word_count' => $model->countWords($blocks),
+        'comments' => [
+            ['id' => 'c-1', 'author' => 'Dr. Budi', 'text' => 'Periksa sitasi bab 1', 'resolved' => false],
+        ],
+        'revisions' => [
+            ['id' => 'r-1', 'type' => 'edit', 'status' => 'pending', 'after' => 'Perbaikan kalimat'],
+        ],
+        'style_meta' => [
+            'snapshots' => [
+                ['id' => 's-1', 'label' => 'Snapshot Awal', 'count' => 5, 'at' => now()->toIso8601String()],
+            ],
+        ],
+    ]);
+
+    // 1. Test autoCorrectBlocks across paragraphs, table cells, and table captions
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/autocorrect")
+        ->assertOk()
+        ->assertJsonPath('status', 'success');
+
+    $reloaded = NaskahDocument::find($doc->id);
+    expect($reloaded->blocks[1]['text'])->toContain('—')
+        ->and($reloaded->blocks[2]['table']['caption'])->toContain('—')
+        ->and($reloaded->blocks[2]['table']['rows'][1][1]['text'])->toContain('—');
+
+    // 2. Test BibTeX export via REST API
+    $bibResp = $this->get("/api/v1/naskah/documents/{$doc->id}/export?format=bibtex");
+    $bibResp->assertOk();
+    $bibText = $bibResp->streamedContent();
+    expect($bibText)->toContain('% BibTeX Bibliography exported from Xishie Naskah Studio')
+        ->and($bibText)->toContain('@misc{bib_1,')
+        ->and($bibText)->toContain('Wijaya, A. (2024)')
+        ->and($bibText)->toContain('year = {2024}');
+
+    // 3. Test CLI naskah:manage export --format=csv and --format=bibtex
+    $csvPath = storage_path("app/test-cli-{$doc->id}.csv");
+    $bibPath = storage_path("app/test-cli-{$doc->id}.bib");
+    $this->artisan('naskah:manage', [
+        'action' => 'export',
+        'documentId' => $doc->id,
+        '--format' => 'csv',
+        '--output' => $csvPath,
+    ])->assertExitCode(0);
+
+    $this->artisan('naskah:manage', [
+        'action' => 'export',
+        'documentId' => $doc->id,
+        '--format' => 'bibtex',
+        '--output' => $bibPath,
+    ])->assertExitCode(0);
+
+    expect(file_get_contents($csvPath))->toContain('Indikator,Keterangan')
+        ->and(file_get_contents($bibPath))->toContain('@misc{bib_1,');
+
+    @unlink($csvPath);
+    @unlink($bibPath);
+
+    // 4. Test CLI collaboration actions: outline, comments, revisions, snapshots
+    $this->artisan('naskah:manage', ['action' => 'outline', 'documentId' => $doc->id])
+        ->expectsOutputToContain('Bab 1 Pendahuluan')
+        ->assertExitCode(0);
+
+    $this->artisan('naskah:manage', ['action' => 'comments', 'documentId' => $doc->id])
+        ->expectsOutputToContain('Periksa sitasi bab 1')
+        ->assertExitCode(0);
+
+    $this->artisan('naskah:manage', ['action' => 'revisions', 'documentId' => $doc->id])
+        ->expectsOutputToContain('Perbaikan kalimat')
+        ->assertExitCode(0);
+
+    $this->artisan('naskah:manage', ['action' => 'snapshots', 'documentId' => $doc->id])
+        ->expectsOutputToContain('Snapshot Awal')
+        ->assertExitCode(0);
+});

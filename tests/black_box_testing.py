@@ -154,6 +154,9 @@ test(f"POST /api/v1/naskah/documents/{doc_id}/find-replace", status == 200 and "
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export?format=csv")
 test(f"GET /api/v1/naskah/documents/{doc_id}/export?format=csv", status == 200)
 
+status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export?format=bibtex")
+test(f"GET /api/v1/naskah/documents/{doc_id}/export?format=bibtex", status == 200 and "BibTeX" in body)
+
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export-page?page=1&format=md")
 test(f"GET /api/v1/naskah/documents/{doc_id}/export-page?page=1", status == 200 and len(body) > 0)
 
@@ -175,6 +178,18 @@ test("CLI naskah:manage export latex Execution", cli_tex.returncode == 0 and "na
 
 cli_csv = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'export', str(doc_id), '--format=csv'], capture_output=True, text=True)
 test("CLI naskah:manage export csv Execution", cli_csv.returncode == 0 and "naskah-export-" in cli_csv.stdout)
+
+cli_bib = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'export', str(doc_id), '--format=bibtex'], capture_output=True, text=True)
+test("CLI naskah:manage export bibtex Execution", cli_bib.returncode == 0 and "naskah-export-" in cli_bib.stdout)
+
+cli_outline = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'outline', str(doc_id)], capture_output=True, text=True)
+test("CLI naskah:manage outline Execution", cli_outline.returncode == 0 and "STRUKTUR OUTLINE" in cli_outline.stdout)
+
+cli_comments = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'comments', str(doc_id)], capture_output=True, text=True)
+test("CLI naskah:manage comments Execution", cli_comments.returncode == 0 and "DAFTAR KOMENTAR" in cli_comments.stdout)
+
+cli_snapshots = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'snapshots', str(doc_id)], capture_output=True, text=True)
+test("CLI naskah:manage snapshots Execution", cli_snapshots.returncode == 0 and "DAFTAR SNAPSHOT" in cli_snapshots.stdout)
 
 tex_content = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'cat', f'/var/www/html/storage/app/naskah-export-{doc_id}.latex'], capture_output=True, text=True)
 test("CLI naskah:manage LaTeX includes amsmath and amssymb", "amsmath,amssymb" in tex_content.stdout)

@@ -1890,3 +1890,50 @@ it('exports assistant transcript to RTF format and supports new academic prompt 
     $page->call('applyPromptTemplate', 'puebi_linguistic_audit');
     expect($page->get('message'))->toStartWith('/puebi');
 });
+
+it('provides structured blocks for /abstrak, /terjemahkan, /puebi with KBBI normalization, /daftar-isi, and /daftar-pustaka', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $project = makeProject();
+    \App\Models\ProjectReference::query()->create([
+        'project_id' => $project->id,
+        'citation_key' => 'pratama2025',
+        'title' => 'Arsitektur Neural Adaptif pada Komputasi Tepi',
+        'authors' => [['name' => 'Pratama, Hendra']],
+        'year' => 2025,
+        'publication' => 'Jurnal Ilmu Komputer Indonesia',
+    ]);
+
+    $service = app(\App\Domain\Assistant\XishieAssistantService::class);
+
+    // 1. /abstrak structured blocks
+    $abs = $service->handle($project, '/abstrak');
+    expect($abs['data']['blocks'])->toBeArray()
+        ->and($abs['data']['blocks'][0]['type'])->toBe('heading')
+        ->and($abs['data']['blocks'][0]['text'])->toBe('Abstrak');
+
+    // 2. /terjemahkan structured blocks
+    $trans = $service->handle($project, '/terjemahkan en Penelitian ini menguji hipotesis secara empiris.');
+    expect($trans['data']['translated'])->toContain('Consequently, rigorous empirical validation')
+        ->and($trans['data']['blocks'][0]['text'])->toContain('Consequently, rigorous empirical validation');
+
+    // 3. /puebi KBBI standard word normalization + structured blocks
+    $puebi = $service->handle($project, '/puebi hasil analisa dan hipotesa dalam praktek metoda ini memiliki efektifitas tinggi');
+    expect($puebi['data']['corrected'])->toContain('analisis')
+        ->and($puebi['data']['corrected'])->toContain('hipotesis')
+        ->and($puebi['data']['corrected'])->toContain('praktik')
+        ->and($puebi['data']['corrected'])->toContain('metode')
+        ->and($puebi['data']['corrected'])->toContain('efektivitas')
+        ->and($puebi['data']['blocks'][0]['text'])->toBe($puebi['data']['corrected']);
+
+    // 4. /daftar-isi toc_block & blocks
+    $toc = $service->handle($project, '/daftar-isi');
+    expect($toc['data']['toc_block']['type'])->toBe('toc')
+        ->and($toc['data']['blocks'][0]['type'])->toBe('toc');
+
+    // 5. /daftar-pustaka hanging-indent blocks
+    $bib = $service->handle($project, '/daftar-pustaka apa');
+    expect($bib['data']['blocks'])->toBeArray()
+        ->and($bib['data']['blocks'][0]['text'])->toBe('Daftar Pustaka')
+        ->and($bib['data']['blocks'][1]['hangingIndent'])->toBeTrue();
+});
