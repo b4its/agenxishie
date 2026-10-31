@@ -29,7 +29,11 @@ class NaskahStudioApiController extends Controller
 
     public function index(): JsonResponse
     {
-        $documents = NaskahDocument::query()->latest('updated_at')->limit(30)->get();
+        $documents = NaskahDocument::query()
+            ->select(['id', 'title', 'source_type', 'word_count', 'last_saved_at', 'updated_at'])
+            ->latest('id')
+            ->limit(30)
+            ->get();
 
         return response()->json([
             'status' => 'success',
@@ -385,6 +389,9 @@ class NaskahStudioApiController extends Controller
         ];
 
         $snapshots[] = $newSnapshot;
+        if (count($snapshots) > 20) {
+            $snapshots = array_slice($snapshots, -20);
+        }
         $meta['snapshots'] = $snapshots;
         $document->style_meta = $meta;
         $document->save();
@@ -394,6 +401,125 @@ class NaskahStudioApiController extends Controller
             'message' => "Snapshot '{$label}' berhasil disimpan.",
             'snapshot' => $newSnapshot,
             'total_snapshots' => count($snapshots),
+        ]);
+    }
+
+    public function resolveComment(int $id, string $commentId): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $comments = $document->commentsList();
+        $found = false;
+        $updatedComment = null;
+
+        foreach ($comments as $i => $comment) {
+            if ((string) ($comment['id'] ?? '') === $commentId) {
+                $comments[$i]['resolved'] = true;
+                $comments[$i]['resolvedAt'] = now()->toIso8601String();
+                $updatedComment = $comments[$i];
+                $found = true;
+                break;
+            }
+        }
+
+        if (! $found) {
+            return response()->json(['status' => 'error', 'message' => 'Komentar tidak ditemukan'], 404);
+        }
+
+        $document->comments = $comments;
+        $document->save();
+
+        $unresolved = count(array_filter($comments, static fn (array $c): bool => empty($c['resolved'])));
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Komentar ditandai sebagai selesai.',
+            'comment' => $updatedComment,
+            'unresolved_count' => $unresolved,
+        ]);
+    }
+
+    public function handleRevision(Request $request, int $id, string $revisionId): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $action = strtolower((string) $request->input('action', 'accept'));
+        $newStatus = $action === 'reject' ? 'rejected' : 'accepted';
+
+        $revisions = $document->revisionsList();
+        $found = false;
+        $updatedRevision = null;
+
+        foreach ($revisions as $i => $revision) {
+            if ((string) ($revision['id'] ?? '') === $revisionId) {
+                $revisions[$i]['status'] = $newStatus;
+                $revisions[$i]['decidedAt'] = now()->toIso8601String();
+                $updatedRevision = $revisions[$i];
+                $found = true;
+                break;
+            }
+        }
+
+        if (! $found) {
+            return response()->json(['status' => 'error', 'message' => 'Revisi tidak ditemukan'], 404);
+        }
+
+        $document->revisions = $revisions;
+        $document->save();
+
+        $pending = count(array_filter($revisions, static fn (array $r): bool => ($r['status'] ?? 'pending') === 'pending'));
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $newStatus === 'accepted' ? 'Revisi diterima.' : 'Revisi ditolak.',
+            'revision' => $updatedRevision,
+            'pending_count' => $pending,
+        ]);
+    }
+
+    public function restoreSnapshot(int $id, string $snapshotId): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $meta = is_array($document->style_meta) ? $document->style_meta : [];
+        $snapshots = is_array($meta['snapshots'] ?? null) ? $meta['snapshots'] : [];
+        $targetSnapshot = null;
+
+        foreach ($snapshots as $snap) {
+            if ((string) ($snap['id'] ?? '') === $snapshotId) {
+                $targetSnapshot = $snap;
+                break;
+            }
+        }
+
+        if ($targetSnapshot === null) {
+            return response()->json(['status' => 'error', 'message' => 'Snapshot tidak ditemukan'], 404);
+        }
+
+        $restoredBlocks = $this->model->normalize((array) ($targetSnapshot['blocks'] ?? []));
+        $wordCount = $this->model->countWords($restoredBlocks);
+
+        $document->update([
+            'blocks' => $restoredBlocks,
+            'word_count' => $wordCount,
+            'last_saved_at' => now(),
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Dokumen berhasil dipulihkan ke versi '".($targetSnapshot['label'] ?? 'Snapshot')."'.",
+            'snapshot' => $targetSnapshot,
+            'blocks_count' => count($restoredBlocks),
+            'word_count' => $wordCount,
         ]);
     }
 

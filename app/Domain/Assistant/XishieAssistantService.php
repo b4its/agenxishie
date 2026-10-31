@@ -319,7 +319,17 @@ final class XishieAssistantService
 
         $rewritten = 'Dengan demikian, '.lcfirst(rtrim($argument, '.')).' dapat dinyatakan sebagai kontribusi yang perlu divalidasi secara empiris.';
 
-        return ['command' => SlashCommand::PARAFRASE->value, 'reply' => $rewritten, 'data' => ['original' => $argument]];
+        return [
+            'command' => SlashCommand::PARAFRASE->value,
+            'reply' => $rewritten,
+            'data' => [
+                'original' => $argument,
+                'rewritten' => $rewritten,
+                'blocks' => [
+                    ['type' => 'paragraph', 'text' => $rewritten],
+                ],
+            ],
+        ];
     }
 
     /**
@@ -348,7 +358,16 @@ final class XishieAssistantService
             return [
                 'command' => SlashCommand::POLES->value,
                 'reply' => trim($answer),
-                'data' => ['original' => $argument, 'persona' => $persona, 'scope' => $scope, 'source' => 'omnigensi-llm'],
+                'data' => [
+                    'original' => $argument,
+                    'polished' => trim($answer),
+                    'persona' => $persona,
+                    'scope' => $scope,
+                    'source' => 'omnigensi-llm',
+                    'blocks' => [
+                        ['type' => 'paragraph', 'text' => trim($answer)],
+                    ],
+                ],
             ];
         }
 
@@ -357,7 +376,15 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::POLES->value,
             'reply' => $polished,
-            'data' => ['original' => $argument, 'persona' => $persona, 'scope' => $scope],
+            'data' => [
+                'original' => $argument,
+                'polished' => $polished,
+                'persona' => $persona,
+                'scope' => $scope,
+                'blocks' => [
+                    ['type' => 'paragraph', 'text' => $polished],
+                ],
+            ],
         ];
     }
 
@@ -373,7 +400,18 @@ final class XishieAssistantService
             ? 'Belum ada gap terekstrak. Lengkapi matriks literatur terlebih dahulu.'
             : 'Gap yang teridentifikasi: '.implode(' | ', array_slice($gaps, 0, 5)).'.';
 
-        return ['command' => SlashCommand::CEK_GAP->value, 'reply' => $reply, 'data' => ['gaps' => $gaps]];
+        return [
+            'command' => SlashCommand::CEK_GAP->value,
+            'reply' => $reply,
+            'data' => [
+                'gaps' => $gaps,
+                'callout_block' => [
+                    'type' => 'callout',
+                    'calloutType' => 'important',
+                    'text' => $reply,
+                ],
+            ],
+        ];
     }
 
     /**
@@ -393,6 +431,11 @@ final class XishieAssistantService
 
         $violations = count($audit['violations']);
         $reply = sprintf('Compliance %.1f%% dengan %d pelanggaran terdeteksi.', $audit['score'], $violations);
+        $audit['callout_block'] = [
+            'type' => 'callout',
+            'calloutType' => $violations === 0 ? 'success' : 'warning',
+            'text' => $reply,
+        ];
 
         return ['command' => SlashCommand::CEK_PEDOMAN->value, 'reply' => $reply, 'data' => $audit];
     }
@@ -1305,13 +1348,21 @@ final class XishieAssistantService
             ];
         }
 
-        $reply = "### Elaborasi Pengembangan Teks Akademik\n\n"
-            ."Berdasarkan premis bahwa \"{$argument}\", fenomena ini dapat diartikulasikan lebih mendalam melalui lensa konseptual yang menautkan dimensi empiris dan teoretis. Secara struktural, dinamika tersebut mencerminkan bagaimana pola kolaboratif dan pengelolaan sumber daya bersama berkontribusi nyata terhadap stabilitas ekosistem kerja kreatif. Dengan memvalidasi indikator-indikator operasional yang melandasinya, temuan ini memberikan kejelasan analitis bagi pengembangan kerangka kerja pada penelitian mendatang.";
+        $elaborated = "Berdasarkan premis bahwa \"{$argument}\", fenomena ini dapat diartikulasikan lebih mendalam melalui lensa konseptual yang menautkan dimensi empiris dan teoretis. Secara struktural, dinamika tersebut mencerminkan bagaimana pola kolaboratif dan pengelolaan sumber daya bersama berkontribusi nyata terhadap stabilitas ekosistem kerja kreatif. Dengan memvalidasi indikator-indikator operasional yang melandasinya, temuan ini memberikan kejelasan analitis bagi pengembangan kerangka kerja pada penelitian mendatang.";
+        $reply = "### Elaborasi Pengembangan Teks Akademik\n\n".$elaborated;
 
         return [
             'command' => SlashCommand::KEMBANGKAN->value,
             'reply' => $reply,
-            'data' => ['original' => $argument, 'persona' => $persona, 'scope' => $scope],
+            'data' => [
+                'original' => $argument,
+                'elaborated' => $elaborated,
+                'persona' => $persona,
+                'scope' => $scope,
+                'blocks' => [
+                    ['type' => 'paragraph', 'text' => $elaborated],
+                ],
+            ],
         ];
     }
 

@@ -51,7 +51,11 @@ class NaskahStudioCommand extends Command
         $documentId = $this->argument('documentId');
 
         if ($action === 'list') {
-            $docs = NaskahDocument::query()->latest('updated_at')->limit(20)->get();
+            $docs = NaskahDocument::query()
+                ->select(['id', 'title', 'source_type', 'word_count', 'last_saved_at', 'updated_at'])
+                ->latest('id')
+                ->limit(20)
+                ->get();
             $this->table(
                 ['ID', 'Judul', 'Sumber', 'Jumlah Kata', 'Terakhir Disimpan'],
                 $docs->map(fn (NaskahDocument $d) => [

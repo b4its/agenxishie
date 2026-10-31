@@ -764,6 +764,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function redo(): void
@@ -780,6 +781,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function copyFormat(int $index): void
@@ -9751,22 +9753,14 @@ trait HandlesNaskahStudio
     public function runAutoCorrect(): void
     {
         $this->pushUndo();
-        $total = 0;
-
-        foreach ($this->blocks as $i => $block) {
-            $text = (string) ($block['text'] ?? '');
-            if (trim($text) === '') {
-                continue;
-            }
-            $res = $this->model->autoCorrect($text);
-            if ($res['count'] > 0) {
-                $total += $res['count'];
-                $this->blocks[$i]['text'] = $res['text'];
-                $this->blocks[$i]['runs'] = [];
-            }
-        }
+        $res = $this->model->autoCorrectBlocks($this->blocks);
+        $this->blocks = $res['blocks'];
+        $total = $res['count'];
 
         $this->dirty = true;
+        $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->blocks);
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Auto-Correct diterapkan', $total > 0 ? "{$total} tanda tipografi diperbaiki otomatis." : 'Tidak ada tipografi yang perlu diganti.', 'success');
     }
 
@@ -9780,6 +9774,8 @@ trait HandlesNaskahStudio
         $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'sum');
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Kalkulasi Tabel', "Kolom #{$colIndex} dijumlahkan.", 'success');
     }
 
@@ -9793,6 +9789,8 @@ trait HandlesNaskahStudio
         $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'average');
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Kalkulasi Tabel', "Rata-rata kolom #{$colIndex} dihitung.", 'success');
     }
 
@@ -9811,6 +9809,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'min');
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Kalkulasi Tabel', "Nilai minimum kolom #{$colIndex} dihitung.", 'success');
         } elseif ($op === 'max') {
             if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
@@ -9821,6 +9821,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'max');
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Kalkulasi Tabel', "Nilai maksimum kolom #{$colIndex} dihitung.", 'success');
         } elseif ($op === 'count') {
             if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
@@ -9831,6 +9833,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'count');
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Kalkulasi Tabel', "Jumlah entri numerik kolom #{$colIndex} dihitung.", 'success');
         } elseif ($op === 'median') {
             if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
@@ -9841,6 +9845,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'median');
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Kalkulasi Tabel', "Nilai median kolom #{$colIndex} dihitung.", 'success');
         } elseif ($op === 'stddev' || $op === 'stdev') {
             if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
@@ -9851,6 +9857,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'stddev');
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Kalkulasi Tabel', "Standar deviasi sampel kolom #{$colIndex} dihitung.", 'success');
         } elseif ($op === 'var' || $op === 'variance') {
             if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
@@ -9861,6 +9869,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'var');
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Kalkulasi Tabel', "Varians sampel (s²) kolom #{$colIndex} dihitung.", 'success');
         } elseif ($op === 'range') {
             if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
@@ -9871,6 +9881,8 @@ trait HandlesNaskahStudio
             $this->blocks[$index] = $this->model->calculateTableColumn($this->blocks[$index], $colIndex, 'range');
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Kalkulasi Tabel', "Rentang nilai (Range) kolom #{$colIndex} dihitung.", 'success');
         } else {
             $this->tableSumColumn($index, $colIndex);
@@ -9961,8 +9973,11 @@ trait HandlesNaskahStudio
 
         $this->pushUndo();
         $snapshot = $this->snapshots[$snapshotIndex];
-        $this->blocks = (array) $snapshot['blocks'];
+        $this->blocks = $this->model->normalize((array) $snapshot['blocks']);
         $this->dirty = true;
+        $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->blocks);
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Versi dipulihkan', "Naskah dikembalikan ke: {$snapshot['label']}", 'info');
     }
 
