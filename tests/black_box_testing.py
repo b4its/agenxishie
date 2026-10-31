@@ -119,6 +119,38 @@ test(f"GET /api/v1/naskah/documents/{doc_id}/export?format=json", status == 200 
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/statistics")
 test(f"GET /api/v1/naskah/documents/{doc_id}/statistics", status == 200 and "statistics" in body)
 
+status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/outline")
+test(f"GET /api/v1/naskah/documents/{doc_id}/outline", status == 200 and "outline" in body)
+
+status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/comments", {
+    "text": "Komentar black-box API verifikasi.",
+    "author": "Reviewer BlackBox"
+})
+test(f"POST /api/v1/naskah/documents/{doc_id}/comments", status in (200, 201) and "comment" in body)
+
+status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/comments")
+test(f"GET /api/v1/naskah/documents/{doc_id}/comments", status == 200 and "comments" in body and "unresolved_count" in body)
+
+status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/revisions")
+test(f"GET /api/v1/naskah/documents/{doc_id}/revisions", status == 200 and "revisions" in body and "pending_count" in body)
+
+status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/snapshots", {
+    "label": "Snapshot E2E BlackBox",
+    "author": "Peneliti E2E"
+})
+test(f"POST /api/v1/naskah/documents/{doc_id}/snapshots", status in (200, 201) and "snapshot" in body)
+
+status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/snapshots")
+test(f"GET /api/v1/naskah/documents/{doc_id}/snapshots", status == 200 and "snapshots" in body and "total" in body)
+
+status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/find-replace", {
+    "search": "KataYangTidakAda12345",
+    "replace": "Pengganti",
+    "match_case": False,
+    "whole_word": False
+})
+test(f"POST /api/v1/naskah/documents/{doc_id}/find-replace", status == 200 and "replacements_count" in body)
+
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/export?format=csv")
 test(f"GET /api/v1/naskah/documents/{doc_id}/export?format=csv", status == 200)
 
@@ -239,6 +271,7 @@ test("Command Search Input Field Present", "commandSearch" in assistant_html or 
 test("HTML Transcript Export Option Present", "HTML" in assistant_html)
 test("LaTeX Transcript Export Option Present", "LaTeX" in assistant_html)
 test("CSV Transcript Export Option Present", "CSV" in assistant_html)
+test("RTF Transcript Export Option Present", "exportTranscript('rtf')" in assistant_html or "RTF" in assistant_html)
 test("Markdown Transcript Export Option Present", "Markdown" in assistant_html or "exportTranscript('markdown')" in assistant_html or "MD" in assistant_html)
 test("Assistant Focus Scope Selector Present", "FOKUS:" in assistant_html)
 test("Assistant Focus Scope Options (project, manuscript, literature)",

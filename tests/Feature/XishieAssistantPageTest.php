@@ -663,12 +663,12 @@ it('supports academic prompt templates catalog, category filtering, and direct e
     // Filter by category
     $page->call('setTemplateCategoryFilter', 'Audit & Validasi');
     $filtered = $page->instance()->getFilteredPromptTemplates();
-    expect(count($filtered))->toBe(1)
+    expect(count($filtered))->toBe(2)
         ->and(array_key_first($filtered))->toBe('gap_matrix');
 
     // Reset filter
     $page->call('setTemplateCategoryFilter', 'all');
-    expect(count($page->instance()->getFilteredPromptTemplates()))->toBe(8);
+    expect(count($page->instance()->getFilteredPromptTemplates()))->toBe(11);
 
     // Apply template into input message
     $page->call('applyPromptTemplate', 'gap_matrix', false);
@@ -1837,4 +1837,56 @@ it('supports slash command aliases for statistics, chapter structure, references
     expect($lastEntry['command'])->toBe(SlashCommand::KETERBACAAN->value)
         ->and($lastEntry['content'])->toContain('Laporan Analisis Keterbacaan Naskah')
         ->and($lastEntry['data'])->toHaveKey('reading_ease');
+});
+
+it('exports assistant transcript to RTF format and supports new academic prompt templates', function (): void {
+    $this->actingAs(User::factory()->create());
+    $project = makeProject();
+
+    $page = Livewire::test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('log', [
+            [
+                'role' => 'user',
+                'content' => '/kebaruan Evaluasi kebaruan metode penelitian ini.',
+                'created_at' => now()->format('H:i:s'),
+            ],
+            [
+                'role' => 'assistant',
+                'content' => 'Pernyataan kebaruan riset menunjukkan kontribusi signifikan pada ekstraksi fitur.',
+                'command' => '/kebaruan',
+                'model' => 'hv/agnes-3.0-flash',
+                'persona' => 'novelty',
+                'created_at' => now()->format('H:i:s'),
+            ],
+        ]);
+
+    // 1. Export RTF
+    $rtfResponse = $page->instance()->exportTranscript('rtf');
+    ob_start();
+    $rtfResponse->sendContent();
+    $rtfContent = ob_get_clean();
+
+    expect($rtfContent)->toStartWith('{\rtf1\ansi')
+        ->and($rtfContent)->toContain('Transkrip Sesi Xishie Assistant')
+        ->and($rtfContent)->toContain('Model: hv/agnes-3.0-flash')
+        ->and($rtfContent)->toContain('Persona: novelty')
+        ->and($rtfContent)->toContain('Perintah: /kebaruan')
+        ->and($rtfContent)->toContain('Pernyataan kebaruan riset');
+
+    // 2. Verify new prompt templates in catalog
+    $templates = $page->instance()->getAcademicPromptTemplates();
+    $keys = array_keys($templates);
+
+    expect($keys)->toContain('literature_matrix_sota')
+        ->and($keys)->toContain('novelty_statement')
+        ->and($keys)->toContain('puebi_linguistic_audit');
+
+    $page->call('applyPromptTemplate', 'literature_matrix_sota');
+    expect($page->get('message'))->toStartWith('/matriks-literatur');
+
+    $page->call('applyPromptTemplate', 'novelty_statement');
+    expect($page->get('message'))->toStartWith('/kebaruan');
+
+    $page->call('applyPromptTemplate', 'puebi_linguistic_audit');
+    expect($page->get('message'))->toStartWith('/puebi');
 });

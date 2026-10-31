@@ -3733,3 +3733,122 @@ it('supports literature matrix latex and odt exports, synthesis metrics, table v
     $zipDocx->close();
     @unlink($tmpDocx);
 });
+
+it('supports outline, comments, revisions, snapshots, find-replace, and extended presets in studio api', function (): void {
+    $user = User::factory()->create();
+    $doc = NaskahDocument::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Dokumen Kolaborasi dan API Tingkat Lanjut',
+        'blocks' => [
+            ['id' => 'h1', 'type' => 'heading', 'level' => 1, 'text' => 'Bab I: Pendahuluan'],
+            ['id' => 'p1', 'type' => 'paragraph', 'text' => 'Kajian ini mengevaluasi kinerja transformer pada teks akademik.'],
+            [
+                'id' => 't1',
+                'type' => 'table',
+                'table' => [
+                    'header' => true,
+                    'caption' => 'Tabel Hasil Evaluasi',
+                    'rows' => [
+                        [['text' => 'Model'], ['text' => 'Skor']],
+                        [['text' => 'Transformer'], ['text' => '94.2%']],
+                    ],
+                ],
+            ],
+        ],
+        'comments' => [
+            [
+                'id' => 'c1',
+                'author' => 'Reviewer Senior',
+                'text' => 'Perjelas batas sampel penelitian.',
+                'blockIndex' => 1,
+                'createdAt' => now()->toIso8601String(),
+                'resolved' => false,
+                'replies' => [],
+            ],
+        ],
+        'revisions' => [
+            [
+                'id' => 'r1',
+                'blockIndex' => 1,
+                'before' => 'Kajian mengevaluasi',
+                'after' => 'Kajian ini mengevaluasi',
+                'at' => now()->toIso8601String(),
+            ],
+        ],
+        'word_count' => 14,
+    ]);
+
+    // 1. GET /api/v1/naskah/documents/{id}/outline
+    $this->getJson("/api/v1/naskah/documents/{$doc->id}/outline")
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('total_headings', 1)
+        ->assertJsonPath('outline.0.text', 'Bab I: Pendahuluan');
+
+    // 2. GET /api/v1/naskah/documents/{id}/comments
+    $this->getJson("/api/v1/naskah/documents/{$doc->id}/comments")
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('total_comments', 1)
+        ->assertJsonPath('comments.0.text', 'Perjelas batas sampel penelitian.');
+
+    // 3. POST /api/v1/naskah/documents/{id}/comments
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/comments", [
+        'author' => 'Reviewer Metodologi',
+        'text' => 'Tambahkan perbandingan dengan baseline.',
+        'block_index' => 2,
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('total_comments', 2)
+        ->assertJsonPath('data.author', 'Reviewer Metodologi');
+
+    // 4. GET /api/v1/naskah/documents/{id}/revisions
+    $this->getJson("/api/v1/naskah/documents/{$doc->id}/revisions")
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('total_revisions', 1);
+
+    // 5. POST & GET /api/v1/naskah/documents/{id}/snapshots
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/snapshots", [
+        'label' => 'Versi Pra-Review 1.0',
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('total_snapshots', 1)
+        ->assertJsonPath('snapshot.label', 'Versi Pra-Review 1.0');
+
+    $this->getJson("/api/v1/naskah/documents/{$doc->id}/snapshots")
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('total_snapshots', 1)
+        ->assertJsonPath('snapshots.0.label', 'Versi Pra-Review 1.0');
+
+    // 6. POST /api/v1/naskah/documents/{id}/find-replace across blocks and table cells
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/find-replace", [
+        'search' => 'Transformer',
+        'replace' => 'XishieModel',
+        'match_case' => true,
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('replacements_count', 1);
+
+    $reloaded = NaskahDocument::find($doc->id);
+    expect($reloaded->blocks[2]['table']['rows'][1][0]['text'])->toBe('XishieModel');
+
+    // 7. POST /api/v1/naskah/documents/{id}/execute-model with preset gap and matrix
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/execute-model", [
+        'preset' => 'gap',
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('data.document_id', $doc->id);
+
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/execute-model", [
+        'preset' => 'matrix',
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('data.document_id', $doc->id);
+});
