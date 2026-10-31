@@ -3235,3 +3235,102 @@ it('supports match case and whole word find-replace, table column alignment, and
     $component->call('tableDeleteRow', 1, 1);
     expect($component->get('blocks')[1]['table']['rows'])->toHaveCount(3);
 });
+
+it('supports markdown parsing of images, pagebreaks, inline links, and academic link presets', function () {
+    $user = User::factory()->create();
+    $doc = NaskahDocument::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Uji Markdown dan Tautan',
+        'blocks' => [
+            ['id' => 'p1', 'type' => 'paragraph', 'text' => 'Teks awal paragraf.', 'runs' => []],
+        ],
+        'word_count' => 3,
+    ]);
+
+    // 1. Model & Parser Markdown round-trip testing
+    $model = app(\App\Domain\Publication\NaskahRichModel::class);
+    $parser = app(\App\Domain\Publication\NaskahBlockParser::class);
+
+    $markdownInput = "Berikut adalah dokumentasi:\n\n![Arsitektur Sistem](https://xishie.id/img/arch.png)\n\n---\n\nKunjungi [Repositori Resmi](https://github.com/xishie/core) untuk kode sumber.\n\n- Baca juga [Paper DOI](https://doi.org/10.1234/5678) sekarang.";
+
+    $blocksFromModel = $model->parseMarkdownToBlocks($markdownInput);
+    $blocksFromParser = $parser->parse($markdownInput);
+
+    expect($blocksFromModel[1]['type'])->toBe('image')
+        ->and($blocksFromModel[1]['image']['src'])->toBe('https://xishie.id/img/arch.png')
+        ->and($blocksFromModel[1]['image']['alt'])->toBe('Arsitektur Sistem')
+        ->and($blocksFromModel[2]['type'])->toBe('pagebreak')
+        ->and($blocksFromModel[3]['type'])->toBe('paragraph')
+        ->and($blocksFromModel[3]['text'])->toBe('Kunjungi Repositori Resmi untuk kode sumber.')
+        ->and($blocksFromModel[3]['runs'][1]['text'])->toBe('Repositori Resmi')
+        ->and($blocksFromModel[3]['runs'][1]['link'])->toBe('https://github.com/xishie/core')
+        ->and($blocksFromModel[4]['type'])->toBe('bullet')
+        ->and($blocksFromModel[4]['text'])->toBe('Baca juga Paper DOI sekarang.')
+        ->and($blocksFromModel[4]['runs'][1]['link'])->toBe('https://doi.org/10.1234/5678');
+
+    expect($blocksFromParser[1]['type'])->toBe('image')
+        ->and($blocksFromParser[1]['image']['src'])->toBe('https://xishie.id/img/arch.png')
+        ->and($blocksFromParser[2]['type'])->toBe('pagebreak');
+
+    // 2. Export verification (ODT and DOCX)
+    $odtExporter = app(\App\Domain\Publication\NaskahOdtExporter::class);
+    $odtBinary = $odtExporter->build($blocksFromModel, 'Dokumen Uji');
+    expect(strlen($odtBinary))->toBeGreaterThan(500);
+
+    // Unzip ODT in memory to inspect content.xml
+    $tempOdt = tempnam(sys_get_temp_dir(), 'odt_test_');
+    file_put_contents($tempOdt, $odtBinary);
+    $zip = new ZipArchive;
+    $zip->open($tempOdt);
+    $contentXml = $zip->getFromName('content.xml');
+    $zip->close();
+    @unlink($tempOdt);
+
+    expect($contentXml)->toContain('xmlns:xlink="http://www.w3.org/1999/xlink"')
+        ->and($contentXml)->toContain('<text:a xlink:type="simple" xlink:href="https://github.com/xishie/core">');
+
+    $docxExporter = app(\App\Domain\Publication\NaskahDocxExporter::class);
+    $docxBinary = $docxExporter->build($blocksFromModel, 'Dokumen Uji');
+    expect(strlen($docxBinary))->toBeGreaterThan(500);
+
+    $tempDocx = tempnam(sys_get_temp_dir(), 'docx_test_');
+    file_put_contents($tempDocx, $docxBinary);
+    $zipDocx = new ZipArchive;
+    $zipDocx->open($tempDocx);
+    $wordDocXml = $zipDocx->getFromName('word/document.xml');
+    $zipDocx->close();
+    @unlink($tempDocx);
+
+    expect($wordDocXml)->toContain('w:color w:val="2563EB"');
+
+    // 3. Component test for setLinkPreset & insertLink
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    $component->call('setLinkPreset', 'doi');
+    expect($component->get('linkUrl'))->toBe('https://doi.org/10.');
+
+    $component->call('setLinkPreset', 'arxiv');
+    expect($component->get('linkUrl'))->toBe('https://arxiv.org/abs/');
+
+    $component->call('setLinkPreset', 'scholar');
+    expect($component->get('linkUrl'))->toBe('https://scholar.google.com/scholar?q=');
+
+    $component->call('setLinkPreset', 'github');
+    expect($component->get('linkUrl'))->toBe('https://github.com/');
+
+    $component->call('setLinkPreset', 'dataset');
+    expect($component->get('linkUrl'))->toBe('https://huggingface.co/datasets/');
+
+    // Insert Link into active block
+    $component->set('activeBlock', 0)
+        ->set('linkUrl', 'https://doi.org/10.5555/sample')
+        ->set('linkText', 'Referensi DOI 5555')
+        ->call('insertLink');
+
+    $updatedBlocks = $component->get('blocks');
+    expect($updatedBlocks[0]['text'])->toContain('Referensi DOI 5555')
+        ->and(end($updatedBlocks[0]['runs'])['link'])->toBe('https://doi.org/10.5555/sample')
+        ->and($component->get('linkUrl'))->toBe('')
+        ->and($component->get('linkText'))->toBe('');
+});

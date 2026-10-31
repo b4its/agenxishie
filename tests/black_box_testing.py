@@ -467,6 +467,14 @@ status, filament_equation_html, _ = http_get("/admin/naskah-studio?dialog=equati
 test("Filament Studio: Equation Dialog Bayes and F1 Presets (?dialog=equation)",
      "setEquationPreset('bayes')" in filament_equation_html and "setEquationPreset('f1')" in filament_equation_html)
 
+status, studio_link_html, _ = http_get("/studio?dialog=link")
+test("Standalone Studio: Link Dialog Academic Presets (?dialog=link)",
+     status == 200 and "setLinkPreset('doi')" in studio_link_html and "setLinkPreset('arxiv')" in studio_link_html)
+
+status, filament_link_html, _ = http_get("/admin/naskah-studio?dialog=link", headers=auth_headers)
+test("Filament Studio: Link Dialog Academic Presets (?dialog=link)",
+     status == 200 and "setLinkPreset('doi')" in filament_link_html and "setLinkPreset('arxiv')" in filament_link_html)
+
 status, studio_references_html, _ = http_get("/studio?tab=references")
 test("Standalone Studio: References Ribbon Tab (?tab=references)", "Pustaka Riset" in studio_references_html and "Insert Citation" in studio_references_html)
 test("Standalone Studio: References Ribbon Update Bibliography Present (?tab=references)", "updateBibliography" in studio_references_html or "Update Bib" in studio_references_html)
