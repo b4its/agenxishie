@@ -3386,3 +3386,60 @@ it('supports aiSummarizeBlock, aiKeyPointsBlock, link dialog aliases, and model 
     $component->call('executeCommand', 'ai.key_points');
     expect(count($component->get('blocks')))->toBeGreaterThan(2);
 });
+
+it('supports rich latex exports with href and grouped list environments, and inline link parsing in parser', function () {
+    $parser = app(\App\Domain\Publication\NaskahBlockParser::class);
+    $model = app(\App\Domain\Publication\NaskahRichModel::class);
+
+    $rawMarkdown = "Paragraf dengan [Tautan Web](https://xishie.id) penting.\n\n> Kutipan dengan [Rujukan](https://doi.org/10.1234/5678).\n\n- Butir satu dengan [Kode](https://github.com/org/repo)\n- Butir dua biasa\n\n1. Langkah pertama\n2. Langkah kedua dengan [Dataset](https://huggingface.co/datasets/sample)";
+
+    $parsedBlocks = $parser->parse($rawMarkdown);
+
+    expect($parsedBlocks[0]['type'])->toBe('paragraph')
+        ->and($parsedBlocks[0]['text'])->toBe('Paragraf dengan Tautan Web penting.')
+        ->and($parsedBlocks[0]['runs'][1]['text'])->toBe('Tautan Web')
+        ->and($parsedBlocks[0]['runs'][1]['link'])->toBe('https://xishie.id')
+        ->and($parsedBlocks[1]['type'])->toBe('quote')
+        ->and($parsedBlocks[1]['runs'][1]['link'])->toBe('https://doi.org/10.1234/5678')
+        ->and($parsedBlocks[2]['type'])->toBe('bullet')
+        ->and($parsedBlocks[2]['runs'][1]['link'])->toBe('https://github.com/org/repo')
+        ->and($parsedBlocks[5]['type'])->toBe('numbered')
+        ->and($parsedBlocks[5]['runs'][1]['link'])->toBe('https://huggingface.co/datasets/sample');
+
+    // LaTeX export testing
+    $latex = $model->toLatex($parsedBlocks, 'Naskah Uji LaTeX');
+
+    expect($latex)->toContain('\href{https://xishie.id}{Tautan Web}')
+        ->and($latex)->toContain('\begin{itemize}')
+        ->and($latex)->toContain('\end{itemize}')
+        ->and($latex)->toContain('\begin{enumerate}')
+        ->and($latex)->toContain('\end{enumerate}')
+        ->and(substr_count($latex, '\begin{itemize}'))->toBe(1)
+        ->and(substr_count($latex, '\begin{enumerate}'))->toBe(1);
+
+    // Cross reference runs integrity
+    $user = User::factory()->create();
+    $doc = NaskahDocument::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Uji Crossref',
+        'blocks' => [
+            ['id' => 'p1', 'type' => 'paragraph', 'text' => 'Berdasarkan uraian pada', 'runs' => [
+                ['text' => 'Berdasarkan uraian pada', 'bold' => true, 'italic' => false, 'underline' => false, 'strike' => false, 'sub' => false, 'sup' => false, 'code' => false, 'smallCaps' => false, 'allCaps' => false, 'color' => null, 'highlight' => null, 'link' => null],
+            ]],
+            ['id' => 't1', 'type' => 'table', 'table' => ['rows' => [[['text' => 'Col 1']]], 'caption' => 'Tabel 1']],
+        ],
+        'word_count' => 5,
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    $component->set('activeBlock', 0)
+        ->call('insertCrossReference', 'table', 'Tabel 1');
+
+    $blocks = $component->get('blocks');
+    expect($blocks[0]['text'])->toBe('Berdasarkan uraian pada Tabel 1')
+        ->and($blocks[0]['runs'][0]['text'])->toBe('Berdasarkan uraian pada')
+        ->and($blocks[0]['runs'][0]['bold'])->toBeTrue()
+        ->and($blocks[0]['runs'][1]['text'])->toBe(' Tabel 1');
+});

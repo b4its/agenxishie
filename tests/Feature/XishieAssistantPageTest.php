@@ -1754,4 +1754,12 @@ it('supports /ringkas with text arguments and slash command aliases for citation
         ->and($lastEntry['data'])->toHaveKey('summary')
         ->and($lastEntry['data'])->toHaveKey('original_word_count')
         ->and($lastEntry['data'])->toHaveKey('blocks');
+
+    $lastIndex = count($log) - 1;
+    $page->call('applyToNaskahStudio', $lastIndex);
+    $page->assertHasNoErrors();
+
+    $doc = NaskahDocument::query()->where('project_id', $project->id)->latest('updated_at')->first();
+    expect($doc)->not->toBeNull()
+        ->and($doc->word_count)->toBeGreaterThan(0);
 });
