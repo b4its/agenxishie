@@ -1581,6 +1581,7 @@
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="aiElaborateBlock({{ $activeBlock }})" title="Kembangkan gagasan paragraf aktif (AI)">⚡ Elaborasi</button>
                             <button type="button" class="ns-btn" wire:click="aiShortenBlock({{ $activeBlock }})" title="Persingkat dan padatkan paragraf aktif (AI)">✂ Ringkas</button>
+                            <button type="button" class="ns-btn" wire:click="aiKeyPointsBlock({{ $activeBlock }})" title="Ekstrak poin-poin kunci terpenting ke butir daftar (AI)">📋 Poin Kunci</button>
                             <button type="button" class="ns-btn" wire:click="aiParaphraseBlock({{ $activeBlock }})" title="Parafrase kalimat agar orisinal & bernas (AI)">🔄 Parafrase</button>
                             <button type="button" class="ns-btn" wire:click="aiTranslateBlock({{ $activeBlock }}, 'en')" title="Terjemahkan paragraf aktif ke Bahasa Inggris (AI)">🌐 Translate</button>
                             <button type="button" class="ns-btn" wire:click="aiFixTone({{ $activeBlock }}, 'akademik')" title="Sesuaikan ke nada formal akademik (AI)">🎓 Nada Akademik</button>
@@ -1865,6 +1866,7 @@
                         <div class="ns-group__row">
                             <button type="button" class="ns-btn" wire:click="aiElaborateBlock({{ $activeBlock }})" title="Kembangkan gagasan paragraf aktif (AI)">⚡ Elaborasi</button>
                             <button type="button" class="ns-btn" wire:click="aiShortenBlock({{ $activeBlock }})" title="Persingkat dan padatkan paragraf aktif (AI)">✂ Ringkas</button>
+                            <button type="button" class="ns-btn" wire:click="aiKeyPointsBlock({{ $activeBlock }})" title="Ekstrak poin-poin kunci terpenting ke butir daftar (AI)">📋 Poin Kunci</button>
                             <button type="button" class="ns-btn" wire:click="aiParaphraseBlock({{ $activeBlock }})" title="Parafrase kalimat agar orisinal & bernas (AI)">🔄 Parafrase</button>
                             <button type="button" class="ns-btn" wire:click="aiTranslateBlock({{ $activeBlock }}, 'en')" title="Terjemahkan paragraf aktif ke Bahasa Inggris (AI)">🌐 Translate</button>
                             <button type="button" class="ns-btn" wire:click="aiFixTone({{ $activeBlock }}, 'akademik')" title="Sesuaikan ke nada formal akademik (AI)">🎓 Nada Akademik</button>

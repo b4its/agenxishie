@@ -84,7 +84,7 @@ enum SlashCommand: string
         $trimmed = trim($input);
         $firstToken = mb_strtolower(explode(' ', $trimmed)[0] ?? '');
 
-        if (in_array($firstToken, ['/audit-sitasi', '/cek-sitasi', '/verifikasi-sitasi', '/sitasi-audit'], true)) {
+        if (in_array($firstToken, ['/audit-sitasi', '/cek-sitasi', '/verifikasi-sitasi', '/sitasi-audit', '/citation-audit', '/check-citations'], true)) {
             return self::SITASI;
         }
         if (in_array($firstToken, ['/cari-ref', '/referensi', '/search-ref', '/cari_referensi'], true)) {
@@ -96,7 +96,7 @@ enum SlashCommand: string
         if (in_array($firstToken, ['/metode', '/methodology', '/method'], true)) {
             return self::METODOLOGI;
         }
-        if (in_array($firstToken, ['/ringkaskan', '/summary', '/summarize', '/ringkasan'], true)) {
+        if (in_array($firstToken, ['/ringkaskan', '/summary', '/summarize', '/ringkasan', '/key-points', '/poin-kunci', '/poin-penting', '/intisari'], true)) {
             return self::RINGKAS;
         }
         if (in_array($firstToken, ['/latex', '/equation', '/formula', '/math', '/persamaan'], true)) {

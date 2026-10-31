@@ -58,7 +58,7 @@ final class XishieAssistantService
             SlashCommand::CEK_PEDOMAN => $this->cekPedoman($project),
             SlashCommand::MATRIKS => $this->matriks($project),
             SlashCommand::CARI_REFERENSI => $this->cariReferensi($project, $argument),
-            SlashCommand::RINGKAS => $this->ringkas($project, $contextDocument),
+            SlashCommand::RINGKAS => $this->ringkas($project, $contextDocument, $argument),
             SlashCommand::POLES => $this->poles($project, $argument, $modelId, $persona, $scope),
             SlashCommand::RUMUS => $this->rumus($project, $argument),
             SlashCommand::GAMBAR => $this->gambar($project, $argument),
@@ -438,8 +438,37 @@ final class XishieAssistantService
     /**
      * @return array{command: string, reply: string, data: array<string, mixed>}
      */
-    private function ringkas(XishieProject $project, ?NaskahDocument $contextDocument = null): array
+    private function ringkas(XishieProject $project, ?NaskahDocument $contextDocument = null, ?string $argument = null): array
     {
+        if ($argument !== null && trim($argument) !== '') {
+            $cleanArg = trim($argument);
+            $sentences = array_filter(array_map('trim', preg_split('/(?<=[.?!])\s+/u', $cleanArg) ?: []));
+            $summarySentence = count($sentences) > 1
+                ? implode(' ', array_slice($sentences, 0, 2))
+                : $cleanArg;
+
+            $origWords = str_word_count($cleanArg);
+            $sumWords = str_word_count($summarySentence);
+            $ratio = max(10, min(90, (int) round(($sumWords / max(1, $origWords)) * 100)));
+
+            $reply = "### Ringkasan Eksekutif Teks\n\n"
+                ."> {$summarySentence}\n\n"
+                ."- **Panjang Teks Asli**: {$origWords} kata\n"
+                ."- **Rasio Kompresi**: ~{$ratio}%";
+
+            return [
+                'command' => SlashCommand::RINGKAS->value,
+                'reply' => $reply,
+                'data' => [
+                    'original_word_count' => $origWords,
+                    'summary' => $summarySentence,
+                    'blocks' => [
+                        app(NaskahRichModel::class)->newBlock('paragraph', $summarySentence),
+                    ],
+                ],
+            ];
+        }
+
         if ($contextDocument !== null) {
             $blocks = (array) ($contextDocument->blocks ?? []);
             $plainText = app(NaskahRichModel::class)->toPlainText($blocks);

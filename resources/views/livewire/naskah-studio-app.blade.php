@@ -978,6 +978,7 @@
                         <div class="word-group__row">
                             <button type="button" class="word-tool-btn" wire:click="aiElaborateBlock({{ $activeBlock }})" title="Kembangkan gagasan blok aktif">⚡ Elaborasi</button>
                             <button type="button" class="word-tool-btn" wire:click="aiShortenBlock({{ $activeBlock }})" title="Padatkan paragraf aktif">✂ Ringkas</button>
+                            <button type="button" class="word-tool-btn" wire:click="aiKeyPointsBlock({{ $activeBlock }})" title="Ekstrak poin-poin kunci terpenting">📋 Poin Kunci</button>
                             <button type="button" class="word-tool-btn" wire:click="aiParaphraseBlock({{ $activeBlock }})" title="Parafrase akademik blok aktif">🔄 AI Paraphrase</button>
                         </div>
                         <div class="word-group__row">
@@ -1426,6 +1427,7 @@
                     <div class="word-group__col">
                         <button type="button" class="word-tool-btn" wire:click="aiElaborateBlock({{ $activeBlock }})">✨ AI Elaborate</button>
                         <button type="button" class="word-tool-btn" wire:click="aiShortenBlock({{ $activeBlock }})">✂️ AI Shorten</button>
+                        <button type="button" class="word-tool-btn" wire:click="aiKeyPointsBlock({{ $activeBlock }})">📋 AI Key Points</button>
                         <button type="button" class="word-tool-btn" wire:click="aiParaphraseBlock({{ $activeBlock }})">🔄 AI Paraphrase</button>
                         <button type="button" class="word-tool-btn" wire:click="aiTranslateBlock({{ $activeBlock }}, 'en')">🌐 AI Translate</button>
                         <button type="button" class="word-tool-btn" wire:click="aiFixTone({{ $activeBlock }}, 'akademik')">🎓 Academic Tone</button>

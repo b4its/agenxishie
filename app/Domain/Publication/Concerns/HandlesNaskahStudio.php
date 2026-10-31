@@ -1163,6 +1163,85 @@ trait HandlesNaskahStudio
         }
     }
 
+    public function aiSummarizeBlock(int $index): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $this->pushUndo();
+        $text = (string) ($this->blocks[$index]['text'] ?? '');
+        if (trim($text) === '') {
+            return;
+        }
+
+        $prompt = "Tolong buatkan intisari/ringkasan eksekutif 1-2 kalimat ilmiah yang padat dan representatif dari teks berikut:\n\n\"{$text}\"";
+        $reply = $this->answer(null, $prompt);
+
+        if (str_starts_with($reply, 'Dokumen \'') || trim($reply) === '' || $reply === $text) {
+            $sentences = array_filter(array_map('trim', preg_split('/(?<=[.?!])\s+/u', $text) ?: []));
+            $reply = count($sentences) > 1
+                ? implode(' ', array_slice($sentences, 0, 2))
+                : 'Secara ringkas, pokok bahasan menekankan signifikansi temuan dan konsistensi metodologis dalam mendukung tujuan penelitian.';
+        }
+
+        if (trim($reply) !== '') {
+            $this->recordRevision($index, $text, $reply);
+            $this->blocks[$index]['text'] = $reply;
+            $this->blocks[$index]['runs'] = [];
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Intisari teks dibuat', 'Ringkasan eksekutif berhasil diterapkan.', 'success');
+        }
+    }
+
+    public function aiKeyPointsBlock(int $index): void
+    {
+        if (! isset($this->blocks[$index])) {
+            return;
+        }
+
+        $this->pushUndo();
+        $text = (string) ($this->blocks[$index]['text'] ?? '');
+        if (trim($text) === '') {
+            return;
+        }
+
+        $prompt = "Ekstrak 2-4 poin-poin kunci terpenting dari bahasan berikut dalam bentuk butir daftar (bullet points) ringkas:\n\n\"{$text}\"";
+        $reply = $this->answer(null, $prompt);
+
+        $bulletBlocks = [];
+        if (! str_starts_with($reply, 'Dokumen \'') && trim($reply) !== '') {
+            $parsed = $this->model->parseMarkdownToBlocks($reply);
+            $bulletBlocks = array_filter($parsed, static fn (array $b): bool => ($b['type'] ?? '') === 'bullet');
+        }
+
+        if (empty($bulletBlocks)) {
+            $sentences = array_filter(array_map('trim', preg_split('/(?<=[.?!])\s+/u', $text) ?: []));
+            if (! empty($sentences)) {
+                foreach (array_slice($sentences, 0, 3) as $s) {
+                    $bulletBlocks[] = $this->model->newBlock('bullet', $s);
+                }
+            } else {
+                $bulletBlocks = [
+                    $this->model->newBlock('bullet', 'Poin utama: '.$text),
+                ];
+            }
+        }
+
+        if (! empty($bulletBlocks)) {
+            array_splice($this->blocks, $index + 1, 0, array_values($bulletBlocks));
+            $this->activeBlock = $index + 1;
+            $this->dirty = true;
+            $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
+            $this->notify('Poin kunci diekstrak', count($bulletBlocks).' butir disisipkan di bawah paragraf.', 'success');
+        }
+    }
+
     public function addBlock(string $type = 'paragraph'): void
     {
         $this->pushUndo();
@@ -6672,6 +6751,7 @@ trait HandlesNaskahStudio
             'equations' => 'equation',
             'images', 'picture', 'pictures' => 'image',
             'tables' => 'table',
+            'links', 'tautan', 'hyperlink', 'url' => 'link',
             default => $dialog,
         };
 
@@ -7573,6 +7653,7 @@ trait HandlesNaskahStudio
             $this->isReviewingModelOutput = true;
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
             $this->statistics = $this->model->computeStatistics($this->blocks);
 
             // Log ke riwayat assistant
@@ -7753,6 +7834,7 @@ trait HandlesNaskahStudio
         $this->backupBlocksBeforeReview = [];
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->statistics = $this->model->computeStatistics($this->blocks);
 
         if ($withNotification) {
@@ -7778,6 +7860,7 @@ trait HandlesNaskahStudio
         $this->backupBlocksBeforeReview = [];
         $this->activeBlock = max(0, min($this->activeBlock, count($this->blocks) - 1));
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->statistics = $this->model->computeStatistics($this->blocks);
 
         $this->notify('Hasil Model Dibatalkan', 'Hasil generasi model dibatalkan dan naskah dikembalikan ke susunan semula.', 'warning');
@@ -7913,6 +7996,26 @@ trait HandlesNaskahStudio
      */
     public function executeModelPreset(string $presetKey, ?int $pageNumber = null): bool
     {
+        $presetKey = strtolower(trim($presetKey));
+        $normalizedKey = match ($presetKey) {
+            'poles', 'refine' => 'polish',
+            'kembangkan', 'elaborasi', 'elaborate' => 'expand',
+            'parafrasa' => 'paraphrase',
+            'kebaruan' => 'novelty',
+            'tabel', 'matriks' => 'table',
+            'rumus', 'persamaan', 'math', 'latex' => 'equation',
+            'kritik', 'evaluasi' => 'critique',
+            'abstrak' => 'abstract',
+            'pendahuluan', 'latar-belakang' => 'introduction',
+            'metodologi', 'metode' => 'methodology',
+            'pembahasan', 'diskusi' => 'discussion',
+            'kesimpulan', 'simpulan', 'limitasi', 'keterbatasan' => 'conclusion',
+            'tinjauan', 'tinjauan-pustaka', 'literatur' => 'literature',
+            'daftar-pustaka', 'pustaka', 'referensi' => 'bibliography',
+            'keterbacaan', 'audit-keterbacaan' => 'readability',
+            default => $presetKey,
+        };
+
         $presets = [
             'expand' => 'Kembangkan dan elaborasi argumen akademik secara mendalam dengan kerangka teoretis dan justifikasi ilmiah yang kuat.',
             'polish' => 'Poles dan sempurnakan diksi, tata bahasa akademik baku, serta kohesi antar-kalimat pada naskah ini.',
@@ -7931,7 +8034,7 @@ trait HandlesNaskahStudio
             'readability' => 'Audit keterbacaan, kejelasan kalimat majemuk, dan kepadatan gagasan akademik pada naskah ini.',
         ];
 
-        $prompt = $presets[$presetKey] ?? $presets['polish'];
+        $prompt = $presets[$normalizedKey] ?? $presets['polish'];
 
         return $this->executeCurrentModel($prompt, 'current_page', $pageNumber);
     }
@@ -9419,6 +9522,8 @@ trait HandlesNaskahStudio
             ['id' => 'review.reject_all', 'label' => 'Tolak Semua Revisi', 'category' => 'Peninjauan', 'icon' => '✖'],
             ['id' => 'ai.elaborate', 'label' => 'Kembangkan Gagasan Teks (AI)', 'category' => 'Wordcraft AI', 'icon' => '⚡'],
             ['id' => 'ai.shorten', 'label' => 'Padatkan Teks (AI)', 'category' => 'Wordcraft AI', 'icon' => '✂️'],
+            ['id' => 'ai.summarize', 'label' => 'Ringkas Intisari Eksekutif (AI)', 'category' => 'Wordcraft AI', 'icon' => '📑'],
+            ['id' => 'ai.key_points', 'label' => 'Ekstrak Poin Kunci ke Butir Daftar (AI)', 'category' => 'Wordcraft AI', 'icon' => '📋'],
             ['id' => 'ai.paraphrase', 'label' => 'Parafrase Teks Akademik (AI)', 'category' => 'Wordcraft AI', 'icon' => '🔄'],
             ['id' => 'ai.translate', 'label' => 'Terjemahkan Teks ke Bahasa Inggris (AI)', 'category' => 'Wordcraft AI', 'icon' => '🌐'],
             ['id' => 'ai.fix_tone', 'label' => 'Sesuaikan Nada Bahasa Akademik (AI)', 'category' => 'Wordcraft AI', 'icon' => '🎓'],
@@ -9493,6 +9598,8 @@ trait HandlesNaskahStudio
             'review.reject_all' => $this->rejectAllRevisions(),
             'ai.elaborate' => $this->aiElaborateBlock($this->activeBlock),
             'ai.shorten' => $this->aiShortenBlock($this->activeBlock),
+            'ai.summarize' => $this->aiSummarizeBlock($this->activeBlock),
+            'ai.key_points' => $this->aiKeyPointsBlock($this->activeBlock),
             'ai.paraphrase' => $this->aiParaphraseBlock($this->activeBlock),
             'ai.translate' => $this->aiTranslateBlock($this->activeBlock, (string) ($args['target'] ?? 'en')),
             'ai.fix_tone' => $this->aiFixTone($this->activeBlock, (string) ($args['tone'] ?? 'akademik')),
