@@ -354,6 +354,7 @@ test("Standalone Studio: Snapshot Dialog Supported (?dialog=snapshots)", status 
 status, studio_find_html, _ = http_get("/studio?dialog=find")
 test("Standalone Studio: Find Dialog with Bidirectional Navigation (?dialog=find)", "findPrevious" in studio_find_html and "findNext" in studio_find_html)
 test("Standalone Studio: Find Dialog Replace and Replace All Actions (?dialog=find)", "replaceCurrent" in studio_find_html and "replaceAll" in studio_find_html)
+test("Standalone Studio: Find Dialog Match Case and Whole Word Options (?dialog=find)", "findMatchCase" in studio_find_html and "findWholeWord" in studio_find_html)
 
 status, studio_thesaurus_html, _ = http_get("/studio?dialog=thesaurus")
 test("Standalone Studio: Thesaurus Dialog Supported (?dialog=thesaurus)", "runThesaurus" in studio_thesaurus_html)
@@ -361,6 +362,7 @@ test("Standalone Studio: Thesaurus Dialog Supported (?dialog=thesaurus)", "runTh
 status, studio_find_auth_html, _ = http_get("/admin/naskah-studio?dialog=find", headers=auth_headers)
 test("Filament Studio: Find Dialog with Bidirectional Navigation (?dialog=find)", "findPrevious" in studio_find_auth_html and "findNext" in studio_find_auth_html)
 test("Filament Studio: Find Dialog Replace and Replace All Actions (?dialog=find)", "replaceCurrent" in studio_find_auth_html and "replaceAll" in studio_find_auth_html)
+test("Filament Studio: Find Dialog Match Case and Whole Word Options (?dialog=find)", "findMatchCase" in studio_find_auth_html and "findWholeWord" in studio_find_auth_html)
 
 status, studio_merge_auth_html, _ = http_get("/admin/naskah-studio?dialog=merge", headers=auth_headers)
 test("Filament Studio: Mail Merge Dialog Supported (?dialog=merge)", status == 200 and "Mail Merge" in studio_merge_auth_html)
@@ -403,11 +405,13 @@ test("Standalone Studio: Table Calculation Formulas (?tab=table)", "Min" in stud
 test("Standalone Studio: Table StdDev Formula (?tab=table)", "stddev" in studio_table_html or "StdDev" in studio_table_html)
 test("Standalone Studio: Table Styles (?tab=table)", "APA" in studio_table_html and "Grid" in studio_table_html and "Zebra" in studio_table_html)
 test("Standalone Studio: Table Sort & Transpose Actions (?tab=table)", "tableSortColumn" in studio_table_html and "tableTranspose" in studio_table_html)
+test("Standalone Studio: Table Alignment & Clear Data Actions (?tab=table)", "tableSetColumnAlign" in studio_table_html and "tableClearDataRows" in studio_table_html)
 
 status, studio_table_auth_html, _ = http_get("/admin/naskah-studio?tab=table", headers=auth_headers)
 test("Filament Studio: Table Calculation Formulas (?tab=table)", "tableCalculateColumn" in studio_table_auth_html and ("median" in studio_table_auth_html or "Median" in studio_table_auth_html))
 test("Filament Studio: Table StdDev Formula (?tab=table)", "tableCalculateColumn" in studio_table_auth_html and ("stddev" in studio_table_auth_html or "StdDev" in studio_table_auth_html))
 test("Filament Studio: Table Sort & Transpose Actions (?tab=table)", "tableSortColumn" in studio_table_auth_html and "tableTranspose" in studio_table_auth_html)
+test("Filament Studio: Table Alignment & Clear Data Actions (?tab=table)", "tableSetColumnAlign" in studio_table_auth_html and "tableClearDataRows" in studio_table_auth_html)
 
 test("Filament Studio: References Navigator Search Field", "referenceSearchQuery" in studio_table_auth_html or "referenceSearchQuery" in studio_html)
 

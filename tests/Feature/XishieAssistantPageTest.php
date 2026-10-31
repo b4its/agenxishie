@@ -1705,3 +1705,26 @@ it('provides structured blocks for /pendahuluan, /pembahasan, /kesimpulan, /tinj
     $headings = array_values(array_filter($doc->blocks, static fn ($b) => ($b['type'] ?? '') === 'heading' && str_contains((string) ($b['text'] ?? ''), 'Kesimpulan')));
     expect($headings)->not->toBeEmpty();
 });
+
+it('supports /limitasi and /keterbatasan aliases mapping to /kesimpulan with structured blocks', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id]);
+
+    expect(SlashCommand::tryParse('/limitasi evaluasi model'))->toBe(SlashCommand::KESIMPULAN)
+        ->and(SlashCommand::tryParse('/keterbatasan data'))->toBe(SlashCommand::KESIMPULAN)
+        ->and(SlashCommand::tryParse('/limitations'))->toBe(SlashCommand::KESIMPULAN)
+        ->and(SlashCommand::tryParse('/future-work riset lanjutan'))->toBe(SlashCommand::KESIMPULAN);
+
+    $page = Livewire::actingAs($user)
+        ->test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('message', '/limitasi penelitian')
+        ->call('send');
+
+    $log = $page->get('log');
+    $lastEntry = end($log);
+    expect($lastEntry['command'])->toBe(SlashCommand::KESIMPULAN->value)
+        ->and($lastEntry['data'])->toHaveKey('blocks')
+        ->and($lastEntry['content'])->toContain('Limitasi Riset');
+});

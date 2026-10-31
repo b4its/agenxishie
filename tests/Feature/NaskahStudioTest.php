@@ -3160,3 +3160,78 @@ it('supports table sorting, table transpose, and Vancouver citation style in nas
     $blocks = $component->get('blocks');
     expect($blocks[$activeIdx]['text'])->toContain('(1)');
 });
+
+it('supports match case and whole word find-replace, table column alignment, and table data clearing in naskah studio', function (): void {
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id]);
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Uji Cari-Ganti Lanjutan dan Format Tabel',
+        'source_type' => NaskahDocument::SOURCE_PROJECT,
+        'project_id' => $project->id,
+        'blocks' => [
+            ['type' => 'paragraph', 'text' => 'Kucing adalah hewan mamalia. Mengkucingkan kucing liar itu kucingku.'],
+            [
+                'type' => 'table',
+                'level' => 0,
+                'table' => [
+                    'header' => true,
+                    'rows' => [
+                        [['text' => 'Nama Hewan', 'runs' => []], ['text' => 'Populasi', 'runs' => []]],
+                        [['text' => 'kucing anggora', 'runs' => []], ['text' => '120', 'runs' => []]],
+                        [['text' => 'Kucing persia', 'runs' => []], ['text' => '85', 'runs' => []]],
+                    ],
+                ],
+            ],
+        ],
+        'word_count' => 20,
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    // 1. Test Match Case Find
+    $component->set('findQuery', 'Kucing')
+        ->set('findMatchCase', true)
+        ->set('findWholeWord', false)
+        ->call('findText');
+    expect($component->get('findResult'))->toContain('Ditemukan 2 kemunculan');
+
+    // 2. Test Whole Word Find
+    $component->set('findQuery', 'kucing')
+        ->set('findMatchCase', false)
+        ->set('findWholeWord', true)
+        ->call('findText');
+    expect($component->get('findResult'))->toContain('Ditemukan 4 kemunculan');
+
+    // 3. Test Whole Word + Match Case Replace All
+    $component->set('findQuery', 'kucing')
+        ->set('replaceQuery', 'felis')
+        ->set('findMatchCase', true)
+        ->set('findWholeWord', true)
+        ->call('replaceAll');
+    $blocks = $component->get('blocks');
+    expect($blocks[0]['text'])->toBe('Kucing adalah hewan mamalia. Mengkucingkan felis liar itu kucingku.')
+        ->and($blocks[1]['table']['rows'][1][0]['text'])->toBe('felis anggora')
+        ->and($blocks[1]['table']['rows'][2][0]['text'])->toBe('Kucing persia');
+
+    // 4. Test tableSetColumnAlign
+    $component->call('tableSetColumnAlign', 1, 1, 'center');
+    $updatedTable = $component->get('blocks')[1]['table']['rows'];
+    expect($updatedTable[0][1]['align'])->toBe('center')
+        ->and($updatedTable[1][1]['align'])->toBe('center');
+
+    // 5. Test tableClearDataRows
+    $component->call('tableClearDataRows', 1);
+    $clearedTable = $component->get('blocks')[1]['table']['rows'];
+    expect($clearedTable[0][0]['text'])->toBe('Nama Hewan')
+        ->and($clearedTable[1][0]['text'])->toBe('')
+        ->and($clearedTable[1][1]['text'])->toBe('')
+        ->and($clearedTable[2][0]['text'])->toBe('');
+
+    // 6. Test word count and telemetry sync on tableDeleteRow and tableInsertRow
+    $component->call('tableInsertRow', 1, 0);
+    expect($component->get('editorRevision'))->toBeGreaterThan(0);
+
+    $component->call('tableDeleteRow', 1, 1);
+    expect($component->get('blocks')[1]['table']['rows'])->toHaveCount(3);
+});
