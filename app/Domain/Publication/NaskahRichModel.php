@@ -877,7 +877,11 @@ final class NaskahRichModel
                     'theorem' => '[Teorema]',
                     default => '[Catatan]',
                 };
-                $body .= '<div class="callout-box" style="border-left:4px solid '.$border.'; background:'.$bg.'; padding:10px 14px; margin:14px 0; border-radius:0 4px 4px 0;"><strong>'.$label.'</strong> '.$escape((string) ($block['text'] ?? '')).'</div>';
+                $cText = $this->runsToHtml($block, $escape);
+                if ($cText === '') {
+                    $cText = $escape((string) ($block['text'] ?? ''));
+                }
+                $body .= '<div class="callout-box" style="border-left:4px solid '.$border.'; background:'.$bg.'; padding:10px 14px; margin:14px 0; border-radius:0 4px 4px 0;"><strong>'.$label.'</strong> '.$cText.'</div>';
 
                 continue;
             }
@@ -885,7 +889,11 @@ final class NaskahRichModel
             if ($type === 'footnote-ref' || $type === 'endnote-ref') {
                 $isEndnote = $type === 'endnote-ref';
                 $badge = $isEndnote ? 'Catatan Akhir' : 'Catatan Kaki';
-                $body .= '<div class="note-box" style="border-left:3px solid #64748b; background:#f8fafc; padding:6px 12px; margin:10px 0; font-size:0.9em; color:#334155;"><sup>['.$badge.']</sup> '.$escape((string) ($block['text'] ?? '')).'</div>';
+                $nText = $this->runsToHtml($block, $escape);
+                if ($nText === '') {
+                    $nText = $escape((string) ($block['text'] ?? ''));
+                }
+                $body .= '<div class="note-box" style="border-left:3px solid #64748b; background:#f8fafc; padding:6px 12px; margin:10px 0; font-size:0.9em; color:#334155;"><sup>['.$badge.']</sup> '.$nText.'</div>';
 
                 continue;
             }
@@ -1110,7 +1118,15 @@ final class NaskahRichModel
             foreach ((array) $row as $cell) {
                 $tag = ($header && $rIndex === 0) ? 'th' : 'td';
                 $inner = isset($cell['runs']) ? $this->runsToHtml(['text' => (string) ($cell['text'] ?? ''), 'runs' => $cell['runs']], $escape) : $escape((string) ($cell['text'] ?? ''));
-                $html .= '<'.$tag.'>'.$inner.'</'.$tag.'>';
+                $style = '';
+                if (! empty($cell['align'])) {
+                    $style .= 'text-align:'.$escape((string) $cell['align']).';';
+                }
+                if (! empty($cell['bg'])) {
+                    $style .= 'background:'.$this->color((string) $cell['bg']).';';
+                }
+                $styleAttr = $style !== '' ? ' style="'.trim($style).'"' : '';
+                $html .= '<'.$tag.$styleAttr.'>'.$inner.'</'.$tag.'>';
             }
             $html .= '</tr>';
         }
@@ -1182,12 +1198,13 @@ final class NaskahRichModel
             }
 
             $text = $this->runsToMarkdown($this->runsWithText($block));
+            $levelIndent = str_repeat('  ', max(0, min(8, (int) ($block['listLevel'] ?? 0))));
             $out[] = match ($type) {
                 'heading' => str_repeat('#', (int) ($block['level'] ?? 1)).' '.$text,
                 'quote' => '> '.$text,
                 'callout' => '> **['.strtoupper((string) ($block['calloutType'] ?? 'catatan')).']** '.$text,
-                'bullet' => '- '.$text,
-                'numbered' => '1. '.$text,
+                'bullet' => $levelIndent.'- '.$text,
+                'numbered' => $levelIndent.'1. '.$text,
                 'footnote-ref' => '[^nota]: '.$text,
                 'endnote-ref' => '[^akhir]: '.$text,
                 default => $text,
@@ -1251,7 +1268,13 @@ final class NaskahRichModel
         }
 
         foreach ($rows as $rIndex => $row) {
-            $cells = array_map(static fn ($c): string => trim((string) ($c['text'] ?? '')), (array) $row);
+            $cells = array_map(function ($c): string {
+                if (is_array($c) && ! empty($c['runs'])) {
+                    return trim($this->runsToMarkdown($c['runs']));
+                }
+
+                return trim(is_array($c) ? (string) ($c['text'] ?? '') : (string) $c);
+            }, (array) $row);
             $lines[] = '| '.implode(' | ', $cells).' |';
 
             if ($rIndex === 0 && ($block['table']['header'] ?? true)) {
@@ -1770,6 +1793,54 @@ final class NaskahRichModel
             return $out;
         };
 
+        $formatRunsToRtf = function (array $block) use ($rtfEsc): string {
+            $runs = $this->runsWithText($block);
+            if ($runs === []) {
+                return $rtfEsc((string) ($block['text'] ?? ''));
+            }
+
+            $res = '';
+            foreach ($runs as $run) {
+                $rText = $rtfEsc((string) ($run['text'] ?? ''));
+                $prefix = '';
+                $suffix = '';
+                if (! empty($run['bold'])) {
+                    $prefix .= '\\b ';
+                    $suffix = '\\b0'.$suffix;
+                }
+                if (! empty($run['italic'])) {
+                    $prefix .= '\\i ';
+                    $suffix = '\\i0'.$suffix;
+                }
+                if (! empty($run['underline'])) {
+                    $prefix .= '\\ul ';
+                    $suffix = '\\ulnone'.$suffix;
+                }
+                if (! empty($run['strike'])) {
+                    $prefix .= '\\strike ';
+                    $suffix = '\\strike0'.$suffix;
+                }
+                if (! empty($run['sub'])) {
+                    $prefix .= '{\\sub ';
+                    $suffix = '}'.$suffix;
+                }
+                if (! empty($run['sup'])) {
+                    $prefix .= '{\\super ';
+                    $suffix = '}'.$suffix;
+                }
+                if (! empty($run['link'])) {
+                    $safe = $this->safeUrl($run['link']);
+                    if ($safe !== null) {
+                        $prefix .= '{\\field{\\*\\fldinst{HYPERLINK "'.$rtfEsc($safe).'"}}{\\fldrslt{\\ul\\cf1 ';
+                        $suffix = '}}}'.$suffix;
+                    }
+                }
+                $res .= $prefix.$rText.$suffix;
+            }
+
+            return $res;
+        };
+
         $out = "{\\rtf1\\ansi\\deff0\n{\\fonttbl{\\f0\\froman\\fcharset0 Georgia;}{\\f1\\fswiss\\fcharset0 Arial;}}\n";
         $out .= "{\\colortbl ;\\red30\\green64\\blue175;\\red51\\green65\\blue85;}\n";
 
@@ -1788,9 +1859,9 @@ final class NaskahRichModel
                     2 => 28,
                     default => 24,
                 };
-                $out .= '\\pard\\ql\\b\\fs'.$size.'\\cf1 '.$rtfEsc($text)."\\b0\\fs24\\cf0\\par\n";
+                $out .= '\\pard\\ql\\b\\fs'.$size.'\\cf1 '.$formatRunsToRtf($block)."\\b0\\fs24\\cf0\\par\n";
             } elseif ($type === 'quote') {
-                $out .= '\\pard\\li720\\i\\cf2 '.$rtfEsc($text)."\\i0\\cf0\\par\n";
+                $out .= '\\pard\\li720\\i\\cf2 '.$formatRunsToRtf($block)."\\i0\\cf0\\par\n";
             } elseif ($type === 'callout') {
                 $cType = (string) ($block['calloutType'] ?? 'info');
                 $label = match ($cType) {
@@ -1802,17 +1873,19 @@ final class NaskahRichModel
                     'theorem' => '[Teorema]',
                     default => '[Catatan]',
                 };
-                $out .= '\\pard\\li720\\b '.$label.'\\b0 '.$rtfEsc($text)."\\par\n";
+                $out .= '\\pard\\li720\\b '.$label.'\\b0 '.$formatRunsToRtf($block)."\\par\n";
             } elseif ($type === 'bullet') {
-                $out .= '\\pard\\li360 {\\pntext\\bullet\\tab}'.$rtfEsc($text)."\\par\n";
+                $indent = 360 + (max(0, min(8, (int) ($block['listLevel'] ?? 0))) * 360);
+                $out .= '\\pard\\li'.$indent.' {\\pntext\\bullet\\tab}'.$formatRunsToRtf($block)."\\par\n";
             } elseif ($type === 'numbered') {
-                $out .= '\\pard\\li360 '.$rtfEsc($text)."\\par\n";
+                $indent = 360 + (max(0, min(8, (int) ($block['listLevel'] ?? 0))) * 360);
+                $out .= '\\pard\\li'.$indent.' '.$formatRunsToRtf($block)."\\par\n";
             } elseif ($type === 'pagebreak') {
                 $out .= "\\page\n";
             } elseif ($type === 'footnote-ref') {
-                $out .= '\\pard\\li360\\fs20\\cf2 {\\super [Catatan Kaki]} '.$rtfEsc($text)."\\fs24\\cf0\\par\n";
+                $out .= '\\pard\\li360\\fs20\\cf2 {\\super [Catatan Kaki]} '.$formatRunsToRtf($block)."\\fs24\\cf0\\par\n";
             } elseif ($type === 'endnote-ref') {
-                $out .= '\\pard\\li360\\fs20\\cf2 {\\super [Catatan Akhir]} '.$rtfEsc($text)."\\fs24\\cf0\\par\n";
+                $out .= '\\pard\\li360\\fs20\\cf2 {\\super [Catatan Akhir]} '.$formatRunsToRtf($block)."\\fs24\\cf0\\par\n";
             } elseif ($type === 'toc') {
                 $out .= "\\pard\\ql\\b\\fs26\\cf1 DAFTAR ISI\\b0\\fs24\\cf0\\par\n";
                 $rows = (array) ($block['table']['rows'] ?? []);
@@ -1833,7 +1906,13 @@ final class NaskahRichModel
                 }
                 $rows = (array) ($block['table']['rows'] ?? []);
                 foreach ($rows as $row) {
-                    $cells = array_map(static fn ($c): string => $rtfEsc(is_array($c) ? ($c['text'] ?? '') : (string) $c), (array) $row);
+                    $cells = array_map(function ($c) use ($formatRunsToRtf, $rtfEsc): string {
+                        if (is_array($c) && ! empty($c['runs'])) {
+                            return $formatRunsToRtf(['text' => (string) ($c['text'] ?? ''), 'runs' => $c['runs']]);
+                        }
+
+                        return $rtfEsc(is_array($c) ? ($c['text'] ?? '') : (string) $c);
+                    }, (array) $row);
                     $out .= '\\pard\\ql\\fs22 '.implode(" \\tab ", $cells)."\\par\n";
                 }
                 $out .= "\\par\n";
@@ -1844,7 +1923,7 @@ final class NaskahRichModel
                 $out .= '\\pard\\qc\\i\\fs22 '.$rtfEsc($latex).$captionPart."\\i0\\fs24\\par\n";
             } else {
                 if (trim($text) !== '') {
-                    $out .= '\\pard\\ql\\fs24 '.$rtfEsc($text)."\\par\n";
+                    $out .= '\\pard\\ql\\fs24 '.$formatRunsToRtf($block)."\\par\n";
                 }
             }
         }
@@ -2104,11 +2183,11 @@ final class NaskahRichModel
      */
     public function parseInlineMarkdown(string $content): array
     {
-        if (! str_contains($content, '[') || ! str_contains($content, '](')) {
+        if (! str_contains($content, '[') && ! str_contains($content, '*') && ! str_contains($content, '~~') && ! str_contains($content, '`')) {
             return ['text' => $content, 'runs' => []];
         }
 
-        $pattern = '/\[([^\]]+)\]\((https?:\/\/[^\s\)]+|#[^\s\)]+)\)/u';
+        $pattern = '/(?:\[(?P<link_text>[^\]]+)\]\((?P<link_url>https?:\/\/[^\s\)]+|#[^\s\)]+)\)|\*\*(?P<bold_text>[^\*]+)\*\*|\*(?P<italic_text>[^\*]+)\*|~~(?P<strike_text>[^~]+)~~|`(?P<code_text>[^`]+)`)/u';
         if (! preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
             return ['text' => $content, 'runs' => []];
         }
@@ -2121,8 +2200,6 @@ final class NaskahRichModel
         for ($k = 0; $k < $totalMatches; $k++) {
             $fullMatch = $matches[0][$k][0];
             $matchOffset = $matches[0][$k][1];
-            $anchorText = $matches[1][$k][0];
-            $url = $matches[2][$k][0];
 
             if ($matchOffset > $lastOffset) {
                 $before = substr($content, $lastOffset, $matchOffset - $lastOffset);
@@ -2132,11 +2209,43 @@ final class NaskahRichModel
                 }
             }
 
-            $plainText .= $anchorText;
-            $linkRun = $this->plainRunAttributes();
-            $linkRun['text'] = $anchorText;
-            $linkRun['link'] = $url;
-            $runs[] = $linkRun;
+            if (! empty($matches['link_text'][$k][0])) {
+                $anchorText = $matches['link_text'][$k][0];
+                $url = $matches['link_url'][$k][0];
+                $plainText .= $anchorText;
+                $linkRun = $this->plainRunAttributes();
+                $linkRun['text'] = $anchorText;
+                $linkRun['link'] = $url;
+                $runs[] = $linkRun;
+            } elseif (! empty($matches['bold_text'][$k][0])) {
+                $bText = $matches['bold_text'][$k][0];
+                $plainText .= $bText;
+                $bRun = $this->plainRunAttributes();
+                $bRun['text'] = $bText;
+                $bRun['bold'] = true;
+                $runs[] = $bRun;
+            } elseif (! empty($matches['italic_text'][$k][0])) {
+                $iText = $matches['italic_text'][$k][0];
+                $plainText .= $iText;
+                $iRun = $this->plainRunAttributes();
+                $iRun['text'] = $iText;
+                $iRun['italic'] = true;
+                $runs[] = $iRun;
+            } elseif (! empty($matches['strike_text'][$k][0])) {
+                $sText = $matches['strike_text'][$k][0];
+                $plainText .= $sText;
+                $sRun = $this->plainRunAttributes();
+                $sRun['text'] = $sText;
+                $sRun['strike'] = true;
+                $runs[] = $sRun;
+            } elseif (! empty($matches['code_text'][$k][0])) {
+                $cText = $matches['code_text'][$k][0];
+                $plainText .= $cText;
+                $cRun = $this->plainRunAttributes();
+                $cRun['text'] = $cText;
+                $cRun['code'] = true;
+                $runs[] = $cRun;
+            }
 
             $lastOffset = $matchOffset + strlen($fullMatch);
         }
@@ -2276,7 +2385,11 @@ final class NaskahRichModel
                             array_pop($rawCells);
                         }
                         $cells = array_map('trim', $rawCells);
-                        $tableRows[] = array_map(static fn ($c) => ['text' => $c, 'runs' => []], $cells);
+                        $tableRows[] = array_map(function ($c) {
+                            $parsed = $this->parseInlineMarkdown($c);
+
+                            return ['text' => $parsed['text'], 'runs' => $parsed['runs']];
+                        }, $cells);
                     }
                     if (! empty($tableRows)) {
                         $blocks[] = $this->newTableBlock($tableRows, true);
@@ -2294,7 +2407,12 @@ final class NaskahRichModel
                     $cBody .= ' '.trim(ltrim(trim((string) $lines[$i]), '>'));
                     $i++;
                 }
-                $blocks[] = $this->newCalloutBlock($cType, trim($cBody));
+                $parsed = $this->parseInlineMarkdown(trim($cBody));
+                $cBlock = $this->newCalloutBlock($cType, $parsed['text']);
+                if (! empty($parsed['runs'])) {
+                    $cBlock['runs'] = $parsed['runs'];
+                }
+                $blocks[] = $cBlock;
                 continue;
             }
 

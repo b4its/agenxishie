@@ -1324,10 +1324,12 @@ class XishieAssistantPage extends Page
                 $border = $isUser ? '#bfdbfe' : '#bae6fd';
                 $time = htmlspecialchars((string) ($entry['created_at'] ?? now()->format('H:i:s')));
                 $modelTag = ! empty($entry['model']) ? ' <span style="font-size:11px;background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:3px;">'.htmlspecialchars((string) $entry['model']).'</span>' : '';
+                $personaTag = ! empty($entry['persona']) ? ' <span style="font-size:11px;background:#f3e8ff;color:#6b21a8;padding:2px 6px;border-radius:3px;margin-left:4px;">🎭 '.htmlspecialchars((string) $entry['persona']).'</span>' : '';
+                $cmdTag = ! empty($entry['command']) ? ' <span style="font-size:11px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:3px;margin-left:4px;">⚡ '.htmlspecialchars((string) $entry['command']).'</span>' : '';
                 $body = $isUser ? nl2br(htmlspecialchars((string) $entry['content'])) : $this->markdownToHtml((string) $entry['content']);
                 $msgHtml[] = "<div style=\"margin-bottom:16px;padding:14px;background:{$bg};border:1px solid {$border};border-radius:6px;\">"
                     ."<div style=\"font-weight:700;color:{$color};margin-bottom:6px;display:flex;justify-content:space-between;\">"
-                    ."<span>".($isUser ? '👤' : '✨')." {$sender}{$modelTag}</span>"
+                    ."<span>".($isUser ? '👤' : '✨')." {$sender}{$modelTag}{$personaTag}{$cmdTag}</span>"
                     ."<span style=\"font-size:11px;color:#64748b;font-weight:normal;\">{$time}</span>"
                     ."</div>"
                     ."<div style=\"line-height:1.6;font-size:14px;color:#1e293b;\">{$body}</div>"
@@ -1347,11 +1349,22 @@ class XishieAssistantPage extends Page
             $filename = 'xishie_assistant_transcript_'.$timestamp.'.tex';
             $texItems = [];
             foreach ($exportLog as $entry) {
-                $sender = $entry['role'] === 'user' ? '\textbf{Peneliti}' : '\textbf{Xishie Assistant} ('.($entry['model'] ?? 'AI').')';
+                $metaArr = [];
+                if (! empty($entry['model'])) {
+                    $metaArr[] = 'Model: '.$entry['model'];
+                }
+                if (! empty($entry['persona'])) {
+                    $metaArr[] = 'Persona: '.$entry['persona'];
+                }
+                if (! empty($entry['command'])) {
+                    $metaArr[] = 'Perintah: '.$entry['command'];
+                }
+                $metaSuffix = ! empty($metaArr) ? ' ('.implode(' \textperiodcentered{} ', $metaArr).')' : '';
+                $sender = $entry['role'] === 'user' ? '\textbf{Peneliti}' : '\textbf{Xishie Assistant}'.$metaSuffix;
                 $cleanContent = str_replace(['_', '&', '%', '$', '#'], ['\_', '\&', '\%', '\$', '\#'], (string) $entry['content']);
                 $texItems[] = "\\subsection*{{$sender}}\n\\begin{quote}\n{$cleanContent}\n\\end{quote}\n";
             }
-            $content = "\\documentclass[11pt,a4paper]{article}\n\\usepackage[utf8]{inputenc}\n\\usepackage{geometry}\n\\geometry{margin=2.5cm}\n\\usepackage{amsmath,amssymb}\n"
+            $content = "\\documentclass[11pt,a4paper]{article}\n\\usepackage[utf8]{inputenc}\n\\usepackage{geometry}\n\\geometry{margin=2.5cm}\n\\usepackage{amsmath,amssymb}\n\\usepackage{hyperref}\n"
                 ."\\title{Transkrip Sesi Xishie Assistant - ".addslashes($title)."}\n\\author{Peneliti / Xishie}\n\\date{".now()->format('d F Y')."}\n"
                 ."\\begin{document}\n\\maketitle\n\n".implode("\n", $texItems)."\n\\end{document}\n";
             $mime = 'application/x-latex; charset=UTF-8';

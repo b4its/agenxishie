@@ -131,11 +131,17 @@ final class NaskahBlockParser
 
             if (preg_match('/^\[\^([^\]]+)\]:\s*(.+)$/u', $line, $fm) === 1) {
                 $flush();
-                $blocks[] = [
+                $clean = $this->normalizeSpaces(trim($fm[2]));
+                $parsed = $this->model->parseInlineMarkdown($clean);
+                $block = [
                     'type' => 'footnote-ref',
                     'level' => 0,
-                    'text' => $this->normalizeSpaces(trim($fm[2])),
+                    'text' => $parsed['text'],
                 ];
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
+                $blocks[] = $block;
 
                 continue;
             }
@@ -168,7 +174,16 @@ final class NaskahBlockParser
                     continue;
                 }
                 $flush();
-                $cells = array_map(static fn (string $c): array => ['text' => trim($c)], explode('|', $tm[1]));
+                $cells = array_map(function (string $c): array {
+                    $cClean = trim($c);
+                    $cParsed = $this->model->parseInlineMarkdown($cClean);
+                    $cCell = ['text' => $cParsed['text']];
+                    if (! empty($cParsed['runs'])) {
+                        $cCell['runs'] = $cParsed['runs'];
+                    }
+
+                    return $cCell;
+                }, explode('|', $tm[1]));
                 $lastIdx = count($blocks) - 1;
                 if ($lastIdx >= 0 && ($blocks[$lastIdx]['type'] ?? '') === 'table') {
                     $blocks[$lastIdx]['table']['rows'][] = $cells;
@@ -222,7 +237,14 @@ final class NaskahBlockParser
                 $flush();
                 $clean = $this->normalizeSpaces(trim($m[1]));
                 $parsed = $this->model->parseInlineMarkdown($clean);
-                $block = ['type' => 'bullet', 'level' => 0, 'text' => $parsed['text']];
+                $indent = strlen($rawLine) - strlen(ltrim($rawLine));
+                $level = min(8, (int) floor($indent / 2));
+                $block = [
+                    'type' => 'bullet',
+                    'level' => 0,
+                    'listLevel' => $level,
+                    'text' => $parsed['text'],
+                ];
                 if (! empty($parsed['runs'])) {
                     $block['runs'] = $parsed['runs'];
                 }
@@ -235,7 +257,14 @@ final class NaskahBlockParser
                 $flush();
                 $clean = $this->normalizeSpaces(trim($m[1]));
                 $parsed = $this->model->parseInlineMarkdown($clean);
-                $block = ['type' => 'numbered', 'level' => 0, 'text' => $parsed['text']];
+                $indent = strlen($rawLine) - strlen(ltrim($rawLine));
+                $level = min(8, (int) floor($indent / 2));
+                $block = [
+                    'type' => 'numbered',
+                    'level' => 0,
+                    'listLevel' => $level,
+                    'text' => $parsed['text'],
+                ];
                 if (! empty($parsed['runs'])) {
                     $block['runs'] = $parsed['runs'];
                 }
@@ -246,7 +275,17 @@ final class NaskahBlockParser
 
             // Baris pendek berdiri sendiri tanpa tanda baca akhir -> anggap sub-judul.
             if ($buffer === [] && $this->looksLikeHeading($line)) {
-                $blocks[] = ['type' => 'heading', 'level' => 1, 'text' => $this->normalizeSpaces($line)];
+                $clean = $this->normalizeSpaces($line);
+                $parsed = $this->model->parseInlineMarkdown($clean);
+                $block = [
+                    'type' => 'heading',
+                    'level' => 1,
+                    'text' => $parsed['text'],
+                ];
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
+                $blocks[] = $block;
 
                 continue;
             }
