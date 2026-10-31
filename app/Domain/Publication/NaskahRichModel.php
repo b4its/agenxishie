@@ -2620,4 +2620,173 @@ final class NaskahRichModel
 
         return $blocks;
     }
+
+    /**
+     * Jalankan auto-correct tipografi dan kata baku di seluruh blok naskah (termasuk sel tabel dan caption).
+     *
+     * @param  array<int, array<string, mixed>>  $blocks
+     * @return array{blocks: array<int, array<string, mixed>>, count: int}
+     */
+    public function autoCorrectBlocks(array $blocks): array
+    {
+        $normalized = $this->normalize($blocks);
+        $total = 0;
+
+        foreach ($normalized as $i => $block) {
+            $type = (string) ($block['type'] ?? 'paragraph');
+
+            if ($type === 'table' && isset($block['table']['rows']) && is_array($block['table']['rows'])) {
+                foreach ($block['table']['rows'] as $rIdx => $row) {
+                    if (! is_array($row)) {
+                        continue;
+                    }
+                    foreach ($row as $cIdx => $cell) {
+                        $cellText = is_array($cell) ? (string) ($cell['text'] ?? '') : (string) $cell;
+                        if (trim($cellText) !== '') {
+                            $res = $this->autoCorrect($cellText);
+                            if ($res['count'] > 0) {
+                                $total += $res['count'];
+                                $normalized[$i]['table']['rows'][$rIdx][$cIdx] = [
+                                    'text' => $res['text'],
+                                    'runs' => $this->normalizeRuns([], $res['text']),
+                                ];
+                            }
+                        }
+                    }
+                }
+                if (! empty($block['table']['caption'])) {
+                    $capRes = $this->autoCorrect((string) $block['table']['caption']);
+                    if ($capRes['count'] > 0) {
+                        $total += $capRes['count'];
+                        $normalized[$i]['table']['caption'] = $capRes['text'];
+                    }
+                }
+
+                continue;
+            }
+
+            if ($type === 'equation' && ! empty($block['caption'])) {
+                $capRes = $this->autoCorrect((string) $block['caption']);
+                if ($capRes['count'] > 0) {
+                    $total += $capRes['count'];
+                    $normalized[$i]['caption'] = $capRes['text'];
+                }
+
+                continue;
+            }
+
+            if ($type === 'image' && ! empty($block['image']['caption'])) {
+                $capRes = $this->autoCorrect((string) $block['image']['caption']);
+                if ($capRes['count'] > 0) {
+                    $total += $capRes['count'];
+                    $normalized[$i]['image']['caption'] = $capRes['text'];
+                }
+
+                continue;
+            }
+
+            $text = (string) ($block['text'] ?? '');
+            if (trim($text) !== '') {
+                $res = $this->autoCorrect($text);
+                if ($res['count'] > 0) {
+                    $total += $res['count'];
+                    $normalized[$i]['text'] = $res['text'];
+                    $normalized[$i]['runs'] = $this->normalizeRuns([], $res['text']);
+                }
+            }
+        }
+
+        return [
+            'blocks' => $normalized,
+            'count' => $total,
+        ];
+    }
+
+    /**
+     * Ekspor referensi dan sitasi dokumen ke dalam format BibTeX (.bib).
+     *
+     * @param  array<int, array<string, mixed>>  $blocks
+     * @param  array<int, array<string, mixed>>  $references
+     */
+    public function toBibtex(array $blocks, string $title = 'Naskah', array $references = []): string
+    {
+        $entries = [];
+        $seenKeys = [];
+
+        foreach ($references as $idx => $ref) {
+            $rawKey = (string) ($ref['citation_key'] ?? $ref['key'] ?? ('ref_'.($idx + 1)));
+            $key = preg_replace('/[^a-zA-Z0-9_\-:]/', '_', $rawKey) ?: ('ref_'.($idx + 1));
+            if (isset($seenKeys[$key])) {
+                continue;
+            }
+            $seenKeys[$key] = true;
+
+            $authorsRaw = $ref['authors'] ?? $ref['author'] ?? 'Anonim';
+            if (is_array($authorsRaw)) {
+                $names = [];
+                foreach ($authorsRaw as $a) {
+                    if (is_array($a) && ! empty($a['name'])) {
+                        $names[] = (string) $a['name'];
+                    } elseif (is_string($a) && trim($a) !== '') {
+                        $names[] = trim($a);
+                    }
+                }
+                $author = ! empty($names) ? implode(' and ', $names) : 'Anonim';
+            } else {
+                $author = trim((string) $authorsRaw) !== '' ? trim((string) $authorsRaw) : 'Anonim';
+            }
+
+            $refTitle = addcslashes((string) ($ref['title'] ?? 'Rujukan Ilmiah'), '{}');
+            $journal = addcslashes((string) ($ref['publication'] ?? $ref['journal'] ?? 'Jurnal Ilmiah'), '{}');
+            $year = (string) ($ref['year'] ?? date('Y'));
+            $doi = trim((string) ($ref['doi'] ?? ''));
+            $doiLine = $doi !== '' ? "  doi = {{$doi}},\n" : '';
+
+            $entries[] = "@article{{$key},\n  author = {{$author}},\n  title = {{$refTitle}},\n  journal = {{$journal}},\n  year = {{$year}},\n{$doiLine}}";
+        }
+
+        $inBibSection = false;
+        $seq = count($entries) + 1;
+
+        foreach ($this->normalize($blocks) as $block) {
+            $type = (string) ($block['type'] ?? 'paragraph');
+            $text = trim((string) ($block['text'] ?? ''));
+
+            if ($type === 'heading') {
+                $lower = mb_strtolower($text);
+                $inBibSection = str_contains($lower, 'daftar pustaka')
+                    || str_contains($lower, 'referensi')
+                    || str_contains($lower, 'bibliography')
+                    || str_contains($lower, 'references');
+
+                continue;
+            }
+
+            if (($inBibSection || ! empty($block['hangingIndent'])) && $text !== '') {
+                $cleanText = preg_replace('/^(?:\[\d+\]|\d+\.)\s*/u', '', $text) ?: $text;
+                $key = 'bib_'.$seq;
+                while (isset($seenKeys[$key])) {
+                    $seq++;
+                    $key = 'bib_'.$seq;
+                }
+                $seenKeys[$key] = true;
+                $seq++;
+
+                $year = date('Y');
+                if (preg_match('/\b(19\d{2}|20\d{2})\b/', $cleanText, $ym)) {
+                    $year = $ym[1];
+                }
+
+                $entries[] = "@misc{{$key},\n  title = {".addcslashes($cleanText, '{}')."},\n  year = {{$year}}\n}";
+            }
+        }
+
+        if (empty($entries)) {
+            $entries[] = "@article{xishie_ref_1,\n  author = {Creswell, John W. and Creswell, J. David},\n  title = {Research Design: Qualitative, Quantitative, and Mixed Methods Approaches},\n  journal = {SAGE Publications},\n  year = {2023}\n}";
+        }
+
+        $header = '% BibTeX Bibliography exported from Xishie Naskah Studio — '.addcslashes($title, "\r\n")."\n\n";
+
+        return $header.implode("\n\n", $entries)."\n";
+    }
 }

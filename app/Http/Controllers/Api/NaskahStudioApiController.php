@@ -117,23 +117,15 @@ class NaskahStudioApiController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
         }
 
-        $blocks = $this->model->normalize((array) $document->blocks);
-        $total = 0;
+        $res = $this->model->autoCorrectBlocks((array) $document->blocks);
+        $blocks = $res['blocks'];
+        $total = $res['count'];
 
-        foreach ($blocks as $i => $block) {
-            $text = (string) ($block['text'] ?? '');
-            if (trim($text) === '') {
-                continue;
-            }
-            $res = $this->model->autoCorrect($text);
-            if ($res['count'] > 0) {
-                $total += $res['count'];
-                $blocks[$i]['text'] = $res['text'];
-                $blocks[$i]['runs'] = [];
-            }
-        }
-
-        $document->update(['blocks' => $blocks]);
+        $document->update([
+            'blocks' => $blocks,
+            'word_count' => $this->model->countWords($blocks),
+            'last_saved_at' => now(),
+        ]);
 
         return response()->json([
             'status' => 'success',
@@ -169,11 +161,16 @@ class NaskahStudioApiController extends Controller
             }, "naskah-{$id}.odt", ['Content-Type' => 'application/vnd.oasis.opendocument.text']);
         }
 
+        $projectRefs = $document->project_id
+            ? \App\Models\ProjectReference::query()->where('project_id', $document->project_id)->get()->toArray()
+            : [];
+
         [$content, $ext, $mime] = match ($format) {
             'html' => [$this->model->toHtml($blocks, $document->title), 'html', 'text/html; charset=UTF-8'],
             'latex', 'tex' => [$this->model->toLatex($blocks, $document->title), 'tex', 'application/x-tex; charset=UTF-8'],
             'rtf' => [$this->model->toRtf($blocks, $document->title), 'rtf', 'application/rtf; charset=UTF-8'],
             'csv' => [$this->model->toCsv($blocks, $document->title), 'csv', 'text/csv; charset=UTF-8'],
+            'bibtex', 'bib' => [$this->model->toBibtex($blocks, $document->title, $projectRefs), 'bib', 'application/x-bibtex; charset=UTF-8'],
             'txt' => [$this->model->toPlainText($blocks), 'txt', 'text/plain; charset=UTF-8'],
             'json' => [(string) json_encode([
                 'id' => $document->id,
@@ -217,12 +214,16 @@ class NaskahStudioApiController extends Controller
         }
 
         $pageBlocks = array_map(static fn (array $item): array => $item['block'], $targetPage['blocks']);
+        $projectRefs = $document->project_id
+            ? \App\Models\ProjectReference::query()->where('project_id', $document->project_id)->get()->toArray()
+            : [];
 
         [$content, $ext, $mime] = match ($format) {
             'html' => [$this->model->toHtml($pageBlocks, "{$document->title} - Hal {$pageNumber}"), 'html', 'text/html; charset=UTF-8'],
             'latex', 'tex' => [$this->model->toLatex($pageBlocks, "{$document->title} - Hal {$pageNumber}"), 'tex', 'application/x-tex; charset=UTF-8'],
             'rtf' => [$this->model->toRtf($pageBlocks, "{$document->title} - Hal {$pageNumber}"), 'rtf', 'application/rtf; charset=UTF-8'],
             'csv' => [$this->model->toCsv($pageBlocks, "{$document->title} - Hal {$pageNumber}"), 'csv', 'text/csv; charset=UTF-8'],
+            'bibtex', 'bib' => [$this->model->toBibtex($pageBlocks, "{$document->title} - Hal {$pageNumber}", $projectRefs), 'bib', 'application/x-bibtex; charset=UTF-8'],
             'txt', 'text' => [$this->model->toPlainText($pageBlocks), 'txt', 'text/plain; charset=UTF-8'],
             default => [$this->model->toMarkdown($pageBlocks, "{$document->title} - Hal {$pageNumber}"), 'md', 'text/markdown; charset=UTF-8'],
         };

@@ -24,9 +24,9 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page|indent-page|highlight-page|execute-model|models}
+                            {action : list|inspect|stats|outline|comments|revisions|snapshots|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page|indent-page|highlight-page|execute-model|models}
                             {documentId? : ID dokumen naskah}
-                            {--format=docx : Format ekspor (docx, odt, html, latex, rtf, md, txt, json)}
+                            {--format=docx : Format ekspor (docx, odt, html, latex, rtf, csv, bibtex, md, txt, json)}
                             {--output= : Path berkas luaran}
                             {--page=1 : Nomor halaman target untuk inspeksi atau format paragraf}
                             {--preset=academic_standard : Preset paragraf (academic_standard, journal_ieee, thesis_dikti, abstract_block, block_quote)}
@@ -122,6 +122,10 @@ class NaskahStudioCommand extends Command
         return match ($action) {
             'inspect' => $this->handleInspect($document, $blocks, $model),
             'stats' => $this->handleStats($document, $blocks, $model),
+            'outline' => $this->handleOutline($document, $blocks, $model),
+            'comments' => $this->handleComments($document),
+            'revisions' => $this->handleRevisions($document),
+            'snapshots' => $this->handleSnapshots($document),
             'export' => $this->handleExport($document, $blocks, $model, $docx, $odt),
             'autocorrect' => $this->handleAutoCorrect($document, $blocks, $model),
             'paragraphs' => $this->handleParagraphs($document, $blocks, $model),
@@ -193,6 +197,114 @@ class NaskahStudioCommand extends Command
     /**
      * @param  array<int, array<string, mixed>>  $blocks
      */
+    private function handleOutline(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $outline = $model->outline($blocks);
+        $this->info("=== STRUKTUR OUTLINE NASKAH: {$document->title} (ID #{$document->id}) ===");
+
+        if ($outline === []) {
+            $this->line('Belum ada heading atau bab teridentifikasi pada dokumen ini.');
+
+            return self::SUCCESS;
+        }
+
+        $rows = [];
+        foreach ($outline as $idx => $node) {
+            $rows[] = [
+                $idx + 1,
+                'H'.($node['level'] ?? 1),
+                $node['text'] ?? '-',
+                ($node['word_count'] ?? 0).' kata',
+            ];
+        }
+
+        $this->table(['No', 'Level', 'Judul / Sub-Bab', 'Akumulasi Kata'], $rows);
+
+        return self::SUCCESS;
+    }
+
+    private function handleComments(NaskahDocument $document): int
+    {
+        $comments = $document->commentsList();
+        $this->info("=== DAFTAR KOMENTAR NASKAH: {$document->title} (Total: ".count($comments).') ===');
+
+        if ($comments === []) {
+            $this->line('Tidak ada komentar pada naskah ini.');
+
+            return self::SUCCESS;
+        }
+
+        $rows = [];
+        foreach ($comments as $c) {
+            $rows[] = [
+                $c['id'] ?? '-',
+                $c['author'] ?? 'Reviewer',
+                ! empty($c['resolved']) ? 'Selesai' : 'Aktif',
+                $c['text'] ?? '',
+            ];
+        }
+
+        $this->table(['ID', 'Penulis', 'Status', 'Isi Komentar'], $rows);
+
+        return self::SUCCESS;
+    }
+
+    private function handleRevisions(NaskahDocument $document): int
+    {
+        $revisions = $document->revisionsList();
+        $this->info("=== DAFTAR REVISI / TRACK CHANGES: {$document->title} (Total: ".count($revisions).') ===');
+
+        if ($revisions === []) {
+            $this->line('Tidak ada revisi yang tercatat.');
+
+            return self::SUCCESS;
+        }
+
+        $rows = [];
+        foreach ($revisions as $r) {
+            $rows[] = [
+                $r['id'] ?? '-',
+                $r['type'] ?? 'edit',
+                $r['status'] ?? 'pending',
+                Str::limit((string) ($r['after'] ?? $r['text'] ?? ''), 60),
+            ];
+        }
+
+        $this->table(['ID', 'Tipe', 'Status', 'Ringkasan Perubahan'], $rows);
+
+        return self::SUCCESS;
+    }
+
+    private function handleSnapshots(NaskahDocument $document): int
+    {
+        $meta = is_array($document->style_meta) ? $document->style_meta : [];
+        $snapshots = is_array($meta['snapshots'] ?? null) ? $meta['snapshots'] : [];
+        $this->info("=== DAFTAR SNAPSHOT VERSI: {$document->title} (Total: ".count($snapshots).') ===');
+
+        if ($snapshots === []) {
+            $this->line('Belum ada snapshot versi pada dokumen ini.');
+
+            return self::SUCCESS;
+        }
+
+        $rows = [];
+        foreach ($snapshots as $s) {
+            $rows[] = [
+                $s['id'] ?? '-',
+                $s['label'] ?? 'Versi Naskah',
+                (string) ($s['count'] ?? count((array) ($s['blocks'] ?? []))),
+                $s['at'] ?? $s['timestamp'] ?? '-',
+            ];
+        }
+
+        $this->table(['ID', 'Label Versi', 'Jumlah Blok', 'Waktu Simpan'], $rows);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
     private function handleExport(NaskahDocument $document, array $blocks, NaskahRichModel $model, NaskahDocxExporter $docx, NaskahOdtExporter $odt): int
     {
         $format = strtolower((string) $this->option('format'));
@@ -202,12 +314,18 @@ class NaskahStudioCommand extends Command
             $output = storage_path('app/naskah-export-'.$document->id.'.'.$format);
         }
 
+        $projectRefs = $document->project_id
+            ? \App\Models\ProjectReference::query()->where('project_id', $document->project_id)->get()->toArray()
+            : [];
+
         $binary = match ($format) {
             'docx' => $docx->build($blocks, $document->title),
             'odt' => $odt->build($blocks, $document->title),
             'html' => $model->toHtml($blocks, $document->title),
             'latex', 'tex' => $model->toLatex($blocks, $document->title),
             'rtf' => $model->toRtf($blocks, $document->title),
+            'csv' => $model->toCsv($blocks, $document->title),
+            'bibtex', 'bib' => $model->toBibtex($blocks, $document->title, $projectRefs),
             'txt' => $model->toPlainText($blocks),
             'json' => (string) json_encode([
                 'id' => $document->id,
@@ -229,21 +347,15 @@ class NaskahStudioCommand extends Command
      */
     private function handleAutoCorrect(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
     {
-        $total = 0;
-        foreach ($blocks as $i => $block) {
-            $text = (string) ($block['text'] ?? '');
-            if (trim($text) === '') {
-                continue;
-            }
-            $res = $model->autoCorrect($text);
-            if ($res['count'] > 0) {
-                $total += $res['count'];
-                $blocks[$i]['text'] = $res['text'];
-                $blocks[$i]['runs'] = [];
-            }
-        }
+        $res = $model->autoCorrectBlocks($blocks);
+        $updatedBlocks = $res['blocks'];
+        $total = $res['count'];
 
-        $document->update(['blocks' => $blocks]);
+        $document->update([
+            'blocks' => $updatedBlocks,
+            'word_count' => $model->countWords($updatedBlocks),
+            'last_saved_at' => now(),
+        ]);
         $this->info("Auto-correct selesai: {$total} perbaikan tipografi disimpan pada dokumen #{$document->id}.");
 
         return self::SUCCESS;
@@ -563,8 +675,16 @@ class NaskahStudioCommand extends Command
         }
 
         $pageBlocks = array_map(static fn (array $item): array => $item['block'], $targetPage['blocks']);
+        $projectRefs = $document->project_id
+            ? \App\Models\ProjectReference::query()->where('project_id', $document->project_id)->get()->toArray()
+            : [];
+
         $content = match ($format) {
             'html' => $model->toHtml($pageBlocks, "{$document->title} - Hal {$pageNumber}"),
+            'latex', 'tex' => $model->toLatex($pageBlocks, "{$document->title} - Hal {$pageNumber}"),
+            'rtf' => $model->toRtf($pageBlocks, "{$document->title} - Hal {$pageNumber}"),
+            'csv' => $model->toCsv($pageBlocks, "{$document->title} - Hal {$pageNumber}"),
+            'bibtex', 'bib' => $model->toBibtex($pageBlocks, "{$document->title} - Hal {$pageNumber}", $projectRefs),
             'text', 'txt' => $model->toPlainText($pageBlocks),
             default => $model->toMarkdown($pageBlocks, "{$document->title} - Hal {$pageNumber}"),
         };
@@ -1036,68 +1156,7 @@ class NaskahStudioCommand extends Command
      */
     private function parseContentToBlocks(string $content, NaskahRichModel $model): array
     {
-        $lines = preg_split("/\r\n|\n|\r/", trim($content));
-        $blocks = [];
-        $tableLines = [];
-        $inTable = false;
-
-        foreach ($lines as $line) {
-            $trimmed = trim((string) $line);
-
-            if (str_starts_with($trimmed, '|')) {
-                $tableLines[] = $trimmed;
-                $inTable = true;
-
-                continue;
-            }
-
-            if ($inTable) {
-                if (! empty($tableLines)) {
-                    $tableBlock = $this->parseMarkdownTableToBlock($tableLines, $model);
-                    if ($tableBlock !== null) {
-                        $blocks[] = $tableBlock;
-                    }
-                    $tableLines = [];
-                }
-                $inTable = false;
-            }
-
-            if ($trimmed === '') {
-                continue;
-            }
-
-            if (preg_match('/^\$\$(.+)\$\$$/', $trimmed, $eqMatch)) {
-                $blocks[] = $model->newEquationBlock(trim($eqMatch[1]), '(1)');
-
-                continue;
-            }
-
-            if (preg_match('/^(#{1,6})\s+(.+)$/', $trimmed, $hMatch)) {
-                $level = strlen($hMatch[1]);
-                $blocks[] = $model->newBlock('heading', trim($hMatch[2]), $level);
-
-                continue;
-            }
-
-            if (preg_match('/^[-*]\s+(.+)$/', $trimmed, $bMatch)) {
-                $para = $model->newBlock('paragraph', trim($bMatch[1]));
-                $para['bullet'] = true;
-                $blocks[] = $para;
-
-                continue;
-            }
-
-            $blocks[] = $model->newBlock('paragraph', $trimmed);
-        }
-
-        if ($inTable && ! empty($tableLines)) {
-            $tableBlock = $this->parseMarkdownTableToBlock($tableLines, $model);
-            if ($tableBlock !== null) {
-                $blocks[] = $tableBlock;
-            }
-        }
-
-        return $blocks;
+        return $model->parseMarkdownToBlocks($content, '(1)');
     }
 
     /**
@@ -1127,7 +1186,7 @@ class NaskahStudioCommand extends Command
 
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page, indent-page, highlight-page, execute-model, models.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, outline, comments, revisions, snapshots, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page, indent-page, highlight-page, execute-model, models.");
 
         return self::FAILURE;
     }

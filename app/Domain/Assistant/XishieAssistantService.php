@@ -995,7 +995,21 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::ABSTRAK->value,
             'reply' => $reply,
-            'data' => ['abstract' => true, 'project_title' => $title, 'persona' => $persona, 'scope' => $scope],
+            'data' => [
+                'abstract' => true,
+                'project_title' => $title,
+                'persona' => $persona,
+                'scope' => $scope,
+                'blocks' => [
+                    ['type' => 'heading', 'level' => 1, 'text' => 'Abstrak'],
+                    ['type' => 'paragraph', 'text' => "Latar Belakang: Fenomena perkembangan mutakhir dalam bidang {$field} menuntut pemutakhiran metodologi penulisan naskah yang terstruktur demi mempertahankan integritas serta reputasi publikasi ilmiah."],
+                    ['type' => 'paragraph', 'text' => "Tujuan & Masalah: Penelitian ini bertujuan mengkaji secara empiris efektivitas adopsi pendekatan terstandar pada kajian '{$title}' dalam meningkatkan produktivitas serta kepatuhan pedoman jurnal bereputasi."],
+                    ['type' => 'paragraph', 'text' => 'Metodologi: Menggunakan desain riset komparatif kuasi-eksperimental dengan sampel draf naskah ilmiah lintas bidang studi, dievaluasi melalui delapan belas indikator UX dan kepatuhan struktural.'],
+                    ['type' => 'paragraph', 'text' => 'Hasil Utama: Temuan menunjukkan perbaikan signifikan pada skor kepatuhan pedoman (meningkat hingga 89.2%) serta reduksi waktu pengerjaan draf sebesar 39.5% dengan tingkat keterbacaan yang tetap tinggi.'],
+                    ['type' => 'paragraph', 'text' => 'Implikasi: Kerangka kerja ini membuktikan bahwa integrasi bantuan cerdas yang berpijak pada prinsip ergonomis mampu mengoptimalkan luaran karya tulis ilmiah secara konsisten.'],
+                    ['type' => 'paragraph', 'text' => 'Kata Kunci: Penulisan Akademik, IMRAD, Kepatuhan Pedoman, State of the Art, Produktivitas Peneliti.'],
+                ],
+            ],
         ];
     }
 
@@ -1176,7 +1190,17 @@ final class XishieAssistantService
         return [
             'command' => SlashCommand::TERJEMAHKAN->value,
             'reply' => $reply,
-            'data' => ['translation' => true, 'target_lang' => $targetLang, 'original' => $actualText, 'persona' => $persona, 'scope' => $scope],
+            'data' => [
+                'translation' => true,
+                'target_lang' => $targetLang,
+                'original' => $actualText,
+                'translated' => $sampleTranslation,
+                'persona' => $persona,
+                'scope' => $scope,
+                'blocks' => [
+                    ['type' => 'paragraph', 'text' => $sampleTranslation],
+                ],
+            ],
         ];
     }
 
@@ -1210,16 +1234,44 @@ final class XishieAssistantService
             ];
         }
 
-        $corrected = ucfirst(rtrim($argument, '.')).'.';
+        $richModel = app(NaskahRichModel::class);
+        $bakuMap = [
+            '/\banalisa\b/iu' => 'analisis',
+            '/\bhipotesa\b/iu' => 'hipotesis',
+            '/\bmetoda\b/iu' => 'metode',
+            '/\bpraktek\b/iu' => 'praktik',
+            '/\bsistim\b/iu' => 'sistem',
+            '/\baktifitas\b/iu' => 'aktivitas',
+            '/\befektifitas\b/iu' => 'efektivitas',
+            '/\bresiko\b/iu' => 'risiko',
+            '/\bkwalitas\b/iu' => 'kualitas',
+            '/\bstandart\b/iu' => 'standar',
+        ];
+        $working = $argument;
+        foreach ($bakuMap as $pattern => $replacement) {
+            $working = (string) preg_replace($pattern, $replacement, $working);
+        }
+        $autoRes = $richModel->autoCorrect($working);
+        $cleaned = $richModel->cleanTextSpacing($autoRes['text']);
+        $corrected = ucfirst(rtrim($cleaned, '.!?')).'.';
+
         $reply = "### Hasil Audit Ejaan & PUEBI Baku\n\n"
             ."- **Teks Awal**: \"{$argument}\"\n"
             ."- **Hasil Koreksi**: \"{$corrected}\"\n"
-            .'- **Catatan Linguistik**: Penggunaan tanda baca, spasi kapitalisasi, dan partikel telah disesuaikan dengan kaidah tata bahasa baku Indonesia (PUEBI/KBBI).';
+            .'- **Catatan Linguistik**: Penggunaan tanda baca, spasi kapitalisasi, kata serapan baku KBBI, dan partikel telah disesuaikan dengan kaidah tata bahasa baku Indonesia (PUEBI/KBBI).';
 
         return [
             'command' => SlashCommand::PUEBI->value,
             'reply' => $reply,
-            'data' => ['original' => $argument, 'corrected' => $corrected, 'persona' => $persona, 'scope' => $scope],
+            'data' => [
+                'original' => $argument,
+                'corrected' => $corrected,
+                'persona' => $persona,
+                'scope' => $scope,
+                'blocks' => [
+                    ['type' => 'paragraph', 'text' => $corrected],
+                ],
+            ],
         ];
     }
 
@@ -1526,6 +1578,14 @@ final class XishieAssistantService
             $lines[] = "> [!NOTE]\n> Fokus penekanan struktural dialokasikan untuk topik: \"{$argument}\".";
         }
 
+        $tocBlocks = [
+            ['type' => 'toc', 'text' => 'Daftar Isi'],
+        ];
+        foreach ($sections as $sec) {
+            $heading = (string) ($sec['heading'] ?? $sec['key'] ?? 'Bagian');
+            $tocBlocks[] = ['type' => 'heading', 'level' => 1, 'text' => $heading];
+        }
+
         return [
             'command' => SlashCommand::DAFTAR_ISI->value,
             'reply' => implode("\n", $lines),
@@ -1535,6 +1595,8 @@ final class XishieAssistantService
                 'document_outline' => $docOutline,
                 'min_total_words' => $guideline->minTotalWords,
                 'max_total_words' => $guideline->maxTotalWords,
+                'toc_block' => ['type' => 'toc', 'text' => 'Daftar Isi'],
+                'blocks' => $tocBlocks,
             ],
         ];
     }
@@ -1601,6 +1663,17 @@ final class XishieAssistantService
             $lines[] = $style === CitationStyle::IEEE ? $entry : ($index + 1).'. '.$entry;
         }
 
+        $bibBlocks = [
+            ['type' => 'heading', 'level' => 1, 'text' => 'Daftar Pustaka'],
+        ];
+        foreach ($entries as $entry) {
+            $bibBlocks[] = [
+                'type' => 'paragraph',
+                'text' => $entry,
+                'hangingIndent' => true,
+            ];
+        }
+
         return [
             'command' => SlashCommand::DAFTAR_PUSTAKA->value,
             'reply' => implode("\n\n", $lines),
@@ -1608,6 +1681,7 @@ final class XishieAssistantService
                 'style' => $style->value,
                 'count' => $references->count(),
                 'entries' => $entries,
+                'blocks' => $bibBlocks,
             ],
         ];
     }
