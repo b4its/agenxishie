@@ -4043,3 +4043,188 @@ it('synchronizes statistics on undo, redo, table calculations, snapshot restore,
         ->assertJsonPath('status', 'success')
         ->assertJsonPath('word_count', 8);
 });
+
+it('exports title, subtitle, and external image blocks across html, markdown, latex, rtf, docx, and odt, and normalizes kbbi words', function (): void {
+    $model = app(NaskahRichModel::class);
+    $docx = app(NaskahDocxExporter::class);
+    $odt = app(NaskahOdtExporter::class);
+
+    $blocks = $model->normalize([
+        ['type' => 'title', 'text' => 'Judul Utama Naskah Akademik'],
+        ['type' => 'subtitle', 'text' => 'Subjudul Penelitian Empiris'],
+        [
+            'type' => 'image',
+            'image' => [
+                'src' => 'https://example.org/diagram-arsitektur.png',
+                'caption' => 'Gambar 1. Arsitektur Sistem Komputasi',
+                'width' => 420,
+            ],
+        ],
+    ]);
+
+    // 1. HTML, Markdown, LaTeX, RTF
+    $html = $model->toHtml($blocks, 'Dokumen Uji');
+    expect($html)->toContain('Judul Utama Naskah Akademik</h1>')
+        ->and($html)->toContain('Subjudul Penelitian Empiris</h2>')
+        ->and($html)->toContain('Gambar 1. Arsitektur Sistem Komputasi');
+
+    $md = $model->toMarkdown($blocks, 'Dokumen Uji');
+    expect($md)->toContain('# Judul Utama Naskah Akademik')
+        ->and($md)->toContain('## *Subjudul Penelitian Empiris*')
+        ->and($md)->toContain('![Gambar 1. Arsitektur Sistem Komputasi](https://example.org/diagram-arsitektur.png)');
+
+    $latex = $model->toLatex($blocks, 'Dokumen Uji');
+    expect($latex)->toContain('\section*{Judul Utama Naskah Akademik}')
+        ->and($latex)->toContain('\subsection*{\textit{Subjudul Penelitian Empiris}}')
+        ->and($latex)->toContain('\caption{Gambar 1. Arsitektur Sistem Komputasi}');
+
+    $rtf = $model->toRtf($blocks, 'Dokumen Uji');
+    expect($rtf)->toContain('\fs36')
+        ->and($rtf)->toContain('Judul Utama Naskah Akademik')
+        ->and($rtf)->toContain('\fs28')
+        ->and($rtf)->toContain('Subjudul Penelitian Empiris')
+        ->and($rtf)->toContain('[Gambar: Gambar 1. Arsitektur Sistem Komputasi]');
+
+    // 2. DOCX and ODT binary zip content verification
+    $docxBin = $docx->build($blocks, 'Dokumen Uji');
+    $tmpDocx = tempnam(sys_get_temp_dir(), 'docx_test_');
+    file_put_contents($tmpDocx, $docxBin);
+    $zipDocx = new ZipArchive;
+    expect($zipDocx->open($tmpDocx))->toBeTrue();
+    $docXml = (string) $zipDocx->getFromName('word/document.xml');
+    $zipDocx->close();
+    @unlink($tmpDocx);
+
+    expect($docXml)->toContain('w:val="Title"')
+        ->and($docXml)->toContain('w:val="Subtitle"')
+        ->and($docXml)->toContain('Gambar 1. Arsitektur Sistem Komputasi');
+
+    $odtBin = $odt->build($blocks, 'Dokumen Uji');
+    $tmpOdt = tempnam(sys_get_temp_dir(), 'odt_test_');
+    file_put_contents($tmpOdt, $odtBin);
+    $zipOdt = new ZipArchive;
+    expect($zipOdt->open($tmpOdt))->toBeTrue();
+    $odtXml = (string) $zipOdt->getFromName('content.xml');
+    $zipOdt->close();
+    @unlink($tmpOdt);
+
+    expect($odtXml)->toContain('Judul Utama Naskah Akademik')
+        ->and($odtXml)->toContain('Subjudul Penelitian Empiris')
+        ->and($odtXml)->toContain('[Gambar: Gambar 1. Arsitektur Sistem Komputasi]');
+
+    // 3. normalizeKbbiWords
+    $kbbi = $model->normalizeKbbiWords('Hasil analisa dan hipotesa dalam praktek metoda ini memiliki efektifitas dan kwalitas standart.');
+    expect($kbbi['count'])->toBeGreaterThanOrEqual(7)
+        ->and($kbbi['text'])->toContain('analisis')
+        ->and($kbbi['text'])->toContain('hipotesis')
+        ->and($kbbi['text'])->toContain('praktik')
+        ->and($kbbi['text'])->toContain('metode')
+        ->and($kbbi['text'])->toContain('efektivitas')
+        ->and($kbbi['text'])->toContain('kualitas')
+        ->and($kbbi['text'])->toContain('standar')
+        ->and($kbbi['replacements'])->toHaveKey('analisa');
+});
+
+it('synchronizes statistics across block mutations, multi-sentence changeCase, standalone slash commands, and api/cli citation audit', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+    $this->actingAs(User::factory()->create());
+    $model = app(NaskahRichModel::class);
+
+    $component = Livewire::test(NaskahStudioPage::class);
+    $component->set('blocks', $model->normalize([
+        ['type' => 'heading', 'level' => 1, 'text' => 'Pendahuluan Riset'],
+        ['type' => 'paragraph', 'text' => 'kalimat pertama huruf kecil. kalimat kedua juga huruf kecil!'],
+        ['type' => 'paragraph', 'text' => 'Paragraf kedua dengan spasi   berlebih untuk diuji.'],
+    ]));
+
+    // 1. Multi-sentence changeCase('sentence') and statistics sync
+    $component->set('activeBlock', 1)
+        ->call('changeCase', 'sentence');
+    expect($component->get('blocks')[1]['text'])->toBe('Kalimat pertama huruf kecil. Kalimat kedua juga huruf kecil!')
+        ->and($component->get('docWordCount'))->toBe($component->get('statistics')['words']);
+
+    // 2. splitBlockAt, mergeBlockWithPrev, mergeBlockWithNext, insertDate, insertSymbol sync statistics
+    $component->call('splitBlockAt', 1, 'Kalimat pertama huruf kecil.', 'Kalimat kedua juga huruf kecil!')
+        ->assertSet('docWordCount', $component->get('statistics')['words']);
+
+    $component->call('mergeBlockWithPrev', 2)
+        ->assertSet('docWordCount', $component->get('statistics')['words']);
+
+    $component->call('insertDate')
+        ->assertSet('docWordCount', $component->get('statistics')['words']);
+
+    $component->call('insertSymbol', '±')
+        ->assertSet('docWordCount', $component->get('statistics')['words']);
+
+    // 3. Page paragraph operations sync statistics
+    $component->call('cleanPageParagraphSpaces', 1);
+    expect($component->get('docWordCount'))->toBe($component->get('statistics')['words']);
+
+    $component->call('citePageParagraph', 1, 0, 'Anderson, 2020', 'apa');
+    expect($component->get('docWordCount'))->toBe($component->get('statistics')['words']);
+
+    $component->call('insertPageParagraphFootnote', 1, 0, 'Catatan kaki pembuktian empiris.');
+    expect($component->get('docWordCount'))->toBe($component->get('statistics')['words']);
+
+    // 4. Standalone slash commands without linked project produce structured blocks & KBBI normalization
+    $component->set('sourceProjectId', null)
+        ->set('assistantInput', '/puebi hasil analisa dan hipotesa pada praktek metoda ini')
+        ->call('sendAssistant');
+
+    $log = $component->get('assistantLog');
+    $lastLog = end($log);
+    expect($lastLog['data']['corrected'])->toContain('analisis')
+        ->and($lastLog['data']['corrected'])->toContain('hipotesis')
+        ->and($lastLog['data']['corrected'])->toContain('praktik')
+        ->and($lastLog['data']['blocks'][0]['text'])->toBe($lastLog['data']['corrected']);
+
+    $component->set('assistantInput', '/pembahasan Transformasi Digital')
+        ->call('sendAssistant');
+    $log = $component->get('assistantLog');
+    $lastLog = end($log);
+    expect($lastLog['data']['blocks'])->toBeArray()
+        ->and($lastLog['data']['blocks'][0]['type'])->toBe('heading')
+        ->and($lastLog['data']['blocks'][0]['text'])->toBe('Pembahasan');
+
+    // 5. API & CLI audit-citations and revision block application
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Uji Audit Sitasi API & CLI',
+        'source_type' => 'custom',
+        'blocks' => $model->normalize([
+            ['type' => 'heading', 'level' => 1, 'text' => 'Pendahuluan'],
+            ['type' => 'paragraph', 'text' => 'Menurut kajian terdahulu (Anderson, 2020) dan [@gauntlett2018] serta klaim ( TidakAda, 2024 ).'],
+            ['type' => 'heading', 'level' => 1, 'text' => 'Daftar Pustaka'],
+            ['type' => 'paragraph', 'hangingIndent' => true, 'text' => 'Anderson, C. (2020). Makers: The New Industrial Revolution.'],
+            ['type' => 'paragraph', 'hangingIndent' => true, 'text' => 'Gauntlett, D. (2018). Making is Connecting [gauntlett2018].'],
+        ]),
+        'word_count' => 28,
+        'revisions' => [
+            [
+                'id' => 'rev-block-1',
+                'blockIndex' => 1,
+                'type' => 'edit',
+                'status' => 'pending',
+                'before' => 'Teks lama sebelum revisi.',
+                'after' => 'Paragraf hasil revisi yang telah disetujui dan diperbarui secara penuh ke dalam blok dokumen.',
+            ],
+        ],
+    ]);
+
+    $this->getJson("/api/v1/naskah/documents/{$doc->id}/audit-citations")
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('document_id', $doc->id)
+        ->assertJsonStructure(['verified', 'unmatched', 'references_count', 'total_citations', 'density_per_1k']);
+
+    $this->artisan('naskah:manage', ['action' => 'audit-citations', 'documentId' => $doc->id])
+        ->expectsOutputToContain('AUDIT SITASI NASKAH')
+        ->assertExitCode(0);
+
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/revisions/rev-block-1", ['action' => 'accept'])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('revision.status', 'accepted');
+
+    $doc->refresh();
+    expect($doc->blocks[1]['text'])->toBe('Paragraf hasil revisi yang telah disetujui dan diperbarui secara penuh ke dalam blok dokumen.');
+});

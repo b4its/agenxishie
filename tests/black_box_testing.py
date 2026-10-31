@@ -122,6 +122,9 @@ test(f"GET /api/v1/naskah/documents/{doc_id}/statistics", status == 200 and "sta
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/outline")
 test(f"GET /api/v1/naskah/documents/{doc_id}/outline", status == 200 and "outline" in body)
 
+status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/audit-citations")
+test(f"GET /api/v1/naskah/documents/{doc_id}/audit-citations", status == 200 and "density_per_1k" in body)
+
 status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/comments", {
     "text": "Komentar black-box API verifikasi.",
     "author": "Reviewer BlackBox"
@@ -198,6 +201,9 @@ test("CLI naskah:manage comments Execution", cli_comments.returncode == 0 and "D
 
 cli_snapshots = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'snapshots', str(doc_id)], capture_output=True, text=True)
 test("CLI naskah:manage snapshots Execution", cli_snapshots.returncode == 0 and "DAFTAR SNAPSHOT" in cli_snapshots.stdout)
+
+cli_audit_cit = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'php', 'artisan', 'naskah:manage', 'audit-citations', str(doc_id)], capture_output=True, text=True)
+test("CLI naskah:manage audit-citations Execution", cli_audit_cit.returncode == 0 and "AUDIT SITASI NASKAH" in cli_audit_cit.stdout)
 
 tex_content = subprocess.run(['docker', 'exec', 'xishie-php-fpm', 'cat', f'/var/www/html/storage/app/naskah-export-{doc_id}.latex'], capture_output=True, text=True)
 test("CLI naskah:manage LaTeX includes amsmath and amssymb", "amsmath,amssymb" in tex_content.stdout)
