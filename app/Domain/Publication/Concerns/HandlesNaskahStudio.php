@@ -3610,10 +3610,11 @@ trait HandlesNaskahStudio
         }
 
         $existing = (string) ($this->blocks[$index]['text'] ?? '');
+        $runs = $this->model->runsWithText($this->blocks[$index]);
+        $runs[] = ['text' => ($existing !== '' ? ' ' : '').$refText] + $this->plainRun();
+
+        $this->blocks[$index]['runs'] = $runs;
         $this->blocks[$index]['text'] = $existing !== '' ? $existing.' '.$refText : $refText;
-        if (isset($this->blocks[$index]['runs'][0])) {
-            $this->blocks[$index]['runs'][0]['text'] = $this->blocks[$index]['text'];
-        }
 
         $this->dirty = true;
         $this->editorRevision++;

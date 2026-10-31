@@ -693,6 +693,8 @@ class XishieAssistantPage extends Page
             $newBlocks = [$richModel->normalizeBlock($entry['data']['callout_block'])];
         } elseif (! empty($entry['data']['footnote_block']) && is_array($entry['data']['footnote_block'])) {
             $newBlocks = [$richModel->normalizeBlock($entry['data']['footnote_block'])];
+        } elseif (! empty($entry['data']['summary'])) {
+            $newBlocks = [$richModel->newBlock('paragraph', (string) $entry['data']['summary'])];
         } elseif (! empty($entry['data']['blocks']) && is_array($entry['data']['blocks'])) {
             $newBlocks = [];
             foreach ($entry['data']['blocks'] as $b) {
@@ -1526,6 +1528,8 @@ class XishieAssistantPage extends Page
                     $respBlocks = [$richModel->normalizeBlock($entry['data']['callout_block'])];
                 } elseif (! empty($entry['data']['footnote_block']) && is_array($entry['data']['footnote_block'])) {
                     $respBlocks = [$richModel->normalizeBlock($entry['data']['footnote_block'])];
+                } elseif (! empty($entry['data']['summary'])) {
+                    $respBlocks = [$richModel->newBlock('paragraph', (string) $entry['data']['summary'])];
                 } elseif (! empty($entry['data']['blocks']) && is_array($entry['data']['blocks'])) {
                     $respBlocks = [];
                     foreach ($entry['data']['blocks'] as $b) {

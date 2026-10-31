@@ -1616,9 +1616,62 @@ final class NaskahRichModel
             $out .= "\\maketitle\n\n";
         }
 
-        foreach ($this->normalize($blocks) as $block) {
+        $formatRunsToLatex = function (array $block) use ($esc): string {
+            $runs = $this->runsWithText($block);
+            if (empty($runs)) {
+                return $esc((string) ($block['text'] ?? ''));
+            }
+
+            $formatted = '';
+            foreach ($runs as $run) {
+                $rText = (string) ($run['text'] ?? '');
+                if ($rText === '') {
+                    continue;
+                }
+
+                $escText = $esc($rText);
+                if (! empty($run['bold']) && ! empty($run['italic'])) {
+                    $escText = '\\textbf{\\textit{'.$escText.'}}';
+                } elseif (! empty($run['bold'])) {
+                    $escText = '\\textbf{'.$escText.'}';
+                } elseif (! empty($run['italic'])) {
+                    $escText = '\\textit{'.$escText.'}';
+                } elseif (! empty($run['underline'])) {
+                    $escText = '\\underline{'.$escText.'}';
+                }
+
+                if (! empty($run['link'])) {
+                    $rawLink = (string) $run['link'];
+                    $escText = '\\href{'.$rawLink.'}{'.$escText.'}';
+                }
+
+                $formatted .= $escText;
+            }
+
+            return $formatted;
+        };
+
+        $normalized = $this->normalize($blocks);
+        $i = 0;
+        $total = count($normalized);
+
+        while ($i < $total) {
+            $block = $normalized[$i];
             $type = (string) ($block['type'] ?? 'paragraph');
             $text = (string) ($block['text'] ?? '');
+
+            if ($type === 'bullet' || $type === 'numbered') {
+                $env = $type === 'bullet' ? 'itemize' : 'enumerate';
+                $out .= "\\begin{{$env}}\n";
+                while ($i < $total && (string) ($normalized[$i]['type'] ?? '') === $type) {
+                    $itemBlock = $normalized[$i];
+                    $out .= '  \\item '.$formatRunsToLatex($itemBlock)."\n";
+                    $i++;
+                }
+                $out .= "\\end{{$env}}\n\n";
+
+                continue;
+            }
 
             if ($type === 'heading') {
                 $lvl = max(1, min(3, (int) ($block['level'] ?? 1)));
@@ -1631,17 +1684,13 @@ final class NaskahRichModel
             } elseif ($type === 'toc') {
                 $out .= "\\tableofcontents\n\\newpage\n\n";
             } elseif ($type === 'quote') {
-                $out .= "\\begin{quote}\n".$esc($text)."\n\\end{quote}\n\n";
+                $out .= "\\begin{quote}\n".$formatRunsToLatex($block)."\n\\end{quote}\n\n";
             } elseif ($type === 'callout') {
-                $out .= "\\begin{quote}\n\\textbf{[".strtoupper((string) ($block['calloutType'] ?? 'Catatan')).']} '.$esc($text)."\n\\end{quote}\n\n";
-            } elseif ($type === 'bullet') {
-                $out .= "\\begin{itemize}\n\\item ".$esc($text)."\n\\end{itemize}\n\n";
-            } elseif ($type === 'numbered') {
-                $out .= "\\begin{enumerate}\n\\item ".$esc($text)."\n\\end{enumerate}\n\n";
+                $out .= "\\begin{quote}\n\\textbf{[".strtoupper((string) ($block['calloutType'] ?? 'Catatan')).']} '.$formatRunsToLatex($block)."\n\\end{quote}\n\n";
             } elseif ($type === 'pagebreak') {
                 $out .= "\\newpage\n\n";
             } elseif ($type === 'footnote-ref' || $type === 'endnote-ref') {
-                $out .= "\\footnote{".$esc($text)."}\n\n";
+                $out .= "\\footnote{".$formatRunsToLatex($block)."}\n\n";
             } elseif ($type === 'equation') {
                 $latex = (string) ($block['equation']['latex'] ?? $block['latex'] ?? $block['text'] ?? '');
                 $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
@@ -1664,7 +1713,13 @@ final class NaskahRichModel
                     }
                     $out .= "\\begin{tabular}{".$colSpec."}\n\\toprule\n";
                     foreach ($rows as $r => $row) {
-                        $cells = array_map(static fn ($c): string => $esc(is_array($c) ? ($c['text'] ?? '') : (string) $c), (array) $row);
+                        $cells = array_map(function ($c) use ($esc, $formatRunsToLatex): string {
+                            if (is_array($c) && ! empty($c['runs'])) {
+                                return $formatRunsToLatex($c);
+                            }
+
+                            return $esc(is_array($c) ? ($c['text'] ?? '') : (string) $c);
+                        }, (array) $row);
                         $out .= implode(' & ', $cells)." \\\\\n";
                         if ($r === 0) {
                             $out .= "\\midrule\n";
@@ -1674,9 +1729,11 @@ final class NaskahRichModel
                 }
             } else {
                 if (trim($text) !== '') {
-                    $out .= $esc($text)."\n\n";
+                    $out .= $formatRunsToLatex($block)."\n\n";
                 }
             }
+
+            $i++;
         }
 
         $out .= "\\end{document}\n";

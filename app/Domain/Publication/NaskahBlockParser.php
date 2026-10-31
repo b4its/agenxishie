@@ -18,6 +18,12 @@ use App\Models\XishieProject;
  */
 final class NaskahBlockParser
 {
+    public function __construct(
+        private ?NaskahRichModel $model = null,
+    ) {
+        $this->model ??= app(NaskahRichModel::class);
+    }
+
     /**
      * Urai teks polos/markdown menjadi blok naskah.
      *
@@ -36,7 +42,13 @@ final class NaskahBlockParser
             $buffer = [];
 
             if ($paragraph !== '') {
-                $blocks[] = ['type' => 'paragraph', 'level' => 0, 'text' => $this->normalizeSpaces($paragraph)];
+                $clean = $this->normalizeSpaces($paragraph);
+                $parsed = $this->model->parseInlineMarkdown($clean);
+                $block = ['type' => 'paragraph', 'level' => 0, 'text' => $parsed['text']];
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
+                $blocks[] = $block;
             }
         };
 
@@ -51,11 +63,17 @@ final class NaskahBlockParser
 
             if (preg_match('/^(#{1,6})\s+(.+)$/u', $line, $m) === 1) {
                 $flush();
-                $blocks[] = [
+                $clean = $this->normalizeSpaces(trim($m[2]));
+                $parsed = $this->model->parseInlineMarkdown($clean);
+                $block = [
                     'type' => 'heading',
                     'level' => min(3, strlen($m[1])),
-                    'text' => $this->normalizeSpaces(trim($m[2])),
+                    'text' => $parsed['text'],
                 ];
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
+                $blocks[] = $block;
 
                 continue;
             }
@@ -63,12 +81,18 @@ final class NaskahBlockParser
             if (preg_match('/^>\s*(?:\[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION)\]|\*\*\[(.*?)\]\*\*)\s*(.*)$/ui', $line, $cm) === 1) {
                 $flush();
                 $cType = strtolower(($cm[1] ?? '') !== '' ? $cm[1] : ($cm[2] ?? 'catatan'));
-                $blocks[] = [
+                $clean = $this->normalizeSpaces(trim($cm[3] ?? ''));
+                $parsed = $this->model->parseInlineMarkdown($clean);
+                $block = [
                     'type' => 'callout',
                     'calloutType' => $cType,
                     'level' => 0,
-                    'text' => $this->normalizeSpaces(trim($cm[3] ?? '')),
+                    'text' => $parsed['text'],
                 ];
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
+                $blocks[] = $block;
 
                 continue;
             }
@@ -183,21 +207,39 @@ final class NaskahBlockParser
 
                     continue;
                 }
-                $blocks[] = ['type' => 'quote', 'level' => 0, 'text' => $this->normalizeSpaces(trim($m[1]))];
+                $clean = $this->normalizeSpaces(trim($m[1]));
+                $parsed = $this->model->parseInlineMarkdown($clean);
+                $block = ['type' => 'quote', 'level' => 0, 'text' => $parsed['text']];
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
+                $blocks[] = $block;
 
                 continue;
             }
 
             if (preg_match('/^[-*•]\s+(.+)$/u', $line, $m) === 1) {
                 $flush();
-                $blocks[] = ['type' => 'bullet', 'level' => 0, 'text' => $this->normalizeSpaces(trim($m[1]))];
+                $clean = $this->normalizeSpaces(trim($m[1]));
+                $parsed = $this->model->parseInlineMarkdown($clean);
+                $block = ['type' => 'bullet', 'level' => 0, 'text' => $parsed['text']];
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
+                $blocks[] = $block;
 
                 continue;
             }
 
             if (preg_match('/^\d+[.)]\s+(.+)$/u', $line, $m) === 1) {
                 $flush();
-                $blocks[] = ['type' => 'numbered', 'level' => 0, 'text' => $this->normalizeSpaces(trim($m[1]))];
+                $clean = $this->normalizeSpaces(trim($m[1]));
+                $parsed = $this->model->parseInlineMarkdown($clean);
+                $block = ['type' => 'numbered', 'level' => 0, 'text' => $parsed['text']];
+                if (! empty($parsed['runs'])) {
+                    $block['runs'] = $parsed['runs'];
+                }
+                $blocks[] = $block;
 
                 continue;
             }
