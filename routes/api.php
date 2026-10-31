@@ -46,6 +46,13 @@ Route::prefix('v1/naskah')->group(function (): void {
     Route::post('/documents/{id}/format-paragraph', [NaskahStudioApiController::class, 'formatParagraph'])->name('api.v1.naskah.format-paragraph');
     Route::get('/documents/{id}/readability-page', [NaskahStudioApiController::class, 'readabilityPage'])->name('api.v1.naskah.readability-page');
     Route::get('/documents/{id}/statistics', [NaskahStudioApiController::class, 'statistics'])->name('api.v1.naskah.statistics');
+    Route::get('/documents/{id}/outline', [NaskahStudioApiController::class, 'outline'])->name('api.v1.naskah.outline');
+    Route::get('/documents/{id}/comments', [NaskahStudioApiController::class, 'comments'])->name('api.v1.naskah.comments');
+    Route::post('/documents/{id}/comments', [NaskahStudioApiController::class, 'addComment'])->name('api.v1.naskah.add-comment');
+    Route::get('/documents/{id}/revisions', [NaskahStudioApiController::class, 'revisions'])->name('api.v1.naskah.revisions');
+    Route::get('/documents/{id}/snapshots', [NaskahStudioApiController::class, 'snapshots'])->name('api.v1.naskah.snapshots');
+    Route::post('/documents/{id}/snapshots', [NaskahStudioApiController::class, 'createSnapshot'])->name('api.v1.naskah.create-snapshot');
+    Route::post('/documents/{id}/find-replace', [NaskahStudioApiController::class, 'findReplace'])->name('api.v1.naskah.find-replace');
     Route::post('/documents/{id}/align-page', [NaskahStudioApiController::class, 'alignPage'])->name('api.v1.naskah.align-page');
     Route::post('/documents/{id}/execute-model', [NaskahStudioApiController::class, 'executeModel'])->name('api.v1.naskah.execute-model');
 });

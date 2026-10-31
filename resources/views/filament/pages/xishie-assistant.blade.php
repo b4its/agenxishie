@@ -94,6 +94,7 @@
                             <button type="button" class="rb-button" wire:click="exportTranscript('latex')" title="Unduh transkrip sesi sebagai Dokumen LaTeX (.tex)">&#11015; LaTeX</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('json')" title="Unduh transkrip sesi sebagai JSON">&#11015; JSON</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('csv')" title="Unduh transkrip sesi sebagai CSV (Spreadsheet / Excel)">&#11015; CSV</button>
+                            <button type="button" class="rb-button" wire:click="exportTranscript('rtf')" title="Unduh transkrip sesi sebagai Rich Text (.rtf Word/LibreOffice)">&#11015; RTF</button>
                             <button type="button" class="rb-button" wire:click="exportTranscript('txt')" title="Unduh transkrip sesi sebagai Plain Text">&#11015; TXT</button>
                             <button type="button" class="rb-button" x-data="{ copied: false }" @click="navigator.clipboard.writeText(document.querySelector('.rb-terminal')?.innerText || ''); copied = true; setTimeout(() => copied = false, 2000)" title="Salin seluruh isi percakapan ke papan klip">
                                 <span x-text="copied ? '✓ Tersalin!' : '📋 Salin Transkrip'">📋 Salin Transkrip</span>

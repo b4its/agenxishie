@@ -1203,6 +1203,27 @@ class XishieAssistantPage extends Page
                 'description' => 'Bandingkan temuan empiris naskah secara kritis dengan penelitian terdahulu (konsistensi & divergensi).',
                 'prompt' => 'Susun narasi Bab Pembahasan (Discussion) yang mengonfrontasikan temuan empiris naskah kita dengan literatur acuan SOTA: 1) Di mana temuan kita mengonfirmasi teori yang ada, 2) Di mana temuan kita bertentangan/anomali dan apa penjelasan ilmiahnya, 3) Apa mekanisme kausal baru yang ditemukan.',
             ],
+            'literature_matrix_sota' => [
+                'id' => 'literature_matrix_sota',
+                'title' => 'Matriks Komparasi State-of-the-Art (SOTA)',
+                'category' => 'Sitasi & Literatur',
+                'description' => 'Ekstraksi matriks perbandingan metodologi, temuan kunci, dan limitasi literatur acuan dalam format tabel.',
+                'prompt' => '/matriks-literatur Susun draf Tabel Matriks Sintesis Literatur (State of the Art) berbasis referensi riset aktif dengan kolom: [No | Peneliti & Tahun | Metode Riset | Temuan Empiris Utama | Research Gap / Keterbatasan]. Pastikan format siap disisipkan ke Naskah Studio.',
+            ],
+            'novelty_statement' => [
+                'id' => 'novelty_statement',
+                'title' => 'Formulasi Pernyataan Kebaruan (Novelty Statement)',
+                'category' => 'Audit & Validasi',
+                'description' => 'Rumuskan 3 poin utama kebaruan teoritis, metodologis, dan kontekstual naskah.',
+                'prompt' => '/kebaruan Rumuskan pernyataan kebaruan ilmiah (novelty statement) yang eksplisit dan terukur untuk naskah ini: 1) Kebaruan Teoretis/Konseptual, 2) Kebaruan Metodologis/Algoritmik, 3) Kebaruan Kontekstual/Empiris. Jelaskan bagaimana kontribusi ini mengatasi batasan literatur sebelumnya.',
+            ],
+            'puebi_linguistic_audit' => [
+                'id' => 'puebi_linguistic_audit',
+                'title' => 'Audit Linguistik & Ejaan Baku (PUEBI/KBBI)',
+                'category' => 'Gaya & Format',
+                'description' => 'Koreksi mendalam tanda baca, tata kata, kalimat majemuk, dan gaya formalitas akademik.',
+                'prompt' => '/puebi Lakukan audit linguistik menyeluruh terhadap teks naskah: 1) Identifikasi kata tidak baku dan tawarkan padanan KBBI, 2) Perbaiki penggunaan tanda baca (titik, koma, tanda hubung, titik dua), 3) Restrukturisasi kalimat yang terlalu panjang (run-on sentences) menjadi kalimat efektif, 4) Tampilkan draf hasil koreksi yang siap pakai.',
+            ],
         ];
     }
 
@@ -1394,6 +1415,57 @@ class XishieAssistantPage extends Page
             $content = (string) stream_get_contents($output);
             fclose($output);
             $mime = 'text/csv; charset=UTF-8';
+        } elseif ($format === 'rtf') {
+            $filename = 'xishie_assistant_transcript_'.$timestamp.'.rtf';
+            $rtfEsc = static function (string $text): string {
+                $out = '';
+                $len = mb_strlen($text);
+                for ($i = 0; $i < $len; $i++) {
+                    $char = mb_substr($text, $i, 1);
+                    $ord = mb_ord($char);
+                    if ($ord < 128) {
+                        if ($char === '\\' || $char === '{' || $char === '}') {
+                            $out .= '\\'.$char;
+                        } elseif ($char === "\n") {
+                            $out .= '\\par ';
+                        } else {
+                            $out .= $char;
+                        }
+                    } else {
+                        $out .= '\\u'.$ord.'?';
+                    }
+                }
+
+                return $out;
+            };
+
+            $rtf = "{\\rtf1\\ansi\\deff0\n{\\fonttbl{\\f0\\froman\\fcharset0 Times New Roman;}{\\f1\\fswiss\\fcharset0 Arial;}}\n";
+            $rtf .= "{\\colortbl ;\\red30\\green64\\blue175;\\red51\\green65\\blue85;\\red100\\green116\\blue139;}\n";
+            $rtf .= '\\pard\\qc\\b\\fs32\\cf1 Transkrip Sesi Xishie Assistant\\b0\\par\n';
+            $rtf .= '\\pard\\qc\\i\\fs20\\cf3 Proyek: '.$rtfEsc($title).' | Waktu: '.now()->format('d/m/Y H:i')."\\i0\\par\\par\n";
+
+            foreach ($exportLog as $entry) {
+                $isUser = ($entry['role'] === 'user');
+                $sender = $isUser ? 'Peneliti' : 'Xishie Assistant';
+                $metaParts = [];
+                if (! empty($entry['model'])) {
+                    $metaParts[] = 'Model: '.$entry['model'];
+                }
+                if (! empty($entry['persona'])) {
+                    $metaParts[] = 'Persona: '.$entry['persona'];
+                }
+                if (! empty($entry['command'])) {
+                    $metaParts[] = 'Perintah: '.$entry['command'];
+                }
+                $metaSuffix = ! empty($metaParts) ? ' ['.implode(' | ', $metaParts).']' : '';
+
+                $rtf .= '\\pard\\ql\\b\\fs24 '.($isUser ? '\\cf2 ' : '\\cf1 ').$rtfEsc("[{$sender}]{$metaSuffix}")."\\b0\\cf0\\par\n";
+                $rtf .= '\\pard\\ql\\fi360\\fs22 '.$rtfEsc((string) ($entry['content'] ?? ''))."\\par\\par\n";
+            }
+
+            $rtf .= "}\n";
+            $content = $rtf;
+            $mime = 'application/rtf; charset=UTF-8';
         } else {
             $filename = 'xishie_assistant_transcript_'.$timestamp.'.md';
             $lines = [

@@ -490,6 +490,82 @@ final class NaskahRichModel
     }
 
     /**
+     * Cari dan ganti teks di seluruh kumpulan blok (paragraf, heading, sel tabel, persamaan, callout, kutipan).
+     *
+     * @param  array<int, array<string, mixed>>  $blocks
+     * @return array{blocks: array<int, array<string, mixed>>, count: int}
+     */
+    public function findAndReplace(array $blocks, string $search, string $replace, bool $matchCase = false, bool $wholeWord = false): array
+    {
+        if ($search === '') {
+            return ['blocks' => $blocks, 'count' => 0];
+        }
+
+        $totalCount = 0;
+        $escaped = preg_quote($search, '/');
+        $pattern = $wholeWord ? '\b'.$escaped.'\b' : $escaped;
+        $regex = '/'.$pattern.'/u'.($matchCase ? '' : 'i');
+
+        $replaceCallback = function (string $text) use ($regex, $replace, &$totalCount): string {
+            $count = 0;
+            $newText = (string) preg_replace($regex, $replace, $text, -1, $count);
+            $totalCount += $count;
+
+            return $newText;
+        };
+
+        foreach ($blocks as $i => $block) {
+            $type = (string) ($block['type'] ?? 'paragraph');
+
+            // 1. Text field pada blok
+            if (isset($block['text']) && is_string($block['text']) && $block['text'] !== '') {
+                $orig = $block['text'];
+                $new = $replaceCallback($orig);
+                if ($new !== $orig) {
+                    $blocks[$i]['text'] = $new;
+                    if (! empty($block['runs'])) {
+                        $blocks[$i]['runs'] = $this->normalizeRuns($block['runs'], $new);
+                    }
+                }
+            }
+
+            // 2. Sel tabel
+            if ($type === 'table' && ! empty($block['table']['rows'])) {
+                foreach ($block['table']['rows'] as $rIdx => $row) {
+                    foreach ($row as $cIdx => $cell) {
+                        $cellText = (string) ($cell['text'] ?? '');
+                        if ($cellText !== '') {
+                            $newCellText = $replaceCallback($cellText);
+                            if ($newCellText !== $cellText) {
+                                $blocks[$i]['table']['rows'][$rIdx][$cIdx]['text'] = $newCellText;
+                                if (! empty($cell['runs'])) {
+                                    $blocks[$i]['table']['rows'][$rIdx][$cIdx]['runs'] = $this->normalizeRuns($cell['runs'], $newCellText);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Caption pada tabel, persamaan, gambar
+            if (isset($block['table']['caption']) && is_string($block['table']['caption'])) {
+                $blocks[$i]['table']['caption'] = $replaceCallback($block['table']['caption']);
+            }
+            if (isset($block['equation']['caption']) && is_string($block['equation']['caption'])) {
+                $blocks[$i]['equation']['caption'] = $replaceCallback($block['equation']['caption']);
+            }
+            if (isset($block['image']['caption']) && is_string($block['image']['caption'])) {
+                $blocks[$i]['image']['caption'] = $replaceCallback($block['image']['caption']);
+            }
+        }
+
+        return [
+            'blocks' => $blocks,
+            'count' => $totalCount,
+        ];
+    }
+
+    /**
      * Ubah kapitalisasi teks (sentence, title, upper, lower).
      */
     public function transformCase(string $text, string $casing): string

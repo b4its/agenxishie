@@ -250,6 +250,185 @@ class NaskahStudioApiController extends Controller
         ]);
     }
 
+    public function outline(int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $blocks = $this->model->normalize((array) $document->blocks);
+        $outline = $this->model->outline($blocks);
+
+        return response()->json([
+            'status' => 'success',
+            'document_id' => $document->id,
+            'title' => $document->title,
+            'outline' => $outline,
+            'total_headings' => count($outline),
+        ]);
+    }
+
+    public function comments(int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $comments = $document->commentsList();
+        $unresolved = count(array_filter($comments, static fn (array $c): bool => empty($c['resolved'])));
+
+        return response()->json([
+            'status' => 'success',
+            'document_id' => $document->id,
+            'comments' => $comments,
+            'total_comments' => count($comments),
+            'unresolved_count' => $unresolved,
+        ]);
+    }
+
+    public function addComment(Request $request, int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $text = trim((string) $request->input('text', ''));
+        if ($text === '') {
+            return response()->json(['status' => 'error', 'message' => 'Teks komentar tidak boleh kosong'], 422);
+        }
+
+        $author = trim((string) $request->input('author', 'Xishie AI Reviewer'));
+        $blockIndex = (int) $request->input('block_index', 0);
+
+        $comments = $document->commentsList();
+        $newComment = [
+            'id' => (string) Str::uuid(),
+            'author' => $author !== '' ? $author : 'Xishie AI Reviewer',
+            'text' => $text,
+            'blockIndex' => $blockIndex,
+            'createdAt' => now()->toIso8601String(),
+            'resolved' => false,
+            'replies' => [],
+        ];
+        $comments[] = $newComment;
+        $document->comments = $comments;
+        $document->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Komentar berhasil ditambahkan ke naskah.',
+            'data' => $newComment,
+            'comment' => $newComment,
+            'total_comments' => count($comments),
+        ]);
+    }
+
+    public function revisions(int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $revisions = $document->revisionsList();
+        $pending = count(array_filter($revisions, static fn (array $r): bool => ($r['status'] ?? 'pending') === 'pending'));
+
+        return response()->json([
+            'status' => 'success',
+            'document_id' => $document->id,
+            'revisions' => $revisions,
+            'total_revisions' => count($revisions),
+            'pending_count' => $pending,
+        ]);
+    }
+
+    public function snapshots(int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $meta = is_array($document->style_meta) ? $document->style_meta : [];
+        $snapshots = is_array($meta['snapshots'] ?? null) ? $meta['snapshots'] : [];
+
+        return response()->json([
+            'status' => 'success',
+            'document_id' => $document->id,
+            'snapshots' => $snapshots,
+            'total_snapshots' => count($snapshots),
+        ]);
+    }
+
+    public function createSnapshot(Request $request, int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $label = trim((string) $request->input('label', 'Versi API '.now()->format('d/m/Y H:i')));
+        $meta = is_array($document->style_meta) ? $document->style_meta : [];
+        $snapshots = is_array($meta['snapshots'] ?? null) ? $meta['snapshots'] : [];
+
+        $newSnapshot = [
+            'id' => (string) Str::uuid(),
+            'label' => $label !== '' ? $label : 'Versi API '.now()->format('d/m/Y H:i'),
+            'at' => now()->toIso8601String(),
+            'timestamp' => now()->toIso8601String(),
+            'count' => is_array($document->blocks) ? count($document->blocks) : 0,
+            'blocks' => $document->blocks,
+        ];
+
+        $snapshots[] = $newSnapshot;
+        $meta['snapshots'] = $snapshots;
+        $document->style_meta = $meta;
+        $document->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Snapshot '{$label}' berhasil disimpan.",
+            'snapshot' => $newSnapshot,
+            'total_snapshots' => count($snapshots),
+        ]);
+    }
+
+    public function findReplace(Request $request, int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $search = (string) $request->input('search', '');
+        $replace = (string) $request->input('replace', '');
+        if ($search === '') {
+            return response()->json(['status' => 'error', 'message' => 'Parameter search tidak boleh kosong'], 422);
+        }
+
+        $matchCase = (bool) $request->input('match_case', false);
+        $wholeWord = (bool) $request->input('whole_word', false);
+
+        $blocks = $this->model->normalize((array) $document->blocks);
+        $res = $this->model->findAndReplace($blocks, $search, $replace, $matchCase, $wholeWord);
+
+        $document->update([
+            'blocks' => $res['blocks'],
+            'word_count' => $this->model->countWords($res['blocks']),
+            'last_saved_at' => now(),
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Find & replace selesai: {$res['count']} kemunculan diganti.",
+            'replacements_count' => $res['count'],
+            'word_count' => $document->word_count,
+        ]);
+    }
+
     public function auditPage(Request $request, int $id): JsonResponse
     {
         $document = NaskahDocument::query()->find($id);
@@ -567,6 +746,23 @@ class NaskahStudioApiController extends Controller
             'poin_kunci' => 'key_points',
             'thesaurus' => 'thesaurus',
             'tesaurus' => 'thesaurus',
+            'gap' => 'gap',
+            'cek_gap' => 'gap',
+            'matrix' => 'matrix',
+            'matriks' => 'matrix',
+            'matriks_literatur' => 'matrix',
+            'puebi' => 'puebi',
+            'ejaan' => 'puebi',
+            'citations' => 'citations',
+            'sitasi' => 'citations',
+            'readability' => 'readability',
+            'keterbacaan' => 'readability',
+            'introduction' => 'introduction',
+            'pendahuluan' => 'introduction',
+            'discussion' => 'discussion',
+            'pembahasan' => 'discussion',
+            'literature' => 'literature',
+            'tinjauan_pustaka' => 'literature',
         ];
         $presetKey = is_string($preset) ? ($presetMap[strtolower(trim($preset))] ?? strtolower(trim($preset))) : null;
 
@@ -584,6 +780,14 @@ class NaskahStudioApiController extends Controller
             'summary' => 'Susun intisari eksekutif 1-2 alinea padat yang merangkum keseluruhan esensi temuan naskah ini.',
             'key_points' => 'Ekstrak 3-5 poin kunci terpenting dari naskah ini dalam bentuk butir-butir terstruktur.',
             'thesaurus' => 'Eksplorasi padanan kata dan variasi sinonim akademik baku untuk memperkaya naskah ilmiah.',
+            'gap' => 'Identifikasi research gap, batasan studi terdahulu, dan justifikasi urgensi penelitian secara kritis.',
+            'matrix' => 'Susun tabel matriks perbandingan State of the Art (SOTA) mencakup Peneliti, Tahun, Metode, Temuan, dan Gap.',
+            'puebi' => 'Periksa ejaan, tanda baca, pilihan kata, dan tata bahasa sesuai kaidah baku bahasa Indonesia (PUEBI/KBBI).',
+            'citations' => 'Audit keakuratan sitasi, kesesuaian format rujukan dalam teks, dan integrasi daftar pustaka naskah.',
+            'readability' => 'Evaluasi tingkat keterbacaan, keteraturan panjang kalimat, dan kepadatan konsep naskah akademik.',
+            'introduction' => 'Rancang narasi Bab Pendahuluan mencakup latar belakang fenomena, urgensi teoretis, SOTA, dan tujuan penelitian.',
+            'discussion' => 'Susun pembahasan mendalam yang membandingkan temuan empiris naskah dengan rujukan literatur terdahulu.',
+            'literature' => 'Bangun kerangka teoretis, landasan konseptual, dan sintesis literatur terkini yang mendasari penelitian.',
         ];
 
         $prompt = trim((string) $request->input('prompt', ''));
@@ -633,17 +837,29 @@ class NaskahStudioApiController extends Controller
             $source = 'llm';
         } else {
             $lowerPrompt = mb_strtolower($prompt);
-            if (preg_match('/(daftar\s+pustaka|bibliography|referensi)/iu', $lowerPrompt)) {
+            if (preg_match('/(daftar\s+pustaka|bibliography|referensi)/iu', $lowerPrompt) || $presetKey === 'citations') {
                 $replyContent = "### Daftar Pustaka\n\n"
                     ."- Creswell, J. W., & Creswell, J. D. (2018). Research Design: Qualitative, Quantitative, and Mixed Methods Approaches (5th ed.). SAGE Publications.\n"
                     .'- Anderson, C. (2020). Makers: The New Industrial Revolution. Crown Business Publishing, 14(2), 112–129.';
                 $source = 'contextual_bibliography';
-            } elseif (preg_match('/(tabel|table|matriks)/iu', $lowerPrompt)) {
-                $replyContent = "| Parameter | Nilai |\n|---|---|\n| Akurasi | 96.5% |\n| Waktu | 110 ms |";
+            } elseif (preg_match('/(tabel|table|matriks)/iu', $lowerPrompt) || $presetKey === 'matrix' || $presetKey === 'table') {
+                $replyContent = "| Parameter / Indikator | Capaian | Status |\n|---|---|---|\n| Tingkat Kepatuhan Pedoman | 89.2% | Optimal |\n| Validasi Empiris Model | Terverifikasi | Signifikan |";
                 $source = 'contextual_table';
-            } elseif (preg_match('/\b(rumus|persamaan|latex|equation)\b/iu', $lowerPrompt)) {
+            } elseif (preg_match('/\b(rumus|persamaan|latex|equation)\b/iu', $lowerPrompt) || $presetKey === 'equation') {
                 $replyContent = '$$ Y = \\beta_0 + \\sum_{i=1}^{k} \\beta_i X_i + \\varepsilon $$';
                 $source = 'contextual_equation';
+            } elseif ($presetKey === 'gap') {
+                $replyContent = "> [!NOTE] Analisis Research Gap\nKajian terdahulu belum mengeksplorasi integrasi model secara terukur. Naskah ini mengusulkan validasi empiris untuk mengisi celah metodologis tersebut.";
+                $source = 'contextual_gap';
+            } elseif ($presetKey === 'introduction') {
+                $replyContent = "## Pendahuluan\n\nPenelitian ini berfokus pada urgensi integrasi metodologi ilmiah modern dalam rangka mempertahankan integritas akademik dan daya saing naskah publikasi.";
+                $source = 'contextual_introduction';
+            } elseif ($presetKey === 'discussion') {
+                $replyContent = "## Pembahasan\n\nTemuan empiris menunjukkan konvergensi positif dengan rujukan terdahulu, sekaligus mengonfirmasi mekanisme teoretis yang diusulkan.";
+                $source = 'contextual_discussion';
+            } elseif ($presetKey === 'literature') {
+                $replyContent = "## Tinjauan Pustaka\n\nLandasan konseptual dibangun di atas sintesis literatur terkini yang memetakan perkembangan domain riset secara komprehensif.";
+                $source = 'contextual_literature';
             } else {
                 $replyContent = "### Sintesis Akademik ({$modelId})\n\n"
                     ."Berdasarkan telaah terhadap instruksi \"{$prompt}\", naskah menyajikan sintesis konseptual dan empiris yang memperkuat temuan ilmiah.";
