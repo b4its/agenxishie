@@ -1728,3 +1728,30 @@ it('supports /limitasi and /keterbatasan aliases mapping to /kesimpulan with str
         ->and($lastEntry['data'])->toHaveKey('blocks')
         ->and($lastEntry['content'])->toContain('Limitasi Riset');
 });
+
+it('supports /ringkas with text arguments and slash command aliases for citation audit and key points', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create(['user_id' => $user->id]);
+
+    expect(SlashCommand::tryParse('/audit-sitasi'))->toBe(SlashCommand::SITASI)
+        ->and(SlashCommand::tryParse('/check-citations'))->toBe(SlashCommand::SITASI)
+        ->and(SlashCommand::tryParse('/key-points argumen'))->toBe(SlashCommand::RINGKAS)
+        ->and(SlashCommand::tryParse('/intisari bahasan'))->toBe(SlashCommand::RINGKAS);
+
+    $rawText = 'Penelitian ini mengembangkan algoritma optimasi berbasis komputasi evolusioner. Hasil uji coba empiris menunjukkan peningkatan efisiensi konvergensi sebesar 34 persen dibandingkan metode baseline.';
+
+    $page = Livewire::actingAs($user)
+        ->test(XishieAssistantPage::class, ['project' => $project->id])
+        ->set('message', '/ringkas '.$rawText)
+        ->call('send');
+
+    $log = $page->get('log');
+    $lastEntry = end($log);
+    expect($lastEntry['command'])->toBe(SlashCommand::RINGKAS->value)
+        ->and($lastEntry['content'])->toContain('Ringkasan Eksekutif Teks')
+        ->and($lastEntry['data'])->toHaveKey('summary')
+        ->and($lastEntry['data'])->toHaveKey('original_word_count')
+        ->and($lastEntry['data'])->toHaveKey('blocks');
+});

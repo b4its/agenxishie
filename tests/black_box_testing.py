@@ -475,6 +475,17 @@ status, filament_link_html, _ = http_get("/admin/naskah-studio?dialog=link", hea
 test("Filament Studio: Link Dialog Academic Presets (?dialog=link)",
      status == 200 and "setLinkPreset('doi')" in filament_link_html and "setLinkPreset('arxiv')" in filament_link_html)
 
+status, studio_tautan_html, _ = http_get("/studio?dialog=tautan")
+test("Standalone Studio: Link Dialog Alias (?dialog=tautan)",
+     status == 200 and "setLinkPreset('doi')" in studio_tautan_html)
+
+status, filament_tautan_html, _ = http_get("/admin/naskah-studio?dialog=tautan", headers=auth_headers)
+test("Filament Studio: Link Dialog Alias (?dialog=tautan)",
+     status == 200 and "setLinkPreset('doi')" in filament_tautan_html)
+
+test("Standalone Studio: Home Ribbon Key Points Action", "aiKeyPointsBlock" in studio_standalone_html)
+test("Filament Studio: Home Ribbon Key Points Action", "aiKeyPointsBlock" in studio_html)
+
 status, studio_references_html, _ = http_get("/studio?tab=references")
 test("Standalone Studio: References Ribbon Tab (?tab=references)", "Pustaka Riset" in studio_references_html and "Insert Citation" in studio_references_html)
 test("Standalone Studio: References Ribbon Update Bibliography Present (?tab=references)", "updateBibliography" in studio_references_html or "Update Bib" in studio_references_html)

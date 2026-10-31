@@ -3334,3 +3334,55 @@ it('supports markdown parsing of images, pagebreaks, inline links, and academic 
         ->and($component->get('linkUrl'))->toBe('')
         ->and($component->get('linkText'))->toBe('');
 });
+
+it('supports aiSummarizeBlock, aiKeyPointsBlock, link dialog aliases, and model preset aliases', function () {
+    $user = User::factory()->create();
+    $doc = NaskahDocument::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Uji Wordcraft Summarize dan Key Points',
+        'blocks' => [
+            ['id' => 'p1', 'type' => 'paragraph', 'text' => 'Model deep learning ini dilatih menggunakan dataset multimodal berskala besar. Evaluasi performa menunjukkan akurasi yang lebih tinggi dibanding arsitektur transformer tradisional.', 'runs' => []],
+        ],
+        'word_count' => 20,
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id]);
+
+    // 1. Test dialog aliases
+    $component->call('openDialog', 'tautan');
+    expect($component->get('dialog'))->toBe('link');
+
+    $component->call('openDialog', 'hyperlink');
+    expect($component->get('dialog'))->toBe('link');
+
+    // 2. Test aiSummarizeBlock
+    $component->set('activeBlock', 0)
+        ->call('aiSummarizeBlock', 0);
+
+    $blocksAfterSum = $component->get('blocks');
+    expect($blocksAfterSum[0]['text'])->not->toBeEmpty()
+        ->and($component->get('docWordCount'))->toBeGreaterThan(0)
+        ->and($component->get('editorRevision'))->toBeGreaterThan(0);
+
+    // 3. Test aiKeyPointsBlock
+    $component->set('activeBlock', 0)
+        ->call('aiKeyPointsBlock', 0);
+
+    $blocksAfterKP = $component->get('blocks');
+    expect(count($blocksAfterKP))->toBeGreaterThan(1)
+        ->and($blocksAfterKP[1]['type'])->toBe('bullet');
+
+    // 4. Test executeModelPreset with alias 'kebaruan'
+    $component->call('executeModelPreset', 'kebaruan');
+    expect($component->get('isReviewingModelOutput'))->toBeTrue()
+        ->and($component->get('docWordCount'))->toBeGreaterThan(0);
+
+    $component->call('acceptModelOutput');
+    expect($component->get('isReviewingModelOutput'))->toBeFalse()
+        ->and($component->get('docWordCount'))->toBeGreaterThan(0);
+
+    // 5. Test command execution
+    $component->call('executeCommand', 'ai.key_points');
+    expect(count($component->get('blocks')))->toBeGreaterThan(2);
+});
