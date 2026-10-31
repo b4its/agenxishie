@@ -57,5 +57,6 @@ Route::prefix('v1/naskah')->group(function (): void {
     Route::post('/documents/{id}/snapshots/{snapshotId}/restore', [NaskahStudioApiController::class, 'restoreSnapshot'])->name('api.v1.naskah.restore-snapshot');
     Route::post('/documents/{id}/find-replace', [NaskahStudioApiController::class, 'findReplace'])->name('api.v1.naskah.find-replace');
     Route::post('/documents/{id}/align-page', [NaskahStudioApiController::class, 'alignPage'])->name('api.v1.naskah.align-page');
+    Route::match(['get', 'post'], '/documents/{id}/audit-citations', [NaskahStudioApiController::class, 'auditCitations'])->name('api.v1.naskah.audit-citations');
     Route::post('/documents/{id}/execute-model', [NaskahStudioApiController::class, 'executeModel'])->name('api.v1.naskah.execute-model');
 });

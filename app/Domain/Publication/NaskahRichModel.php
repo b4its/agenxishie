@@ -993,6 +993,8 @@ final class NaskahRichModel
             $inner = $this->runsToHtml($block, $escape);
 
             $tag = match ($type) {
+                'title' => 'h1',
+                'subtitle' => 'h2',
                 'heading' => 'h'.(int) ($block['level'] ?? 1),
                 'quote' => 'blockquote',
                 default => 'p',
@@ -1290,6 +1292,8 @@ final class NaskahRichModel
             $text = $this->runsToMarkdown($this->runsWithText($block));
             $levelIndent = str_repeat('  ', max(0, min(8, (int) ($block['listLevel'] ?? 0))));
             $out[] = match ($type) {
+                'title' => '# '.$text,
+                'subtitle' => '## *'.$text.'*',
                 'heading' => str_repeat('#', (int) ($block['level'] ?? 1)).' '.$text,
                 'quote' => '> '.$text,
                 'callout' => '> **['.strtoupper((string) ($block['calloutType'] ?? 'catatan')).']** '.$text,
@@ -1794,7 +1798,11 @@ final class NaskahRichModel
                 continue;
             }
 
-            if ($type === 'heading') {
+            if ($type === 'title') {
+                $out .= '\\section*{'.$esc($text)."}\n\n";
+            } elseif ($type === 'subtitle') {
+                $out .= '\\subsection*{\\textit{'.$esc($text)."}}\n\n";
+            } elseif ($type === 'heading') {
                 $lvl = max(1, min(3, (int) ($block['level'] ?? 1)));
                 $cmd = match ($lvl) {
                     1 => '\\section',
@@ -1950,7 +1958,11 @@ final class NaskahRichModel
             $type = (string) ($block['type'] ?? 'paragraph');
             $text = (string) ($block['text'] ?? '');
 
-            if ($type === 'heading') {
+            if ($type === 'title') {
+                $out .= '\\pard\\qc\\b\\fs36\\cf1 '.$formatRunsToRtf($block)."\\b0\\fs24\\cf0\\par\n";
+            } elseif ($type === 'subtitle') {
+                $out .= '\\pard\\qc\\i\\fs28\\cf2 '.$formatRunsToRtf($block)."\\i0\\fs24\\cf0\\par\n";
+            } elseif ($type === 'heading') {
                 $lvl = max(1, min(3, (int) ($block['level'] ?? 1)));
                 $size = match ($lvl) {
                     1 => 32,
@@ -2019,6 +2031,11 @@ final class NaskahRichModel
                 $caption = (string) ($block['equation']['caption'] ?? $block['caption'] ?? '');
                 $captionPart = $caption !== '' ? ' \\tab ('.$rtfEsc($caption).')' : '';
                 $out .= '\\pard\\qc\\i\\fs22 '.$rtfEsc($latex).$captionPart."\\i0\\fs24\\par\n";
+            } elseif ($type === 'image') {
+                $caption = (string) ($block['image']['caption'] ?? $block['image']['alt'] ?? $block['caption'] ?? 'Gambar Naskah');
+                $src = (string) ($block['image']['src'] ?? '');
+                $srcLabel = ($src !== '' && ! str_starts_with($src, 'data:')) ? ' ('.$rtfEsc($src).')' : '';
+                $out .= '\\pard\\qc\\i\\fs20\\cf2 [Gambar: '.$rtfEsc($caption).']'.$srcLabel."\\i0\\fs24\\cf0\\par\n";
             } else {
                 if (trim($text) !== '') {
                     $out .= '\\pard\\ql\\fs24 '.$formatRunsToRtf($block)."\\par\n";
@@ -2788,5 +2805,66 @@ final class NaskahRichModel
         $header = '% BibTeX Bibliography exported from Xishie Naskah Studio — '.addcslashes($title, "\r\n")."\n\n";
 
         return $header.implode("\n\n", $entries)."\n";
+    }
+
+    /**
+     * Normalisasi kosakata tidak baku ke bentuk baku KBBI / PUEBI beserta detail perubahannya.
+     *
+     * @return array{text: string, count: int, replacements: array<string, string>}
+     */
+    public function normalizeKbbiWords(string $text): array
+    {
+        $kbbiMap = [
+            'analisa' => 'analisis',
+            'hipotesa' => 'hipotesis',
+            'sintesa' => 'sintesis',
+            'sistim' => 'sistem',
+            'praktek' => 'praktik',
+            'tehnologi' => 'teknologi',
+            'aktifitas' => 'aktivitas',
+            'efektifitas' => 'efektivitas',
+            'produktifitas' => 'produktivitas',
+            'kreatifitas' => 'kreativitas',
+            'kwalitas' => 'kualitas',
+            'kwantitas' => 'kuantitas',
+            'prosentase' => 'persentase',
+            'responden' => 'responden',
+            'standarisasi' => 'standardisasi',
+            'standart' => 'standar',
+            'mempengaruhi' => 'memengaruhi',
+            'merubah' => 'mengubah',
+            'dimana' => 'tempat',
+            'daripada' => 'dari',
+            'resiko' => 'risiko',
+            'metoda' => 'metode',
+            'obyek' => 'objek',
+            'subyek' => 'subjek',
+            'tehnik' => 'teknik',
+            'jadual' => 'jadwal',
+            'hirarki' => 'hierarki',
+            'komplek' => 'kompleks',
+        ];
+
+        $corrected = $text;
+        $count = 0;
+        $replacements = [];
+
+        foreach ($kbbiMap as $nonStandard => $standard) {
+            if ($nonStandard === $standard) {
+                continue;
+            }
+            $replaced = preg_replace('/\b'.preg_quote($nonStandard, '/').'\b/iu', $standard, $corrected, -1, $c);
+            if ($c > 0 && is_string($replaced)) {
+                $corrected = $replaced;
+                $count += $c;
+                $replacements[$nonStandard] = $standard;
+            }
+        }
+
+        return [
+            'text' => $corrected,
+            'count' => $count,
+            'replacements' => $replacements,
+        ];
     }
 }

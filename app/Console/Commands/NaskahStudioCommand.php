@@ -24,7 +24,7 @@ class NaskahStudioCommand extends Command
      * @var string
      */
     protected $signature = 'naskah:manage
-                            {action : list|inspect|stats|outline|comments|revisions|snapshots|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page|indent-page|highlight-page|execute-model|models}
+                            {action : list|inspect|stats|outline|comments|revisions|snapshots|audit-citations|export|autocorrect|paragraphs|format-paragraph|clean-page|audit-page|find-replace|export-page|polish-page|align-page|linespacing-page|readability-page|indent-page|highlight-page|execute-model|models}
                             {documentId? : ID dokumen naskah}
                             {--format=docx : Format ekspor (docx, odt, html, latex, rtf, csv, bibtex, md, txt, json)}
                             {--output= : Path berkas luaran}
@@ -130,6 +130,7 @@ class NaskahStudioCommand extends Command
             'comments' => $this->handleComments($document),
             'revisions' => $this->handleRevisions($document),
             'snapshots' => $this->handleSnapshots($document),
+            'audit-citations' => $this->handleAuditCitations($document, $blocks, $model),
             'export' => $this->handleExport($document, $blocks, $model, $docx, $odt),
             'autocorrect' => $this->handleAutoCorrect($document, $blocks, $model),
             'paragraphs' => $this->handleParagraphs($document, $blocks, $model),
@@ -302,6 +303,29 @@ class NaskahStudioCommand extends Command
         }
 
         $this->table(['ID', 'Label Versi', 'Jumlah Blok', 'Waktu Simpan'], $rows);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $blocks
+     */
+    private function handleAuditCitations(NaskahDocument $document, array $blocks, NaskahRichModel $model): int
+    {
+        $response = app(\App\Http\Controllers\Api\NaskahStudioApiController::class)->auditCitations($document->id);
+        $payload = (array) $response->getData(true);
+
+        $this->info("=== AUDIT SITASI NASKAH: {$document->title} (ID #{$document->id}) ===");
+        $this->table(
+            ['Metrik Sitasi', 'Nilai'],
+            [
+                ['Total Sitasi Ditemukan', (string) ($payload['total_citations'] ?? 0)],
+                ['Sitasi Terverifikasi', (string) count((array) ($payload['verified'] ?? []))],
+                ['Sitasi Belum Cocok', (string) count((array) ($payload['unmatched'] ?? []))],
+                ['Total Acuan Pustaka', (string) ($payload['references_count'] ?? 0)],
+                ['Densitas per 1.000 Kata', ($payload['density_per_1k'] ?? 0).'/1k kata'],
+            ]
+        );
 
         return self::SUCCESS;
     }
@@ -1190,7 +1214,7 @@ class NaskahStudioCommand extends Command
 
     private function handleUnknownAction(string $action): int
     {
-        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, outline, comments, revisions, snapshots, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page, indent-page, highlight-page, execute-model, models.");
+        $this->error("Aksi '{$action}' tidak dikenal. Pilih: list, inspect, stats, outline, comments, revisions, snapshots, audit-citations, export, autocorrect, paragraphs, format-paragraph, clean-page, audit-page, find-replace, export-page, polish-page, align-page, linespacing-page, readability-page, indent-page, highlight-page, execute-model, models.");
 
         return self::FAILURE;
     }

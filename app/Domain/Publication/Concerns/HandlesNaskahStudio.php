@@ -571,6 +571,8 @@ trait HandlesNaskahStudio
             $this->sourceProjectId = null;
             $this->documentId = null;
             $this->dirty = true;
+            $this->docWordCount = $this->model->countWords($this->blocks);
+            $this->statistics = $this->model->computeStatistics($this->blocks);
 
             $this->notify('Naskah dimuat dari berkas', $filename.' — '.count($blocks).' blok.', 'success');
         } catch (\Throwable $exception) {
@@ -619,6 +621,8 @@ trait HandlesNaskahStudio
         $this->sourceFilename = null;
         $this->documentId = null;
         $this->dirty = true;
+        $this->docWordCount = $this->model->countWords($this->blocks);
+        $this->statistics = $this->model->computeStatistics($this->blocks);
 
         $this->notify('Naskah proyek dimuat', $project->title.' ('.$stageEnum->label().') — '.count($blocks).' blok.', 'success');
     }
@@ -954,6 +958,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->activeBlock = 0;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->statistics = $this->model->computeStatistics($this->blocks);
 
         $this->notify('Halaman Sampul Disisipkan', "Halaman sampul format {$genreLabel} berhasil ditambahkan di awal naskah.", 'success');
@@ -1367,6 +1372,7 @@ trait HandlesNaskahStudio
         $this->editorRevision++;
         $this->markDirty();
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     /**
@@ -1401,6 +1407,7 @@ trait HandlesNaskahStudio
         $this->editorRevision++;
         $this->markDirty();
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     /**
@@ -1450,6 +1457,7 @@ trait HandlesNaskahStudio
             $this->editorRevision++;
             $this->markDirty();
             $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
         }
     }
 
@@ -1482,6 +1490,8 @@ trait HandlesNaskahStudio
         $this->activeBlock = $index - 1;
         $this->editorRevision++;
         $this->markDirty();
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
 
         return $cursorPos;
     }
@@ -1513,6 +1523,8 @@ trait HandlesNaskahStudio
         $this->activeBlock = $index;
         $this->editorRevision++;
         $this->markDirty();
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function applyStyle(int $index, string $style): void
@@ -1599,19 +1611,16 @@ trait HandlesNaskahStudio
         }
 
         $this->pushUndo();
+        $this->model ??= app(NaskahRichModel::class);
         $text = (string) ($this->blocks[$index]['text'] ?? '');
-        $converted = match ($mode) {
-            'upper' => mb_strtoupper($text),
-            'lower' => mb_strtolower($text),
-            'title' => mb_convert_case($text, MB_CASE_TITLE, 'UTF-8'),
-            'sentence' => mb_strtoupper(mb_substr($text, 0, 1)).mb_strtolower(mb_substr($text, 1)),
-            default => $text,
-        };
+        $converted = $this->model->transformCase($text, $mode);
 
         $this->blocks[$index]['text'] = $converted;
         $this->blocks[$index]['runs'] = $converted === '' ? [] : [['text' => $converted]];
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function adjustFontSize(int $delta): void
@@ -2174,6 +2183,8 @@ trait HandlesNaskahStudio
         if ($cleaned > 0) {
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Spasi Dirapikan', "{$cleaned} paragraf pada Halaman {$pageNumber} berhasil dirapikan.", 'success');
         } else {
             $this->notify('Spasi Sudah Rapi', "Seluruh paragraf pada Halaman {$pageNumber} sudah sesuai kaidah spasi.", 'info');
@@ -2208,6 +2219,8 @@ trait HandlesNaskahStudio
         if ($count > 0) {
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Kapitalisasi Diubah', "Format huruf {$count} paragraf pada Halaman {$pageNumber} diubah ke {$casing}.", 'success');
         }
 
@@ -2241,6 +2254,7 @@ trait HandlesNaskahStudio
         $this->blocks[$index]['runs'] = $this->model->normalizeRuns($this->blocks[$index]['runs'] ?? [], $newText);
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->statistics = $this->model->computeStatistics($this->blocks);
 
         $label = match (strtolower($casing)) {
@@ -2285,6 +2299,8 @@ trait HandlesNaskahStudio
 
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Paragraf Digabungkan', 'Paragraf #'.($paragraphIndexOnPage + 1).' dan #'.($paragraphIndexOnPage + 2)." pada Halaman {$pageNumber} digabungkan.", 'success');
 
         return true;
@@ -2348,6 +2364,8 @@ trait HandlesNaskahStudio
 
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Paragraf Dipecah', 'Paragraf #'.($paragraphIndexOnPage + 1)." pada Halaman {$pageNumber} berhasil dipecah menjadi dua alinea.", 'success');
 
         return true;
@@ -2378,6 +2396,8 @@ trait HandlesNaskahStudio
         $this->activeBlock = $insertAtGlobal;
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Paragraf Disisipkan', "Paragraf baru ditambahkan pada Halaman {$pageNumber}.", 'success');
 
         return $insertAtGlobal;
@@ -2424,6 +2444,8 @@ trait HandlesNaskahStudio
         if ($totalReplacements > 0) {
             $this->dirty = true;
             $this->editorRevision++;
+            $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+            $this->statistics = $this->model->computeStatistics($this->blocks);
             $this->notify('Cari & Ganti Selesai', "{$totalReplacements} kemunculan teks pada Halaman {$pageNumber} berhasil diganti.", 'success');
         } else {
             $this->notify('Tidak Ditemukan', "Kata '{$search}' tidak ditemukan pada Halaman {$pageNumber}.", 'info');
@@ -2561,6 +2583,8 @@ trait HandlesNaskahStudio
         $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns([], $polishedText);
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Paragraf Dipoles', 'Paragraf #'.($paragraphIndexOnPage + 1)." pada Halaman {$pageNumber} berhasil dipoles secara akademik.", 'success');
 
         return true;
@@ -2645,6 +2669,7 @@ trait HandlesNaskahStudio
         $this->isReviewingModelOutput = true;
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
         $this->statistics = $this->model->computeStatistics($this->blocks);
 
         $this->notify(
@@ -2687,6 +2712,8 @@ trait HandlesNaskahStudio
         $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns([], $newText);
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Sitasi Disematkan', "Sitasi {$marker} ditambahkan pada paragraf #".($paragraphIndexOnPage + 1)." Halaman {$pageNumber}.", 'success');
 
         return true;
@@ -2809,6 +2836,8 @@ trait HandlesNaskahStudio
         $this->blocks[$gIdx]['runs'] = $this->model->normalizeRuns([], $paraphrased);
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Parafrase Akademik', 'Paragraf #'.($paragraphIndexOnPage + 1)." pada Halaman {$pageNumber} berhasil diparafrase ke ragam baku.", 'success');
 
         return true;
@@ -2850,6 +2879,8 @@ trait HandlesNaskahStudio
 
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Catatan Kaki Ditambahkan', "Catatan kaki [^{$fnNumber}] ditambahkan pada paragraf #".($paragraphIndexOnPage + 1)." Halaman {$pageNumber}.", 'success');
 
         return true;
@@ -4046,6 +4077,7 @@ trait HandlesNaskahStudio
         $this->editorRevision++;
         $this->dirty = true;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function insertPageNumberField(): void
@@ -4065,6 +4097,7 @@ trait HandlesNaskahStudio
         $this->editorRevision++;
         $this->dirty = true;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function insertSymbol(string $symbol): void
@@ -4090,6 +4123,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->dialog = '';
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Simbol disisipkan', $symbol, 'success');
     }
 
@@ -4163,6 +4197,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->notify('Daftar isi dibuat', count($outline).' judul.', 'success');
     }
 
@@ -4261,6 +4296,7 @@ trait HandlesNaskahStudio
                 $this->dirty = true;
                 $this->editorRevision++;
                 $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+                $this->statistics = $this->model->computeStatistics($this->blocks);
                 $this->dialog = '';
                 $this->notify('Daftar Pustaka Disisipkan', $refs->count().' referensi proyek (Gaya: '.$this->citationStyle.').', 'success');
 
@@ -4287,6 +4323,7 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
         $this->dialog = '';
         $this->notify('Daftar Pustaka Disisipkan', '4 referensi akademik format APA telah ditambahkan sebagai acuan naskah.', 'success');
     }
@@ -8826,9 +8863,17 @@ trait HandlesNaskahStudio
                 return ['reply' => 'Pilih blok atau sertakan teks untuk dipoles dengan format: /poles [teks]', 'data' => []];
             }
 
+            $polished = 'Secara konseptual, '.lcfirst(rtrim($arg, '.')).', yang secara empiris memperkuat landasan teoretis naskah.';
+
             return [
-                'reply' => 'Secara konseptual, '.lcfirst(rtrim($arg, '.')).', yang secara empiris memperkuat landasan teoretis naskah.',
-                'data' => ['original' => $arg],
+                'reply' => $polished,
+                'data' => [
+                    'original' => $arg,
+                    'polished' => $polished,
+                    'blocks' => [
+                        ['type' => 'paragraph', 'text' => $polished],
+                    ],
+                ],
             ];
         }
 
@@ -8841,9 +8886,17 @@ trait HandlesNaskahStudio
                 return ['reply' => 'Pilih blok atau sertakan teks untuk diparafrase dengan format: /parafrase [teks]', 'data' => []];
             }
 
+            $paraphrased = 'Dengan demikian, '.lcfirst(rtrim($arg, '.')).' dapat dinyatakan sebagai kontribusi yang perlu divalidasi secara empiris.';
+
             return [
-                'reply' => 'Dengan demikian, '.lcfirst(rtrim($arg, '.')).' dapat dinyatakan sebagai kontribusi yang perlu divalidasi secara empiris.',
-                'data' => ['original' => $arg],
+                'reply' => $paraphrased,
+                'data' => [
+                    'original' => $arg,
+                    'paraphrased' => $paraphrased,
+                    'blocks' => [
+                        ['type' => 'paragraph', 'text' => $paraphrased],
+                    ],
+                ],
             ];
         }
 
@@ -8991,10 +9044,17 @@ trait HandlesNaskahStudio
                 return ['reply' => 'Pilih blok atau berikan poin teks untuk dikembangkan: /kembangkan [poin]', 'data' => []];
             }
 
+            $expanded = "Berdasarkan premis bahwa \"{$arg}\", fenomena ini dapat diartikulasikan lebih mendalam melalui lensa konseptual yang menautkan dimensi empiris dan teoretis. Secara struktural, dinamika tersebut mencerminkan bagaimana pola kolaboratif dan pengelolaan sumber daya bersama berkontribusi nyata terhadap stabilitas ekosistem kerja kreatif. Dengan memvalidasi indikator-indikator operasional yang melandasinya, temuan ini memberikan kejelasan analitis bagi pengembangan kerangka kerja pada penelitian mendatang.";
+
             return [
-                'reply' => "### Elaborasi Pengembangan Teks Akademik\n\n"
-                    ."Berdasarkan premis bahwa \"{$arg}\", fenomena ini dapat diartikulasikan lebih mendalam melalui lensa konseptual yang menautkan dimensi empiris dan teoretis. Secara struktural, dinamika tersebut mencerminkan bagaimana pola kolaboratif dan pengelolaan sumber daya bersama berkontribusi nyata terhadap stabilitas ekosistem kerja kreatif. Dengan memvalidasi indikator-indikator operasional yang melandasinya, temuan ini memberikan kejelasan analitis bagi pengembangan kerangka kerja pada penelitian mendatang.",
-                'data' => ['original' => $arg],
+                'reply' => "### Elaborasi Pengembangan Teks Akademik\n\n".$expanded,
+                'data' => [
+                    'original' => $arg,
+                    'expanded' => $expanded,
+                    'blocks' => [
+                        ['type' => 'paragraph', 'text' => $expanded],
+                    ],
+                ],
             ];
         }
 
@@ -9007,12 +9067,25 @@ trait HandlesNaskahStudio
                 return ['reply' => 'Pilih blok teks untuk diperiksa ejaannya: /perbaiki-ejaan [teks]', 'data' => []];
             }
 
+            $this->model ??= app(NaskahRichModel::class);
+            $kbbiRes = $this->model->normalizeKbbiWords($arg);
+            $autoRes = $this->model->autoCorrect($kbbiRes['text']);
+            $cleaned = $this->model->cleanTextSpacing($autoRes['text']);
+            $corrected = ucfirst(rtrim($cleaned, '.!?')).'.';
+
             return [
                 'reply' => "### Hasil Audit Ejaan & PUEBI Baku\n\n"
                     ."- **Teks Awal**: \"{$arg}\"\n"
-                    .'- **Hasil Koreksi**: "'.ucfirst(rtrim($arg, '.')).'."\n'
-                    .'- **Catatan Linguistik**: Penggunaan tanda baca, spasi kapitalisasi, dan partikel telah disesuaikan dengan kaidah tata bahasa baku Indonesia (PUEBI/KBBI).',
-                'data' => ['original' => $arg, 'corrected' => ucfirst(rtrim($arg, '.'))],
+                    ."- **Hasil Koreksi**: \"{$corrected}\"\n"
+                    .'- **Catatan Linguistik**: Penggunaan tanda baca, spasi kapitalisasi, dan kata baku telah disesuaikan dengan kaidah tata bahasa baku Indonesia (PUEBI/KBBI).',
+                'data' => [
+                    'original' => $arg,
+                    'corrected' => $corrected,
+                    'replacements' => $kbbiRes['replacements'],
+                    'blocks' => [
+                        ['type' => 'paragraph', 'text' => $corrected],
+                    ],
+                ],
             ];
         }
 
@@ -9026,7 +9099,21 @@ trait HandlesNaskahStudio
                 ."**Implikasi**: Kerangka kerja ini membuktikan bahwa integrasi bantuan cerdas yang berpijak pada prinsip ergonomis mampu mengoptimalkan luaran karya tulis ilmiah secara konsisten.\n\n"
                 .'*Kata Kunci*: Penulisan Akademik, IMRAD, Kepatuhan Pedoman, State of the Art, Produktivitas Peneliti.';
 
-            return ['reply' => $reply, 'data' => ['abstract' => true]];
+            return [
+                'reply' => $reply,
+                'data' => [
+                    'abstract' => true,
+                    'blocks' => [
+                        ['type' => 'heading', 'level' => 2, 'text' => 'Abstrak'],
+                        ['type' => 'paragraph', 'text' => 'Latar Belakang: Fenomena transformasi digital dan keterbukaan akses literatur menuntut pemutakhiran metodologi penulisan naskah yang terstruktur demi mempertahankan integritas serta reputasi publikasi ilmiah.'],
+                        ['type' => 'paragraph', 'text' => 'Tujuan & Masalah: Penelitian ini bertujuan mengkaji secara empiris efektivitas adopsi asisten cerdas berorientasi kaidah baku dalam meningkatkan produktivitas serta kepatuhan pedoman jurnal bereputasi.'],
+                        ['type' => 'paragraph', 'text' => 'Metodologi: Menggunakan desain riset komparatif kuasi-eksperimental dengan sampel draf naskah ilmiah lintas bidang studi, dievaluasi melalui delapan belas indikator UX dan kepatuhan struktural.'],
+                        ['type' => 'paragraph', 'text' => 'Hasil Utama: Temuan menunjukkan perbaikan signifikan pada skor kepatuhan pedoman (meningkat hingga 89.2%) serta reduksi waktu pengerjaan draf sebesar 39.5% dengan tingkat keterbacaan yang tetap tinggi.'],
+                        ['type' => 'paragraph', 'text' => 'Implikasi: Kerangka kerja ini membuktikan bahwa integrasi bantuan cerdas yang berpijak pada prinsip ergonomis mampu mengoptimalkan luaran karya tulis ilmiah secara konsisten.'],
+                        ['type' => 'paragraph', 'text' => 'Kata Kunci: Penulisan Akademik, IMRAD, Kepatuhan Pedoman, State of the Art, Produktivitas Peneliti.'],
+                    ],
+                ],
+            ];
         }
 
         if (str_starts_with($effectiveInput, '/metodologi') || str_starts_with($effectiveInput, '/metode')) {
@@ -9283,7 +9370,20 @@ trait HandlesNaskahStudio
                 ."3. **Implikasi Teoretis & Manajerial**: Secara konseptual, hasil riset ini memperluas cakupan teori yang ada; secara praktis, temuan ini memberikan panduan strategis bagi pengambil keputusan.\n"
                 .'4. **Eksplorasi Limitasi Penelitian**: Variasi lingkungan pengujian dan keterbatasan cakupan data perlu dipertimbangkan sebagai konteks pembatas generalisasi hasil.';
 
-            return ['reply' => $reply, 'data' => ['section' => 'pembahasan', 'topic' => $topic]];
+            return [
+                'reply' => $reply,
+                'data' => [
+                    'section' => 'pembahasan',
+                    'topic' => $topic,
+                    'blocks' => [
+                        ['type' => 'heading', 'level' => 1, 'text' => 'Pembahasan'],
+                        ['type' => 'paragraph', 'text' => "Hasil analisis terhadap \"{$topic}\" membuktikan adanya korelasi signifikan antara indikator operasional dan parameter keberhasilan yang diuji."],
+                        ['type' => 'paragraph', 'text' => 'Temuan ini mengonfirmasi proposisi teoretis yang diajukan dalam literatur rujukan, sekaligus memberikan wawasan baru terkait variabilitas respons dalam konteks empiris.'],
+                        ['type' => 'paragraph', 'text' => 'Secara konseptual, hasil riset ini memperluas cakupan teori yang ada; secara praktis, temuan ini memberikan panduan strategis bagi pengambil keputusan.'],
+                        ['type' => 'paragraph', 'text' => 'Variasi lingkungan pengujian dan keterbatasan cakupan data perlu dipertimbangkan sebagai konteks pembatas generalisasi hasil.'],
+                    ],
+                ],
+            ];
         }
 
         if (str_starts_with($effectiveInput, '/kesimpulan') || str_starts_with($effectiveInput, '/penutup')) {
@@ -9297,7 +9397,19 @@ trait HandlesNaskahStudio
                 ."3. **Limitasi Riset**: Pembatasan pada aspek parameter evaluasi dan periode observasi menjadi batasan objektif naskah ini.\n"
                 .'4. **Rekomendasi Riset Lanjutan**: Disarankan bagi peneliti mendatang untuk memperluas korpus data dan menguji ketahanan model pada skenario yang lebih kompleks.';
 
-            return ['reply' => $reply, 'data' => ['section' => 'kesimpulan', 'topic' => $topic]];
+            return [
+                'reply' => $reply,
+                'data' => [
+                    'section' => 'kesimpulan',
+                    'topic' => $topic,
+                    'blocks' => [
+                        ['type' => 'heading', 'level' => 1, 'text' => 'Kesimpulan dan Saran'],
+                        ['type' => 'paragraph', 'text' => "Penelitian terkait \"{$topic}\" berhasil menjawab seluruh pertanyaan penelitian dengan membuktikan efektivitas pendekatan yang diusulkan secara empiris."],
+                        ['type' => 'paragraph', 'text' => 'Integrasi metode ini memberikan kontribusi nyata dalam menjembatani kesenjangan teoretis dan implementasi teknis di lapangan.'],
+                        ['type' => 'paragraph', 'text' => 'Pembatasan pada aspek parameter evaluasi dan periode observasi menjadi batasan objektif naskah ini. Disarankan bagi peneliti mendatang untuk memperluas korpus data pada skenario yang lebih kompleks.'],
+                    ],
+                ],
+            ];
         }
 
         if (str_starts_with($effectiveInput, '/tinjauan-pustaka') || str_starts_with($effectiveInput, '/literatur') || str_starts_with($effectiveInput, '/teori')) {
@@ -9311,7 +9423,19 @@ trait HandlesNaskahStudio
                 ."3. **Kerangka Teoretis Hubungan Antar-Variabel**: Model konseptual yang menghubungkan variabel independen, mediator, dan luaran terukur dengan hipotesis yang diajukan.\n"
                 .'4. **Sintesis Rujukan Bereputasi**: Setiap postulat didukung sitasi dari publikasi terindeks untuk menjamin validitas argumentasi ilmiah naskah.';
 
-            return ['reply' => $reply, 'data' => ['section' => 'tinjauan-pustaka', 'topic' => $topic]];
+            return [
+                'reply' => $reply,
+                'data' => [
+                    'section' => 'tinjauan-pustaka',
+                    'topic' => $topic,
+                    'blocks' => [
+                        ['type' => 'heading', 'level' => 1, 'text' => 'Tinjauan Pustaka'],
+                        ['type' => 'paragraph', 'text' => "Telaah komprehensif terhadap konsep fundamental \"{$topic}\" berdasarkan teori-teori kanonik yang telah teruji dalam kepustakaan ilmiah."],
+                        ['type' => 'paragraph', 'text' => 'Klasifikasi kontribusi akademisi selama lima tahun terakhir memetakan evolusi metodologi dan perdebatan akademik utama.'],
+                        ['type' => 'paragraph', 'text' => 'Model konseptual menghubungkan variabel independen, mediator, dan luaran terukur dengan hipotesis yang diajukan serta didukung sitasi dari publikasi terindeks.'],
+                    ],
+                ],
+            ];
         }
 
         if (str_starts_with($effectiveInput, '/kebaruan') || str_starts_with($effectiveInput, '/novelty')) {
@@ -9381,19 +9505,28 @@ trait HandlesNaskahStudio
             ];
 
             $entries = [];
+            $bibBlocks = [
+                ['type' => 'heading', 'level' => 1, 'text' => 'Daftar Pustaka'],
+            ];
             foreach ($refs as $idx => $r) {
                 $author = $r['authors'] ?? 'Penulis';
                 $year = $r['year'] ?? '2022';
                 $title = $r['title'] ?? 'Judul Artikel Ilmiah';
                 $source = $r['source'] ?? 'Jurnal Akademik';
-                $entries[] = ($idx + 1).". {$author} ({$year}). *{$title}*. {$source}.";
+                $entryLine = ($idx + 1).". {$author} ({$year}). *{$title}*. {$source}.";
+                $entries[] = $entryLine;
+                $bibBlocks[] = [
+                    'type' => 'paragraph',
+                    'text' => "{$author} ({$year}). {$title}. {$source}.",
+                    'hangingIndent' => true,
+                ];
             }
 
             $reply = "### Daftar Pustaka Terstandar (Format APA 7th)\n\n"
                 .implode("\n", $entries)."\n\n"
                 .'*Klik tombol **⚡ Terapkan ke Halaman Ini** atau jalankan preset `bibliography` untuk menyisipkan daftar pustaka ini ke dokumen.*';
 
-            return ['reply' => $reply, 'data' => ['bibliography' => true, 'entries' => $entries]];
+            return ['reply' => $reply, 'data' => ['bibliography' => true, 'entries' => $entries, 'blocks' => $bibBlocks]];
         }
 
         if (str_starts_with($effectiveInput, '/format-paragraf') || str_starts_with($effectiveInput, '/paragraf')) {

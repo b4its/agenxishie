@@ -1278,23 +1278,8 @@ final class XishieAssistantService
         }
 
         $richModel = app(NaskahRichModel::class);
-        $bakuMap = [
-            '/\banalisa\b/iu' => 'analisis',
-            '/\bhipotesa\b/iu' => 'hipotesis',
-            '/\bmetoda\b/iu' => 'metode',
-            '/\bpraktek\b/iu' => 'praktik',
-            '/\bsistim\b/iu' => 'sistem',
-            '/\baktifitas\b/iu' => 'aktivitas',
-            '/\befektifitas\b/iu' => 'efektivitas',
-            '/\bresiko\b/iu' => 'risiko',
-            '/\bkwalitas\b/iu' => 'kualitas',
-            '/\bstandart\b/iu' => 'standar',
-        ];
-        $working = $argument;
-        foreach ($bakuMap as $pattern => $replacement) {
-            $working = (string) preg_replace($pattern, $replacement, $working);
-        }
-        $autoRes = $richModel->autoCorrect($working);
+        $kbbiRes = $richModel->normalizeKbbiWords($argument);
+        $autoRes = $richModel->autoCorrect($kbbiRes['text']);
         $cleaned = $richModel->cleanTextSpacing($autoRes['text']);
         $corrected = ucfirst(rtrim($cleaned, '.!?')).'.';
 

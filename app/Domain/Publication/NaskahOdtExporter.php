@@ -323,9 +323,17 @@ final class NaskahOdtExporter
                 continue;
             }
 
-            if ($type === 'heading') {
+            if ($type === 'title') {
+                $body .= '<text:h text:outline-level="1" text:style-name="Heading_1">'.$this->runsToOdt($block).'</text:h>';
+            } elseif ($type === 'subtitle') {
+                $body .= '<text:h text:outline-level="2" text:style-name="Heading_2">'.$this->runsToOdt($block).'</text:h>';
+            } elseif ($type === 'heading') {
                 $level = max(1, min(3, (int) ($block['level'] ?? 1)));
                 $body .= '<text:h text:outline-level="'.$level.'" text:style-name="Heading_'.$level.'">'.$this->runsToOdt($block).'</text:h>';
+            } elseif ($type === 'image') {
+                $caption = (string) ($block['image']['caption'] ?? $block['image']['alt'] ?? $block['caption'] ?? 'Gambar Naskah');
+                $escCap = htmlspecialchars($caption, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                $body .= '<text:p text:style-name="P_Center">[Gambar: '.$escCap.']</text:p>';
             } elseif ($type === 'quote') {
                 $body .= '<text:p text:style-name="Quotations">'.$this->runsToOdt($block).'</text:p>';
             } elseif ($type === 'callout') {

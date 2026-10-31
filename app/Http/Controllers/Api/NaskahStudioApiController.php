@@ -470,6 +470,24 @@ class NaskahStudioApiController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Revisi tidak ditemukan'], 404);
         }
 
+        $blocks = $this->model->normalize((array) $document->blocks);
+        $blockIndex = isset($updatedRevision['blockIndex']) ? (int) $updatedRevision['blockIndex'] : -1;
+        if ($blockIndex >= 0 && isset($blocks[$blockIndex])) {
+            if ($newStatus === 'accepted' && isset($updatedRevision['after'])) {
+                $afterText = (string) $updatedRevision['after'];
+                $blocks[$blockIndex]['text'] = $afterText;
+                $blocks[$blockIndex]['runs'] = $this->model->normalizeRuns([], $afterText);
+                $document->blocks = $blocks;
+                $document->word_count = $this->model->countWords($blocks);
+            } elseif ($newStatus === 'rejected' && isset($updatedRevision['before'])) {
+                $beforeText = (string) $updatedRevision['before'];
+                $blocks[$blockIndex]['text'] = $beforeText;
+                $blocks[$blockIndex]['runs'] = $this->model->normalizeRuns([], $beforeText);
+                $document->blocks = $blocks;
+                $document->word_count = $this->model->countWords($blocks);
+            }
+        }
+
         $document->revisions = $revisions;
         $document->save();
 
@@ -480,6 +498,104 @@ class NaskahStudioApiController extends Controller
             'message' => $newStatus === 'accepted' ? 'Revisi diterima.' : 'Revisi ditolak.',
             'revision' => $updatedRevision,
             'pending_count' => $pending,
+            'word_count' => $document->word_count,
+        ]);
+    }
+
+    public function auditCitations(int $id): JsonResponse
+    {
+        $document = NaskahDocument::query()->find($id);
+        if ($document === null) {
+            return response()->json(['status' => 'error', 'message' => 'Dokumen tidak ditemukan'], 404);
+        }
+
+        $blocks = $this->model->normalize((array) $document->blocks);
+        $refKeys = [];
+
+        if ($document->project_id) {
+            $refs = \App\Models\ProjectReference::query()
+                ->where('project_id', $document->project_id)
+                ->get(['citation_key', 'title']);
+            foreach ($refs as $r) {
+                if (! empty($r->citation_key)) {
+                    $refKeys[] = (string) $r->citation_key;
+                }
+            }
+        }
+
+        $inBib = false;
+        foreach ($blocks as $block) {
+            $type = (string) ($block['type'] ?? 'paragraph');
+            $text = trim((string) ($block['text'] ?? ''));
+            if ($type === 'heading') {
+                $lower = mb_strtolower($text);
+                $inBib = str_contains($lower, 'daftar pustaka')
+                    || str_contains($lower, 'referensi')
+                    || str_contains($lower, 'bibliography')
+                    || str_contains($lower, 'references');
+
+                continue;
+            }
+            if (($inBib || ! empty($block['hangingIndent'])) && $text !== '') {
+                $refKeys[] = $text;
+            }
+        }
+
+        $foundKeys = [];
+        foreach ($blocks as $block) {
+            if (($block['type'] ?? '') === 'heading') {
+                continue;
+            }
+            $text = (string) ($block['text'] ?? '');
+            if (preg_match_all('/\[@([^\]]+)\]/u', $text, $atMatches)) {
+                foreach ($atMatches[1] as $m) {
+                    $foundKeys[] = trim((string) $m);
+                }
+            }
+            if (preg_match_all('/\(([A-Z][\p{L}\s&\.,]+,\s*(?:19|20)\d{2}[a-z]?)\)/u', $text, $parenMatches)) {
+                foreach ($parenMatches[1] as $p) {
+                    $foundKeys[] = trim((string) $p);
+                }
+            }
+            if (preg_match_all('/\[(\d+)\]/u', $text, $ieeeMatches)) {
+                foreach ($ieeeMatches[1] as $num) {
+                    $foundKeys[] = "[{$num}]";
+                }
+            }
+        }
+
+        $foundKeys = array_values(array_unique(array_filter($foundKeys)));
+        $verified = [];
+        $unmatched = [];
+
+        foreach ($foundKeys as $fk) {
+            $matched = false;
+            $lowerFk = mb_strtolower($fk);
+            foreach ($refKeys as $rk) {
+                $lowerRk = mb_strtolower($rk);
+                if ($lowerFk === $lowerRk || str_contains($lowerRk, $lowerFk) || str_contains($lowerFk, $lowerRk)) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if ($matched) {
+                $verified[] = $fk;
+            } else {
+                $unmatched[] = $fk;
+            }
+        }
+
+        $words = $this->model->countWords($blocks);
+        $density = $words > 0 ? round((count($verified) / $words) * 1000, 2) : 0.0;
+
+        return response()->json([
+            'status' => 'success',
+            'document_id' => $document->id,
+            'verified' => $verified,
+            'unmatched' => $unmatched,
+            'references_count' => count($refKeys),
+            'total_citations' => count($foundKeys),
+            'density_per_1k' => $density,
         ]);
     }
 

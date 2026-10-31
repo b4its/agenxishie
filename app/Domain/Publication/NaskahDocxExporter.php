@@ -155,18 +155,23 @@ final class NaskahDocxExporter
 
             if ($type === 'image') {
                 $src = (string) ($block['image']['src'] ?? '');
-                $caption = (string) ($block['image']['caption'] ?? $block['image']['alt'] ?? '');
+                $caption = (string) ($block['image']['caption'] ?? $block['image']['alt'] ?? $block['caption'] ?? '');
                 $binary = $this->decodeDataUrl($src);
 
                 if ($binary !== null) {
                     $media[] = $binary;
                     $relId = 'rId'.(100 + count($media));
                     $body .= $this->imageParagraphXml($relId, (int) ($block['image']['width'] ?? 320));
-                    if ($caption !== '') {
-                        $body .= '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="180"/></w:pPr>'
-                            .'<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:i/><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr>'
-                            .'<w:t xml:space="preserve">'.$this->esc($caption).'</w:t></w:r></w:p>';
-                    }
+                } elseif ($src !== '' || $caption !== '') {
+                    $placeholder = '[Gambar: '.($caption !== '' ? $caption : $src).']';
+                    $body .= '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="120" w:after="60"/></w:pPr>'
+                        .'<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="475569"/></w:rPr>'
+                        .'<w:t xml:space="preserve">'.$this->esc($placeholder).'</w:t></w:r></w:p>';
+                }
+                if ($caption !== '') {
+                    $body .= '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="180"/></w:pPr>'
+                        .'<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:i/><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr>'
+                        .'<w:t xml:space="preserve">'.$this->esc($caption).'</w:t></w:r></w:p>';
                 }
 
                 continue;
@@ -243,6 +248,8 @@ final class NaskahDocxExporter
         }
 
         $style = match ($type) {
+            'title' => '<w:pStyle w:val="Title"/>',
+            'subtitle' => '<w:pStyle w:val="Subtitle"/>',
             'heading' => '<w:pStyle w:val="Heading'.(int) ($block['level'] ?? 1).'"/>',
             'quote' => '<w:pStyle w:val="Quote"/>',
             default => '',
@@ -257,7 +264,12 @@ final class NaskahDocxExporter
         $pPr = '<w:pPr>'.$style.$numPr.$spacing.$ind.$jc.$bdr.$shd.'</w:pPr>';
 
         $content = '';
-        $size = $type === 'heading' ? (32 - ((int) ($block['level'] ?? 1) * 4)) : 24;
+        $size = match ($type) {
+            'title' => 36,
+            'subtitle' => 28,
+            'heading' => 32 - ((int) ($block['level'] ?? 1) * 4),
+            default => 24,
+        };
 
         foreach ($this->model->runsWithText($block) as $run) {
             $content .= $this->runXml((string) $run['text'], $run, $size);
