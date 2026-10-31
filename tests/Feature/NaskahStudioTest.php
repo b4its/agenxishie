@@ -3554,3 +3554,182 @@ it('supports document statistics api endpoint, csv api export, indonesian preset
     $wordCountResponse = $component->instance()->answerResponse(null, '/word-count');
     expect($wordCountResponse['reply'])->toContain('Jumlah Kata');
 });
+
+it('supports literature matrix latex and odt exports, synthesis metrics, table variance and range, and rich assistant insertions', function (): void {
+    $user = User::factory()->create();
+    $project = XishieProject::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Studi Empiris Model Transformer',
+    ]);
+
+    // Tambah referensi proyek
+    $ref1 = ProjectReference::factory()->create([
+        'project_id' => $project->id,
+        'citation_key' => 'Vaswani2017',
+        'authors' => [['name' => 'Ashish Vaswani'], ['name' => 'Noam Shazeer']],
+        'year' => 2017,
+        'is_verified' => true,
+        'matrix_extraction' => [
+            'method' => 'Self-Attention Mechanism',
+            'result' => 'BLEU 28.4 pada WMT 2014 En-De',
+            'gap' => 'Kebutuhan memori kuadratik terhadap panjang sekuens',
+        ],
+    ]);
+
+    $ref2 = ProjectReference::factory()->create([
+        'project_id' => $project->id,
+        'citation_key' => 'Devlin2019',
+        'authors' => [['name' => 'Jacob Devlin']],
+        'year' => 2019,
+        'is_verified' => true,
+        'matrix_extraction' => [
+            'method' => 'Bidirectional Encoder Representations',
+            'result' => 'GLUE score 80.5%',
+            'gap' => 'Pretraining komputasi sangat intensif',
+        ],
+    ]);
+
+    // 1. LiteratureMatrixBuilder synthesisStats
+    $matrixBuilder = app(\App\Domain\Research\LiteratureMatrixBuilder::class);
+    $stats = $matrixBuilder->synthesisStats($project);
+    expect($stats['total_references'])->toBe(2)
+        ->and($stats['verified_count'])->toBe(2)
+        ->and($stats['year_range']['min'])->toBe(2017)
+        ->and($stats['year_range']['max'])->toBe(2019)
+        ->and($stats['with_method_count'])->toBe(2)
+        ->and($stats['with_result_count'])->toBe(2)
+        ->and($stats['with_gap_count'])->toBe(2)
+        ->and($stats['completion_rate'])->toBe(100.0);
+
+    // 2. LiteratureMatrixBuilder toLatex
+    $latex = $matrixBuilder->toLatex($project);
+    expect($latex)->toContain('\\begin{table}[htbp]')
+        ->and($latex)->toContain('Vaswani')
+        ->and($latex)->toContain('Devlin')
+        ->and($latex)->toContain('\\end{table}');
+
+    // 3. LiteratureMatrixBuilder toOdt
+    $odt = $matrixBuilder->toOdt($project);
+    expect(substr($odt, 0, 2))->toBe('PK');
+    $tmpOdt = tempnam(sys_get_temp_dir(), 'sota-odt-');
+    file_put_contents($tmpOdt, $odt);
+    $zipOdt = new ZipArchive;
+    expect($zipOdt->open($tmpOdt))->toBeTrue()
+        ->and($zipOdt->getFromName('content.xml'))->not->toBeFalse();
+    $zipOdt->close();
+    @unlink($tmpOdt);
+
+    // 4. NaskahRichModel calculateTableColumn: variance and range
+    $richModel = app(NaskahRichModel::class);
+    $tableBlock = [
+        'id' => 'tbl_stat',
+        'type' => 'table',
+        'table' => [
+            'header' => true,
+            'caption' => 'Tabel Skor Pengujian',
+            'rows' => [
+                [['text' => 'Sampel'], ['text' => 'Nilai']],
+                [['text' => 'S1'], ['text' => '10']],
+                [['text' => 'S2'], ['text' => '20']],
+                [['text' => 'S3'], ['text' => '30']],
+            ],
+        ],
+    ];
+
+    // Sample variance of [10, 20, 30]: mean=20, sumSq = 100+0+100 = 200, variance = 200/2 = 100
+    $withVar = $richModel->calculateTableColumn($tableBlock, 1, 'var');
+    $lastRowVar = end($withVar['table']['rows']);
+    expect($lastRowVar[0]['text'])->toBe('VAR')
+        ->and($lastRowVar[1]['text'])->toBe('100');
+
+    // Range of [10, 20, 30]: 30 - 10 = 20
+    $withRange = $richModel->calculateTableColumn($tableBlock, 1, 'range');
+    $lastRowRange = end($withRange['table']['rows']);
+    expect($lastRowRange[0]['text'])->toBe('RANGE')
+        ->and($lastRowRange[1]['text'])->toBe('20');
+
+    // 5. HandlesNaskahStudio tableCalculateColumn via Livewire
+    $doc = NaskahDocument::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Dokumen Pengujian Tabel Studio',
+        'blocks' => [
+            ['id' => 'p_init', 'type' => 'paragraph', 'text' => 'Deskripsi pengujian data.'],
+            $tableBlock,
+        ],
+    ]);
+
+    $studio = Livewire::actingAs($user)
+        ->test(NaskahStudioPage::class, ['document' => $doc->id])
+        ->set('activeBlock', 1)
+        ->call('tableCalculateColumn', 1, 1, 'var');
+
+    $updatedBlocks = $studio->get('blocks');
+    $updatedTableRows = $updatedBlocks[1]['table']['rows'];
+    expect(end($updatedTableRows)[0]['text'])->toBe('VAR')
+        ->and(end($updatedTableRows)[1]['text'])->toBe('100');
+
+    // 6. HandlesNaskahStudio insertAssistantResponse and replaceActiveBlockWithAssistant
+    // Callout block insertion
+    $calloutLog = [
+        'role' => 'assistant',
+        'content' => 'Catatan penting hasil riset.',
+        'data' => [
+            'callout_block' => [
+                'type' => 'callout',
+                'calloutType' => 'warning',
+                'text' => 'Peringatan: Eksperimen membutuhkan GPU memory minimum 24GB.',
+            ],
+        ],
+    ];
+    $studio->set('assistantLog', [$calloutLog])
+        ->call('insertAssistantResponse', 0);
+    $blocksAfterCallout = $studio->get('blocks');
+    expect($blocksAfterCallout[2]['type'])->toBe('callout')
+        ->and($blocksAfterCallout[2]['text'])->toContain('GPU memory');
+
+    // Image/Diagram block replacement
+    $imageLog = [
+        'role' => 'assistant',
+        'content' => 'Diagram alur sistem.',
+        'data' => [
+            'image_block' => [
+                'type' => 'image',
+                'url' => 'https://example.com/diagram.png',
+                'caption' => 'Gambar 1: Arsitektur Pipeline Transformer',
+            ],
+        ],
+    ];
+    $studio->set('assistantLog', [$imageLog])
+        ->set('activeBlock', 2)
+        ->call('replaceActiveBlockWithAssistant', 0);
+    $blocksAfterImage = $studio->get('blocks');
+    expect($blocksAfterImage[2]['type'])->toBe('image')
+        ->and($blocksAfterImage[2]['image']['caption'])->toBe('Gambar 1: Arsitektur Pipeline Transformer');
+
+    // Summary block insertion
+    $summaryLog = [
+        'role' => 'assistant',
+        'content' => 'Ringkasan eksekutif riset.',
+        'data' => [
+            'summary' => 'Model mencapai efisiensi latensi 40% lebih rendah dibanding baseline.',
+        ],
+    ];
+    $studio->set('assistantLog', [$summaryLog])
+        ->set('activeBlock', 2)
+        ->call('insertAssistantResponse', 0);
+    $blocksAfterSummary = $studio->get('blocks');
+    expect($blocksAfterSummary[3]['type'])->toBe('paragraph')
+        ->and($blocksAfterSummary[3]['text'])->toBe('Model mencapai efisiensi latensi 40% lebih rendah dibanding baseline.');
+
+    // 7. ManuscriptExporter toDocx includes word/numbering.xml
+    $exporter = app(\App\Domain\Publication\ManuscriptExporter::class);
+    $binaryDocx = $exporter->render($project, \App\Domain\Publication\ManuscriptExporter::FORMAT_DOCX);
+    $tmpDocx = tempnam(sys_get_temp_dir(), 'manuscript-docx-');
+    file_put_contents($tmpDocx, $binaryDocx);
+    $zipDocx = new ZipArchive;
+    expect($zipDocx->open($tmpDocx))->toBeTrue()
+        ->and($zipDocx->getFromName('word/numbering.xml'))->not->toBeFalse()
+        ->and($zipDocx->getFromName('word/document.xml'))->not->toBeFalse();
+    $zipDocx->close();
+    @unlink($tmpDocx);
+});

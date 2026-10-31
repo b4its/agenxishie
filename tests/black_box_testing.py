@@ -413,6 +413,8 @@ test("Standalone Studio: Ribbon Layout Line Numbers Toggle Present (?tab=layout)
 status, studio_table_html, _ = http_get("/studio?tab=table")
 test("Standalone Studio: Table Calculation Formulas (?tab=table)", "Min" in studio_table_html and "Max" in studio_table_html and "Median" in studio_table_html)
 test("Standalone Studio: Table StdDev Formula (?tab=table)", "stddev" in studio_table_html or "StdDev" in studio_table_html)
+test("Standalone Studio: Table Variance & Range Formulas (?tab=table)",
+     ("var" in studio_table_html or "Variance" in studio_table_html) and ("range" in studio_table_html or "Range" in studio_table_html))
 test("Standalone Studio: Table Styles (?tab=table)", "APA" in studio_table_html and "Grid" in studio_table_html and "Zebra" in studio_table_html)
 test("Standalone Studio: Table Sort & Transpose Actions (?tab=table)", "tableSortColumn" in studio_table_html and "tableTranspose" in studio_table_html)
 test("Standalone Studio: Table Alignment & Clear Data Actions (?tab=table)", "tableSetColumnAlign" in studio_table_html and "tableClearDataRows" in studio_table_html)
@@ -420,6 +422,8 @@ test("Standalone Studio: Table Alignment & Clear Data Actions (?tab=table)", "ta
 status, studio_table_auth_html, _ = http_get("/admin/naskah-studio?tab=table", headers=auth_headers)
 test("Filament Studio: Table Calculation Formulas (?tab=table)", "tableCalculateColumn" in studio_table_auth_html and ("median" in studio_table_auth_html or "Median" in studio_table_auth_html))
 test("Filament Studio: Table StdDev Formula (?tab=table)", "tableCalculateColumn" in studio_table_auth_html and ("stddev" in studio_table_auth_html or "StdDev" in studio_table_auth_html))
+test("Filament Studio: Table Variance & Range Formulas (?tab=table)",
+     "tableCalculateColumn" in studio_table_auth_html and ("var" in studio_table_auth_html or "Varians" in studio_table_auth_html) and ("range" in studio_table_auth_html or "Rentang" in studio_table_auth_html))
 test("Filament Studio: Table Sort & Transpose Actions (?tab=table)", "tableSortColumn" in studio_table_auth_html and "tableTranspose" in studio_table_auth_html)
 test("Filament Studio: Table Alignment & Clear Data Actions (?tab=table)", "tableSetColumnAlign" in studio_table_auth_html and "tableClearDataRows" in studio_table_auth_html)
 
