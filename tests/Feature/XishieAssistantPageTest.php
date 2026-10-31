@@ -1937,3 +1937,26 @@ it('provides structured blocks for /abstrak, /terjemahkan, /puebi with KBBI norm
         ->and($bib['data']['blocks'][0]['text'])->toBe('Daftar Pustaka')
         ->and($bib['data']['blocks'][1]['hangingIndent'])->toBeTrue();
 });
+
+it('provides structured blocks and callout_block for /parafrase, /poles, /kembangkan, /cek-gap, and /cek-pedoman', function (): void {
+    config()->set('omnigensi.agents_enabled', false);
+
+    $project = makeProject();
+    $service = app(\App\Domain\Assistant\XishieAssistantService::class);
+
+    $para = $service->handle($project, '/parafrase Model pembelajaran mendalam meningkatkan akurasi deteksi.');
+    expect($para['data']['rewritten'])->toStartWith('Dengan demikian,')
+        ->and($para['data']['blocks'][0]['text'])->toBe($para['data']['rewritten']);
+
+    $poles = $service->handle($project, '/poles Pendekatan ini efektif pada dataset berskala besar.');
+    expect($poles['data']['polished'])->toStartWith('Secara konseptual,')
+        ->and($poles['data']['blocks'][0]['text'])->toBe($poles['data']['polished']);
+
+    $kemb = $service->handle($project, '/kembangkan Integrasi sensor IoT dan edge computing.');
+    expect($kemb['data']['elaborated'])->toContain('Integrasi sensor IoT dan edge computing')
+        ->and($kemb['data']['blocks'][0]['text'])->toBe($kemb['data']['elaborated']);
+
+    $gap = $service->handle($project, '/cek-gap');
+    expect($gap['data']['callout_block']['type'])->toBe('callout')
+        ->and($gap['data']['callout_block']['calloutType'])->toBe('important');
+});

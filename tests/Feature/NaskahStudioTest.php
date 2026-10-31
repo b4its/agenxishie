@@ -3950,3 +3950,96 @@ it('supports bibtex export via rich model, rest api, and cli, plus table cell au
         ->expectsOutputToContain('Snapshot Awal')
         ->assertExitCode(0);
 });
+
+it('synchronizes statistics on undo, redo, table calculations, snapshot restore, and supports comment resolve, revision handling, and snapshot restore via api', function (): void {
+    $this->actingAs(User::factory()->create());
+    $model = app(NaskahRichModel::class);
+
+    $component = Livewire::test(NaskahStudioPage::class);
+    $component->set('blocks', $model->normalize([
+        ['type' => 'paragraph', 'text' => 'Paragraf awal dengan lima kata.'],
+        [
+            'type' => 'table',
+            'table' => [
+                'header' => true,
+                'caption' => 'Tabel 1 -- Uji AutoCorrect',
+                'rows' => [
+                    [['text' => 'Metrik'], ['text' => 'Nilai']],
+                    [['text' => 'Sampel A -- Uji'], ['text' => '10']],
+                    [['text' => 'Sampel B'], ['text' => '20']],
+                ],
+            ],
+        ],
+    ]));
+
+    // 1. runAutoCorrect in Studio updates table cells/captions and synchronizes statistics
+    $component->call('runAutoCorrect');
+    $blocksAfterAc = $component->get('blocks');
+    expect($blocksAfterAc[1]['table']['caption'])->toContain('—')
+        ->and($blocksAfterAc[1]['table']['rows'][1][0]['text'])->toContain('—')
+        ->and($component->get('docWordCount'))->toBe($component->get('statistics')['words']);
+
+    // 2. createSnapshot, tableCalculateColumn, restoreSnapshot, undo, redo synchronize statistics
+    $component->call('createSnapshot', 'Sebelum Kalkulasi');
+    $wordsBeforeCalc = $component->get('docWordCount');
+
+    $component->call('tableCalculateColumn', 1, 1, 'sum');
+    expect($component->get('docWordCount'))->toBeGreaterThan($wordsBeforeCalc)
+        ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
+
+    $component->call('undo');
+    expect($component->get('docWordCount'))->toBe($wordsBeforeCalc)
+        ->and($component->get('statistics')['words'])->toBe($wordsBeforeCalc);
+
+    $component->call('redo');
+    expect($component->get('docWordCount'))->toBeGreaterThan($wordsBeforeCalc)
+        ->and($component->get('statistics')['words'])->toBe($component->get('docWordCount'));
+
+    $component->call('restoreSnapshot', 0);
+    expect($component->get('docWordCount'))->toBe($wordsBeforeCalc)
+        ->and($component->get('statistics')['words'])->toBe($wordsBeforeCalc);
+
+    // 3. API endpoints: resolveComment, handleRevision, restoreSnapshot
+    $doc = NaskahDocument::query()->create([
+        'title' => 'Dokumen Uji Lifecycle Kolaborasi API',
+        'source_type' => 'custom',
+        'blocks' => $model->normalize([
+            ['type' => 'paragraph', 'text' => 'Teks versi terbaru setelah perubahan.'],
+        ]),
+        'word_count' => 5,
+        'comments' => [
+            ['id' => 'cmt-101', 'author' => 'Reviewer 1', 'text' => 'Tolong perjelas metode', 'resolved' => false],
+        ],
+        'revisions' => [
+            ['id' => 'rev-202', 'type' => 'edit', 'status' => 'pending', 'after' => 'Teks revisi baru'],
+        ],
+        'style_meta' => [
+            'snapshots' => [
+                [
+                    'id' => 'snap-303',
+                    'label' => 'Versi Awal Bersih',
+                    'blocks' => $model->normalize([
+                        ['type' => 'paragraph', 'text' => 'Naskah versi awal yang dipulihkan melalui endpoint API.'],
+                    ]),
+                ],
+            ],
+        ],
+    ]);
+
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/comments/cmt-101/resolve")
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('comment.resolved', true)
+        ->assertJsonPath('unresolved_count', 0);
+
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/revisions/rev-202", ['action' => 'accept'])
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('revision.status', 'accepted')
+        ->assertJsonPath('pending_count', 0);
+
+    $this->postJson("/api/v1/naskah/documents/{$doc->id}/snapshots/snap-303/restore")
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('word_count', 8);
+});

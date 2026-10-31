@@ -127,6 +127,14 @@ status, body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/comments", {
     "author": "Reviewer BlackBox"
 })
 test(f"POST /api/v1/naskah/documents/{doc_id}/comments", status in (200, 201) and "comment" in body)
+try:
+    created_cmt_id = json.loads(body).get("comment", {}).get("id", "")
+except Exception:
+    created_cmt_id = ""
+
+if created_cmt_id:
+    status, r_body, _ = http_post(f"/api/v1/naskah/documents/{doc_id}/comments/{created_cmt_id}/resolve", {})
+    test(f"POST /api/v1/naskah/documents/{doc_id}/comments/{{id}}/resolve", status == 200 and '"resolved":true' in r_body.replace(" ", ""))
 
 status, body, _ = http_get(f"/api/v1/naskah/documents/{doc_id}/comments")
 test(f"GET /api/v1/naskah/documents/{doc_id}/comments", status == 200 and "comments" in body and "unresolved_count" in body)
