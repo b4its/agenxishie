@@ -1976,6 +1976,10 @@
                             <button type="button" class="ns-btn" wire:click="tableSortColumn({{ $activeBlock }}, 0, 'asc')" title="Urutkan baris data kolom pertama secara menaik (A-Z / 0-9)">🔤 Urut A-Z</button>
                             <button type="button" class="ns-btn" wire:click="tableSortColumn({{ $activeBlock }}, 0, 'desc')" title="Urutkan baris data kolom pertama secara menurun (Z-A / 9-0)">🔤 Urut Z-A</button>
                             <button type="button" class="ns-btn" wire:click="tableTranspose({{ $activeBlock }})" title="Tukar posisi baris dan kolom tabel (Transpose Matrix)">🔄 Transpose</button>
+                            <button type="button" class="ns-btn" wire:click="tableSetColumnAlign({{ $activeBlock }}, 0, 'left')" title="Rata Kiri Kolom Terpilih">⬅ Kiri</button>
+                            <button type="button" class="ns-btn" wire:click="tableSetColumnAlign({{ $activeBlock }}, 0, 'center')" title="Rata Tengah Kolom Terpilih">⬌ Tengah</button>
+                            <button type="button" class="ns-btn" wire:click="tableSetColumnAlign({{ $activeBlock }}, 0, 'right')" title="Rata Kanan Kolom Terpilih">➡ Kanan</button>
+                            <button type="button" class="ns-btn" wire:click="tableClearDataRows({{ $activeBlock }})" title="Kosongkan seluruh data baris tabel (tetap pertahankan header)">🧹 Kosongkan</button>
                         </div>
                     </div>
 
@@ -3150,6 +3154,14 @@
                             <div>
                                 <label style="display:block; font-weight:600; margin-bottom:.2rem;">Ganti dengan:</label>
                                 <input type="text" class="ns-btn" style="width:100%;" wire:model="replaceQuery" placeholder="Ganti..." />
+                            </div>
+                            <div style="display:flex; gap:1rem; align-items:center; font-size:.72rem; margin-top:.2rem;">
+                                <label style="display:inline-flex; align-items:center; gap:.3rem; cursor:pointer;">
+                                    <input type="checkbox" wire:model.live="findMatchCase" /> Cocokkan Huruf (Match Case)
+                                </label>
+                                <label style="display:inline-flex; align-items:center; gap:.3rem; cursor:pointer;">
+                                    <input type="checkbox" wire:model.live="findWholeWord" /> Kata Utuh (Whole Word)
+                                </label>
                             </div>
                             @if ($findResult)
                                 <div style="background:#eff6ff; color:#1e40af; padding:.4rem .6rem; border-radius:3px; font-family:var(--rb-font-mono); font-size:.7rem;">

@@ -141,7 +141,7 @@ enum SlashCommand: string
         if (in_array($firstToken, ['/diskusi', '/discussion'], true)) {
             return self::PEMBAHASAN;
         }
-        if (in_array($firstToken, ['/penutup', '/saran', '/conclusion'], true)) {
+        if (in_array($firstToken, ['/penutup', '/saran', '/conclusion', '/limitasi', '/keterbatasan', '/limitations', '/future-work'], true)) {
             return self::KESIMPULAN;
         }
         if (in_array($firstToken, ['/literatur', '/teori', '/kerangka-teori', '/tinjauan', '/literature'], true)) {

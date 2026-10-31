@@ -1636,6 +1636,18 @@
                         <button type="button" class="word-tool-btn" wire:click="tableTranspose({{ $activeBlock }})" title="Transpose Table Rows and Columns">
                             🔄 Transpose
                         </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableSetColumnAlign({{ $activeBlock }}, 0, 'left')" title="Align Column Left">
+                            ⬅ Left
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableSetColumnAlign({{ $activeBlock }}, 0, 'center')" title="Align Column Center">
+                            ⬌ Center
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableSetColumnAlign({{ $activeBlock }}, 0, 'right')" title="Align Column Right">
+                            ➡ Right
+                        </button>
+                        <button type="button" class="word-tool-btn" wire:click="tableClearDataRows({{ $activeBlock }})" title="Clear Data Rows (Preserve Header)">
+                            🧹 Clear Data
+                        </button>
                     </div>
                 </div>
                 <div class="word-group__footer"><span class="word-group__label">Sort &amp; Transform</span></div>
@@ -3109,6 +3121,14 @@
                         <div>
                             <label style="display:block; font-weight:600; font-size:12px; margin-bottom:4px;">Replace with:</label>
                             <input type="text" class="word-select" style="width:100%; height:32px;" wire:model="replaceQuery" placeholder="Replacement...">
+                        </div>
+                        <div style="display:flex; gap:16px; align-items:center; font-size:12px; margin-top:4px;">
+                            <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                                <input type="checkbox" wire:model.live="findMatchCase"> Match Case
+                            </label>
+                            <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                                <input type="checkbox" wire:model.live="findWholeWord"> Whole Word
+                            </label>
                         </div>
                         @if ($findResult)
                             <div style="padding:8px 12px; background:#ebf3fc; border-radius:4px; font-size:12px; color:#0f6cbd;">

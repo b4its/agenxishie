@@ -675,6 +675,52 @@ final class NaskahRichModel
     }
 
     /**
+     * Atur perataan teks pada seluruh sel di kolom tertentu dalam tabel.
+     *
+     * @param  array<string, mixed>  $tableBlock
+     * @return array<string, mixed>
+     */
+    public function setTableColumnAlignment(array $tableBlock, int $colIndex, string $align): array
+    {
+        $rows = (array) ($tableBlock['table']['rows'] ?? []);
+        $cleanAlign = in_array(strtolower($align), ['left', 'center', 'right', 'justify'], true) ? strtolower($align) : 'left';
+
+        foreach ($rows as $r => $row) {
+            if (isset($rows[$r][$colIndex])) {
+                $rows[$r][$colIndex]['align'] = $cleanAlign;
+            }
+        }
+
+        $tableBlock['table']['rows'] = $rows;
+
+        return $tableBlock;
+    }
+
+    /**
+     * Kosongkan isi sel pada baris data tabel (menyisakan baris header).
+     *
+     * @param  array<string, mixed>  $tableBlock
+     * @return array<string, mixed>
+     */
+    public function clearTableDataRows(array $tableBlock): array
+    {
+        $rows = (array) ($tableBlock['table']['rows'] ?? []);
+        $hasHeader = (bool) ($tableBlock['table']['header'] ?? false);
+        $startIdx = $hasHeader ? 1 : 0;
+
+        for ($r = $startIdx; $r < count($rows); $r++) {
+            foreach ($rows[$r] as $c => $cell) {
+                $rows[$r][$c]['text'] = '';
+                $rows[$r][$c]['runs'] = [];
+            }
+        }
+
+        $tableBlock['table']['rows'] = $rows;
+
+        return $tableBlock;
+    }
+
+    /**
      * @param  array<string, mixed>  $run
      * @param  array<string, mixed>  $attribute
      * @return array<string, mixed>

@@ -213,6 +213,10 @@ trait HandlesNaskahStudio
 
     public int $findCurrentHitIndex = -1;
 
+    public bool $findMatchCase = false;
+
+    public bool $findWholeWord = false;
+
     public string $thesaurusWord = '';
 
     public string $thesaurusResult = '';
@@ -3073,12 +3077,12 @@ trait HandlesNaskahStudio
     public function tableInsertRow(int $index, int $after): void
     {
         $block = $this->blocks[$index] ?? null;
-        if ($block === null || $block['type'] !== 'table') {
+        if ($block === null || ($block['type'] ?? '') !== 'table') {
             return;
         }
 
         $this->pushUndo();
-        $rows = (array) $block['table']['rows'];
+        $rows = (array) ($block['table']['rows'] ?? []);
         $cols = count((array) ($rows[0] ?? []));
         $newRow = array_fill(0, max(1, $cols), ['text' => '', 'runs' => []]);
         array_splice($rows, $after + 1, 0, [$newRow]);
@@ -3086,6 +3090,8 @@ trait HandlesNaskahStudio
         $this->blocks[$index]['table']['rows'] = $rows;
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function tableDeleteRow(int $index, int $rowIndex): void
@@ -3100,6 +3106,8 @@ trait HandlesNaskahStudio
         $this->blocks[$index]['table']['rows'] = array_values($rows);
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function tableInsertColumn(int $index, int $after): void
@@ -3114,6 +3122,8 @@ trait HandlesNaskahStudio
         $this->blocks[$index]['table']['rows'] = $rows;
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function tableDeleteColumn(int $index, int $colIndex): void
@@ -3133,6 +3143,8 @@ trait HandlesNaskahStudio
         $this->blocks[$index]['table']['rows'] = $rows;
         $this->dirty = true;
         $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
     }
 
     public function tableToggleHeader(int $index): void
@@ -5826,6 +5838,71 @@ trait HandlesNaskahStudio
     // Cari & ganti
     // =====================================================================
 
+    public function toggleFindMatchCase(): void
+    {
+        $this->findMatchCase = ! $this->findMatchCase;
+        $this->findCurrentHitIndex = -1;
+    }
+
+    public function toggleFindWholeWord(): void
+    {
+        $this->findWholeWord = ! $this->findWholeWord;
+        $this->findCurrentHitIndex = -1;
+    }
+
+    protected function matchesQuery(string $text, string $query): bool
+    {
+        if ($query === '') {
+            return false;
+        }
+
+        if ($this->findWholeWord) {
+            $pattern = '/(?<![\p{L}\p{N}_])'.preg_quote($query, '/').'(?![\p{L}\p{N}_])/'.($this->findMatchCase ? 'u' : 'iu');
+
+            return (bool) preg_match($pattern, $text);
+        }
+
+        return $this->findMatchCase
+            ? mb_strpos($text, $query) !== false
+            : mb_stripos($text, $query) !== false;
+    }
+
+    protected function countQueryMatches(string $text, string $query): int
+    {
+        if ($query === '') {
+            return 0;
+        }
+
+        if ($this->findWholeWord) {
+            $pattern = '/(?<![\p{L}\p{N}_])'.preg_quote($query, '/').'(?![\p{L}\p{N}_])/'.($this->findMatchCase ? 'u' : 'iu');
+
+            return (int) preg_match_all($pattern, $text);
+        }
+
+        if ($this->findMatchCase) {
+            return mb_substr_count($text, $query);
+        }
+
+        return mb_substr_count(mb_strtolower($text), mb_strtolower($query));
+    }
+
+    protected function replaceQueryMatches(string $text, string $query, string $replace, int $limit = -1): string
+    {
+        if ($query === '') {
+            return $text;
+        }
+
+        if ($this->findWholeWord) {
+            $pattern = '/(?<![\p{L}\p{N}_])'.preg_quote($query, '/').'(?![\p{L}\p{N}_])/'.($this->findMatchCase ? 'u' : 'iu');
+
+            return (string) preg_replace($pattern, $replace, $text, $limit);
+        }
+
+        $pattern = '/'.preg_quote($query, '/').'/'.($this->findMatchCase ? 'u' : 'iu');
+
+        return (string) preg_replace($pattern, $replace, $text, $limit);
+    }
+
     public function findText(): void
     {
         $query = trim($this->findQuery);
@@ -5843,14 +5920,25 @@ trait HandlesNaskahStudio
                 foreach ($rows as $r) {
                     foreach ((array) $r as $c) {
                         $cellText = (string) ($c['text'] ?? '');
-                        $hits += mb_substr_count(mb_strtolower($cellText), mb_strtolower($query));
+                        $hits += $this->countQueryMatches($cellText, $query);
                     }
                 }
+                $tableCap = (string) ($block['table']['caption'] ?? '');
+                $hits += $this->countQueryMatches($tableCap, $query);
 
                 continue;
             }
 
-            $count = mb_substr_count(mb_strtolower((string) ($block['text'] ?? '')), mb_strtolower($query));
+            if (($block['type'] ?? '') === 'equation') {
+                $latex = (string) ($block['latex'] ?? $block['equation']['latex'] ?? $block['text'] ?? '');
+                $caption = (string) ($block['caption'] ?? $block['equation']['caption'] ?? '');
+                $hits += $this->countQueryMatches($latex, $query);
+                $hits += $this->countQueryMatches($caption, $query);
+
+                continue;
+            }
+
+            $count = $this->countQueryMatches((string) ($block['text'] ?? ''), $query);
             if ($count > 0) {
                 $hits += $count;
                 if ($hits > 0 && (int) $this->activeBlock === 0) {
@@ -5879,18 +5967,18 @@ trait HandlesNaskahStudio
                 foreach ($rows as $r => $row) {
                     foreach ((array) $row as $c => $cell) {
                         $cellText = (string) ($cell['text'] ?? '');
-                        $count = mb_substr_count(mb_strtolower($cellText), mb_strtolower($find));
+                        $count = $this->countQueryMatches($cellText, $find);
                         if ($count > 0) {
-                            $this->blocks[$i]['table']['rows'][$r][$c]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $cellText);
+                            $this->blocks[$i]['table']['rows'][$r][$c]['text'] = $this->replaceQueryMatches($cellText, $find, $replace);
                             $replaced += $count;
                         }
                     }
                 }
 
                 $tableCap = (string) ($block['table']['caption'] ?? '');
-                $capCount = mb_substr_count(mb_strtolower($tableCap), mb_strtolower($find));
+                $capCount = $this->countQueryMatches($tableCap, $find);
                 if ($capCount > 0) {
-                    $this->blocks[$i]['table']['caption'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $tableCap);
+                    $this->blocks[$i]['table']['caption'] = $this->replaceQueryMatches($tableCap, $find, $replace);
                     $replaced += $capCount;
                 }
 
@@ -5899,9 +5987,9 @@ trait HandlesNaskahStudio
 
             if (($block['type'] ?? '') === 'equation') {
                 $latex = (string) ($block['latex'] ?? $block['equation']['latex'] ?? $block['text'] ?? '');
-                $count = mb_substr_count(mb_strtolower($latex), mb_strtolower($find));
+                $count = $this->countQueryMatches($latex, $find);
                 if ($count > 0) {
-                    $newLatex = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $latex);
+                    $newLatex = $this->replaceQueryMatches($latex, $find, $replace);
                     $this->blocks[$i]['latex'] = $newLatex;
                     $this->blocks[$i]['text'] = $newLatex;
                     if (isset($this->blocks[$i]['equation'])) {
@@ -5911,9 +5999,9 @@ trait HandlesNaskahStudio
                 }
 
                 $eqCap = (string) ($block['caption'] ?? $block['equation']['caption'] ?? '');
-                $eqCapCount = mb_substr_count(mb_strtolower($eqCap), mb_strtolower($find));
+                $eqCapCount = $this->countQueryMatches($eqCap, $find);
                 if ($eqCapCount > 0) {
-                    $newEqCap = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $eqCap);
+                    $newEqCap = $this->replaceQueryMatches($eqCap, $find, $replace);
                     $this->blocks[$i]['caption'] = $newEqCap;
                     if (isset($this->blocks[$i]['equation'])) {
                         $this->blocks[$i]['equation']['caption'] = $newEqCap;
@@ -5925,10 +6013,10 @@ trait HandlesNaskahStudio
             }
 
             $text = (string) ($block['text'] ?? '');
-            $count = mb_substr_count(mb_strtolower($text), mb_strtolower($find));
+            $count = $this->countQueryMatches($text, $find);
 
             if ($count > 0) {
-                $this->blocks[$i]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $text);
+                $this->blocks[$i]['text'] = $this->replaceQueryMatches($text, $find, $replace);
                 $this->blocks[$i]['runs'] = [];
                 $replaced += $count;
             }
@@ -5955,14 +6043,14 @@ trait HandlesNaskahStudio
             $text = (string) ($block['text'] ?? '');
             if (($block['type'] ?? '') === 'table') {
                 $tableCap = (string) ($block['table']['caption'] ?? '');
-                if (mb_stripos($tableCap, $query) !== false) {
+                if ($this->matchesQuery($tableCap, $query)) {
                     $matches[] = ['block' => $i, 'type' => 'table_caption'];
                 }
                 $rows = (array) ($block['table']['rows'] ?? []);
                 foreach ($rows as $r => $row) {
                     foreach ((array) $row as $c => $cell) {
                         $cellText = (string) ($cell['text'] ?? '');
-                        if (mb_stripos($cellText, $query) !== false) {
+                        if ($this->matchesQuery($cellText, $query)) {
                             $matches[] = ['block' => $i, 'type' => 'table_cell', 'row' => $r, 'col' => $c];
                         }
                     }
@@ -5970,10 +6058,10 @@ trait HandlesNaskahStudio
             } elseif (($block['type'] ?? '') === 'equation') {
                 $eqText = (string) ($block['latex'] ?? $block['equation']['latex'] ?? $block['text'] ?? '');
                 $caption = (string) ($block['caption'] ?? $block['equation']['caption'] ?? '');
-                if (mb_stripos($eqText, $query) !== false || mb_stripos($caption, $query) !== false) {
+                if ($this->matchesQuery($eqText, $query) || $this->matchesQuery($caption, $query)) {
                     $matches[] = ['block' => $i, 'type' => 'equation'];
                 }
-            } elseif (mb_stripos($text, $query) !== false) {
+            } elseif ($this->matchesQuery($text, $query)) {
                 $matches[] = ['block' => $i, 'type' => 'block'];
             }
         }
@@ -6007,14 +6095,14 @@ trait HandlesNaskahStudio
             $text = (string) ($block['text'] ?? '');
             if (($block['type'] ?? '') === 'table') {
                 $tableCap = (string) ($block['table']['caption'] ?? '');
-                if (mb_stripos($tableCap, $query) !== false) {
+                if ($this->matchesQuery($tableCap, $query)) {
                     $matches[] = ['block' => $i, 'type' => 'table_caption'];
                 }
                 $rows = (array) ($block['table']['rows'] ?? []);
                 foreach ($rows as $r => $row) {
                     foreach ((array) $row as $c => $cell) {
                         $cellText = (string) ($cell['text'] ?? '');
-                        if (mb_stripos($cellText, $query) !== false) {
+                        if ($this->matchesQuery($cellText, $query)) {
                             $matches[] = ['block' => $i, 'type' => 'table_cell', 'row' => $r, 'col' => $c];
                         }
                     }
@@ -6022,10 +6110,10 @@ trait HandlesNaskahStudio
             } elseif (($block['type'] ?? '') === 'equation') {
                 $eqText = (string) ($block['latex'] ?? $block['equation']['latex'] ?? $block['text'] ?? '');
                 $caption = (string) ($block['caption'] ?? $block['equation']['caption'] ?? '');
-                if (mb_stripos($eqText, $query) !== false || mb_stripos($caption, $query) !== false) {
+                if ($this->matchesQuery($eqText, $query) || $this->matchesQuery($caption, $query)) {
                     $matches[] = ['block' => $i, 'type' => 'equation'];
                 }
-            } elseif (mb_stripos($text, $query) !== false) {
+            } elseif ($this->matchesQuery($text, $query)) {
                 $matches[] = ['block' => $i, 'type' => 'block'];
             }
         }
@@ -6057,9 +6145,9 @@ trait HandlesNaskahStudio
             $bType = $this->blocks[$index]['type'] ?? '';
             if ($bType === 'table') {
                 $caption = (string) ($this->blocks[$index]['table']['caption'] ?? '');
-                if (mb_stripos($caption, $find) !== false) {
+                if ($this->matchesQuery($caption, $find)) {
                     $this->pushUndo();
-                    $this->blocks[$index]['table']['caption'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $caption, 1);
+                    $this->blocks[$index]['table']['caption'] = $this->replaceQueryMatches($caption, $find, $replace, 1);
                     $this->dirty = true;
                     $this->editorRevision++;
                     $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
@@ -6073,9 +6161,9 @@ trait HandlesNaskahStudio
                 foreach ($rows as $r => $row) {
                     foreach ((array) $row as $c => $cell) {
                         $cellText = (string) ($cell['text'] ?? '');
-                        if (mb_stripos($cellText, $find) !== false) {
+                        if ($this->matchesQuery($cellText, $find)) {
                             $this->pushUndo();
-                            $this->blocks[$index]['table']['rows'][$r][$c]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $cellText, 1);
+                            $this->blocks[$index]['table']['rows'][$r][$c]['text'] = $this->replaceQueryMatches($cellText, $find, $replace, 1);
                             $this->dirty = true;
                             $this->editorRevision++;
                             $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
@@ -6089,9 +6177,9 @@ trait HandlesNaskahStudio
                 }
             } elseif ($bType === 'equation') {
                 $caption = (string) ($this->blocks[$index]['caption'] ?? $this->blocks[$index]['equation']['caption'] ?? '');
-                if (mb_stripos($caption, $find) !== false) {
+                if ($this->matchesQuery($caption, $find)) {
                     $this->pushUndo();
-                    $newCaption = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $caption, 1);
+                    $newCaption = $this->replaceQueryMatches($caption, $find, $replace, 1);
                     $this->blocks[$index]['caption'] = $newCaption;
                     if (isset($this->blocks[$index]['equation'])) {
                         $this->blocks[$index]['equation']['caption'] = $newCaption;
@@ -6106,9 +6194,9 @@ trait HandlesNaskahStudio
                     return;
                 }
                 $latex = (string) ($this->blocks[$index]['latex'] ?? $this->blocks[$index]['equation']['latex'] ?? $this->blocks[$index]['text'] ?? '');
-                if (mb_stripos($latex, $find) !== false) {
+                if ($this->matchesQuery($latex, $find)) {
                     $this->pushUndo();
-                    $newLatex = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $latex, 1);
+                    $newLatex = $this->replaceQueryMatches($latex, $find, $replace, 1);
                     $this->blocks[$index]['latex'] = $newLatex;
                     $this->blocks[$index]['text'] = $newLatex;
                     if (isset($this->blocks[$index]['equation'])) {
@@ -6125,9 +6213,9 @@ trait HandlesNaskahStudio
                 }
             } else {
                 $text = (string) ($this->blocks[$index]['text'] ?? '');
-                if (mb_stripos($text, $find) !== false) {
+                if ($this->matchesQuery($text, $find)) {
                     $this->pushUndo();
-                    $this->blocks[$index]['text'] = (string) preg_replace('/'.preg_quote($find, '/').'/iu', $replace, $text, 1);
+                    $this->blocks[$index]['text'] = $this->replaceQueryMatches($text, $find, $replace, 1);
                     $this->blocks[$index]['runs'] = [];
                     $this->dirty = true;
                     $this->editorRevision++;
@@ -9546,6 +9634,35 @@ trait HandlesNaskahStudio
         $this->dirty = true;
         $this->editorRevision++;
         $this->notify('Tabel Ditranspose', 'Baris dan kolom tabel berhasil ditukar orientasi.', 'success');
+    }
+
+    public function tableSetColumnAlign(int $index, int $colIndex, string $align = 'left'): void
+    {
+        if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+            return;
+        }
+
+        $align = in_array(strtolower($align), ['left', 'center', 'right', 'justify'], true) ? strtolower($align) : 'left';
+        $this->pushUndo();
+        $this->blocks[$index] = $this->model->setTableColumnAlignment($this->blocks[$index], $colIndex, $align);
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->notify('Perataan Kolom Tabel', "Perataan kolom #".($colIndex + 1)." diatur ke {$align}.", 'info');
+    }
+
+    public function tableClearDataRows(int $index): void
+    {
+        if (! isset($this->blocks[$index]) || ($this->blocks[$index]['type'] ?? '') !== 'table') {
+            return;
+        }
+
+        $this->pushUndo();
+        $this->blocks[$index] = $this->model->clearTableDataRows($this->blocks[$index]);
+        $this->dirty = true;
+        $this->editorRevision++;
+        $this->docWordCount = $this->model->countWords($this->model->normalize($this->blocks));
+        $this->statistics = $this->model->computeStatistics($this->blocks);
+        $this->notify('Data Tabel Dikosongkan', 'Seluruh baris data tabel berhasil dikosongkan.', 'info');
     }
 
     public function createSnapshot(?string $label = null): void
